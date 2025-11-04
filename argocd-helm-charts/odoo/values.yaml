@@ -1,4 +1,7 @@
 ---
+global:
+  security:
+    allowInsecureImages: true
 odoo:
   postgresql:
     enabled: false
@@ -50,3 +53,6 @@ postgres:
     requests:
       memory: 500Mi
       cpu: 250m
+
+redirectToWWW:
+  enabled: false
