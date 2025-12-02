@@ -1,0 +1,25 @@
+{{/*
+SPDX-FileCopyrightText: 2023 Bundesministerium des Innern und für Heimat, PG ZenDiS "Projektgruppe für Aufbau ZenDiS"
+SPDX-License-Identifier: Apache-2.0
+*/}}
+{{- if .Values.certificate.request.enabled -}}
+---
+apiVersion: "cert-manager.io/v1"
+kind: "Certificate"
+metadata:
+  name: {{ include "common.names.fullname" . | quote }}
+  annotations:
+    {{- if .Values.cleanup.keepCertificateOnDelete }}
+    "helm.sh/resource-policy": "keep"
+    {{- end }}
+  labels:
+    {{- include "common.labels.standard" . | nindent 4 }}
+spec:
+  dnsNames:
+    - {{ .Values.coturn.realm | quote }}
+  issuerRef:
+    kind: {{ .Values.certificate.request.issuerRef.kind | quote }}
+    name: {{ .Values.certificate.request.issuerRef.name | quote }}
+  secretName: {{ coalesce .Values.certificate.secretName (printf "%s-tls" .Release.Name) | quote }}
+...
+{{- end }}

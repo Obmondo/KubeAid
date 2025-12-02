@@ -1,0 +1,17 @@
+annotations:
+  category: Communication
+  licenses: Apache-2.0
+apiVersion: v2
+appVersion: 4.6.2
+dependencies:
+- name: common
+  repository: https://charts.bitnami.com/bitnami
+  version: ^2.x.x
+description: A Helm chart for running coturn
+home: https://github.com/coturn/coturn
+keywords:
+- Communication
+- coturn
+name: coturn
+type: application
+version: 1.4.5

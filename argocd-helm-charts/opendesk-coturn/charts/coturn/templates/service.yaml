@@ -1,0 +1,80 @@
+{{/*
+SPDX-FileCopyrightText: 2023 Bundesministerium des Innern und für Heimat, PG ZenDiS "Projektgruppe für Aufbau ZenDiS"
+SPDX-License-Identifier: Apache-2.0
+*/}}
+{{- if .Values.service.enabled }}
+---
+apiVersion: "v1"
+kind: "Service"
+metadata:
+  name: {{ include "common.names.fullname" . | quote }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels:
+    {{- include "common.labels.standard" . | nindent 4 }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if or .Values.service.annotations .Values.commonAnnotations .Values.cleanup.keepServiceOnDelete }}
+  annotations:
+    {{- if .Values.service.annotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.service.annotations "context" $ ) | nindent 4 }}
+    {{- end }}
+    {{- if .Values.commonAnnotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+    {{- end }}
+    {{- if .Values.cleanup.keepServiceOnDelete }}
+    "helm.sh/resource-policy": "keep"
+    {{- end }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type | quote }}
+  {{- if .Values.service.sessionAffinity.enabled }}
+  sessionAffinity: "ClientIP"
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: {{ .Values.service.sessionAffinity.timeoutSeconds }}
+  {{- end }}
+  ports:
+    - port: {{ .Values.coturn.listeningPort }}
+      targetPort: {{ .Values.coturn.listeningPort }}
+      protocol: "TCP"
+      name: "port-tcp"
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.listeningNodePort }}
+      nodePort: {{ .Values.service.listeningNodePort }}
+      {{- end }}
+    - port: {{ .Values.coturn.listeningPort }}
+      targetPort: {{ .Values.coturn.listeningPort }}
+      protocol: "UDP"
+      name: "port-udp"
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.listeningNodePort }}
+      nodePort: {{ .Values.service.listeningNodePort }}
+      {{- end }}
+    {{- if and .Values.coturn.tls.enabled .Values.coturn.tls.listeningPort }}
+    - port: {{ .Values.coturn.tls.listeningPort }}
+      targetPort: {{ .Values.coturn.tls.listeningPort }}
+      protocol: "TCP"
+      name: "tls-port-tcp"
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.tlsListeningNodePort }}
+      nodePort: {{ .Values.service.tlsListeningNodePort }}
+      {{- end }}
+    - port: {{ .Values.coturn.tls.listeningPort }}
+      targetPort: {{ .Values.coturn.tls.listeningPort }}
+      protocol: "UDP"
+      name: "tls-port-udp"
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.tlsListeningNodePort }}
+      nodePort: {{ .Values.service.tlsListeningNodePort }}
+      {{- end }}
+    {{- end }}
+    {{- range $i, $port := untilStep (.Values.coturn.minPort | int) (.Values.coturn.maxPort | int) 1 }}
+    - port: {{ $port }}
+      targetPort: {{ $port }}
+      protocol: "UDP"
+      name: "com-port-{{ $i }}"
+      {{- if and (eq $.Values.service.type "NodePort") $.Values.service.minNodePort }}
+      nodePort: {{ add $i $.Values.service.minNodePort }}
+      {{- end }}
+    {{- end }}
+  selector:
+    {{- include "common.labels.matchLabels" . | nindent 4 }}
+...
+{{- end }}

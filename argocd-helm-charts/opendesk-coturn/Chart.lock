@@ -1,0 +1,6 @@
+dependencies:
+- name: coturn
+  repository: https://gitlab.opencode.de/api/v4/projects/1383/packages/helm/stable
+  version: 1.4.5
+digest: sha256:a54b2f7c44e3812a01cbb66ccff3d2e0b2cf43670c4649b5e477fc77bfd11246
+generated: "2025-12-02T12:51:08.343767915+05:30"

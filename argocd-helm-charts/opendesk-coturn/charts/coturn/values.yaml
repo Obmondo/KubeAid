@@ -1,0 +1,328 @@
+# SPDX-FileCopyrightText: 2023 Bundesministerium des Innern und für Heimat, PG ZenDiS "Projektgruppe für Aufbau ZenDiS"
+#
+# SPDX-License-Identifier: Apache-2.0
+---
+# The global properties are used to configure multiple charts at once.
+global:
+  # -- Container registry address.
+  registry: "docker.io"
+
+  # -- Credentials to fetch images from private registry
+  # Ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+  #
+  # imagePullSecrets:
+  #   - "docker-registry"
+  #
+  imagePullSecrets: []
+
+# -- Affinity for pod assignment
+# Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
+# Note: podAffinityPreset, podAntiAffinityPreset, and  nodeAffinityPreset will be ignored when it's set
+affinity: {}
+
+# Set up the horizontal Pod Autoscaling
+# Ref: https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+autoscaling:
+  # -- Enable Horizontal Pod Autoscaling
+  enabled: false
+  # -- Minimum amount of Replicas
+  minReplicas: 1
+  # -- Maximum amount of Replicas
+  maxReplicas: 100
+  # -- set the CPU Utilization Percentage
+  targetCPUUtilizationPercentage: 80
+  # -- set the Memory Utilization Percentage
+  targetMemoryUtilizationPercentage: 80
+
+# Specify TLS certificate details
+certificate:
+  request:
+    # -- enable the request of the certificate
+    enabled: true
+    issuerRef:
+      # -- name of the isuerRef
+      name: "letsencrypt-prod"
+      # -- We can reference ClusterIssuers by changing the kind here.
+      # The default value is Issuer (i.e. a locally namespaced Issuer)
+      kind: "ClusterIssuer"
+  secretName: ""
+
+# Helm release cleanup setting.
+cleanup:
+  # -- keep TLS Certificate on delete
+  keepCertificateOnDelete: true
+  # -- Keep Service on delete (to keep LoadBalancer IP)
+  keepServiceOnDelete: true
+
+# -- Additional custom annotations to add to all deployed objects.
+commonAnnotations: {}
+
+# -- Additional custom labels to add to all deployed objects.
+commonLabels: {}
+
+# Security Context.
+# Ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+containerSecurityContext:
+  # -- Enable container privileged escalation.
+  allowPrivilegeEscalation: false
+
+  # -- Security capabilities for container.
+  capabilities:
+    drop:
+      - "ALL"
+
+  # -- Enable security context.
+  enabled: true
+
+  # -- Process user id.
+  runAsUser: 65534
+
+  # -- Process group id.
+  runAsGroup: 65534
+
+  # Set Seccomp profile.
+  seccompProfile:
+    # -- Disallow custom Seccomp profile by setting it to RuntimeDefault.
+    type: "RuntimeDefault"
+
+  # -- Mounts the container's root filesystem as read-only.
+  readOnlyRootFilesystem: true
+
+  # -- Run container as user.
+  runAsNonRoot: true
+
+# -- Array with extra environment variables to add to containers.
+#
+# extraEnvVars:
+#   - name: FOO
+#     value: "bar"
+#
+extraEnvVars: []
+
+# -- Optionally specify extra list of additional volumes
+extraVolumes: []
+
+# -- Optionally specify extra list of additional volumeMounts.
+extraVolumeMounts: []
+
+# -- Provide a name to substitute for the full names of resources.
+fullnameOverride: ""
+
+## Define image settings
+#
+image:
+  # -- Container registry address. This setting has higher precedence than global.registry.
+  registry: "dockeri.io"
+
+  # -- Container repository string.
+  repository: "coturn/coturn"
+
+  # -- Define an ImagePullPolicy.
+  #
+  # Ref.: https://kubernetes.io/docs/concepts/containers/images/#image-pull-policy
+  #
+  # "IfNotPresent" => The image is pulled only if it is not already present locally.
+  # "Always" => Every time the kubelet launches a container, the kubelet queries the container image registry to
+  #             resolve the name to an image digest. If the kubelet has a container image with that exact digest cached
+  #             locally, the kubelet uses its cached image; otherwise, the kubelet pulls the image with the resolved
+  #             digest, and uses that image to launch the container.
+  # "Never" => The kubelet does not try fetching the image. If the image is somehow already present locally, the
+  #            kubelet attempts to start the container; otherwise, startup fails
+  #
+  imagePullPolicy: "IfNotPresent"
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "4.6.2-alpine@sha256:cecbd85f5b27ce5bf00901192c9fe565c4be631f285411e5625427372a3a2f8b"
+
+# -- Credentials to fetch images from private registry
+# Ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+#
+# imagePullSecrets:
+#   - "docker-registry"
+#
+imagePullSecrets: []
+
+# -- Lifecycle to automate configuration before or after startup
+lifecycleHooks: {}
+
+# -- String to partially override release name.
+nameOverride: ""
+
+# -- Node labels for pod assignment
+# Ref: https://kubernetes.io/docs/user-guide/node-selection/
+nodeSelector: {}
+
+#  Configure extra options for containers probes.
+livenessProbe:
+  # -- Enables kubernetes LivenessProbe.
+  enabled: true
+  # -- Number of failed executions until container is terminated.
+  failureThreshold: 10
+  # -- Delay after container start until LivenessProbe is executed.
+  initialDelaySeconds: 15
+  # -- Time between probe executions.
+  periodSeconds: 20
+  # -- Number of successful executions after failed ones until container is marked healthy.
+  successThreshold: 1
+  # -- Timeout for command return.
+  timeoutSeconds: 5
+
+# -- Pod Annotations.
+# Ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+podAnnotations: {}
+
+# -- Pod Labels.
+# Ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+podLabels: {}
+
+# Pod Security Context.
+# Ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+podSecurityContext:
+  # -- Enable security context.
+  enabled: true
+
+  # -- If specified, all processes of the container are also part of the supplementary group
+  fsGroup: 65534
+
+  # -- Change ownership and permission of the volume before being exposed inside a Pod.
+  fsGroupChangePolicy: "Always"
+
+#  Configure extra options for containers probes.
+readinessProbe:
+  # -- Enables kubernetes ReadinessProbe.
+  enabled: true
+  # -- Delay after container start until ReadinessProbe is executed.
+  initialDelaySeconds: 15
+  # -- Number of failed executions until container is terminated.
+  failureThreshold: 10
+  # -- Time between probe executions.
+  periodSeconds: 20
+  # -- Number of successful executions after failed ones until container is marked healthy.
+  successThreshold: 1
+  # -- Timeout for command return.
+  timeoutSeconds: 5
+
+# -- Set the amount of replicas of deployment.
+replicaCount: 1
+
+# Configure resource requests and limits.
+#
+# http://kubernetes.io/docs/user-guide/compute-resources/
+#
+resources:
+  limits:
+    # -- The max amount of CPUs to consume.
+    cpu: 4
+    # -- The max amount of RAM to consume.
+    memory: "4Gi"
+  requests:
+    # -- The amount of CPUs which has to be available on the scheduled node.
+    cpu: "10m"
+    # -- The amount of RAM which has to be available on the scheduled node.
+    memory: "2Gi"
+
+# Define and create Kubernetes Service.
+#
+# Ref.: https://kubernetes.io/docs/concepts/services-networking/service
+service:
+  # -- Additional custom annotations
+  annotations: {}
+
+  # -- Enable kubernetes service creation.
+  enabled: true
+
+  sessionAffinity:
+    # -- Wether session affinity should be enabled
+    enabled: false
+
+  # -- How to expose coturn, choices can be LoadBalancer or NodePort
+  type: "LoadBalancer"
+
+  # -- to which NodePort is the external Listening Port fowarded?
+  # only needed if type is NodePort
+  listeningNodePort: 3478
+  # -- to which Node Port is the external TLS Listening Port forwarded?
+  # only needed if type is NodePort
+  tlsListeningNodePort: 5349
+  # -- starting NodePort of the UDP Relay Endpoints
+  # only needed if type is NodePort
+  minNodePort: 49152
+
+# Service account to use.
+# Ref.: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
+serviceAccount:
+  # -- Additional custom annotations for the ServiceAccount.
+  annotations: {}
+
+  # -- Allows auto mount of ServiceAccountToken on the serviceAccount created. Can be set to false if pods using this
+  # serviceAccount do not need to use K8s API.
+  automountServiceAccountToken: true
+
+  # -- Enable creation of ServiceAccount for pod.
+  create: true
+
+  # -- Additional custom labels for the ServiceAccount.
+  labels: {}
+
+# -- In seconds, time the given to the pod needs to terminate gracefully.
+# Ref: https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods
+terminationGracePeriodSeconds: ""
+
+# -- Tolerations for pod assignment
+# Ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+tolerations: []
+
+# -- Topology spread constraints rely on node labels to identify the topology domain(s) that each Node is in
+# Ref: https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/
+#
+# topologySpreadConstraints:
+#   - maxSkew: 1
+#     topologyKey: failure-domain.beta.kubernetes.io/zone
+#     whenUnsatisfiable: DoNotSchedule
+topologySpreadConstraints: []
+
+# Set up update strategy.
+# Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
+# Example:
+# updateStrategy:
+#  type: RollingUpdate
+#  rollingUpdate:
+#    maxSurge: 25%
+#    maxUnavailable: 25%
+updateStrategy:
+  # -- Set to Recreate if you use persistent volume that cannot be mounted by more than one pods to make sure the pods
+  # is destroyed first.
+  type: "RollingUpdate"
+
+# main coturn settings
+coturn:
+  # external IP if known
+  externalIP:
+  # -- listening Port (TCP & UDP)
+  listeningPort: 3478
+  tls:
+    # -- enable TLS
+    enabled: true
+    # -- TLS Port (TCP & UDP)
+    listeningPort: 5349
+  # -- lower bound of the UDP relay endpoints
+  minPort: 49152
+  # -- upper bound of the UDP relay endpoints
+  maxPort: 65535
+  # -- be verbose
+  verbose: false
+  authentication:
+    # -- specify static-auth-secret
+    # don't use user/password when set!
+    secret:
+    # -- specify user and password instead of a secret
+    # don't sepcify a secret when user/password is set!
+    user:
+    # -- specify password for user
+    password:
+  # -- activate prometheus
+  prometheus: true
+  # -- realm
+  realm: "turn.develop.souvap-univention.de"
+  # -- server name, defaults to realm
+  serverName:
+...

@@ -1,0 +1,7 @@
+apiVersion: v2
+name: opendesk-coturn
+version: 1.0.0
+dependencies:
+  - name: coturn
+    version: "1.4.5"
+    repository: https://gitlab.opencode.de/api/v4/projects/1383/packages/helm/stable
