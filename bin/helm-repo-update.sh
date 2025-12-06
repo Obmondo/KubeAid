@@ -190,15 +190,20 @@ function get_update_type() {
     new_minor=$(echo "$new_version" | cut -d. -f2)
     new_patch=$(echo "$new_version" | cut -d. -f3)
 
+    # Strip any remaining non-numeric characters from patch
+    # some charts have 0-develop in patch
+    old_patch=$(echo "$old_patch" | grep -o '^[0-9]*' || echo "0")
+    new_patch=$(echo "$new_patch" | grep -o '^[0-9]*' || echo "0")
+
     # Compare versions
     if [[ "$new_major" -gt "$old_major" ]]; then
-        echo "major"
+      echo "major"
     elif [[ "$new_major" -eq "$old_major" ]] && [[ "$new_minor" -gt "$old_minor" ]]; then
-        echo "minor"
+      echo "minor"
     elif [[ "$new_major" -eq "$old_major" ]] && [[ "$new_minor" -eq "$old_minor" ]] && [[ "$new_patch" -gt "$old_patch" ]]; then
-        echo "patch"
+      echo "patch"
     else
-        echo "none"
+      echo "none"
     fi
 }
 
@@ -262,7 +267,7 @@ function compare_version() {
 function get_repo_last_update_date() {
   # Note: we only need to check if chart is present or not, if someone add duplicate entry
   # it should not fail
-  UPDATE_DATE=$(grep "$HELM_REPO_NAME" "$HELM_VERSION_LAST_UPDATE_FILE" | uniq | awk '{print $1}' || true)
+  UPDATE_DATE=$(grep "$HELM_CHART_NAME$" "$HELM_VERSION_LAST_UPDATE_FILE" | uniq | awk '{print $1}' || true)
 
   if [ -z "$UPDATE_DATE" ]; then
     date -d "1 day ago" '+%Y-%m-%d'
@@ -277,13 +282,26 @@ function get_helm_latest_version_from_cache() {
   else
     # Note: we only need to check if chart is present or not, if someone add duplicate entry
     # it should not fail
-    _NEW_VERSION="$CURRENT_DATE $HELM_CHART_CURRENT_VERSION $HELM_REPO_NAME"
+    _NEW_VERSION="$CURRENT_DATE $HELM_CHART_CURRENT_VERSION $HELM_CHART_NAME"
 
     # Check if we have an upstream chart already present or not
-    HELM_CHART_NEW_VERSION_FROM_CACHE=$(grep "$_NEW_VERSION" "$HELM_VERSION_LAST_UPDATE_FILE" | uniq | awk '{print $2}' || true )
+    # Note: cut is on purpose, since some chart might end up empty string in place of version
+    # in the cache file
+    HELM_CHART_NEW_VERSION_FROM_CACHE=$(grep "$_NEW_VERSION" "$HELM_VERSION_LAST_UPDATE_FILE" | uniq | cut -d ' ' -f2 || true )
     if [ -z "$HELM_CHART_NEW_VERSION_FROM_CACHE" ]; then
-      # If no version is found in the cache, ask the helm repo
-      HELM_CHART_NEW_VERSION=$(helm search repo --regexp "${HELM_CHART_NAME}/${HELM_CHART_NAME}[^-]" --version ">=$HELM_CHART_CURRENT_VERSION" --output yaml | yq eval '.[].version' -)
+      if [ "$HELM_REPOSITORY_URL" = "null" ] || [[ "$HELM_REPOSITORY_URL" =~ ^oci:// ]]; then
+        # helm4 with OCI support does not support search in helm repo
+        # so lets stick to current version, one has to manually change the chart.yaml
+        # to get it updated.
+        HELM_CHART_NEW_VERSION=$HELM_CHART_CURRENT_VERSION
+      else
+        if [ -n "$HELM_REPOSITORY_URL" ]; then
+          # If no version is found in the cache, ask the helm repo
+          HELM_CHART_NEW_VERSION=$(helm search repo --regexp "${HELM_CHART_NAME}/${HELM_CHART_NAME}[^-]" --version ">=$HELM_CHART_CURRENT_VERSION" --output yaml | yq eval '.[].version' -)
+        else
+          HELM_CHART_NEW_VERSION="$HELM_CHART_DEP_CURRENT_VERSION"
+        fi
+      fi
     else
       HELM_CHART_NEW_VERSION=$HELM_CHART_NEW_VERSION_FROM_CACHE
     fi
@@ -313,7 +331,6 @@ function update_helm_chart {
     return
   fi
 
-  HELM_REPO_NAME=$(yq eval '.name' "$HELM_CHART_YAML")
   HELM_CHART_DEP_PRESENT=$(yq eval '.dependencies | length' "$HELM_CHART_YAML")
   HELM_CHART_DEP_PATH="$HELM_CHART_PATH/charts"
 
@@ -323,30 +340,42 @@ function update_helm_chart {
     # Iterate over each dependency and extract the desired values
     for ((i = 0; i < "$HELM_CHART_DEP_PRESENT"; i++)); do
       HELM_CHART_NAME=$(yq eval ".dependencies[$i].name" "$HELM_CHART_YAML")
-      HELM_CHART_CURRENT_VERSION=$(yq eval ".dependencies[$i].version" "$HELM_CHART_YAML")
       HELM_REPOSITORY_URL=$(yq eval ".dependencies[$i].repository" "$HELM_CHART_YAML")
+      HELM_CHART_CURRENT_VERSION=$(yq eval ".dependencies[$i].version" "$HELM_CHART_YAML")
+
+      # skip if the helm chart is locally available and not on a repo
+      if [[ "$HELM_REPOSITORY_URL" =~ ^file:// ]]; then
+        continue
+      fi
+
+      HELM_CHART_DEP_CHART_YAML="$HELM_CHART_DEP_PATH/$HELM_CHART_NAME/Chart.yaml"
+      HELM_CHART_DEP_CURRENT_VERSION=$(yq eval ".version" "$HELM_CHART_DEP_CHART_YAML")
 
       CURRENT_DATE="$(date '+%Y-%m-%d')"
       HELM_LAST_UPDATE_DATE="$(get_repo_last_update_date "$HELM_CHART_NAME")"
+
       get_helm_latest_version_from_cache
       add_last_update_date
 
       # Compare the dates first, if date is not matching current date, update the cache file
-      if compare_version ; then
-        # Add the repo
-        if ! helm repo list -o yaml | yq eval -e ".[].name == \"$HELM_CHART_NAME\"" >/dev/null 2>&1; then
-          echo "Adding Helm repository $HELM_REPOSITORY_URL"
-          helm repo add "$HELM_CHART_NAME" "$HELM_REPOSITORY_URL" >/dev/null || {
-            echo "Failed to add repository $HELM_REPOSITORY_URL for chart $HELM_CHART_NAME. Skipping."
-            continue
-          }
+      # Add the repo
+      if compare_version; then
+        # OCI support from 3.8 helm, we will default to v4 now
+        if [[ ! "$HELM_REPOSITORY_URL" =~ ^oci:// ]]; then
+          if ! helm repo list -o yaml | yq eval -e '.[].name'| grep "$HELM_CHART_NAME" >/dev/null 2>&1; then
+            echo "Adding Helm repository $HELM_REPOSITORY_URL"
+            helm repo add "$HELM_CHART_NAME" "$HELM_REPOSITORY_URL" >/dev/null || {
+              echo "Failed to add repository $HELM_REPOSITORY_URL for chart $HELM_CHART_NAME. Skipping."
+              continue
+            }
+          fi
         fi
       fi
 
       # Compare the version of upstream chart and our local chart
       # if there is difference, run helm dep up or else skip
-      if [ "$HELM_CHART_NEW_VERSION" != "$HELM_CHART_CURRENT_VERSION" ]; then
-        echo "HELMING $HELM_CHART_NAME"
+      if [ "$HELM_CHART_NEW_VERSION" != "$HELM_CHART_DEP_CURRENT_VERSION" ]; then
+        echo "Helming $HELM_CHART_NAME on version $HELM_CHART_NEW_VERSION"
 
         # Update the chart.yaml file
         yq eval -i ".dependencies[$i].version = \"$HELM_CHART_NEW_VERSION\"" "$HELM_CHART_YAML"
@@ -358,7 +387,6 @@ function update_helm_chart {
         }
 
         # Deleting old helm before untar
-        echo "Deleting old $HELM_CHART_NAME before untar"
         rm -rf "${HELM_CHART_DEP_PATH:?}/${HELM_CHART_NAME}" || {
           echo "Failed to update dependencies for $HELM_CHART_NAME. Skipping."
           continue
@@ -381,33 +409,35 @@ function update_helm_chart {
           echo "Failed to extract $expected_tar_file. Skipping."
           continue
         }
-
-        local update_type
-        update_type=$(get_update_type "$HELM_CHART_CURRENT_VERSION" "$HELM_CHART_NEW_VERSION")
-
-        local update_line="- Updated $HELM_CHART_NAME from version $HELM_CHART_CURRENT_VERSION to $HELM_CHART_NEW_VERSION"
-
-        case $update_type in
-          major)
-            MAJOR_UPDATES+=("$update_line")
-            HAS_MAJOR=true
-            ;;
-          minor)
-            MINOR_UPDATES+=("$update_line")
-            if [ "$HAS_MAJOR" = false ]; then
-              HAS_MINOR=true
-            fi
-            ;;
-          patch)
-            PATCH_UPDATES+=("$update_line")
-            if [ "$HAS_MAJOR" = false ] && [ "$HAS_MINOR" = false ]; then
-              HAS_PATCH=true
-            fi
-            ;;
-        esac
       else
-        echo "Helm chart $HELM_REPO_NAME is already on latest version $HELM_CHART_CURRENT_VERSION"
+        echo "Helm chart $HELM_CHART_NAME is cached and on latest version $HELM_CHART_CURRENT_VERSION, locally on the filesystem,"
       fi
+
+      local update_type
+      HELM_CHART_CURRENT_TAG_VERSION=$(git show "$CURRENT_VERSION:$HELM_CHART_YAML" | yq eval ".dependencies[$i].version")
+
+      update_type=$(get_update_type "$HELM_CHART_CURRENT_TAG_VERSION" "$HELM_CHART_NEW_VERSION")
+
+      local update_line="- Updated $HELM_CHART_NAME from version $HELM_CHART_CURRENT_VERSION to $HELM_CHART_NEW_VERSION"
+
+      case $update_type in
+        major)
+          MAJOR_UPDATES+=("$update_line")
+          HAS_MAJOR=true
+          ;;
+        minor)
+          MINOR_UPDATES+=("$update_line")
+          if [ "$HAS_MAJOR" = false ]; then
+            HAS_MINOR=true
+          fi
+          ;;
+        patch)
+          PATCH_UPDATES+=("$update_line")
+          if [ "$HAS_MAJOR" = false ] && [ "$HAS_MINOR" = false ]; then
+            HAS_PATCH=true
+          fi
+          ;;
+      esac
     done
   fi
 }
@@ -426,6 +456,10 @@ function main (){
   fi
 
   if "$UPDATE_ALL"; then
+    # Determine KubeAid version bump
+    CURRENT_VERSION=$(get_current_kubeaid_version)
+    echo "Current KubeAid version: $CURRENT_VERSION"
+
     if [ "$ACTIONS" = false ]; then
       git switch -c "$GIT_BRANCH_NAME" --track origin/master
     fi
@@ -441,10 +475,6 @@ function main (){
       update_helm_chart "$HELM_CHART_NAME" "$CHART_VERSION"
     done < <(find ./"$ARGOCD_CHART_PATH" -maxdepth 1 -mindepth 1 -type d -exec basename {} \; | sort)
 
-    # Determine KubeAid version bump
-    CURRENT_VERSION=$(get_current_kubeaid_version)
-    echo "Current KubeAid version: $CURRENT_VERSION"
-
     if [ "$HAS_MAJOR" = true ]; then
         BUMP_TYPE="major"
     elif [ "$HAS_MINOR" = true ]; then
@@ -456,7 +486,7 @@ function main (){
     fi
 
     NEW_VERSION=$(bump_version "$CURRENT_VERSION" "$BUMP_TYPE")
-    echo "New KubeAid version: v$NEW_VERSION${NC}"
+    echo "New KubeAid version: v$NEW_VERSION"
 
     # Generate commit message
     {
@@ -484,7 +514,7 @@ function main (){
 
 
     if [[ -n "$(git status --porcelain)" ]]; then
-      git add -U "$ARGOCD_CHART_PATH"
+      git add -A "$ARGOCD_CHART_PATH"
       git commit -F "$COMMIT_MSG_FILE"
     fi
 

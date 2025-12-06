@@ -27,15 +27,15 @@ changelog:
     - title: Docs
       regexp: '^.*?doc(\([[:word:]]+\))??!?:.+$'
       order: 2
-    - title: Major Version Upgrades
-      regexp: '^Major.*$'
-      order: 996
-    - title: Minor Version Upgrades
-      regexp: '^Minor.*$'
-      order: 997
-    - title: Patch Version Upgrades
-      regexp: '^Patched.*$'
-      order: 998
+    - title: 'Major Version Upgrades'
+      regexp: '^.*### Major Version Upgrades.*$'
+      order: 3
+    - title: 'Minor Version Upgrades'
+      regexp: '^.*### Minor Version Upgrades.*$'
+      order: 4
+    - title: 'Patch Version Upgrades'
+      regexp: '^.*### Patch Version Upgrades.*$'
+      order: 5
     - title: Others
       order: 999
 
@@ -44,7 +44,7 @@ builds:
 
 release:
   github:
-    owner: obmondo
+    owner: ashish
     name: kubeaid
   prerelease: auto
   make_latest: true
