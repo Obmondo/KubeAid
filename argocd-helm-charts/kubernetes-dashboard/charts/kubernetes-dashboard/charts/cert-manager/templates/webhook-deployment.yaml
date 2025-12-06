@@ -52,6 +52,12 @@ spec:
         prometheus.io/port: '9402'
       {{- end }}
     spec:
+      {{- if not .Values.webhook.serviceAccount.create }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
       serviceAccountName: {{ template "webhook.serviceAccountName" . }}
       {{- if hasKey .Values.webhook "automountServiceAccountToken" }}
       automountServiceAccountToken: {{ .Values.webhook.automountServiceAccountToken }}
@@ -59,6 +65,9 @@ spec:
       enableServiceLinks: {{ .Values.webhook.enableServiceLinks }}
       {{- with .Values.global.priorityClassName }}
       priorityClassName: {{ . | quote }}
+      {{- end }}
+      {{- if (hasKey .Values.global "hostUsers") }}
+      hostUsers: {{ .Values.global.hostUsers }}       
       {{- end }}
       {{- with .Values.webhook.securityContext }}
       securityContext:
@@ -96,7 +105,7 @@ spec:
           - --dynamic-serving-dns-names={{ template "webhook.fullname" . }}
           - --dynamic-serving-dns-names={{ template "webhook.fullname" . }}.$(POD_NAMESPACE)
           - --dynamic-serving-dns-names={{ template "webhook.fullname" . }}.$(POD_NAMESPACE).svc
-          {{ if .Values.webhook.url.host }}
+          {{- if .Values.webhook.url.host }}
           - --dynamic-serving-dns-names={{ .Values.webhook.url.host }}
           {{- end }}
           {{- end }}
@@ -131,11 +140,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /livez
-              {{- if $config.healthzPort }}
-              port: {{ $config.healthzPort }}
-              {{- else }}
-              port: 6080
-              {{- end }}
+              port: healthcheck
               scheme: HTTP
             initialDelaySeconds: {{ .Values.webhook.livenessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.webhook.livenessProbe.periodSeconds }}
@@ -145,11 +150,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /healthz
-              {{- if $config.healthzPort }}
-              port: {{ $config.healthzPort }}
-              {{- else }}
-              port: 6080
-              {{- end }}
+              port: healthcheck
               scheme: HTTP
             initialDelaySeconds: {{ .Values.webhook.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.webhook.readinessProbe.periodSeconds }}
@@ -182,9 +183,11 @@ spec:
             {{- toYaml . | nindent 12 }}
             {{- end }}
           {{- end }}
-      {{- with .Values.webhook.nodeSelector }}
+      {{- with (coalesce .Values.webhook.nodeSelector .Values.global.nodeSelector) }}
       nodeSelector:
-        {{- toYaml . | nindent 8 }}
+        {{- range $key, $value := . }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
       {{- end }}
       {{- with .Values.webhook.affinity }}
       affinity:

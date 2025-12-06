@@ -87,7 +87,7 @@ rules:
     verbs:
       - use
   {{- end -}}
-  {{- if .Values.providers.kubernetesIngress.enabled }}
+  {{- if or .Values.providers.kubernetesIngress.enabled .Values.providers.kubernetesIngressNginx.enabled }}
   - apiGroups:
       - extensions
       - networking.k8s.io
@@ -185,6 +185,22 @@ rules:
       - httproutes/status
       - tcproutes/status
       - tlsroutes/status
+    verbs:
+      - update
+  {{- end }}
+  {{- if (.Values.providers.knative).enabled }}
+  - apiGroups:
+      - networking.internal.knative.dev
+    resources:
+      - ingresses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - networking.internal.knative.dev
+    resources:
+      - ingresses/status
     verbs:
       - update
   {{- end }}

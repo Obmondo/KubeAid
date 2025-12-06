@@ -6,4 +6,4 @@ dependencies:
   repository: https://opensearch-project.github.io/helm-charts
   version: 2.35.1
 digest: sha256:fdd6c7a691692371ecc358c0cceaefb319c8c6730a71164ab7f8b2c02088df8b
-generated: "2025-10-22T12:15:23.721569775Z"
+generated: "2025-11-30T15:57:51.260452448Z"

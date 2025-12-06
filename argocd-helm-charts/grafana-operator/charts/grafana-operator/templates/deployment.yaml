@@ -2,14 +2,12 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "grafana-operator.fullname" . }}
-  namespace: {{ .Release.Namespace | quote }}
+  namespace: {{ include "grafana-operator.namespace" . }}
   labels:
     {{- include "grafana-operator.labels" . | nindent 4 }}
-    {{- with .Values.additionalLabels }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
+    app.kubernetes.io/component: operator
 spec:
-  replicas: 1
+  replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
       {{- include "grafana-operator.selectorLabels" . | nindent 6 }}
@@ -20,8 +18,9 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "grafana-operator.selectorLabels" . | nindent 8 }}
-        {{- with .Values.additionalLabels }}
+        {{- include "grafana-operator.labels" . | nindent 8 }}
+        app.kubernetes.io/component: operator
+        {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
@@ -49,21 +48,53 @@ spec:
               {{ else }}
               value: {{ .Values.watchNamespaces }}
               {{- end }}
+            - name: WATCH_NAMESPACE_SELECTOR
+              {{- if and .Values.namespaceScope (eq .Values.watchNamespaceSelector "") }}
+              value: ""
+              {{ else }}
+              value: {{quote .Values.watchNamespaceSelector }}
+              {{- end }}
+            - name: WATCH_LABEL_SELECTORS
+              {{- if and .Values.watchLabelSelectors (eq .Values.watchLabelSelectors "") }}
+              value: ""
+              {{ else }}
+              value: {{quote .Values.watchLabelSelectors }}
+              {{- end }}
+            - name: ENFORCE_CACHE_LABELS
+              {{- if .Values.enforceCacheLabels }}
+              value: {{quote .Values.enforceCacheLabels }}
+              {{ else }}
+              value: "off"
+              {{- end }}
+            - name: CLUSTER_DOMAIN
+              {{- if and .Values.clusterDomain (eq .Values.clusterDomain "") }}
+              value: ""
+              {{ else }}
+              value: {{quote .Values.clusterDomain }}
+              {{- end }}
             {{- with .Values.env }}
               {{- toYaml . | nindent 12 }}
             {{- end }}
           args:
             - --health-probe-bind-address=:8081
             - --metrics-bind-address=0.0.0.0:{{ .Values.metricsService.metricsPort }}
+            - --pprof-addr=0.0.0.0:{{ .Values.metricsService.pprofPort }}
+            - --zap-encoder={{ .Values.logging.encoder }}
+            - --zap-log-level={{ .Values.logging.level }}
+            - --zap-time-encoding={{ .Values.logging.time }}
             {{- if .Values.leaderElect }}
             - --leader-elect
             {{- end }}
+            - --max-concurrent-reconciles={{ .Values.maxConcurrentReconciles }}
           volumeMounts:
             - name: dashboards-dir
               mountPath: /tmp/dashboards
           ports:
             - containerPort: {{ .Values.metricsService.metricsPort }}
               name: metrics
+              protocol: TCP
+            - containerPort: {{ .Values.metricsService.pprofPort }}
+              name: pprof
               protocol: TCP
           livenessProbe:
             httpGet:

@@ -1,8 +1,11 @@
 annotations:
   artifacthub.io/changes: |
-    - Update base image to HAProxy 3.2.6
+    - Update base image to HAProxy 3.2.9
+    - Don't mount haproxy.cfg using subPath by default, to be able to do hot config reload (#322)
+    - Add gateway api support with httproute resource (#321)
+    - Define automountServiceAccountToken on Deployment and DaemonSet (#319)
 apiVersion: v2
-appVersion: 3.2.6
+appVersion: 3.2.9
 description: A Helm chart for HAProxy on Kubernetes
 home: https://github.com/haproxytech/helm-charts/tree/main/haproxy
 icon: https://raw.githubusercontent.com/haproxytech/helm-charts/main/haproxy/chart-icon.png
@@ -16,4 +19,4 @@ name: haproxy
 sources:
 - http://www.haproxy.org/
 type: application
-version: 1.26.1
+version: 1.27.0

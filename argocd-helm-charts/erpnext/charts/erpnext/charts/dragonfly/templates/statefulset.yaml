@@ -1,0 +1,37 @@
+{{- if .Values.storage.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "dragonfly.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "dragonfly.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ .Release.Name }}
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "dragonfly.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- if and (.Values.tls.enabled) (not .Values.tls.existing_secret) }}
+        checksum/tls-secret: {{ include (print $.Template.BasePath "/tls-secret.yaml") . | sha256sum }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "dragonfly.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- include "dragonfly.pod" . | trim | nindent 6 }}
+  volumeClaimTemplates:
+    - metadata:
+        name: "{{ .Release.Name }}-data"
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: {{ .Values.storage.storageClassName }}
+        resources:
+          requests:
+            storage: {{ .Values.storage.requests }}
+{{- end }}

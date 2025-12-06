@@ -647,6 +647,11 @@ extraEnvFrom: {}
   #     name: s3access
   #     key: secretkey
 
+## Additional environment variables refs
+extraEnvFromRefs: []
+  # - secretRef:
+  #     name: gitlab-runner-cache-config
+
 ## list of hosts and IPs that will be injected into the pod's hosts file
 hostAliases: []
   # Example:

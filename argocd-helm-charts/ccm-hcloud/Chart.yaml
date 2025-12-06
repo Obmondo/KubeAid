@@ -3,5 +3,5 @@ name: ccm-hcloud
 version: 1.0.0
 dependencies:
   - name: hcloud-cloud-controller-manager
-    version: 1.27.0
+    version: 1.28.0
     repository: https://charts.hetzner.cloud

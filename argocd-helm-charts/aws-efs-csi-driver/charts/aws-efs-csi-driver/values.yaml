@@ -11,7 +11,7 @@ portRangeUpperBound: "21049"
 
 image:
   repository: public.ecr.aws/efs-csi-driver/amazon/aws-efs-csi-driver
-  tag: "v2.1.13"
+  tag: "v2.1.15"
   pullPolicy: IfNotPresent
 
 sidecars:
@@ -140,6 +140,9 @@ controller:
   #    topologyKey: kubernetes.io/hostname
   #    whenUnsatisfiable: ScheduleAnyway
   topologySpreadConstraints: []
+  # Enable reading filesystem IDs from configmap/secret
+  fileSystemIdRefs:
+    enabled: false
 
 ## Node daemonset variables
 
@@ -204,6 +207,10 @@ node:
     annotations: {}
     ## Enable if EKS IAM for SA is used
     #  eks.amazonaws.com/role-arn: arn:aws:iam::111122223333:role/efs-csi-role
+    # Disable mutating permissions for the node service account.
+    # When disableMutation is true, some features of the EFS CSI Driver node pods will not function, such as taint removal.
+    # Primarily useful in particularly security-sensitive environments, or on multi-tenant clusters that isolate tenants by node.
+    disableMutation: false
   healthPort: 9809
   # securityContext on the node pod
   securityContext:
@@ -223,8 +230,6 @@ storageClasses: []
 #   annotations:
 #     # Use that annotation if you want this to your default storageclass
 #     storageclass.kubernetes.io/is-default-class: "true"
-#   mountOptions:
-#   - tls
 #   parameters:
 #     provisioningMode: efs-ap
 #     fileSystemId: fs-1122aabb

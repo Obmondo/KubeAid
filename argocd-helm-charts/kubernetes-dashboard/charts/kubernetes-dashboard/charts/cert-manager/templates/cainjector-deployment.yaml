@@ -53,6 +53,12 @@ spec:
         prometheus.io/port: '9402'
       {{- end }}
     spec:
+      {{- if not .Values.cainjector.serviceAccount.create }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
       serviceAccountName: {{ template "cainjector.serviceAccountName" . }}
       {{- if hasKey .Values.cainjector "automountServiceAccountToken" }}
       automountServiceAccountToken: {{ .Values.cainjector.automountServiceAccountToken }}
@@ -60,6 +66,9 @@ spec:
       enableServiceLinks: {{ .Values.cainjector.enableServiceLinks }}
       {{- with .Values.global.priorityClassName }}
       priorityClassName: {{ . | quote }}
+      {{- end }}
+      {{- if (hasKey .Values.global "hostUsers") }}
+      hostUsers: {{ .Values.global.hostUsers }}       
       {{- end }}
       {{- with .Values.cainjector.securityContext }}
       securityContext:
@@ -130,9 +139,11 @@ spec:
             {{- toYaml . | nindent 12 }}
             {{- end }}
           {{- end }}
-      {{- with .Values.cainjector.nodeSelector }}
+      {{- with (coalesce .Values.cainjector.nodeSelector .Values.global.nodeSelector) }}
       nodeSelector:
-        {{- toYaml . | nindent 8 }}
+        {{- range $key, $value := . }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
       {{- end }}
       {{- with .Values.cainjector.affinity }}
       affinity:

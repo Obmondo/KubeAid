@@ -1,10 +1,11 @@
 ---
 redisOperator:
   name: redis-operator
-  imageName: ghcr.io/ot-container-kit/redis-operator/redis-operator
+  imageName: quay.io/opstree/redis-operator
   # Overrides the image tag whose default is the chart appVersion.
   imageTag: ""
   imagePullPolicy: Always
+  imagePullSecrets: []
 
   # Additional pod annotations
   podAnnotations: {}
@@ -13,12 +14,29 @@ redisOperator:
 
   # Additional arguments for redis-operator container
   extraArgs: []
-
-  #  - -zap-log-level=error
-  watch_namespace: ""
+  # When not specified, the operator will watch all namespaces. It can be set to a specific namespace or multiple namespaces separated by commas.
+  watchNamespace: ""
   env: []
+  # If set to true, webhook server will be enabled for masterSlaveAntiAffinity feature
+  # When enabled, you need to either:
+  # 1. Enable cert-manager (certmanager.enabled=true) for automatic certificate management, or
+  # 2. Manually create a certificate secret (see "How to generate private key" section in README)
   webhook: false
+  automountServiceAccountToken: true
 
+  # pprof configuration for performance profiling
+  pprof:
+    # Enable pprof server for performance profiling
+    enabled: false
+    # The address the pprof endpoint binds to
+    bindAddress: ":6060"
+
+  # metrics configuration for monitoring
+  metrics:
+    # Enable metrics server
+    enabled: true
+    # The address the metrics endpoint binds to
+    bindAddress: ":8080"
 
 resources:
   limits:
@@ -30,7 +48,12 @@ resources:
 
 replicas: 1
 
+rbac:
+  enabled: true
 serviceAccountName: redis-operator
+
+serviceAccount:
+  automountServiceAccountToken: true
 
 service:
   name: webhook-service
@@ -41,6 +64,12 @@ certificate:
   secretName: webhook-server-cert
 
 issuer:
+  # Whether to create the issuer or not. You might want to disable this if instead you
+  # want to use a ClusterIssuer that you simply want to provide.
+  create: true
+  # You can choose Issuer or ClusterIssuer here. The first one is namespaced, the second one
+  # is available for global usage.
+  kind: Issuer
   type: selfSigned
   name: redis-operator-issuer
   email: shubham.gupta@opstree.com
@@ -51,10 +80,38 @@ issuer:
     ingressClass: nginx
 
 certmanager:
+  # Whether to use cert-manager for certificate management
+  # Only effective when webhook=true
+  # If webhook=true and certmanager.enabled=false, you need to manually create certificate secret
   enabled: false
+  # API version of the cert-manager CRDs
+  apiVersion: "cert-manager.io/v1"
 
 priorityClassName: ""
 nodeSelector: {}
 tolerateAllTaints: false
 tolerations: []
 affinity: {}
+
+podSecurityContext: {}
+#  fsGroup: 2000
+
+securityContext: {}
+#  capabilities:
+#    drop:
+#    - ALL
+#  readOnlyRootFilesystem: true
+#  runAsNonRoot: true
+#  runAsUser: 1000
+
+# Feature gates for alpha/experimental features
+featureGates:
+  # Enable generating Redis configuration using an init container instead of a regular container
+  GenerateConfigInInitContainer: false
+
+manager:
+  # config values for the operator manager
+  config:
+    kubeClientTimeout: 60s
+    # -- If value > 0, it will override the default value in the operator
+    kubeClientQPS: 0.0

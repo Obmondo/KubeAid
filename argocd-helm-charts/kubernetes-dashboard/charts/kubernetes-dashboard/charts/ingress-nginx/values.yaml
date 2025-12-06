@@ -30,9 +30,9 @@ controller:
     ## for backwards compatibility consider setting the full image url via the repository value below
     ## use *either* current default registry/image or repository format or installing chart by providing the values.yaml will fail
     ## repository:
-    tag: "v1.12.0"
-    digest: sha256:e6b8de175acda6ca913891f0f727bca4527e797d52688cbe9fec9040d6f6b6fa
-    digestChroot: sha256:87c88e1c38a6c8d4483c8f70b69e2cca49853bb3ec3124b9b1be648edf139af3
+    tag: "v1.13.3"
+    digest: sha256:1b044f6dcac3afbb59e05d98463f1dec6f3d3fb99940bc12ca5d80270358e3bd
+    digestChroot: sha256:27de15aea4ec7639f7cec6ae96bff11ce57bb1171040351a0b0eedf66655d0dd
     pullPolicy: IfNotPresent
     runAsNonRoot: true
     # -- This value must not be changed using the official image.
@@ -78,6 +78,8 @@ controller:
   # By default, while using host network, name resolution uses the host's DNS. If you wish nginx-controller
   # to keep resolving names inside the k8s network, use ClusterFirstWithHostNet.
   dnsPolicy: ClusterFirst
+  # -- Instruct the kubelet to use the named RuntimeClass to run the pod
+  runtimeClassName: ""
   # -- Bare-metal considerations via the host network https://kubernetes.github.io/ingress-nginx/deploy/baremetal/#via-the-host-network
   # Ingress status was blank because there is no Service exposing the Ingress-Nginx Controller in a configuration using the host network, the default --publish-service flag used in standard cloud setups does not apply
   reportNodeInternalIp: false
@@ -486,6 +488,8 @@ controller:
     external:
       # -- Enable the external controller service or not. Useful for internal-only deployments.
       enabled: true
+      # -- Labels to be added to the external controller service.
+      labels: {}
     # -- Annotations to be added to the external controller service. See `controller.service.internal.annotations` for annotations to be added to the internal controller service.
     annotations: {}
     # -- Labels to be added to both controller services.
@@ -497,6 +501,10 @@ controller:
     # This value is immutable. Set once, it can not be changed without deleting and re-creating the service.
     # Ref: https://kubernetes.io/docs/concepts/services-networking/service/#choosing-your-own-ip-address
     clusterIP: ""
+    # -- Pre-defined cluster internal IP addresses of the external controller service. Take care of collisions with existing services.
+    # This value is immutable. Set once, it can not be changed without deleting and re-creating the service.
+    # Ref: https://kubernetes.io/docs/concepts/services-networking/service/#choosing-your-own-ip-address
+    clusterIPs: []
     # -- List of node IP addresses at which the external controller service is available.
     # Ref: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips
     externalIPs: []
@@ -523,6 +531,9 @@ controller:
     # Ref: https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/#preserving-the-client-source-ip
     # healthCheckNodePort: 0
 
+    # -- Traffic distribution policy of the external controller service. Set to "PreferClose" to route traffic to endpoints that are topologically closer to the client.
+    # Ref: https://kubernetes.io/docs/concepts/services-networking/service/#traffic-distribution
+    trafficDistribution: ""
     # -- Represents the dual-stack capabilities of the external controller service. Possible values are SingleStack, PreferDualStack or RequireDualStack.
     # Fields `ipFamilies` and `clusterIP` depend on the value of this field.
     # Ref: https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
@@ -566,6 +577,8 @@ controller:
     internal:
       # -- Enable the internal controller service or not. Remember to configure `controller.service.internal.annotations` when enabling this.
       enabled: false
+      # -- Labels to be added to the internal controller service.
+      labels: {}
       # -- Annotations to be added to the internal controller service. Mandatory for the internal controller service to be created. Varies with the cloud service.
       # Ref: https://kubernetes.io/docs/concepts/services-networking/service/#internal-load-balancer
       annotations: {}
@@ -577,6 +590,10 @@ controller:
       # This value is immutable. Set once, it can not be changed without deleting and re-creating the service.
       # Ref: https://kubernetes.io/docs/concepts/services-networking/service/#choosing-your-own-ip-address
       clusterIP: ""
+      # -- Pre-defined cluster internal IP addresses of the internal controller service. Take care of collisions with existing services.
+      # This value is immutable. Set once, it can not be changed without deleting and re-creating the service.
+      # Ref: https://kubernetes.io/docs/concepts/services-networking/service/#choosing-your-own-ip-address
+      clusterIPs: []
       # -- List of node IP addresses at which the internal controller service is available.
       # Ref: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips
       externalIPs: []
@@ -603,6 +620,9 @@ controller:
       # Ref: https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/#preserving-the-client-source-ip
       # healthCheckNodePort: 0
 
+      # -- Traffic distribution policy of the internal controller service. Set to "PreferClose" to route traffic to endpoints that are topologically closer to the client.
+      # Ref: https://kubernetes.io/docs/concepts/services-networking/service/#traffic-distribution
+      trafficDistribution: ""
       # -- Represents the dual-stack capabilities of the internal controller service. Possible values are SingleStack, PreferDualStack or RequireDualStack.
       # Fields `ipFamilies` and `clusterIP` depend on the value of this field.
       # Ref: https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
@@ -754,6 +774,8 @@ controller:
       type: ClusterIP
     createSecretJob:
       name: create
+      # -- Deadline in seconds for the job to complete. Must be greater than 0 to enforce. If unset or 0, no deadline is enforced.
+      activeDeadlineSeconds: 0
       # -- Security context for secret creation containers
       securityContext:
         runAsNonRoot: true
@@ -775,6 +797,8 @@ controller:
       #   memory: 20Mi
     patchWebhookJob:
       name: patch
+      # -- Deadline in seconds for the job to complete. Must be greater than 0 to enforce. If unset or 0, no deadline is enforced.
+      activeDeadlineSeconds: 0
       # -- Security context for webhook patch containers
       securityContext:
         runAsNonRoot: true
@@ -796,12 +820,14 @@ controller:
         ## for backwards compatibility consider setting the full image url via the repository value below
         ## use *either* current default registry/image or repository format or installing chart by providing the values.yaml will fail
         ## repository:
-        tag: v1.5.0
-        digest: sha256:aaafd456bda110628b2d4ca6296f38731a3aaf0bf7581efae824a41c770a8fc4
+        tag: v1.6.3
+        digest: sha256:3d671cf20a35cd94efc5dcd484970779eb21e7938c98fbc3673693b8a117cf39
         pullPolicy: IfNotPresent
       # -- Provide a priority class name to the webhook patching job
       ##
       priorityClassName: ""
+      # -- Instruct the kubelet to use the named RuntimeClass to run the pod
+      runtimeClassName: ""
       podAnnotations: {}
       # NetworkPolicy for webhook patch
       networkPolicy:
@@ -833,9 +859,15 @@ controller:
       rootCert:
         # default to be 5y
         duration: ""
+        # -- Revision history limit of the root certificate.
+        # Ref.: https://cert-manager.io/docs/reference/api-docs/#cert-manager.io/v1.CertificateSpec
+        revisionHistoryLimit: 0
       admissionCert:
         # default to be 1y
         duration: ""
+        # -- Revision history limit of the webhook certificate.
+        # Ref.: https://cert-manager.io/docs/reference/api-docs/#cert-manager.io/v1.CertificateSpec
+        revisionHistoryLimit: 0
         # issuerRef:
         #   name: "issuer"
         #   kind: "ClusterIssuer"
@@ -882,6 +914,16 @@ controller:
       targetLabels: []
       relabelings: []
       metricRelabelings: []
+      # -- Per-scrape limit on number of labels that will be accepted for a sample.
+      labelLimit: 0
+      # -- Per-scrape limit on length of labels name that will be accepted for a sample.
+      labelNameLengthLimit: 0
+      # -- Per-scrape limit on length of labels value that will be accepted for a sample.
+      labelValueLengthLimit: 0
+      # -- Defines a per-scrape limit on the number of scraped samples that will be accepted.
+      sampleLimit: 0
+      # -- Defines a limit on the number of scraped targets that will be accepted.
+      targetLimit: 0
     prometheusRule:
       enabled: false
       additionalLabels: {}
@@ -1145,7 +1187,10 @@ defaultBackend:
   service:
     annotations: {}
     # clusterIP: ""
-
+    # -- Pre-defined cluster internal IP addresses of the default backend service. Take care of collisions with existing services.
+    # This value is immutable. Set once, it can not be changed without deleting and re-creating the service.
+    # Ref: https://kubernetes.io/docs/concepts/services-networking/service/#choosing-your-own-ip-address
+    clusterIPs: []
     # -- List of IP addresses at which the default backend service is available
     ## Ref: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips
     ##
@@ -1155,6 +1200,8 @@ defaultBackend:
     servicePort: 80
     type: ClusterIP
   priorityClassName: ""
+  # -- Instruct the kubelet to use the named RuntimeClass to run the pod
+  runtimeClassName: ""
   # -- Labels to be added to the default backend resources
   labels: {}
 ## Enable RBAC as per https://github.com/kubernetes/ingress-nginx/blob/main/docs/deploy/rbac.md and https://github.com/kubernetes/ingress-nginx/issues/266

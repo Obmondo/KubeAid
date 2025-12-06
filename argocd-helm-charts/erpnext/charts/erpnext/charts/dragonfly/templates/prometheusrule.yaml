@@ -1,0 +1,14 @@
+{{- if and ( .Capabilities.APIVersions.Has "monitoring.coreos.com/v1" ) .Values.serviceMonitor.enabled .Values.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ template "dragonfly.fullname" . }}-metrics
+  namespace: {{ .Values.prometheusRule.namespace | default .Release.Namespace }}
+  labels:
+    {{- include "dragonfly.labels" . | nindent 4 }}
+spec:
+  groups:
+  - name: {{ template "dragonfly.name" . }}
+    rules:
+      {{- toYaml .Values.prometheusRule.spec | nindent 6 }}
+{{- end }}

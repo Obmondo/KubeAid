@@ -1,5 +1,5 @@
 apiVersion: v2
-appVersion: 0.9.9
+appVersion: 0.9.11
 description: Step-issuer helm chart for kubernetes.
 home: https://smallstep.com
 keywords:
@@ -29,4 +29,4 @@ maintainers:
   name: Muhammad Fauzan Razandi
 name: step-issuer
 type: application
-version: 1.9.9
+version: 1.9.11

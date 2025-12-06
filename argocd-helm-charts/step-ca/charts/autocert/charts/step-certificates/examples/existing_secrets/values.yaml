@@ -1,0 +1,19 @@
+bootstrap:
+  secrets: false
+  enabled: false
+  configmaps: false
+
+inject:
+  enabled: false
+
+existingSecrets: 
+  enabled: true
+  ca: true
+  issuer: true
+  certsAsSecret: true
+  configAsSecret: true
+  sshHostCa: true
+  sshUserCa: true
+
+ca:
+  name: "demo"

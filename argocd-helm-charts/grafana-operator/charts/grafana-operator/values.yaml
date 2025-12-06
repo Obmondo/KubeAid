@@ -1,12 +1,54 @@
 # -- If the operator should run in namespace-scope or not,
 # if true the operator will only be able to manage instances in the same namespace
 namespaceScope: false
-# -- If you want to run multiple replicas of the grafana-operator, this is not recommended.
-leaderElect: false
-# -- Sets the WATCH_NAMESPACE environment variable,
-# it defines which namespaces the operator should be listening for.
-# By default it's all namespaces, if you only want to listen for the same namespace as the operator is deployed to look at namespaceScope.
+# -- This is recommended in most scenarios, even when only running a single instance of the operator.
+leaderElect: true
+# -- The number of operators to run simultaneously.
+# With leader election, only one instance reconciles CRs preventing duplicate reconciliations.
+# Note: Multiple replicas increase stability, it does not increase throughput.
+replicas: 1
+# -- Sets the `WATCH_NAMESPACE` environment variable,
+# it defines which namespaces the operator should be listening for (e.g. `"grafana, foo"`).
+# By default, the operator watches all namespaces. To make it watch only its own namespace, check out `namespaceScope` option instead.
 watchNamespaces: ""
+# -- Sets the `WATCH_NAMESPACE_SELECTOR` environment variable,
+# it defines which namespaces the operator should be listening for based on a namespace label (e.g. `"environment: dev"`).
+# By default, the operator watches all namespaces. To make it watch only its own namespace, check out `namespaceScope` option instead.
+watchNamespaceSelector: ""
+# -- Sets the `WATCH_LABEL_SELECTORS` environment variable,
+# it defines which CRs are watched according to their labels.
+# By default, the operator watches all CRs. To make it watch only a subset of CRs, define the variable as a *stringified label selector*.
+# See also: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+# Beware: Always label Grafana CRs before enabling to ensure labels are inherited.
+# # Existing Secrets/ConfigMaps referenced in CRs also need to be labeled to continue working.
+watchLabelSelectors: ""
+# watchLabelSelectors: "partition in (customerA, customerB),environment!=qa"
+
+# -- Sets the `ENFORCE_CACHE_LABELS` environment variable,
+# Allows to tweak how caching of various Kubernetes resources works inside the operator.
+# Valid values are "off", "safe", and "all".
+# When set to "off", all resources are cached (including Deployments, Services, Ingresses, and any other native resources that the operator interacts with), which results in much higher memory usage (essentially, grows with cluster size).
+# When set to `safe`, ConfigMaps and Secrets are not cached, all other native resources are cached only when they have `app.kubernetes.io/managed-by: grafana-operator` label. The label is automatically set on all resources that are created/owned by the operator (applicable to any mode).
+# When set to `all`, only resources that have `app.kubernetes.io/managed-by: grafana-operator` are cached. The caveat is that ConfigMaps and Secrets can be seen by the operator only if they have the label. Thus, usage of this mode requires more careful planning.
+enforceCacheLabels: "safe"
+# -- Sets the `CLUSTER_DOMAIN` environment variable,
+# it defines how internal Kubernetes services managed by the operator are addressed.
+# By default, this is empty, and internal services are addressed without a cluster domain specified, i.e., a
+# relative domain name that will resolve regardless of if a custom domain is configured for the cluster. If you
+# wish to have services addressed using their FQDNs, you can specify the cluster domain explicitly, e.g., "cluster.local"
+# for the default Kubernetes configuration.
+clusterDomain: ""
+# -- Maximum number of concurrent reconciles per Custom Resource.
+maxConcurrentReconciles: 1
+# -- Determines if the target cluster is OpenShift. Additional rbac permissions for routes will be added on OpenShift
+isOpenShift: false
+logging:
+  # -- Log encoding ("console", "json")
+  encoder: console
+  # -- Configure the verbosity of logging ("debug", "error", "info")
+  level: info
+  # -- Time encoding ("epoch", "iso8601", "millis", "nano", "rfc3339", "rfc3339nano")
+  time: rfc3339
 # -- Additional environment variables
 env: []
 # -- grafana image, e.g. docker.io/grafana/grafana:9.1.6, overwrites the default grafana image defined in the operator
@@ -24,8 +66,12 @@ image:
   tag: ""
 # -- image pull secrets
 imagePullSecrets: []
+# -- Overrides the name of the chart.
 nameOverride: ""
+# -- Overrides the fully qualified app name.
 fullnameOverride: ""
+# -- Overrides the namespace name.
+namespaceOverride: ""
 serviceAccount:
   # -- Specifies whether a service account should be created
   create: true
@@ -34,23 +80,43 @@ serviceAccount:
   # -- The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
   name: ""
+rbac:
+  # -- Specifies whether to create the ClusterRole and ClusterRoleBinding.
+  # If "namespaceScope" is true or "watchNamespaces" is set, this will create Role and RoleBinding instead.
+  create: true
+crds:
+  # -- Immutable CustomResourceDefinitions are installed only once using `crds/` directory
+  # and require manual upgrade by `kubectl apply`.
+  # Mutable CRDs are installed and upgraded together with the Helm chart using `templates/` directory
+  # without manual `kubectl apply` step required.
+  # Use `helm upgrade -i --take-ownership` when switching to mutable CRDs for the first time only.
+  # Both types of CRDs are protected on the Helm chart uninstall to avoid cascading deletion.
+  immutable: true
 metricsService:
   # -- metrics service type
   type: ClusterIP
   # -- metrics service port
   metricsPort: 9090
+  # -- port for the pprof profiling endpoint
+  pprofPort: 8888
 # -- additional labels to add to all resources
 additionalLabels: {}
+# -- pod labels
+podLabels: {}
 # -- pod annotations
 podAnnotations: {}
 # -- pod security context
 podSecurityContext: {}
-# -- grafana operator container security context
 securityContext:
+  # -- A list of capabilities to drop
   capabilities:
     drop:
       - ALL
+  # -- Whether to allow privilege escalation
+  allowPrivilegeEscalation: false
+  # -- Whether to allow writing to the root filesystem
   readOnlyRootFilesystem: true
+  # -- Whether to require a container to run as a non-root user
   runAsNonRoot: true
 # -- grafana operator container resources
 resources: {}
@@ -62,3 +128,49 @@ nodeSelector: {}
 tolerations: []
 # -- pod affinity
 affinity: {}
+serviceMonitor:
+  # -- Whether to create a ServiceMonitor
+  enabled: false
+  # -- Set of labels to transfer from the Kubernetes Service onto the target
+  additionalLabels: {}
+  # -- Set how frequently Prometheus should scrape
+  interval: 1m
+  # -- Set timeout for scrape
+  scrapeTimeout: 10s
+  # -- Set path to metrics path
+  telemetryPath: /metrics
+  # -- Set of labels to transfer from the Kubernetes Service onto the target
+  targetLabels: []
+  # -- MetricRelabelConfigs to apply to samples before ingestion
+  metricRelabelings: []
+  # -- Set relabel_configs as per https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config
+  relabelings: []
+dashboard:
+  # -- Whether to create a ConfigMap containing a dashboard monitoring the operator metrics.
+  # Consider enabling this if you are enabling the ServiceMonitor.
+  # Optionally, a GrafanaDashboard CR can be manually created pointing to the Grafana.com dashboard ID 22785
+  # https://grafana.com/grafana/dashboards/22785-grafana-operator/
+  # The Grafana.com dashboard is maintained by the community and does not necessarily match the JSON definition in this repository.
+  enabled: false
+  # -- Annotations to add to the Grafana dashboard ConfigMap
+  annotations: {}
+  # -- Labels to add to the Grafana dashboard ConfigMap
+  labels: {}
+# -- Array of extra K8s objects to deploy
+extraObjects: []
+# - apiVersion: external-secrets.io/v1beta1
+#   kind: ExternalSecret
+#   metadata:
+#     name: grafana-operator-apikey
+#   spec:
+#     refreshInterval: 1h
+#     secretStoreRef:
+#       kind: SecretStore
+#       name: my-secret-store
+#     target:
+#       template:
+#         data:
+#           GRAFANA_CLOUD_INSTANCE_TOKEN: "{{`{{ .Token }}`}}"
+#     dataFrom:
+#     - extract:
+#         key: my-secret-store-secret

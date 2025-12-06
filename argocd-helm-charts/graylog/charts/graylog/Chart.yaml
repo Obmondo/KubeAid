@@ -1,5 +1,5 @@
 apiVersion: v2
-appVersion: 6.3.5
+appVersion: 7.0.1
 dependencies:
 - name: community-operator
   repository: https://mongodb.github.io/helm-charts
@@ -31,4 +31,4 @@ name: graylog
 sources:
 - https://github.com/KongZ/charts
 type: application
-version: 3.0.3
+version: 3.0.8

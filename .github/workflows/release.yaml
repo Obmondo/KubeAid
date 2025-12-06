@@ -1,0 +1,41 @@
+---
+name: goreleaser
+
+"on":
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5.0.0
+        with:
+          # This is required for the changelog to work correctly.
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v6.0.0
+
+      - name: Install dependencies
+        run: |
+          # Install Helm
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+          # Install yq for YAML parsing
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6.4.0
+        with:
+          version: "v2.12.7"
+          args: release --clean -f .goreleaser-github.yaml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

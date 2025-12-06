@@ -1,6 +1,11 @@
 apiVersion: v2
-appVersion: v5.6.0
-description: A Helm chart for Kubernetes
+appVersion: v5.20.0
+dependencies:
+- condition: crds.immutable
+  name: crds
+  repository: ""
+  version: 0.0.*
+description: Helm chart for the Grafana Operator
 name: grafana-operator
 type: application
-version: v5.6.0
+version: v5.20.0

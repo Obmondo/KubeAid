@@ -3,7 +3,7 @@ name: gitlab-runner
 version: 1.0.0
 dependencies:
   - name: gitlab-runner
-    version: 0.82.0
+    version: 0.83.3
     repository: https://charts.gitlab.io
     #repository: "oci://ghcr.io/Obmondo"
     # see version here: https://gitlab.com/gitlab-org/charts/gitlab-runner/-/blob/main/Chart.yaml

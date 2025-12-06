@@ -1,5 +1,33 @@
 # Helm chart
 
+## 2.53.0
+
+- Add dnsConfig Helm parameter for node pods. ([#2778](https://github.com/kubernetes-sigs/aws-ebs-csi-driver/pull/2778), [@torredil](https://github.com/torredil))
+- Check for specific ServiceMonitor CRD availability instead of generic `monitoring.coreos.com/v1` API group when creating service monitor object for metrics. ([#2779](https://github.com/kubernetes-sigs/aws-ebs-csi-driver/pull/2779), [@torredil](https://github.com/torredil))
+- Bump driver version to `v1.53.0`.
+
+## 2.52.1
+
+- Bump driver version to `v1.52.1`.
+- Bump sidecars to latest.
+
+## 2.52.0
+
+### Feature
+
+- Bump driver version to `v1.52.0`.
+- Add Helm parameter `node.serviceAccount.disableMutation` to disable mutating RBAC permissions to the `ebs-csi-node` service account. When enabled, driver features such as taint removal may not function. ([#2723](https://github.com/kubernetes-sigs/aws-ebs-csi-driver/pull/2723), [@ConnorJC3](https://github.com/ConnorJC3))
+- Add ALPHA metadata-labeler sidecar and metadata source ([#2591](https://github.com/kubernetes-sigs/aws-ebs-csi-driver/pull/2591), [@sylviah23](https://github.com/sylviah23))
+
+## 2.51.3
+
+- Bump driver version to `v1.51.2`.
+- Bump sidecars to latest.
+
+## 2.51.1
+
+- Bump driver version to `v1.51.1`.
+
 ## 2.51.0
 
 - Bump driver version to `v1.51.0`.
@@ -7,6 +35,15 @@
 ### Feature
 
 - Add Helm parameters to customize PDB `maxUnavailable` and `minAvailable` ([#2703](https://github.com/kubernetes-sigs/aws-ebs-csi-driver/pull/2703), [@ConnorJC3](https://github.com/ConnorJC3))
+
+## 2.50.4
+
+- Bump driver version to `v1.50.3`.
+- Bump sidecars to latest.
+
+## 2.50.2
+
+- Bump driver version to `v1.50.2`.
 
 ## 2.50.1
 
@@ -17,6 +54,11 @@
 ### Feature
 
 - Bump driver version to `v1.50.0`.
+
+## 2.49.3
+
+- Bump driver version to `v1.49.2`.
+- Bump sidecars to latest.
 
 ## 2.49.2
 

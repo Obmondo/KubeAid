@@ -3,5 +3,5 @@ name: zfs-localpv
 version: 1.0.0
 dependencies:
   - name: zfs-localpv
-    version: 2.8.0
+    version: 2.9.0
     repository: https://openebs.github.io/zfs-localpv

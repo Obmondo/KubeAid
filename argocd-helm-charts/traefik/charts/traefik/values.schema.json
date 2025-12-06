@@ -210,6 +210,9 @@
                         }
                     }
                 },
+                "knative": {
+                    "type": "boolean"
+                },
                 "kubernetesGateway": {
                     "type": "object",
                     "properties": {
@@ -2063,6 +2066,20 @@
                         }
                     }
                 },
+                "knative": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "labelselector": {
+                            "type": "string"
+                        },
+                        "namespaces": {
+                            "type": "array"
+                        }
+                    }
+                },
                 "kubernetesCRD": {
                     "type": "object",
                     "properties": {
@@ -2170,6 +2187,64 @@
                             }
                         },
                         "strictPrefixMatching": {
+                            "type": "boolean"
+                        }
+                    }
+                },
+                "kubernetesIngressNginx": {
+                    "type": "object",
+                    "properties": {
+                        "certAuthFilePath": {
+                            "type": "string"
+                        },
+                        "controllerClass": {
+                            "type": "string"
+                        },
+                        "defaultBackendService": {
+                            "type": "string"
+                        },
+                        "disableSvcExternalName": {
+                            "type": "boolean"
+                        },
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "endpoint": {
+                            "type": "string"
+                        },
+                        "ingressClass": {
+                            "type": "string"
+                        },
+                        "ingressClassByName": {
+                            "type": "boolean"
+                        },
+                        "namespaceSelector": {
+                            "type": "string"
+                        },
+                        "namespaces": {
+                            "type": "array"
+                        },
+                        "publishService": {
+                            "type": "object",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean"
+                                },
+                                "pathOverride": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "publishStatusAddress": {
+                            "type": "string"
+                        },
+                        "throttleDuration": {
+                            "type": "string"
+                        },
+                        "token": {
+                            "type": "string"
+                        },
+                        "watchIngressWithoutClass": {
                             "type": "boolean"
                         }
                     }

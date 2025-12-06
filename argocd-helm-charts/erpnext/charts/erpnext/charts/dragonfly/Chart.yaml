@@ -1,0 +1,15 @@
+apiVersion: v2
+appVersion: v1.34.2
+description: Dragonfly is a modern in-memory datastore, fully compatible with Redis
+  and Memcached APIs.
+home: https://dragonflydb.io/
+keywords:
+- database
+- keyvalue
+- cache
+kubeVersion: '>=1.23.0-0'
+name: dragonfly
+sources:
+- https://github.com/dragonflydb/dragonfly
+type: application
+version: v1.34.2

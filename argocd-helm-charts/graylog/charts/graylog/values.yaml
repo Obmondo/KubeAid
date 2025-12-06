@@ -63,7 +63,7 @@ graylog:
   ##
   image:
     repository: "graylog/graylog"
-    tag: "6.3.5"
+    tag: "7.0.1"
     pullPolicy: "IfNotPresent"
 
   ## Graylog default Java option
@@ -89,7 +89,7 @@ graylog:
   ##       fieldPath: status.podIP
   ## - name: SERVICE_8000_NAME
   ##   value: servicename
-  envRaw: {}
+  envRaw: []
 
   ## Pod affinity
   ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
@@ -665,13 +665,63 @@ mongodb:
     ##
     install: true
     replicas: 3
-    version: "6.0.25"
+    version: "7.0.25"
     auth:
       user: "graylog"
       ## If empty, a random 20-character alphanumeric string will be generated
       password: ""
+  ## Node labels for for MongoDB pod assignment
+  ## Ref: https://kubernetes.io/docs/user-guide/node-selection/
+  ##
+  nodeSelector: {}      
+
+  ## Pod affinity
+  ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
+  ##
+  affinity: {}
+
+  ## Node tolerations for scheduling to nodes with taints
+  ## Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+  ##
+  tolerations:
+    []
+    # - key: "key"
+    #   operator: "Equal|Exists"
+    #   value: "value"
+    #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
   persistence:
     size: "8Gi"
+
+  ## Configure MongoDB containers
+  containers: []
+  #  - name: mongod
+  #    resources:
+  #      limits:
+  #        cpu: "0.2"
+  #        memory: 250M
+  #      requests:
+  #        cpu: "0.2"
+  #        memory: 200M
+  #  - name: mongodb-agent
+  #    resources:
+  #      limits:
+  #        cpu: "0.2"
+  #        memory: 250M
+  #      requests:
+  #        cpu: "0.2"
+  #        memory: 200M
+
+
+  ## Configure MongoDB init containers
+  initContainers: []
+  #  - name: mongodb-agent-readinessprobe
+  #    resources:
+  #      limits:
+  #        cpu: "2"
+  #        memory: 200M
+  #      requests:
+  #        cpu: "0.5"
+  #        memory: 100M
 
 ## IMPORTANT! Official MongoDB chart requires CRD to be installed first before installing the MongoDB replicaset.
 ##

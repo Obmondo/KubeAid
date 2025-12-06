@@ -1,0 +1,27 @@
+{{- if not .Values.storage.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "dragonfly.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "dragonfly.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "dragonfly.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- if and (.Values.tls.enabled) (not .Values.tls.existing_secret) }}
+        checksum/tls-secret: {{ include (print $.Template.BasePath "/tls-secret.yaml") . | sha256sum }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "dragonfly.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- include "dragonfly.pod" . | trim | nindent 6 }}
+{{- end }}

@@ -27,6 +27,29 @@ spec:
     connectTimeoutMS: "300000"
   statefulSet:
     spec:
+      template:
+        spec:
+{{- if .Values.mongodb.containers }}
+          containers:
+{{ toYaml .Values.mongodb.containers | indent 12 }}
+{{- end }}
+{{- if .Values.mongodb.initContainers }}
+          initContainers:
+{{ toYaml .Values.mongodb.initContainers | indent 12 }}
+{{- end }}
+{{- if .Values.mongodb.nodeSelector }}
+          # Assign MongoDB pods to nodes with specific labels
+          nodeSelector:
+{{ toYaml .Values.mongodb.nodeSelector | indent 12 }}
+{{- end }}
+{{- if .Values.mongodb.affinity }}
+          affinity:
+{{ toYaml .Values.mongodb.affinity | indent 12 }}
+{{- end }}
+{{- if .Values.mongodb.tolerations }}
+          tolerations:
+{{ toYaml .Values.mongodb.tolerations | indent 12 }}
+{{- end }}
       volumeClaimTemplates:
         - metadata:
             name: data-volume

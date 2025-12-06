@@ -141,13 +141,15 @@ experimental:
   localPlugins: {}
   # -- Enable OTLP logging experimental feature.
   otlpLogs: false
+  # -- Enable Knative provider experimental feature.
+  knative: false
 
 gateway:
   # -- When providers.kubernetesGateway.enabled, deploy a default gateway
   enabled: true
   # -- Set a custom name to gateway
   name: ""
-  # -- By default, Gateway is created in the same `Namespace` than Traefik.
+  # -- By default, Gateway is created in the same `Namespace` as Traefik.
   namespace: ""
   # -- Additional gateway annotations (e.g. for cert-manager.io/issuer)
   annotations: {}
@@ -281,7 +283,7 @@ providers:  # @schema additionalProperties: false
     allowCrossNamespace: false
     # -- Allows to reference ExternalName services in IngressRoute
     allowExternalNameServices: false
-    # -- Allows to return 503 when there is no endpoints available
+    # -- Allows to return 503 when there are no endpoints available
     allowEmptyServices: true
     # -- When the parameter is set, only resources containing an annotation with the same value are processed. Otherwise, resources missing the annotation, having an empty value, or the value traefik are processed. It will also set required annotation on Dashboard and Healthcheck IngressRoute when enabled.
     ingressClass: ""
@@ -296,7 +298,7 @@ providers:  # @schema additionalProperties: false
     enabled: true
     # -- Allows to reference ExternalName services in Ingress
     allowExternalNameServices: false
-    # -- Allows to return 503 when there is no endpoints available
+    # -- Allows to return 503 when there are no endpoints available
     allowEmptyServices: true
     # -- When ingressClass is set, only Ingresses containing an annotation with the same value are processed. Otherwise, Ingresses missing the annotation, having an empty value, or the value traefik are processed.
     ingressClass:  # @schema type:[string, null]
@@ -305,7 +307,8 @@ providers:  # @schema additionalProperties: false
     namespaces: []
     # IP used for Kubernetes Ingress endpoints
     publishedService:
-      # -- Enable [publishedService](https://doc.traefik.io/traefik/providers/kubernetes-ingress/#publishedservice)
+      # -- Enable [publishedService](https://doc.traefik.io/traefik/providers/kubernetes-ingress/#publishedservice),
+      # usually with the Service provided by this Chart. It's possible to use it with an external Service using pathOverride.
       enabled: true
       # -- Override path of Kubernetes Service used to copy status from. Format: namespace/servicename.
       # Default to Service deployed with this Chart.
@@ -345,6 +348,48 @@ providers:  # @schema additionalProperties: false
     watch: true
     # -- File content (YAML format, go template supported) (see https://doc.traefik.io/traefik/providers/file/)
     content: ""
+
+  kubernetesIngressNginx:
+    # -- Enable Kubernetes Ingress NGINX provider (experimental)
+    enabled: false
+    # -- Ingress Class Controller value this controller satisfies
+    controllerClass: "k8s.io/ingress-nginx"
+    # -- Name of the ingress class this controller satisfies
+    ingressClass: "nginx"
+    # -- Define if Ingress Controller should watch for Ingress Class by Name together with Controller Class
+    ingressClassByName: false
+    # -- Define if Ingress Controller should also watch for Ingresses without an IngressClass or the annotation specified
+    watchIngressWithoutClass: false
+    # -- Namespace the controller watches for updates to Kubernetes objects. All namespaces are watched if this parameter is left empty. When using `rbac.namespaced`, it will watch helm release namespace and namespaces listed in this array.
+    namespaces: []
+    # -- Selector selects namespaces the controller watches for updates to Kubernetes objects
+    namespaceSelector: ""
+    # -- Service fronting the Ingress controller. Takes the form 'namespace/name'
+    publishService:
+      enabled: false
+      pathOverride: ""
+    # -- Customized address (or addresses, separated by comma) to set as the load-balancer status of Ingress objects this controller satisfies
+    publishStatusAddress: ""
+    # -- Service used to serve HTTP requests not matching any known server name (catch-all). Takes the form 'namespace/name'
+    defaultBackendService: ""
+    # -- Disable support for Services of type ExternalName
+    disableSvcExternalName: false
+    # -- Ingress refresh throttle duration
+    throttleDuration: ""
+    # -- Kubernetes certificate authority file path (not needed for in-cluster client)
+    certAuthFilePath: ""
+    # -- Kubernetes server endpoint (required for external cluster client)
+    endpoint: ""
+    # -- Kubernetes bearer token (not needed for in-cluster client). It accepts either a token value or a file path to the token
+    token: ""
+
+  knative:
+    # -- Enable Knative provider
+    enabled: false
+    # -- Array of namespaces to watch. If left empty, Traefik watches all namespaces. . When using `rbac.namespaced`, it will watch helm release namespace and namespaces listed in this array.
+    namespaces: []
+    # -- Allow filtering Knative Ingress objects
+    labelselector: ""
 
 # -- Add volumes to the traefik pod. The volume name will be passed to tpl.
 # This can be used to mount a cert pair or a configmap that holds a config.toml file.
@@ -982,7 +1027,7 @@ autoscaling:  # @schema additionalProperties: false
   metrics: []
   # -- behavior configures the scaling behavior of the target in both Up and Down directions (scaleUp and scaleDown fields respectively).
   behavior: {}
-  # -- scaleTargetRef points to the target resource to scale, and is used to the pods for which metrics should be collected, as well as to actually change the replica count.
+  # -- scaleTargetRef points to the target resource to scale, and is used for the pods for which metrics should be collected, as well as to actually change the replica count.
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -1100,14 +1145,14 @@ podSecurityContext:
 # See #595 for more details and traefik/tests/values/extra.yaml for example.
 extraObjects: []
 
-# -- This field override the default Release Namespace for Helm.
+# -- This field overrides the default Release Namespace for Helm.
 # It will not affect optional CRDs such as `ServiceMonitor` and `PrometheusRules`
 namespaceOverride: ""
 
-# -- This field override the default app.kubernetes.io/instance label for all Objects.
+# -- This field overrides the default app.kubernetes.io/instance label for all Objects.
 instanceLabelOverride: ""
 
-# -- This field override the default version extracted from image.tag
+# -- This field overrides the default version extracted from image.tag
 versionOverride: ""
 
 # Traefik Hub configuration. See https://doc.traefik.io/traefik-hub/
@@ -1197,7 +1242,7 @@ hub:
       partition: ""
       # -- Prefix for consul service tags.
       prefix: "traefik"
-      # -- Interval for check Consul API.
+      # -- Interval for checking Consul API.
       refreshInterval: 15
       # -- Forces the read to be fully consistent.
       requireConsistent: false
@@ -1265,7 +1310,7 @@ hub:
       key: ""
       # -- When insecureSkipVerify is set to true, the TLS connection accepts any certificate presented by the server. Default: false.
       insecureSkipVerify: false
-  # Enable export of errors logs to the platform. Default: true.
+  # Enable export of error logs to the platform. Default: true.
   sendlogs:  # @schema type:[boolean, null]
 
   tracing:

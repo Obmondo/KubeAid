@@ -7,5 +7,5 @@ dependencies:
     # 2.3v argocd failes with remote value files
     # 3.35.4v helm chart fails also with bad path of the values files (this is the last release for 2.2.x argocd)
     # please stick to 3.29.5, why ? cause its a tested and the last working helm chart version
-    version: "9.0.5"
+    version: "9.1.6"
     repository: https://argoproj.github.io/argo-helm

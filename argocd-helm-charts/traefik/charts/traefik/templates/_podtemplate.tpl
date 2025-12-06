@@ -176,9 +176,23 @@
             {{- tpl (toYaml .Values.additionalVolumeMounts) . | nindent 10 }}
           {{- end }}
           {{- range $localPluginName, $localPlugin := .Values.experimental.localPlugins }}
+            {{- $pluginType := include "traefik.getLocalPluginType" (dict "plugin" $localPlugin "pluginName" $localPluginName) }}
+            {{- if eq $pluginType "localPath" }}
+              {{- $localPathConfig := include "traefik.getLocalPluginLocalPath" (dict "plugin" $localPlugin) | fromYaml }}
+          - name: {{ $localPathConfig.volumeName }}
+            mountPath: {{ $localPlugin.mountPath | quote }}
+              {{- if $localPathConfig.subPath }}
+            subPath: {{ $localPathConfig.subPath }}
+              {{- end }}
+            {{- else }}
           - name: {{ $localPluginName | replace "." "-" }}
             mountPath: {{ $localPlugin.mountPath | quote }}
+              {{- if eq $pluginType "inlinePlugin" }}
+            readOnly: true
+              {{- end }}
+            {{- end }}
           {{- end }}
+
         args:
           {{- with .Values.global }}
            {{- if not .checkNewVersion }}
@@ -416,6 +430,9 @@
           - "--experimental.fastProxy.debug"
             {{- end }}
           {{- end }}
+          {{- if .Values.experimental.otlpLogs }}
+          - "--experimental.otlpLogs=true"
+          {{- end }}
           {{- range $pluginName, $plugin := .Values.experimental.plugins }}
           {{- if or (ne (typeOf $plugin) "map[string]interface {}") (not (hasKey $plugin "moduleName")) (not (hasKey $plugin "version")) }}
             {{- fail  (printf "ERROR: plugin %s is missing moduleName/version keys !" $pluginName) }}
@@ -442,6 +459,7 @@
           - "--experimental.localPlugins.{{ $localPluginName }}.settings.useUnsafe=true"
            {{- end }}
           {{- end }}
+
           {{- if and (semverCompare ">=v3.3.0-0" $version) (.Values.experimental.abortOnPluginFailure)}}
           - "--experimental.abortonpluginfailure={{ .Values.experimental.abortOnPluginFailure }}"
           {{- end }}
@@ -481,7 +499,7 @@
           - "--providers.kubernetesingress.allowEmptyServices={{ . }}"
             {{- end }}
            {{- end }}
-           {{- if and .Values.service.enabled .Values.providers.kubernetesIngress.publishedService.enabled }}
+           {{- if or (and .Values.service.enabled .Values.providers.kubernetesIngress.publishedService.enabled) (and .Values.providers.kubernetesIngress.publishedService.enabled .Values.providers.kubernetesIngress.publishedService.pathOverride)}}
           - "--providers.kubernetesingress.ingressendpoint.publishedservice={{ template "providers.kubernetesIngress.publishedServicePath" . }}"
            {{- end }}
            {{- if .Values.providers.kubernetesIngress.labelSelector }}
@@ -509,6 +527,9 @@
           {{- end }}
           {{- if .Values.experimental.kubernetesGateway.enabled }}
           - "--experimental.kubernetesgateway"
+          {{- end }}
+          {{- if .Values.experimental.knative }}
+          - "--experimental.knative"
           {{- end }}
           {{- with .Values.providers.kubernetesCRD }}
           {{- if (and .enabled (or .namespaces (and $.Values.rbac.enabled $.Values.rbac.namespaced))) }}
@@ -556,6 +577,64 @@
           - "--providers.file.watch=true"
           {{- end }}
           {{- end }}
+          {{- end }}
+          {{- with .Values.providers.kubernetesIngressNginx }}
+           {{- if .enabled }}
+          - "--providers.kubernetesingressnginx"
+            {{- with .controllerClass }}
+          - "--providers.kubernetesingressnginx.controllerclass={{ . }}"
+            {{- end }}
+            {{- with .ingressClass }}
+          - "--providers.kubernetesingressnginx.ingressclass={{ . }}"
+            {{- end }}
+            {{- if .ingressClassByName }}
+          - "--providers.kubernetesingressnginx.ingressclassbyname=true"
+            {{- end }}
+            {{- if .watchIngressWithoutClass }}
+          - "--providers.kubernetesingressnginx.watchingresswithoutclass=true"
+            {{- end }}
+            {{- if or .namespaces (and $.Values.rbac.enabled $.Values.rbac.namespaced) }}
+          - "--providers.kubernetesingressnginx.watchnamespace={{ template "providers.kubernetesIngressNginx.namespaces" $ }}"
+            {{- end }}
+            {{- with .namespaceSelector }}
+          - "--providers.kubernetesingressnginx.watchnamespaceselector={{ . }}"
+            {{- end }}
+            {{- if and $.Values.service.enabled .publishService.enabled }}
+          - "--providers.kubernetesingressnginx.publishservice={{ template "providers.kubernetesIngressNginx.publishServicePath" $ }}"
+            {{- end }}
+            {{- with .publishStatusAddress }}
+          - "--providers.kubernetesingressnginx.publishstatusaddress={{ . }}"
+            {{- end }}
+            {{- with .defaultBackendService }}
+          - "--providers.kubernetesingressnginx.defaultbackendservice={{ . }}"
+            {{- end }}
+            {{- if .disableSvcExternalName }}
+          - "--providers.kubernetesingressnginx.disablesvcexternalname=true"
+            {{- end }}
+            {{- with .throttleDuration }}
+          - "--providers.kubernetesingressnginx.throttleduration={{ . }}"
+            {{- end }}
+            {{- with .certAuthFilePath }}
+          - "--providers.kubernetesingressnginx.certauthfilepath={{ . }}"
+            {{- end }}
+            {{- with .endpoint }}
+          - "--providers.kubernetesingressnginx.endpoint={{ . }}"
+            {{- end }}
+            {{- with .token }}
+          - "--providers.kubernetesingressnginx.token={{ . }}"
+            {{- end }}
+           {{- end }}
+          {{- end }}
+          {{- with .Values.providers.knative }}
+           {{- if .enabled }}
+          - "--providers.knative"
+            {{- if or .namespaces (and $.Values.rbac.enabled $.Values.rbac.namespaced) }}
+          - "--providers.knative.namespaces={{ template "providers.knative.namespaces" $ }}"
+            {{- end }}
+            {{- with .labelselector }}
+          - "--providers.knative.labelselector={{ . }}"
+            {{- end }}
+           {{- end }}
           {{- end }}
           {{- range $entrypoint, $config := $.Values.ports }}
           {{- if $config }}
@@ -910,9 +989,24 @@
           {{- toYaml .Values.deployment.additionalVolumes | nindent 8 }}
         {{- end }}
         {{- range $localPluginName, $localPlugin := .Values.experimental.localPlugins }}
+        {{- $pluginType := include "traefik.getLocalPluginType" (dict "plugin" $localPlugin "pluginName" $localPluginName) }}
+        {{- if ne $pluginType "localPath" }}
         - name: {{ $localPluginName | replace "." "-" }}
+          {{- if eq $pluginType "hostPath" }}
+          {{- $hostPath := include "traefik.getLocalPluginHostPath" (dict "plugin" $localPlugin) }}
           hostPath:
-            path: {{ $localPlugin.hostPath | quote }}
+            path: {{ $hostPath | quote }}
+          {{- else if eq $pluginType "inlinePlugin" }}
+          configMap:
+            name: {{ include "traefik.localPluginCmName" (dict "context" $ "pluginName" $localPluginName) }}
+          {{- end }}
+        {{- else }}
+        {{- $localPathConfig := include "traefik.getLocalPluginLocalPath" (dict "plugin" $localPlugin) | fromYaml }}
+        {{- $volumeExists := include "traefik.volumeExistsInAdditionalVolumes" (dict "volumeName" $localPathConfig.volumeName "additionalVolumes" $.Values.deployment.additionalVolumes) }}
+        {{- if ne $volumeExists "true" }}
+          {{- fail (printf "ERROR: localPlugin %s references volume '%s' which is not found in deployment.additionalVolumes!" $localPluginName $localPathConfig.volumeName) }}
+        {{- end }}
+        {{- end }}
         {{- end }}
         {{- if and (gt (len .Values.experimental.plugins) 0) (ne (include "traefik.hasPluginsVolume" .Values.deployment.additionalVolumes) "true") }}
         - name: plugins

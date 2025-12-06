@@ -467,17 +467,22 @@ listens if you do not provide your own. The chart can create
 configure them for you. To use this integration, install cert-manager, create
 an issuer, set `certificates.enabled: true` in values.yaml, and set your issuer
 name in `certificates.issuer` or `certificates.clusterIssuer` depending on the
-issuer type. 
+issuer type.
 
 If you do not have an issuer available, you can install the example [self-signed ClusterIssuer](https://cert-manager.io/docs/configuration/selfsigned/#bootstrapping-ca-issuers)
 and set `certificates.clusterIssuer: selfsigned-issuer` for testing. You
 should, however, migrate to an issuer using a CA your clients trust for actual
 usage.
 
-The `proxy`, `admin`, `portal`, and `cluster` subsections under `certificates`
+The `proxy`, `admin`, `manager`, `portal`, and `cluster` subsections under `certificates`
 let you choose hostnames, override issuers, set `subject` or set `privateKey` on a per-certificate basis for the
-proxy, admin API and Manager, Portal and Portal API, and hybrid mode mTLS
+proxy, admin API, Kong Manager (Enterprise only), Portal and Portal API, and hybrid mode mTLS
 services, respectively.
+
+For Kong Enterprise deployments, the `manager` certificate configuration allows you to generate a dedicated
+certificate for Kong Manager (the admin GUI) separate from the admin API certificate. This improves security
+by allowing different hostnames and access patterns for the GUI versus the API. If `certificates.manager.enabled`
+is not set, Kong Manager will fall back to using the admin certificate for backward compatibility.
 
 To use hybrid mode, the control and data plane releases must use the same
 issuer for their cluster certificates.
@@ -617,7 +622,7 @@ directory.
 | image.pullPolicy                   | Image pull policy                                                                     | `IfNotPresent`      |
 | image.pullSecrets                  | Image pull secrets                                                                    | `null`              |
 | replicaCount                       | Kong instance count. It has no effect when `autoscaling.enabled` is set to true       | `1`                 |
-| plugins                            | Install custom plugins into Kong via ConfigMaps or Secrets                            | `{}`                |
+| plugins                            | Install custom plugins into Kong via ConfigMaps, Secrets or preInstalled                            | `{}`                |
 | env                                | Additional [Kong configurations](https://getkong.org/docs/latest/configuration/)      |                     |
 | customEnv                          | Custom Environment variables without `KONG_` prefix                                   |                     |
 | envFrom                            | Populate environment variables from ConfigMap or Secret keys                          |                     |
@@ -627,6 +632,7 @@ directory.
 | migrations.ttlSecondsAfterFinished | Automatically deletes completed pods after a specified time to clean up resources     |                     |
 | migrations.jobAnnotations          | Additional annotations for migration jobs                                             | `{}`                |
 | migrations.backoffLimit            | Override the system backoffLimit                                                      | `{}`                |
+| migrations.waitContainer.securityContext | Security context configurations for wait-for-postgres migrations init container |                     |
 | waitImage.enabled                  | Spawn init containers that wait for the database before starting Kong                 | `true`              |
 | waitImage.repository               | Image used to wait for database to become ready. Uses the Kong image if none set      |                     |
 | waitImage.tag                      | Tag for image used to wait for database to become ready                               |                     |
@@ -709,7 +715,7 @@ or `ingress` sections, as it is used only for stream listens.
 
 #### Admin Service mTLS
 
-On top of the common parameters listed above, the `admin` service supports parameters for mTLS client verification. 
+On top of the common parameters listed above, the `admin` service supports parameters for mTLS client verification.
 If any of `admin.tls.client.caBundle` or `admin.tls.client.secretName` are set, the admin service will be configured to
 require mTLS client verification. If both are set, `admin.tls.client.caBundle` will take precedence.
 
@@ -743,6 +749,7 @@ section of `values.yaml` file:
 | image.repository                           | Docker image with the ingress controller                                                                                                                 | kong/kubernetes-ingress-controller |
 | image.tag                                  | Version of the ingress controller                                                                                                                        | `3.4`                              |
 | image.effectiveSemver                      | Version of the ingress controller used for version-specific features when image.tag is not a valid semantic version                                      |                                    |
+| image.pullSecrets                          | Pull secrets for the ingress controller deployment. The value is not effective when top level image.pullSecret is present.                                  |                                    |
 | readinessProbe                             | Kong ingress controllers readiness probe                                                                                                                 |                                    |
 | livenessProbe                              | Kong ingress controllers liveness probe                                                                                                                  |                                    |
 | installCRDs                                | Legacy toggle for Helm 2-style CRD management. Should not be set [unless necessary due to cluster permissions](#removing-cluster-scoped-permissions).    | false                              |
@@ -750,9 +757,11 @@ section of `values.yaml` file:
 | customEnv                                  | Specify custom environment variables (without the CONTROLLER_ prefix)                                                                                    |                                    |
 | envFrom                                    | Populate environment variables from ConfigMap or Secret keys                                                                                             |                                    |
 | ingressClass                               | The name of this controller's ingressClass                                                                                                               | kong                               |
+| createIngressClass               | Create the `IngressClass` with the name as specified in `ingressClass` if not exist                                                                                | true                               |
 | ingressClassAnnotations                    | The ingress-class value for controller                                                                                                                   | kong                               |
 | args                                       | List of ingress-controller cli arguments                                                                                                                 | []                                 |
 | watchNamespaces                            | List of namespaces to watch. Watches all namespaces if empty                                                                                             | []                                 |
+| rbac.enableClusterRoles                    | Create ClusterRoles and ClusterRoleBindings required for watching cluster scoped resources. Set it to `false` and add at least one namespace in `watchNamespaces` to disable creating of ClusterRoles and ClusterRoleBindings. | true                                 |
 | admissionWebhook.enabled                   | Whether to enable the validating admission webhook                                                                                                       | true                               |
 | admissionWebhook.failurePolicy             | How unrecognized errors from the admission endpoint are handled (Ignore or Fail)                                                                         | Ignore                             |
 | admissionWebhook.filterSecrets             | Limit the webhook to only Secrets with the appropriate KIC validation labels.                                                                            | false                              |
@@ -881,6 +890,7 @@ On the Gateway release side, set either `admin.tls.client.secretName` to the nam
 | autoscaling.enabled                | Set this to `true` to enable autoscaling                                              | `false`             |
 | autoscaling.minReplicas            | Set minimum number of replicas                                                        | `2`                 |
 | autoscaling.maxReplicas            | Set maximum number of replicas                                                        | `5`                 |
+| autoscaling.annotations            | Annotations for autoscaling                                                           | {}                  |
 | autoscaling.behavior               | Sets the [behavior for scaling up and down](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#configurable-scaling-behavior) | `{}`                |
 | autoscaling.targetCPUUtilizationPercentage | Target Percentage for when autoscaling takes affect. Only used if cluster does not support `autoscaling/v2` or `autoscaling/v2beta2` | `80`  |
 | autoscaling.metrics                | metrics used for autoscaling for clusters that supports `autoscaling/v2` or `autoscaling/v2beta2`           | See [values.yaml](values.yaml) |
@@ -903,13 +913,14 @@ On the Gateway release side, set either `admin.tls.client.secretName` to the nam
 | podDisruptionBudget.enabled        | Enable PodDisruptionBudget for Kong                                                   | `false`             |
 | podDisruptionBudget.maxUnavailable | Represents the minimum number of Pods that can be unavailable (integer or percentage) | `50%`               |
 | podDisruptionBudget.minAvailable   | Represents the number of Pods that must be available (integer or percentage)          |                     |
+| podDisruptionBudget.unhealthyPodEvictionPolicy | Controls the criteria when unhealthy Pods should be considered for eviction. Either `AlwaysAllow` or `IfHealthyBudget` | `IfHealthyBudget`   |
 | podSecurityPolicy.enabled          | Enable podSecurityPolicy for Kong                                                     | `false`             |
 | podSecurityPolicy.labels           | Labels to add to podSecurityPolicy for Kong                                           | `{}`             |
 | podSecurityPolicy.annotations      | Annotations to add to podSecurityPolicy for Kong                                      | `{}`             |
 | podSecurityPolicy.spec             | Collection of [PodSecurityPolicy settings](https://kubernetes.io/docs/concepts/policy/pod-security-policy/#what-is-a-pod-security-policy) | |
 | priorityClassName                  | Set pod scheduling priority class for Kong pods                                       | `""`                |
 | secretVolumes                      | Mount given secrets as a volume in Kong container to override default certs and keys. | `[]`                |
-| securityContext                    | Set the securityContext for Kong Pods                                                 | `{}`                |
+| securityContext                    | Set the securityContext for Kong Pods                                                 | See values.yaml     |
 | containerSecurityContext           | Set the securityContext for Containers                                                | See values.yaml     |
 | serviceMonitor.enabled             | Create ServiceMonitor for Prometheus Operator                                         | `false`             |
 | serviceMonitor.trustCRDsExist      | Do not check for the Prometheus Operator CRDs, just try to deploy                     | `false`             |
@@ -937,11 +948,11 @@ containerSecurityContext: # run as root to bind to lower ports
   runAsUser: 0
 ```
 
-**Note:** The default `podAnnotations` values disable inbound proxying for Kuma 
-and Istio. This is appropriate when using Kong as a gateway for external 
+**Note:** The default `podAnnotations` values disable inbound proxying for Kuma
+and Istio. This is appropriate when using Kong as a gateway for external
 traffic inbound into the cluster.
 
-If you want to use Kong as an internal proxy within the cluster network, you 
+If you want to use Kong as an internal proxy within the cluster network, you
 should enable inbound the inbound mesh proxies:
 
 ```yaml

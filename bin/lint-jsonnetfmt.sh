@@ -14,4 +14,8 @@ find . -not -path ./build/kube-prometheus/libraries/\* -name \*.jsonnet |
 
   done
 
-jsonnetfmt --test ./build/kube-prometheus/common-template.jsonnet
+if ! jsonnetfmt --test ./build/kube-prometheus/common-template.jsonnet; then
+  echo "Error, bad jsonnet ./build/kube-prometheus/common-template.jsonnet"
+else
+  echo "Success"
+fi

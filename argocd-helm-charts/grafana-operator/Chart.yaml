@@ -3,7 +3,7 @@ name: grafana-operator
 version: 0.1.2
 dependencies:
   - name: grafana-operator
-    version: v5.6.0
+    version: v5.20.0
     # helm repo update, does not support OCI, so its manually done
     # helm pull is what will work
-    repository: oci://ghcr.io/grafana/helm-charts/grafana-operator
+    repository: oci://ghcr.io/grafana/helm-charts

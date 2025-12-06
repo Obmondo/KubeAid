@@ -1,3 +1,28 @@
+## v0.83.3 (2025-11-28)
+
+### New features
+
+- Update GitLab Runner version to v18.6.3
+
+## v0.83.2 (2025-11-25)
+
+### New features
+
+- Update GitLab Runner version to v18.6.2
+
+## v0.83.1 (2025-11-21)
+
+### New features
+
+- Update GitLab Runner version to v18.6.1
+
+## v0.83.0 (2025-11-20)
+
+### New features
+
+- Update GitLab Runner version to v18.6.0
+- feat: add native envFrom [!521](https://gitlab.com/gitlab-org/charts/gitlab-runner/-/merge_requests/521) (zadkiel @zadkiel)
+
 ## v0.82.0 (2025-10-17)
 
 ### New features

@@ -1,0 +1,54 @@
+autocert:
+  enabled: false
+bootstrap:
+  enabled: false
+ca:
+  db:
+      enabled: true
+      persistent: false
+inject:
+  config:
+    files:
+      ca.json:
+        address: :9100
+        authority:
+          certificateAuthority: https://your-ca-name.your-org.ca.smallstep.com
+          certificateAuthorityFingerprint: your-ca-fingerprint-here
+          certificateIssuer:
+            provisioner: registration-authority
+            type: jwk
+          provisioners:
+            - name: acme
+              type: ACME
+          type: stepcas
+        crt: ''
+        dnsNames:
+          - your-local-dns.your-internal-zone.com
+          - step-step-certificates.your-k8s-namespace.svc.cluster.local
+        logger:
+            format: json
+        tls:
+          cipherSuites:
+          - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+          - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+          maxVersion: 1.3
+          minVersion: 1.2
+          renegotiation: false
+      defaults.json:
+        ca-url: https://your-ca-name.your-org.ca.smallstep.com
+        fingerprint: your-ca-fingerprint-here
+        redirect-url: ''
+  enabled: true
+  secrets:
+    certificate_issuer:
+      enabled: true
+      password: your-base-64-encoded-key-password
+    ssh:
+      enabled: false
+    x509:
+      enabled: false
+service:
+  nodePort: 32400
+  port: 443
+  targetPort: 9100
+  type: NodePort

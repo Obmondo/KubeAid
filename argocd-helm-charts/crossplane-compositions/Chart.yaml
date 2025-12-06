@@ -1,9 +1,8 @@
 apiVersion: v2
 name: crossplane-compositions
 version: 1.0.0
-
 dependencies:
   - name: azure
-    version: 1.0.0
+    version: ""
     repository: "file://charts/azure"
     condition: azure.enable

@@ -1,0 +1,223 @@
+# Default values for dragonfly.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# -- Number of replicas to deploy
+replicaCount: 1
+
+image:
+  # -- Container Image Registry to pull the image from
+  repository: docker.dragonflydb.io/dragonflydb/dragonfly
+  # -- Dragonfly image pull policy
+  pullPolicy: IfNotPresent
+  # -- Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+# -- Container Registry Secret names in an array
+imagePullSecrets: []
+
+# -- String to partially override dragonfly.fullname
+nameOverride: ""
+
+# -- String to fully override dragonfly.fullname
+fullnameOverride: ""
+
+serviceAccount:
+  # -- Specifies whether a service account should be created
+  create: true
+  # -- Annotations to add to the service account
+  annotations: {}
+  # -- The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# -- Annotations for pods
+podAnnotations: {}
+
+# -- Set securityContext for pod itself
+podSecurityContext: {}
+  # fsGroup: 2000
+
+# -- Set securityContext for containers
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+# -- Set hostNetwork for pod
+hostNetwork: false
+
+service:
+  # -- Service type to provision. Can be NodePort, ClusterIP or LoadBalancer
+  type: ClusterIP
+  # -- Load balancer static ip to use when service type is set to LoadBalancer
+  loadBalancerIP: ""
+  # -- Cluster IP address to assign to the service. Leave empty to auto-allocate
+  clusterIP: ""
+  # -- Dragonfly service port
+  port: 6379
+  # -- Extra annotations for the service
+  annotations: {}
+  # -- Extra labels for the service
+  labels: {}
+  metrics:
+    # -- name for the metrics port
+    portName: metrics
+    # -- serviceType for the metrics service
+    serviceType: ClusterIP
+
+serviceMonitor:
+  # -- If true, a ServiceMonitor CRD is created for a prometheus operator
+  enabled: false
+  # -- namespace in which to deploy the ServiceMonitor CR. defaults to the application namespace
+  namespace: ""
+  # -- additional labels to apply to the metrics
+  labels: {}
+  # -- additional annotations to apply to the metrics
+  annotations: {}
+  # -- scrape interval
+  interval: 10s
+  # -- scrape timeout
+  scrapeTimeout: 10s
+
+prometheusRule:
+  # -- Deploy a PrometheusRule
+  enabled: false
+  # -- PrometheusRule.Spec
+  # https://awesome-prometheus-alerts.grep.to/rules
+  spec: []
+
+storage:
+  # -- If /data should persist. This will provision a StatefulSet instead.
+  enabled: false
+  # -- Global StorageClass for Persistent Volume(s)
+  storageClassName: ""
+  # -- Volume size to request for the PVC
+  requests: 128Mi
+
+tls:
+  # -- enable TLS
+  enabled: false
+  # -- use cert-manager to automatically create the certificate
+  createCerts: false
+  # -- duration or ttl of the validity of the created certificate
+  duration: 87600h0m0s
+  issuer:
+    # -- cert-manager issuer kind. Usually Issuer or ClusterIssuer
+    kind: ClusterIssuer
+    # -- name of the referenced issuer
+    name: selfsigned
+    # -- group of the referenced issuer
+    # if you are using an external issuer, change this to that issuer group.
+    group: cert-manager.io
+  # -- use TLS certificates from existing secret
+  existing_secret: ""
+  # -- TLS certificate
+  cert: ""
+  # cert: |
+  #   -----BEGIN CERTIFICATE-----
+  #   MIIDazCCAlOgAwIBAgIUfV3ygaaVW3+yzK5Dq6Aw6TsZ494wDQYJKoZIhvcNAQEL
+  #   ...
+  #   BQAwRTELMAkGA1UEBhMCQVUxEzARBgNVBAgMClNvbWUtU3RhdGUxITAfBgNVBAoM
+  #   zJAL4hNw4Tr6E52fqdmX
+  #   -----END CERTIFICATE-----
+  # -- TLS private key
+  key: ""
+  # key: |
+  #   -----BEGIN RSA PRIVATE KEY-----
+  #   MIIEpAIBAAKCAQEAxeD5iQGQpCUlksFvjzzAxPTw6DMJd3MpifV+HoBY4LiTyDer
+  #   ...
+  #   HLunol88AeTOcKfD6hBYGvcRfu5NV29jJxZCOBfbFQXjnNlnrhRCag==
+  #   -----END RSA PRIVATE KEY-----
+
+# If enabled will set DFLY_PASSWORD environment variable with the specified existing secret value
+# Note that if enabled and the secret does not exist pods will not start
+passwordFromSecret:
+  enable: false
+  existingSecret:
+    name: ""
+    key: ""
+
+
+probes:
+  livenessProbe:
+    exec:
+      command:
+        - /bin/sh
+        - /usr/local/bin/healthcheck.sh
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+  readinessProbe:
+    exec:
+      command:
+        - /bin/sh
+        - /usr/local/bin/healthcheck.sh
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+
+# -- Allow overriding the container's command
+command: []
+
+# -- Extra arguments to pass to the dragonfly binary
+extraArgs: []
+
+# -- Extra volumes to mount into the pods
+extraVolumes: []
+
+# -- Extra volume mounts corresponding to the volumes mounted above
+extraVolumeMounts: []
+
+# -- A list of initContainers to run before each pod starts
+initContainers: []
+
+# -- Additional sidecar containers
+extraContainers: []
+
+# -- extra K8s manifests to deploy
+extraObjects: []
+  # - apiVersion: cert-manager.io/v1
+  #   kind: ClusterIssuer
+  #   metadata:
+  #     name: selfsigned
+  #   spec:
+  #     selfSigned: {}
+
+resources:
+  # -- The requested resources for the containers
+  requests: {}
+  #   cpu: 100m
+  #   memory: 128Mi
+  # -- The resource limits for the containers
+  limits: {}
+  #   cpu: 100m
+  #   memory: 128Mi
+
+# -- extra environment variables
+env: []
+
+# -- extra environment variables from K8s objects
+envFrom: []
+
+# -- Priority class name for pod assignment
+priorityClassName: ""
+
+# -- Node labels for pod assignment
+nodeSelector: {}
+
+# -- Tolerations for pod assignment
+tolerations: []
+
+# -- Affinity for pod assignment
+affinity: {}
+
+# -- Topology Spread Constraints for pod assignment
+topologySpreadConstraints: []

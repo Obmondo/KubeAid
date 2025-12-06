@@ -52,6 +52,12 @@ spec:
         prometheus.io/port: '9402'
       {{- end }}
     spec:
+      {{- if not .Values.serviceAccount.create }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
       serviceAccountName: {{ template "cert-manager.serviceAccountName" . }}
       {{- if hasKey .Values "automountServiceAccountToken" }}
       automountServiceAccountToken: {{ .Values.automountServiceAccountToken }}
@@ -59,6 +65,9 @@ spec:
       enableServiceLinks: {{ .Values.enableServiceLinks }}
       {{- with .Values.global.priorityClassName }}
       priorityClassName: {{ . | quote }}
+      {{- end }}
+      {{- if (hasKey .Values.global "hostUsers") }}
+      hostUsers: {{ .Values.global.hostUsers }}       
       {{- end }}
       {{- with .Values.securityContext }}
       securityContext:
@@ -203,9 +212,11 @@ spec:
             failureThreshold: {{ .failureThreshold }}
           {{- end }}
           {{- end }}
-      {{- with .Values.nodeSelector }}
+      {{- with (coalesce .Values.nodeSelector .Values.global.nodeSelector) }}
       nodeSelector:
-        {{- toYaml . | nindent 8 }}
+        {{- range $key, $value := . }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
       {{- end }}
       {{- with .Values.affinity }}
       affinity:

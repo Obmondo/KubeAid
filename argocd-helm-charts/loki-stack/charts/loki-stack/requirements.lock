@@ -4,7 +4,7 @@ dependencies:
   version: 2.16.0
 - name: promtail
   repository: https://grafana.github.io/helm-charts
-  version: 6.15.5
+  version: 6.17.0
 - name: fluent-bit
   repository: https://grafana.github.io/helm-charts
   version: 2.6.0
@@ -20,5 +20,5 @@ dependencies:
 - name: logstash
   repository: https://helm.elastic.co
   version: 7.17.3
-digest: sha256:607fbf79cc23fa427b2143f9d12d83f59f4732c21ac6565bf1af872a24556ad2
-generated: "2024-03-11T22:16:50.116570716Z"
+digest: sha256:f8c01bb6ec6d4e1e9c6ab39af858a3c048446f6a44b14508854d4d3afd299a14
+generated: "2025-10-31T19:30:59.818154669Z"

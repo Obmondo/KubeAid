@@ -173,7 +173,7 @@ Create Service resource for a Kong service
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .fullName }}-{{ .serviceName }}
+  name: {{ .nameOverride | default (printf "%s-%s" .fullName .serviceName) }}
   namespace: {{ .namespace }}
   {{- if .annotations }}
   annotations:
@@ -531,15 +531,9 @@ The name of the Service which will be used by the controller to update the Ingre
   {{- fail "ingressController.gatewayDiscovery.enabled has to be true when ingressController.konnect.enabled"}}
   {{- end }}
 
-  {{- $konnect := .Values.ingressController.konnect -}}
+  {{- $_ = set $autoEnv "CONTROLLER_KONNECT_CONTROL_PLANE_ID" (include "kong.ingress.konnect.controlPlaneID" .) -}}
 
-  {{- if $konnect.controlPlaneID }}
-  {{- $_ = set $autoEnv "CONTROLLER_KONNECT_CONTROL_PLANE_ID" $konnect.controlPlaneID -}}
-  {{- else if $konnect.runtimeGroupID }}
-  {{- $_ = set $autoEnv "CONTROLLER_KONNECT_CONTROL_PLANE_ID" $konnect.runtimeGroupID -}}
-  {{- else }}
-  {{- fail "At least one of konnect.controlPlaneID or konnect.runtimeGroupID must be set." -}}
-  {{- end }}
+  {{- $konnect := .Values.ingressController.konnect -}}
 
   {{- $_ = set $autoEnv "CONTROLLER_KONNECT_SYNC_ENABLED" true -}}
   {{- $_ = set $autoEnv "CONTROLLER_KONNECT_ADDRESS" (printf "https://%s" .Values.ingressController.konnect.apiHostname) -}}
@@ -649,6 +643,11 @@ The name of the Service which will be used by the controller to update the Ingre
     secretName: {{ include "kong.fullname" . }}-admin-cert
 {{- end }}
 {{- if .Values.enterprise.enabled }}
+{{- if .Values.certificates.manager.enabled }}
+- name: {{ include "kong.fullname" . }}-manager-cert
+  secret:
+    secretName: {{ include "kong.fullname" . }}-manager-cert
+{{- end }}
 {{- if .Values.certificates.portal.enabled }}
 - name: {{ include "kong.fullname" . }}-portal-cert
   secret:
@@ -771,6 +770,10 @@ The name of the Service which will be used by the controller to update the Ingre
   mountPath: /etc/cert-manager/admin/
 {{- end }}
 {{- if .Values.enterprise.enabled }}
+{{- if .Values.certificates.manager.enabled }}
+- name: {{ include "kong.fullname" . }}-manager-cert
+  mountPath: /etc/cert-manager/manager/
+{{- end }}
 {{- if .Values.certificates.portal.enabled }}
 - name: {{ include "kong.fullname" . }}-portal-cert
   mountPath: /etc/cert-manager/portal/
@@ -842,6 +845,12 @@ The name of the Service which will be used by the controller to update the Ingre
 {{- end -}}
 {{- range .Values.plugins.secrets -}}
   {{ $myList = append $myList .pluginName -}}
+{{- end }}
+{{- if .Values.plugins.preInstalled -}}
+  {{- $preInstalledPlugins := split "," .Values.plugins.preInstalled -}}
+  {{- range $preInstalledPlugins -}}
+    {{- $myList = append $myList . -}}
+  {{- end -}}
 {{- end }}
 {{- $myList | uniq | join "," -}}
 {{- end -}}
@@ -1030,7 +1039,13 @@ the template that it itself is using form the above sections.
   {{- if .Values.certificates.admin.enabled -}}
     {{- $_ := set $autoEnv "KONG_ADMIN_SSL_CERT" "/etc/cert-manager/admin/tls.crt" -}}
     {{- $_ := set $autoEnv "KONG_ADMIN_SSL_CERT_KEY" "/etc/cert-manager/admin/tls.key" -}}
-    {{- if .Values.enterprise.enabled }}
+  {{- end -}}
+
+  {{- if .Values.enterprise.enabled -}}
+    {{- if .Values.certificates.manager.enabled -}}
+      {{- $_ := set $autoEnv "KONG_ADMIN_GUI_SSL_CERT" "/etc/cert-manager/manager/tls.crt" -}}
+      {{- $_ := set $autoEnv "KONG_ADMIN_GUI_SSL_CERT_KEY" "/etc/cert-manager/manager/tls.key" -}}
+    {{- else if .Values.certificates.admin.enabled -}}
       {{- $_ := set $autoEnv "KONG_ADMIN_GUI_SSL_CERT" "/etc/cert-manager/admin/tls.crt" -}}
       {{- $_ := set $autoEnv "KONG_ADMIN_GUI_SSL_CERT_KEY" "/etc/cert-manager/admin/tls.key" -}}
     {{- end -}}
@@ -1261,6 +1276,12 @@ Environment variables are sorted alphabetically
   image: {{ include "kong.getRepoTag" .Values.image }}
 {{- end }}
   imagePullPolicy: {{ .Values.waitImage.pullPolicy }}
+  {{- with .Values.migrations.waitContainer }}
+    {{- if .securityContext }}
+  securityContext:
+    {{- toYaml .securityContext | nindent 6 }}
+    {{- end }}
+  {{- end }}
   env:
   {{- include "kong.no_daemon_env" . | nindent 2 }}
   {{- include "kong.envFrom" .Values.envFrom | nindent 2 }}
@@ -1304,6 +1325,23 @@ role sets used in the charts. Updating these requires separating out cluster
 resource roles into their separate templates.
 */}}
 {{- define "kong.kubernetesRBACRules" -}}
+{{- if and (.Values.ingressController.konnect.license.enabled) (semverCompare ">= 3.5.0" (include "kong.effectiveVersion" .Values.ingressController.image))}}
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  resourceNames:
+  - konnect-license-{{template "kong.ingress.konnect.controlPlaneID" .}}
+  verbs:
+  - get
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+{{- end }}
 {{- if (semverCompare ">= 3.4.0" (include "kong.effectiveVersion" .Values.ingressController.image)) }}
 - apiGroups:
   - ""
@@ -1313,8 +1351,7 @@ resource roles into their separate templates.
   - get
   - list
   - watch
-{{- if or (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1alpha3") (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1alpha2") (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1beta1") (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1")}}
-{{- end }}
+{{- if or (.Values.ingressController.rbac.gatewayAPI.enabled) (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1alpha3") (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1alpha2") (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1beta1") (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1")}}
 - apiGroups:
   - gateway.networking.k8s.io
   resources:
@@ -1330,6 +1367,7 @@ resource roles into their separate templates.
   verbs:
   - patch
   - update
+{{- end }}
 {{- end }}
 {{- if (semverCompare ">= 3.2.0" (include "kong.effectiveVersion" .Values.ingressController.image)) }}
 - apiGroups:
@@ -1562,7 +1600,7 @@ resource roles into their separate templates.
   - get
   - patch
   - update
-{{- if or (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1alpha2") (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1beta1") (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1")}}
+{{- if or (.Values.ingressController.rbac.gatewayAPI.enabled) (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1alpha2") (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1beta1") (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1")}}
 - apiGroups:
   - gateway.networking.k8s.io
   resources:
@@ -1781,7 +1819,7 @@ Kubernetes Cluster-scoped resources it uses to build Kong configuration.
   - list
   - watch
 {{- end }}
-{{- if or (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1alpha2") (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1beta1") (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1")}}
+{{- if or (.Values.ingressController.rbac.gatewayAPI.enabled) (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1alpha2") (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1beta1") (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1")}}
 - apiGroups:
   - gateway.networking.k8s.io
   resources:
@@ -1806,6 +1844,7 @@ Kubernetes Cluster-scoped resources it uses to build Kong configuration.
   - list
   - watch
 {{- end }}
+{{ if .Values.ingressController.createIngressClass }}
 - apiGroups:
   - networking.k8s.io
   resources:
@@ -1814,6 +1853,7 @@ Kubernetes Cluster-scoped resources it uses to build Kong configuration.
   - get
   - list
   - watch
+{{- end -}}
 {{- end -}}
 
 {{- define "kong.autoscalingVersion" -}}
@@ -1868,4 +1908,16 @@ envFrom:
 {{- toYaml . | nindent 2 -}}
   {{- else -}}
   {{- end -}}
+{{- end -}}
+
+{{- define "kong.ingress.konnect.controlPlaneID" -}}
+{{- if .Values.ingressController.konnect.enabled -}}
+{{- if .Values.ingressController.konnect.controlPlaneID -}}
+{{ .Values.ingressController.konnect.controlPlaneID }}
+{{- else if .Values.ingressController.konnect.runtimeGroupID -}}
+{{ .Values.ingressController.konnect.runtimeGroupID }}
+{{- else -}}
+{{- fail "At least one of konnect.controlPlaneID or konnect.runtimeGroupID must be set." -}}
+{{- end -}}
+{{- end -}}
 {{- end -}}

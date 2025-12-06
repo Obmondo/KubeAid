@@ -31,14 +31,5 @@ jobs:
       run: |
         opa test ./argocd-helm-charts/gatekeeper/policies -v
 
-    - name: helm-diff
-      if: ${{ github.event_name == 'pull_request' && !startsWith(github.event.pull_request.title, ':no-diff') }}
-      run: |
-        export KUBERNETES_CONFIG_REPO_URL=${{ secrets.KUBERNETES_CONFIG_REPO_URL }}
-        export GITEA_TOKEN=${{ secrets.GITEA_TOKEN }}
-        export CI_MERGE_REQUEST_TARGET_BRANCH_NAME=${{ github.base_ref }}
-        export CI_MERGE_REQUEST_SOURCE_BRANCH_NAME=${{ github.head_ref }}
-        chmod +x ./bin/helm-diff.sh
-
     - name: jsonnetlint
       run: ./bin/lint-jsonnetfmt.sh

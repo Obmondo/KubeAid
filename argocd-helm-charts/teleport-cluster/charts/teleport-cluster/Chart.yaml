@@ -1,13 +1,13 @@
 apiVersion: v2
-appVersion: 18.2.10
+appVersion: 18.5.0
 dependencies:
 - alias: operator
   name: teleport-operator
   repository: ""
-  version: 18.2.10
+  version: 18.5.0
 description: Teleport is an access platform for your infrastructure
 icon: https://goteleport.com/static/teleport-symbol-bimi.svg
 keywords:
 - Teleport
 name: teleport-cluster
-version: 18.2.10
+version: 18.5.0

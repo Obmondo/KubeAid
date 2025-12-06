@@ -3,5 +3,5 @@ name: hcloud-csi-driver
 version: 1.0.0
 dependencies:
   - name: hcloud-csi
-    version: 2.18.0
+    version: 2.18.3
     repository: https://charts.hetzner.cloud

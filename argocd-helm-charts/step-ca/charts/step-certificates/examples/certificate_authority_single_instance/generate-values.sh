@@ -3,13 +3,14 @@
 ROOT_CA_NAME=`jq -r '.root_ca_name' ca.config`
 INTERMEDIATE_CA_NAME=`jq -r '.intermediate_ca_name' ca.config`
 CA_ORG_NAME=`jq -r '.ca_org_name' ca.config`
+CA_ORGUNIT_NAME=`jq -r '.ca_orgunit_name' ca.config`
 CA_COUNTRY_NAME=`jq -r '.ca_country_name' ca.config`
 CA_LOCALITY_NAME=`jq -r '.ca_locality_name' ca.config`
 CA_DNS_NAMES=`jq -c .ca_dns_names ca.config`
 CA_URL=`jq -r .ca_url ca.config`
 JWK_PROVISIONER_NAME=`jq -r .jwk_provisioner_name ca.config`
 
-export ROOT_CA_NAME INTERMEDIATE_CA_NAME CA_ORG_NAME CA_COUNTRY_NAME CA_LOCALITY_NAME CA_DNS_NAMES CA_URL JWK_PROVISIONER_NAME
+export ROOT_CA_NAME INTERMEDIATE_CA_NAME CA_ORG_NAME CA_ORGUNIT_NAME CA_COUNTRY_NAME CA_LOCALITY_NAME CA_DNS_NAMES CA_URL JWK_PROVISIONER_NAME
 
 # Write Out Root and Intermediate Certificate Templates
 cat root-tls.json.tpl | envsubst | tee root-tls.json

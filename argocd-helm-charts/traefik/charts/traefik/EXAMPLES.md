@@ -623,8 +623,91 @@ extraObjects:
 
 To develop or test plugins without pushing them to a public registry, you can load plugin source code directly from your local filesystem.
 
->[!NOTE]
-> The ``hostPath`` must point to a directory containing the plugin source code and a valid ``go.mod`` file. The ``moduleName`` must match the module name specified in the ``go.mod`` file.
+>[!WARNING]
+> The legacy `hostPath` configuration at the `experimental.localPlugins` level is deprecated. Please use the new structured `experimental.localPlugins.<yourplugin>.type` configuration for better organization and future features.
+
+### Legacy Configuration
+
+>[!WARNING]
+> This legacy `hostPath` configuration is deprecated and will be removed in the next major version. Please migrate to the structured `type` configuration below.
+
+```yaml
+experimental:
+  localPlugins:
+    legacy-demo:
+      moduleName: github.com/traefik/legacydemo
+      mountPath: /plugins-local/src/github.com/traefik/legacydemo
+      hostPath: /path/to/plugin-source  # ⚠️ Deprecated - use type: hostPath instead
+```
+
+## Structured Local Plugins
+
+The `localPlugins` configuration supports a structured `experimental.localPlugins.<yourplugin>.type` approach that provides better organization, security, and flexibility:
+
+### Using Inline Plugin
+
+> [!NOTE]  
+> Can be used with small or medium plugins
+
+For testing or general use, embed plugin source directly in values.yaml using the secure `inlinePlugin` type:
+
+```yaml
+experimental:
+  localPlugins:
+    helloworld-plugin:
+      moduleName: github.com/example/helloworldplugin
+      mountPath: /plugins-local/src/github.com/example/helloworldplugin
+      type: inlinePlugin
+      source:
+        go.mod: |
+          module github.com/example/helloworldplugin
+
+          go 1.23
+        .traefik.yml: |
+          displayName: Hello World Plugin
+          type: middleware
+
+          import: github.com/example/helloworldplugin
+
+          summary: |
+            This is a simple plugin that prints "Hello, World!" to the response.
+
+          testData:
+            message: "Hello, World!"
+        main.go: |
+          package helloworldplugin
+
+          import (
+            "context"
+            "net/http"
+          )
+
+          type Config struct{}
+
+          func CreateConfig() *Config {
+            return &Config{}
+          }
+
+          type HelloWorld struct {
+            next http.Handler
+          }
+
+          func New(ctx context.Context, next http.Handler, config *Config, name string) (http.Handler, error) {
+            return &HelloWorld{next: next}, nil
+          }
+
+          func (h *HelloWorld) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+            rw.Write([]byte("Hello, World!"))
+            h.next.ServeHTTP(rw, req)
+          }
+```
+
+> **Advantages**: Secure (no host filesystem access), portable, version controlled with Helm values, supports up to 1MB of plugin code.
+
+### Using Host Path Plugin
+
+>[!WARNING]
+> The `hostPath` type should be avoided for security reasons and requires additional work to pull plugins from repositories or blob storage. Consider using `inlinePlugin` or `localPath` instead.
 
 ```yaml
 experimental:
@@ -632,11 +715,46 @@ experimental:
     local-demo:
       moduleName: github.com/traefik/localplugindemo
       mountPath: /plugins-local/src/github.com/traefik/localplugindemo
+      type: hostPath
       hostPath: /path/to/plugin-source
 ```
 
->[!IMPORTANT]
-> When using ``hostPath`` volumes, the plugin source code must be available on every node where Traefik pods might be scheduled.
+### Using Local Path Plugin (Advanced)
+
+>[!NOTE]
+> The `localPath` type leverages the existing `additionalVolumes` mechanism for maximum flexibility. This supports PVC, CSI drivers (s3-csi-driver, FUSE), and other volume types.
+
+```yaml
+# Define the volume in additionalVolumes first
+deployment:
+  additionalVolumes:
+    - name: plugin-storage
+      persistentVolumeClaim:
+        claimName: plugin-storage-pvc
+    # Or use CSI driver for S3/blob storage:
+    # - name: s3-plugin-storage
+    #   csi:
+    #     driver: s3.csi.aws.com
+    #     volumeAttributes:
+    #       bucketName: my-plugin-bucket
+
+# Then reference it in localPlugins
+experimental:
+  localPlugins:
+    s3-plugin:
+      moduleName: github.com/example/s3plugin
+      mountPath: /plugins-local/src/github.com/example/s3plugin
+      type: localPath
+      volumeName: plugin-storage  # Must match additionalVolumes name
+      subPath: plugins/s3plugin   # Optional subpath within volume
+```
+
+> **Advantages**:
+>
+> - **Flexible**: Supports any Kubernetes volume type (PVC, CSI, NFS, etc.)
+> - **Secure**: Works with CSI drivers for cloud storage (S3, Azure Blob, GCS)
+> - **Scalable**: Centralized plugin storage, no per-node requirements
+> - **Consistent**: Uses existing Helm chart patterns (`additionalVolumes`)
 
 ## Using Traefik-Hub with private plugin registries
 
@@ -778,8 +896,8 @@ podSecurityContext:
 
 Setup:
 
-* cert-manager installed in `cert-manager` namespace
-* A cloudflare account on a DNS Zone
+- cert-manager installed in `cert-manager` namespace
+- A cloudflare account on a DNS Zone
 
 **Step 1**: Create `Secret` and `Issuer` needed by `cert-manager` with your API Token.
 See [cert-manager documentation](https://cert-manager.io/docs/configuration/acme/dns01/cloudflare/)
@@ -1058,7 +1176,7 @@ metrics:
 
 ## Use kubernetes Gateway API
 
-One can use the new stable kubernetes gateway API provider setting the following _values_:
+One can use the new stable kubernetes gateway API provider by setting the following _values_:
 
 ```yaml
 providers:
@@ -1068,7 +1186,7 @@ providers:
 
 <details>
 
-<summary>With those values, a whoami service can be exposed with a HTTPRoute</summary>
+<summary>With those values, a whoami service can be exposed with an HTTPRoute</summary>
 
 ```yaml
 ---
@@ -1132,7 +1250,7 @@ Once it's applied, whoami should be accessible on [whoami.docker.localhost](http
 
 ## Use Kubernetes Gateway API with cert-manager
 
-One can use the new stable kubernetes gateway API provider with automatic TLS certificates delivery (with cert-manager) setting the following _values_:
+One can use the new stable kubernetes gateway API provider with automatic TLS certificates delivery (with cert-manager) by setting the following _values_:
 
 ```yaml
 providers:
@@ -1234,6 +1352,216 @@ Once it's applied, whoami should be accessible on https://whoami.docker.localhos
 
 </details>
 
+## Use Kubernetes Ingress NGINX Provider
+
+Starting with Traefik Proxy v3.6.2, one can use the Kubernetes Ingress NGINX provider by setting the following _values_:
+
+```yaml
+providers:
+  kubernetesIngressNginx:
+    enabled: true
+```
+
+This provider allows Traefik to consume Kubernetes Ingress resources with NGINX-specific annotations. This is particularly useful when migrating from NGINX Ingress Controller to Traefik.
+
+<details>
+
+<summary>This example demonstrates a seamless migration from NGINX Ingress Controller to Traefik</summary>
+
+where the same Ingress resource continues to work without modification.<br>
+
+**Step 1**: Install NGINX Ingress Controller and deploy the whoami application
+
+```bash
+# Install NGINX Ingress Controller
+helm upgrade --install ingress-nginx ingress-nginx \
+  --repo https://kubernetes.github.io/ingress-nginx \
+  --namespace ingress-nginx --create-namespace
+```
+
+Deploy the application:
+
+```yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: whoami
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: whoami
+  template:
+    metadata:
+      labels:
+        app: whoami
+    spec:
+      containers:
+        - name: whoami
+          image: traefik/whoami
+          ports:
+            - containerPort: 80
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: whoami
+spec:
+  selector:
+    app: whoami
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: whoami
+  annotations:
+    nginx.ingress.kubernetes.io/affinity: cookie
+    nginx.ingress.kubernetes.io/affinity-mode: persistent
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: whoami.docker.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: whoami
+                port:
+                  number: 80
+```
+
+**Step 2**: Test that the application works with NGINX
+
+```bash
+# Port-forward to NGINX
+kubectl port-forward -n ingress-nginx deployment/ingress-nginx-controller 8000:80 &
+
+# Test with NGINX
+curl http://whoami.docker.localhost:8000 -c /tmp/cookies.txt -b /tmp/cookies.txt
+```
+
+You should see the whoami response with your request details.
+
+**Step 3**: Install Traefik with Kubernetes Ingress NGINX provider enabled (alongside NGINX)
+
+```bash
+helm upgrade --install traefik traefik/traefik \
+  --namespace traefik --create-namespace \
+  --set providers.kubernetesIngressNginx.enabled=true
+```
+
+Or using a values file:
+
+```yaml
+providers:
+  kubernetesIngressNginx:
+    enabled: true
+```
+
+**Step 4**: Test that the application now also works with Traefik
+
+Both NGINX and Traefik are now running in parallel, each serving the same Ingress thanks to the Traefik NGINX provider !
+
+```bash
+# Port-forward to Traefik
+kubectl port-forward -n traefik deployment/traefik 8001:8000 &
+
+# Test with Traefik (adjust the URL based on your setup)
+curl http://whoami.docker.localhost:8001 -c /tmp/cookies.txt -b /tmp/cookies.txt
+```
+
+The same Ingress resource is now served by **both** NGINX and Traefik! You can verify which one is responding by checking the response headers or the service endpoints.
+
+> :warning:
+> **Important note about NGINX**: When uninstalling the NGINX Ingress Controller helm chart, it removes the `nginx` IngressClass.
+> Traefik needs this IngressClass to detect and serve Ingress resources that use `ingressClassName: nginx`. Before uninstalling NGINX, it's recommended to ensure that an IngressClass like this will stay:
+>
+> ```yaml
+> ---
+> apiVersion: networking.k8s.io/v1
+> kind: IngressClass
+> metadata:
+>   name: nginx
+> spec:
+>   controller: k8s.io/ingress-nginx
+> ```
+
+> :information_source:
+> The Kubernetes Ingress NGINX provider supports most common NGINX Ingress annotations, allowing for a **seamless migration** from NGINX Ingress Controller to Traefik **without modifying existing Ingress resources**.
+
+## Use Knative Provider
+
+Starting with Traefik Proxy v3.6, one can use the Knative provider (_experimental_) by setting the following _values_:
+
+```yaml
+experimental:
+  knative: true
+providers:
+  knative:
+    enabled: true
+```
+
+> :warning:
+> You must first have Knative deployed. With Proxy v3.6, v1.19 of Knative is supported.
+> Knative 1.19 requires Kubernetes v1.32+
+
+> :information_source:
+> If you want to test it using k3d, you'll need to set the image accordingly, for instance: `--image rancher/k3s:v1.34.1-k3s1`
+
+Finish configuring Knative:
+
+```shell
+# 1. Install/update the Knative CRDs
+kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.19.0/serving-crds.yaml
+# 2. Install the Knative Serving core components
+kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.19.0/serving-core.yaml
+# 3. Update the config-network configuration to use the Traefik ingress class
+kubectl patch configmap/config-network -n knative-serving --type merge \
+  -p '{"data":{"ingress.class":"traefik.ingress.networking.knative.dev"}}'
+# Add a custom domain to Knative configuration (in this example, docker.localhost)
+kubectl patch configmap config-domain -n knative-serving --type='merge' \
+  -p='{"data":{"docker.localhost":""}}'
+```
+
+With that done and the specified values set, a Knative Service can now be deployed:
+
+```yaml
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: whoami
+spec:
+  template:
+    spec:
+      containers:
+        - name: whoami
+          image: traefik/whoami
+          ports:
+            - containerPort: 80
+```
+
+Once it's applied, we can check the URLs:
+
+```shell
+# 1. List Knative services
+kubectl get ksvc
+# 2. Test URLs
+curl http://whoami.default.docker.localhost
+curl -k -H "Host: whoami.default.docker.localhost" https://localhost/
+```
+
+</details>
+
 ## Use templating for additionalVolumeMounts
 
 This example demonstrates how to use templating for the `additionalVolumeMounts` configuration to dynamically set the `subPath` parameter based on a variable.
@@ -1285,10 +1613,10 @@ hub:
 > [!TIP]
 > When using the CLI, those parameters need to be escaped like this:
 >
->```bash
+> ```bash
 > --set 'hub.apimanagement.admission.customWebhookCertificate.tls\.crt'=$(cat /tmp/hub.crt.b64)
 > --set 'hub.apimanagement.admission.customWebhookCertificate.tls\.key'=$(cat /tmp/hub.key.b64)
->```
+> ```
 
 ## Injecting CA data from a Certificate resource
 
@@ -1392,4 +1720,71 @@ hub:
   aigateway:
     enabled: true
     maxRequestBodySize: 10485760 # optional, default to 1MiB
+```
+
+## Deploy multiple Gateways with a single Traefik Deployment/DaemonSet
+
+This example exposes two Gateways (e.g., `internal` and `external`) from a single Traefik installation.
+
+```yaml
+# Ports for external gateway
+ports:
+  web-ext:
+    port: 9080
+    exposedPort: 80
+    expose:
+      external: true
+  websecure-ext:
+    port: 9443
+    exposedPort: 443
+    expose:
+      external: true
+
+gateway:
+  enabled: true
+  name: traefik-internal
+
+gatewayClass:
+  enabled: true
+
+service:
+  additionalServices:
+    external:
+      type: LoadBalancer
+
+providers:
+  kubernetesGateway:
+    enabled: true
+    statusAddress:
+      service:
+        enabled: false
+```
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: traefik-external
+spec:
+  gatewayClassName: traefik
+  listeners:
+    - name: web-ext
+      protocol: HTTP
+      port: 9080
+      allowedRoutes:
+        namespaces:
+          from: All
+    # Comment out if you have a valid TLS certificate
+    # - name: websecure-ext
+    #   protocol: HTTPS
+    #   port: 9443
+    #   allowedRoutes:
+    #     namespaces:
+    #       from: All
+    #   tls:
+    #     mode: Terminate
+    #     certificateRefs:
+    #       - group: ""
+    #         kind: Secret
+    #         name: some-tls-cert
 ```

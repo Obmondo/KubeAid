@@ -1,0 +1,44 @@
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ template "dragonfly.fullname" . }}-metrics
+  {{- if .Values.serviceMonitor.namespace }}
+  namespace: {{ .Values.serviceMonitor.namespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+  {{- with .Values.serviceMonitor.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    {{- with .Values.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- include "dragonfly.labels" . | nindent 4 }}
+spec:
+  endpoints:
+    - interval: {{ .Values.serviceMonitor.interval }}
+      {{- with .Values.serviceMonitor.scrapeTimeout }}
+      scrapeTimeout: {{ . }}
+      {{- end }}
+      honorLabels: true
+      port: {{ default "metrics" .Values.service.metrics.portName }}
+      path: /metrics
+      {{- if .Values.tls.enabled }}
+      scheme: https
+      tlsConfig:
+        insecureSkipVerify: true
+      {{- else }}
+      scheme: http
+      {{- end }}
+  jobLabel: "{{ .Release.Name }}"
+  selector:
+    matchLabels:
+      {{- include "dragonfly.selectorLabels" . | nindent 6 }}
+      type: metrics
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+{{- end }}

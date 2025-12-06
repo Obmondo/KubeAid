@@ -77,6 +77,9 @@ spec:
         {{- end }}
         env:
         {{- include "gitlab-runner.runner-env-vars" . | indent 8 }}
+        {{- if .Values.extraEnvFromRefs }}
+        envFrom: {{ toYaml .Values.extraEnvFromRefs | nindent 8 }}
+        {{- end }}
         livenessProbe:
           exec:
             command: ["/bin/bash", "/configmaps/check-live", "{{ default 4 .Values.probeTimeoutSeconds | add -1 | max 1 }}"]

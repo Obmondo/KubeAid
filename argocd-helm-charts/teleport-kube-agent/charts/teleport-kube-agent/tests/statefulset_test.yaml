@@ -160,6 +160,75 @@ tests:
       - matchSnapshot:
           path: spec.template.spec
 
+  - it: sets topology spread constraints by default
+    template: statefulset.yaml
+    values:
+      - ../.lint/stateful.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.topologySpreadConstraints
+          value:
+            - maxSkew: 1
+              topologyKey: kubernetes.io/hostname
+              whenUnsatisfiable: ScheduleAnyway
+              labelSelector:
+                matchLabels:
+                  app: RELEASE-NAME
+            - maxSkew: 1
+              topologyKey: topology.kubernetes.io/zone
+              whenUnsatisfiable: ScheduleAnyway
+              labelSelector:
+                matchLabels:
+                  app: RELEASE-NAME
+
+  - it: removes topology spread constraints when disabled
+    template: statefulset.yaml
+    values:
+      - ../.lint/stateful.yaml
+    set:
+      disableTopologySpreadConstraints: true
+    asserts:
+      - isEmpty:
+          path: spec.template.spec.topologySpreadConstraints
+
+  - it: removes topology spread constraints when running on antique kubernetes
+    template: statefulset.yaml
+    values:
+      - ../.lint/stateful.yaml
+    capabilities:
+      majorVersion: 1
+      minorVersion: 17
+    asserts:
+      - isEmpty:
+          path: spec.template.spec.topologySpreadConstraints
+
+  - it: uses custom topology spread constraints when set
+    template: statefulset.yaml
+    values:
+      - ../.lint/stateful.yaml
+    set:
+      topologySpreadConstraints:
+        - maxSkew: 2
+          topologyKey: foobar
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: baz
+    # helm unit-test has a bug where capabilities are not reset between tests, we must set back to 1.18 after the 1.17 test.
+    capabilities:
+      majorVersion: 1
+      minorVersion: 18
+    asserts:
+      - equal:
+          path: spec.template.spec.topologySpreadConstraints
+          value:
+            - maxSkew: 2
+              topologyKey: foobar
+              whenUnsatisfiable: ScheduleAnyway
+              labelSelector:
+                matchLabels:
+                  app: baz
+
   - it: should set tolerations when set in values
     template: statefulset.yaml
     values:
@@ -882,3 +951,102 @@ tests:
           content:
             name: KUBERNETES_TOKEN_PATH
             value: /var/run/secrets/tokens/join-sa-token
+
+  - it: sets GOMEMLIMIT by default (SI unit)
+    template: statefulset.yaml
+    values:
+      - ../.lint/stateful.yaml
+    set:
+      teleportClusterName: teleport.example.com
+      resources:
+        limits:
+          memory: "10.5G"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: "GOMEMLIMIT"
+            value: "9450000000"
+
+  - it: sets GOMEMLIMIT by default (IEC unit)
+    template: statefulset.yaml
+    values:
+      - ../.lint/stateful.yaml
+    set:
+      teleportClusterName: teleport.example.com
+      resources:
+        limits:
+          memory: "10.5Gi"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: "GOMEMLIMIT"
+            value: "10146860237"
+
+  - it: sets GOMEMLIMIT by default (scientific notation)
+    template: statefulset.yaml
+    values:
+      - ../.lint/stateful.yaml
+    set:
+      teleportClusterName: teleport.example.com
+      resources:
+        limits:
+          memory: "10.5e9"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: "GOMEMLIMIT"
+            value: "9450000000"
+
+  - it: honours existing GOMEMLIMIT
+    template: statefulset.yaml
+    values:
+      - ../.lint/stateful.yaml
+    set:
+      teleportClusterName: teleport.example.com
+      resources:
+        limits:
+          memory: "10.5G"
+      extraEnv:
+        - name: FOO
+          value: bar
+        - name: GOMEMLIMIT
+          value: "5GB"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: "GOMEMLIMIT"
+            value: "5GB"
+
+  - it: does not set GOMEMLIMIT if ratio is 0
+    template: statefulset.yaml
+    values:
+      - ../.lint/stateful.yaml
+    set:
+      teleportClusterName: teleport.example.com
+      resources:
+        limits:
+          memory: "10.5G"
+      goMemLimitRatio: 0
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: "GOMEMLIMIT"
+            value: "9450000000"
+
+  - it: does not set GOMEMLIMIT if resources are not set
+    template: statefulset.yaml
+    values:
+      - ../.lint/stateful.yaml
+    set:
+      teleportClusterName: teleport.example.com
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: "GOMEMLIMIT"
+          any: true

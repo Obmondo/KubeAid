@@ -133,10 +133,10 @@ extraLabels: {}
 # Specify Kong's Docker image and repository details here
 image:
   repository: kong
-  tag: "3.8"
+  tag: "3.9"
   # Kong Enterprise
   # repository: kong/kong-gateway
-  # tag: "3.8"
+  # tag: "3.9"
 
   # Specify a semver version if your image tag is not one (e.g. "nightly")
   effectiveSemver:
@@ -456,6 +456,8 @@ plugins: {}
   # secrets:
   # - pluginName: rewriter
   #   name: kong-plugin-rewriter
+  # If your development cycle preinstalls the plugin as part of the image, this appends them to the plugins env var
+  # preInstalled: sweet-plugin,another-sweet-plugin
 # Inject specified secrets as a volume in Kong Container at path /etc/secrets/{secret-name}/
 # This can be used to override default SSL certificates.
 # Be aware that the secret name will be used verbatim, and that certain types
@@ -501,6 +503,16 @@ migrations:
   # sidecarContainers:
   #   - name: sidecar
   #     image: sidecar:latest
+  ## Optionally set securitycontext for the wait-for-postgres migrations init container
+  # waitContainer:
+  #   securityContext:
+  #     allowPrivilegeEscalation: false
+  #     capabilities:
+  #       drop:
+  #       - ALL
+  #     readOnlyRootFilesystem: true
+  #     runAsNonRoot: true
+  #     runAsUser: 1000
 
 # Kong's configuration for DB-less mode
 # Note: Use this section only if you are deploying Kong in DB-less mode
@@ -539,7 +551,7 @@ ingressController:
   enabled: true
   image:
     repository: kong/kubernetes-ingress-controller
-    tag: "3.4"
+    tag: "3.5"
     # Optionally set a semantic version for version-gated features. This can normally
     # be left unset. You only need to set this if your tag is not a semver string,
     # such as when you are using a "next" tag. Set this to the effective semantic
@@ -597,6 +609,15 @@ ingressController:
     port: 8080
     certificate:
       provided: false
+    #  namespaceSelector specifies namespaces in which the resources are validated by the `*.validations.kong.konghq.com` webhooks.
+    #  For example, the `kube-system` namespace contains objects created by the Kubernetes system, like `kube-dns` service.
+    #  You can exclude the kube-system namespace from being intercepted using below namespaceSelector:
+    #  namespaceSelector:
+    #    matchExpressions:
+    #      - key: kubernetes.io/metadata.name
+    #        operator: NotIn
+    #        values:
+    #          - kube-system
     namespaceSelector: {}
     # ObjectSelector specifies which objects to match against validations.kong.konghq.com webhook webhook
     objectSelector:
@@ -618,6 +639,9 @@ ingressController:
     # timeoutSeconds: 10
 
   ingressClass: kong
+  # Check existence and create the `IngressClass` with given name in the cluster.
+  # You can set it to `false` to disable the creation of `IngressClass` if your user to run helm does not have the permission to create `IngressClass`es.
+  createIngressClass: true
   # annotations for IngressClass resource (Kubernetes 1.18+)
   ingressClassAnnotations: {}
 
@@ -630,6 +654,22 @@ ingressController:
   rbac:
     # Specifies whether RBAC resources should be created
     create: true
+    # Set to `false` to disable creating ClusterRole and ClusterRoleBinding, for the use cases where using ClusterRoles is not allowed.
+    # Warning: Reconciliation of some resources requires a ClusterRole because the controllers needs to watch cluster scoped resources.
+    # Disabling ClusterRoles causes them fail, so you need to disable the controllers when setting it to `false`.
+    # The resources includes:
+    # - All gateway API resources
+    # - `IngressClass`
+    # - `KNative/Ingress` (KIC 2.x only)
+    # - `KongClusterPlugin`
+    # - `KongVault`, `KongLicense` (KIC 3.1 and above)
+    enableClusterRoles: true
+    gatewayAPI:
+      # Specifies whether RBAC policy rules for Gateway API resources should
+      # be generated regardless of the presence of Gateway API CRDs in the cluster.
+      # If this is disabled then RBAC policy rules for Gateway API resources will
+      # only be generated if the Gateway API CRDs are present in the cluster.
+      enabled: true
 
   # general properties
   livenessProbe:
@@ -739,6 +779,21 @@ postgresql:
   service:
     ports:
       postgresql: "5432"
+  primary:
+    annotations:
+      "ignore-check.kube-linter.io/no-read-only-root-fs": "writable fs is required"
+    podSecurityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    containerSecurityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
 
 # -----------------------------------------------------------------------------
 # Configure cert-manager integration
@@ -747,6 +802,11 @@ postgresql:
 certificates:
   enabled: false
 
+  # Set the certificate timers or leave on the default value
+  # Default is 15 days
+  renewBefore: "360h0m0s"
+  # Default is 90d days
+  duration: "2160h0m0s"
   # Set either `issuer` or `clusterIssuer` to the name of the desired cert manager issuer
   # If left blank a built in self-signed issuer will be created and utilized
   issuer: ""
@@ -768,7 +828,7 @@ certificates:
     # - "*.apps.example"
     # - "*.kong.example"
 
-  # Set admin.enabled true to issue kong admin api and manager certificate with cert-manager
+  # Set admin.enabled true to issue kong admin api certificate with cert-manager
   admin:
     enabled: true
     # Set `issuer` or `clusterIssuer` to name of alternate cert-manager clusterIssuer to override default
@@ -778,6 +838,20 @@ certificates:
     # Use commonName and dnsNames to set the common name and dns alt names which this
     # certificate is valid for. Wildcard records are supported by the included self-signed issuer.
     commonName: "kong.example"
+    # Remove the "[]" and uncomment/change the examples to add SANs
+    dnsNames: []
+    # - "admin.kong.example"
+
+  # Set manager.enabled true to issue a dedicated Kong Manager (admin GUI) certificate with cert-manager
+  # If disabled, Kong Manager will fall back to using the admin certificate (backward compatible behavior).
+  manager:
+    enabled: false
+    # Set `issuer` or `clusterIssuer` to name of alternate cert-manager issuer to override default
+    issuer: ""
+    clusterIssuer: ""
+    # Use commonName and dnsNames to set the common name and dns alt names which this
+    # certificate is valid for. Wildcard records are supported by the included self-signed issuer.
+    commonName: "manager.kong.example"
     # Remove the "[]" and uncomment/change the examples to add SANs
     dnsNames: []
     # - "manager.kong.example"
@@ -930,6 +1004,7 @@ autoscaling:
   enabled: false
   minReplicas: 2
   maxReplicas: 5
+  annotations: {}
   behavior: {}
   ## targetCPUUtilizationPercentage only used if the cluster doesn't support autoscaling/v2 or autoscaling/v2beta
   targetCPUUtilizationPercentage:
@@ -948,6 +1023,7 @@ podDisruptionBudget:
   # Uncomment only one of the following when enabled is set to true
   # maxUnavailable: "50%"
   # minAvailable: "50%"
+  unhealthyPodEvictionPolicy: IfHealthyBudget
 
 podSecurityPolicy:
   enabled: false
@@ -982,13 +1058,16 @@ podSecurityPolicy:
 priorityClassName: ""
 
 # securityContext for Kong pods.
-securityContext: {}
+securityContext:
+  seccompProfile:
+    type: RuntimeDefault
 
 # securityContext for containers.
 containerSecurityContext:
   readOnlyRootFilesystem: true
   allowPrivilegeEscalation: false
   runAsUser: 1000
+  runAsGroup: 1000
   runAsNonRoot: true
   seccompProfile:
     type: RuntimeDefault

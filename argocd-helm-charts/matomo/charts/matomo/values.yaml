@@ -10,7 +10,6 @@
 ## @param global.imageRegistry Global Docker image registry
 ## @param global.imagePullSecrets Global Docker registry secret names as an array
 ## @param global.defaultStorageClass Global default StorageClass for Persistent Volume(s)
-## @param global.storageClass DEPRECATED: use global.defaultStorageClass instead
 ##
 global:
   imageRegistry: ""
@@ -20,7 +19,11 @@ global:
   ##
   imagePullSecrets: []
   defaultStorageClass: ""
-  storageClass: ""
+  ## Security parameters
+  ##
+  security:
+    ## @param global.security.allowInsecureImages Allows skipping image verification
+    allowInsecureImages: false
   ## Compatibility adaptations for Kubernetes platforms
   ##
   compatibility:
@@ -54,6 +57,10 @@ commonLabels: {}
 ## @param extraDeploy Array of extra objects to deploy with the release (evaluated as a template).
 ##
 extraDeploy: []
+## @param usePasswordFiles Mount credentials as files instead of using environment variables
+##
+usePasswordFiles: true
+
 ## @section Matomo parameters
 ##
 
@@ -70,10 +77,9 @@ extraDeploy: []
 image:
   registry: docker.io
   repository: bitnami/matomo
-  tag: 5.1.0-debian-12-r6
+  tag: 5.3.2-debian-12-r12
   digest: ""
   ## Specify a imagePullPolicy
-  ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
   ## ref: https://kubernetes.io/docs/concepts/containers/images/#pre-pulled-images
   ##
   pullPolicy: IfNotPresent
@@ -117,7 +123,7 @@ matomoWebsiteHost: https://example.org
 ##
 matomoSkipInstall: false
 ## @param customPostInitScripts Custom post-init.d user scripts
-## ref: https://github.com/bitnami/containers/tree/main/bitnami/dokuwiki
+## ref: https://github.com/bitnami/containers/tree/main/bitnami/matomo
 ## NOTE: supported formats are `.sh` or `.php`
 ## NOTE: scripts are exclusively executed during the 1st boot of the container
 ## e.g:
@@ -218,7 +224,7 @@ tolerations: []
 existingSecret: ""
 ## SMTP mail delivery configuration
 ## ref: https://github.com/bitnami/containers/tree/main/bitnami/matomo/#smtp-configuration
-## @param smtpAuth SMTP authentication mechanism (options: Plain, Login, Crammd5)
+## @param smtpAuth SMTP authentication mechanism (options: Plain, Login, Cram-md5)
 ## @param smtpHost SMTP host
 ## @param smtpPort SMTP port
 ## @param smtpUser SMTP user
@@ -747,7 +753,7 @@ volumePermissions:
   image:
     registry: docker.io
     repository: bitnami/os-shell
-    tag: 12-debian-12-r26
+    tag: 12-debian-12-r50
     digest: ""
     pullPolicy: IfNotPresent
     ## Optionally specify an array of imagePullSecrets.
@@ -798,7 +804,7 @@ metrics:
   image:
     registry: docker.io
     repository: bitnami/apache-exporter
-    tag: 1.0.8-debian-12-r6
+    tag: 1.0.10-debian-12-r55
     digest: ""
     pullPolicy: IfNotPresent
     ## Optionally specify an array of imagePullSecrets.
@@ -880,10 +886,9 @@ certificates:
   image:
     registry: docker.io
     repository: bitnami/os-shell
-    tag: 12-debian-12-r26
+    tag: 12-debian-12-r50
     digest: ""
     ## Specify a imagePullPolicy
-    ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
     ## ref: https://kubernetes.io/docs/concepts/containers/images/#pre-pulled-images
     ##
     pullPolicy: IfNotPresent
@@ -953,9 +958,6 @@ networkPolicy:
 ## @section CronJob parameters
 ##
 cronjobs:
-  ## DEPRECATED @param cronjobs.enabled Please use cronjobs.taskScheduler.enabled and/or cronjobs.archive.enabled
-  ##
-  # enabled: true
   taskScheduler:
     ## @param cronjobs.taskScheduler.enabled Whether to enable scheduled mail-to-task CronJob
     ##
@@ -963,6 +965,12 @@ cronjobs:
     ## @param cronjobs.taskScheduler.schedule Kubernetes CronJob schedule
     ##
     schedule: "*/5 * * * *"
+    ## @param cronjobs.taskScheduler.serviceAccountName Attach serviceAccountName to the pod of the CronJob
+    ##
+    serviceAccountName: ""
+    ## @param cronjobs.taskScheduler.automountServiceAccountToken Mount Service Account token in pod of the CronJob
+    ##
+    automountServiceAccountToken: true
     ## @param cronjobs.taskScheduler.suspend Whether to create suspended CronJob
     ##
     suspend: false
@@ -1055,6 +1063,10 @@ cronjobs:
 
     ## @param cronjobs.taskScheduler.extraEnvVars Extra environment variables for the taskScheduler CronJob
     extraEnvVars: []
+
+    ## @param cronjobs.taskScheduler.initContainers Additional init containers for the taskScheduler CronJob
+    ##
+    initContainers: []
   archive:
     ## @param cronjobs.archive.enabled Whether to enable scheduled mail-to-task CronJob
     ##
@@ -1062,6 +1074,12 @@ cronjobs:
     ## @param cronjobs.archive.schedule Kubernetes CronJob schedule
     ##
     schedule: "*/5 * * * *"
+    ## @param cronjobs.archive.serviceAccountName Attach serviceAccountName to the pod of the CronJob
+    ##
+    serviceAccountName: ""
+    ## @param cronjobs.archive.automountServiceAccountToken Mount Service Account token in pod of the CronJob
+    ##
+    automountServiceAccountToken: true
     ## @param cronjobs.archive.suspend Whether to create suspended CronJob
     ##
     suspend: false
@@ -1157,3 +1175,7 @@ cronjobs:
 
     ## @param cronjobs.archive.extraEnvVars Extra environment variables for the archive CronJob
     extraEnvVars: []
+
+    ## @param cronjobs.archive.initContainers Additional init containers for the archive CronJob
+    ##
+    initContainers: []
