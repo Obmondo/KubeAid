@@ -7,9 +7,6 @@ metadata:
   labels:
 {{ include "labels.standard" . | indent 4 }}
   annotations:
-  {{- if .Values.podAnnotations }}
-{{ toYaml .Values.podAnnotations | indent 4 }}
-  {{- end }}
     "helm.sh/hook": test-success
 spec:
   nodeSelector:

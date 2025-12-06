@@ -327,9 +327,7 @@ spec:
   {{- if $pvc_exists }}
   volumeClaimTemplates:
     {{- if eq .Values.master.data.type "persistentVolumeClaim"}}
-    - apiVersion: v1
-      kind: PersistentVolumeClaim
-      metadata:
+    - metadata:
         name: data-{{ .Release.Namespace }}
         {{- with .Values.master.data.annotations }}
         annotations:
@@ -343,9 +341,7 @@ spec:
             storage: {{ .Values.master.data.size }}
     {{- end }}
     {{- if eq .Values.master.logs.type "persistentVolumeClaim"}}
-    - apiVersion: v1
-      kind: PersistentVolumeClaim
-      metadata:
+    - metadata:
         name: seaweedfs-master-log-volume
         {{- with .Values.master.logs.annotations }}
         annotations:

@@ -1,0 +1,89 @@
+# SPDX-FileCopyrightText: 2024 Zentrum für Digitale Souveränität der Öffentlichen Verwaltung (ZenDiS) GmbH
+# SPDX-License-Identifier: Apache-2.0
+---
+# openDesk related settings.
+openDesk:
+  # -- Deployment domain.
+  domain: "example.org"
+  # -- Deployment password seed.
+  masterPassword: ""
+  # -- TURN sever credential.
+  turnPassword: ""
+  # -- Overwrite openDesk helmfile environment settings.
+  overwrites: {}
+
+# Argo CD related settings.
+argo:
+  # -- A list of openDesk applications to deploy.
+  applications:
+    - name: "opendesk-migrations-pre"
+      syncWave: "0"
+    - name: "opendesk-services"
+      syncWave: "1"
+    - name: "services-external"
+      syncWave: "1"
+    - name: "nubus"
+      syncWave: "1"
+      selector: "name=nubus"
+    - name: "nubus"
+      syncWave: "2"
+      selector: "name=ums"
+    - name: "nubus"
+      syncWave: "2"
+      selector: "name=intercom-service"
+    - name: "nubus"
+      syncWave: "3"
+      selector: "name=opendesk-keycloak-bootstrap"
+    - name: "collabora"
+      syncWave: "4"
+    - name: "cryptpad"
+      syncWave: "4"
+    - name: "element"
+      syncWave: "4"
+    - name: "jitsi"
+      syncWave: "4"
+    - name: "notes"
+      syncWave: "4"
+    - name: "nextcloud"
+      syncWave: "4"
+      selector: "name=opendesk-nextcloud-management"
+    - name: "open-xchange"
+      syncWave: "4"
+      selector: "name=dovecot"
+    - name: "open-xchange"
+      syncWave: "4"
+      selector: "name=open-xchange"
+    - name: "open-xchange"
+      syncWave: "4"
+      selector: "name=opendesk-open-xchange-bootstrap"
+    - name: "openproject"
+      syncWave: "4"
+    - name: "xwiki"
+      syncWave: "4"
+    - name: "open-xchange"
+      syncWave: "5"
+      selector: "name=ox-connector"
+    - name: "nextcloud"
+      syncWave: "5"
+      selector: "name=opendesk-nextcloud"
+    - name: "opendesk-openproject-bootstrap"
+      syncWave: "6"
+    - name: "opendesk-migrations-post"
+      syncWave: "7"
+  # Destination settings.
+  destination:
+    # -- Deployment Namespace.
+    namespace: "argocd"
+    # -- Deployment Server.
+    server: "https://kubernetes.default.svc"
+  # -- Argo CD project.
+  project: "opendesk"
+  # openDesk source setting.
+  source:
+    # -- Git repository used for Argo to fetch openDesk.
+    repoURL: "https://gitlab.opencode.de/bmi/opendesk/deployment/opendesk.git"
+    # -- Git revision.
+    targetRevision: "main"
+  # -- SyncPolicy settings.
+  syncPolicy: {}
+...

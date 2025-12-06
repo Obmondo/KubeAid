@@ -152,12 +152,11 @@ Return the matomo pods needed initContainers
   image: {{ include "matomo.volumePermissions.image" . }}
   imagePullPolicy: {{ .Values.volumePermissions.image.pullPolicy | quote }}
   command:
-    - /bin/bash
-  args:
-    - -ec
+    - sh
+    - -c
     - |
-      mkdir -p /bitnami/matomo
-      find /bitnami/matomo -mindepth 0 -maxdepth 1 -not -name ".snapshot" -not -name "lost+found" | xargs -r chown -R {{ .Values.containerSecurityContext.runAsUser }}:{{ .Values.podSecurityContext.fsGroup }}
+      mkdir -p "/bitnami/matomo"
+      chown -R "{{ .Values.containerSecurityContext.runAsUser }}:{{ .Values.podSecurityContext.fsGroup }}" "/bitnami/matomo"
   securityContext:
     runAsUser: 0
   {{- if .Values.volumePermissions.resources }}
@@ -217,7 +216,6 @@ Return the matomo pods needed initContainers
       readOnly: true
 {{- end }}
 {{- end }}
-
 {{/*
 Return if cronjob X is enabled. Takes into account the deprecated value 'cronjobs.enabled'.
 Use: include "matomo.cronjobs.enabled" (dict "context" $ "cronjob" "archive" )

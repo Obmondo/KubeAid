@@ -667,9 +667,6 @@
         }
       }
     },
-    "enableConfigChecksumAnnotation": {
-      "type": "boolean"
-    },
     "podAnnotations": {
       "type": "object"
     },

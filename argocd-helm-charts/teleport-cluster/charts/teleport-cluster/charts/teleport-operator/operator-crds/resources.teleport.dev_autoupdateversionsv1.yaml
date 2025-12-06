@@ -46,12 +46,10 @@ spec:
                     description: schedule to use for the rollout
                     type: string
                   start_version:
-                    description: start_version is the version used for newly installed
-                      agents before their update window.
+                    description: start_version is the version to update from.
                     type: string
                   target_version:
-                    description: target_version is the version that all agents will
-                      update to during their update window.
+                    description: target_version is the version to update to.
                     type: string
                 type: object
               tools:

@@ -30,6 +30,6 @@ spec:
           {{- end }}
       matches:
         - path:
-            type: {{ .Values.route.dashboard.host.pathType | default "PathPrefix" }}
+            type: {{ .Values.route.dashboard.host.pathType | default "Prefix" }}
             value: {{ .Values.route.dashboard.host.path | default "/" }}
 {{- end }}

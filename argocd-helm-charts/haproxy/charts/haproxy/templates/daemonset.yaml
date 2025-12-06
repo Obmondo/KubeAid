@@ -53,9 +53,6 @@ spec:
       shareProcessNamespace: true
       {{- end }}
       serviceAccountName: {{ include "haproxy.serviceAccountName" . }}
-{{- if hasKey .Values.serviceAccount "automountServiceAccountToken" }}
-      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
-{{- end }}
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       {{- if $useHostNetwork }}
       hostNetwork: true

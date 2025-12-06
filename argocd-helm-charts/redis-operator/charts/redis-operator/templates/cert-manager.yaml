@@ -1,9 +1,10 @@
 {{ if .Values.certmanager.enabled }}
-{{- if .Values.issuer.create }}
+
 apiVersion: cert-manager.io/v1
-kind: {{ .Values.issuer.kind }}
+kind: Issuer
 metadata:
   name: {{ .Values.issuer.name }}
+  namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/name: {{ .Values.redisOperator.name }}
     helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
@@ -14,8 +15,9 @@ metadata:
     app.kubernetes.io/part-of: {{ .Release.Name }}
 spec:
   {{- include "redis-operator.issuerSpec" . | nindent 2 }}
+
 ---
-{{- end }}
+
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -34,7 +36,8 @@ spec:
     - {{ .Values.service.name }}.{{ .Values.service.namespace }}.svc
     - {{ .Values.service.name }}.{{ .Values.service.namespace }}.svc.cluster.local
   issuerRef:
-    kind: {{ .Values.issuer.kind }}
+    kind: Issuer
     name: {{ .Values.issuer.name }}
   secretName: {{ .Values.certificate.secretName }}
+
 {{ end }}

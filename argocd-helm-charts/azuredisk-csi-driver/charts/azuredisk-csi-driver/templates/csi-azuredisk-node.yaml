@@ -195,6 +195,9 @@ spec:
           imagePullPolicy: {{ .Values.image.azuredisk.pullPolicy }}
           securityContext:
             privileged: true
+            capabilities:
+              drop:
+              - ALL
           lifecycle:
             preStop:
               exec:

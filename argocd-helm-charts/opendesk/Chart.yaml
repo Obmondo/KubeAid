@@ -1,0 +1,9 @@
+apiVersion: v2
+name: opendesk
+version: 1.0.0
+dependencies:
+  - name: opendesk
+    version: 0.0.1
+    # Manually copied from upstream
+    # Support is very limited
+    #repository: https://helm.opendesk.io/opendesk

@@ -1,14 +1,3 @@
-## Custom resource configuration
-crds:
-  # -- Install and upgrade CRDs
-  install: true
-  # -- Keep CRDs on chart uninstall
-  keep: true
-  # -- Annotations to be added to all CRDs
-  annotations: {}
-  # -- Additional labels to be added to all CRDs
-  additionalLabels: {}
-
 # -- Replica count for the deployment. It is not advised to run more than one replica.
 replicaCount: 1
 image:
@@ -131,30 +120,48 @@ volumes: []
 config:
   # -- Name of the ConfigMap
   name: argocd-image-updater-config
+  # -- API kind that is used to manage Argo CD applications (`kubernetes` or `argocd`)
+  applicationsAPIKind: ""
+
+  # Described in detail here https://argocd-image-updater.readthedocs.io/en/stable/install/reference/#flags
+  # Note: this is only relevant if config.applicationsAPIKind == 'argocd'
+  argocd:
+    # -- Use the gRPC-web protocol to connect to the Argo CD API
+    grpcWeb: true
+    # -- Connect to the Argo CD API server at server address
+    serverAddress: ""
+    # -- If specified, the certificate of the Argo CD API server is not verified.
+    insecure: false
+    # -- If specified, use an unencrypted HTTP connection to the Argo CD API instead of TLS.
+    plaintext: false
+    # -- If specified, the secret with Argo CD API key will be created.
+    token: ""
+    # -- Name of the Secret containing the token
+    tokenSecretName: "argocd-image-updater-secret"
 
   # -- Disable kubernetes events
-  kube.events: false
+  disableKubeEvents: false
 
   # -- Username to use for Git commits
-  git.user: ""
+  gitCommitUser: ""
 
   # -- E-Mail address to use for Git commits
-  git.email: ""
+  gitCommitMail: ""
 
   # -- Changing the Git commit message
-  git.commit-message-template: ""
+  gitCommitTemplate: ""
 
   # -- Path to public SSH key mounted in container, or GPG key ID used to sign commits
-  git.commit-signing-key: ""
+  gitCommitSigningKey: ""
 
   # -- Enables sign off on commits
-  git.commit-sign-off: false
+  gitCommitSignOff: false
 
   # -- Method used to sign Git commits. `openpgp` or `ssh`
-  git.commit-signing-method: ""
+  gitCommitSigningMethod: ""
 
   # -- Argo CD Image Update log level
-  log.level: "info"
+  logLevel: "info"
 
   # -- Argo CD Image Updater registries list configuration. More information [here](https://argocd-image-updater.readthedocs.io/en/stable/configuration/registries/).
   registries: []
@@ -245,9 +252,8 @@ podLabels: {}
   # azure.workload.identity/use: "true"
 
 # -- Pod security context settings for the deployment
-# @default -- See [values.yaml]
-podSecurityContext:
-  runAsNonRoot: true
+podSecurityContext: {}
+  # fsGroup: 2000
 
 # -- Security context settings for the deployment
 # @default -- See [values.yaml]
@@ -287,7 +293,7 @@ metrics:
     # -- Metrics service labels
     labels: {}
     # -- Metrics service port
-    servicePort: 8443
+    servicePort: 8081
   serviceMonitor:
     # -- Enable a prometheus ServiceMonitor
     enabled: false
@@ -306,13 +312,8 @@ metrics:
     # -- Prometheus ServiceMonitor labels
     additionalLabels: {}
 
-containerPorts:
-  # -- Port for the webhook events
-  webhook: 8082
-  # -- Port for the probe endpoint
-  health: 8081
-  # -- Port for the metrics
-  metrics: 8443
+# -- ContainerPort for the deployment
+containerPort: 8080
 
 ## Service configuration
 service:

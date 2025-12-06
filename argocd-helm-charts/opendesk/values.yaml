@@ -1,0 +1,14 @@
+global:
+  domain: abc.com
+  mailDomain: mail.abc.com
+smtp:
+  dkim:
+    key:
+      secret:
+        name: "opendesk-dkimpy-milter"
+        key: "dkim.key"
+    selector: "default"
+    useED25519: false
+apps:
+  dkimpy:
+    enabled: true

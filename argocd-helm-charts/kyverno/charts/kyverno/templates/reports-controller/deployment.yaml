@@ -1,6 +1,6 @@
 {{- if .Values.reportsController.enabled -}}
 {{- include "kyverno.validateOpenReports" . -}}
-{{- if not .Values.global.templating.debug -}}
+{{- if not .Values.templating.debug -}}
 {{- $automountSAToken := .Values.reportsController.rbac.serviceAccount.automountServiceAccountToken }}
 apiVersion: apps/v1
 kind: Deployment

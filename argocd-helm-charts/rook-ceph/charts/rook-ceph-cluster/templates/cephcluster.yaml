@@ -8,10 +8,6 @@ spec:
   {{- with .Values.monitoring }}
   monitoring:
     enabled: {{ .enabled | default false }}
-    {{- with .exporter }}
-    exporter:
-    {{- . | toYaml | nindent 6 }}
-    {{- end }}
     {{- with .externalMgrEndpoints }}
     externalMgrEndpoints:
     {{- . | toYaml | nindent 6 }}

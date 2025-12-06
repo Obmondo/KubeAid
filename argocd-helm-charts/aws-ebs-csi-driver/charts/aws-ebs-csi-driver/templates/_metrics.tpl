@@ -23,7 +23,7 @@ spec:
   {{- with .InternalTrafficPolicy }}
   internalTrafficPolicy: {{ . }}
   {{- end }}
-{{- if or .ServiceMonitor.forceEnable (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1/ServiceMonitor") }}
+{{- if or .ServiceMonitor.forceEnable (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1") }}
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor

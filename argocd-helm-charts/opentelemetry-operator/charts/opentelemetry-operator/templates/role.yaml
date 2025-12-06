@@ -161,7 +161,6 @@ rules:
       - opentelemetrycollectors/finalizers
       - opentelemetrycollectors/status
       - targetallocators/status
-      - targetallocators/finalizers
     verbs:
       - get
       - patch

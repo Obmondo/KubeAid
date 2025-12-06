@@ -21,7 +21,6 @@ spec:
     matchLabels:
       release: {{ .Release.Name }}
       app: {{ template "redis-ha.name" . }}-haproxy
-      component: haproxy
   policyTypes:
     - Ingress
     - Egress
@@ -32,7 +31,10 @@ spec:
               release: {{ .Release.Name }}
               app: {{ template "redis-ha.name" . }}
       ports:
-      {{- include "redis-ports" . | nindent 6 }}
+        - port: {{ .Values.redis.port }}
+          protocol: TCP
+        - port: {{ .Values.sentinel.port }}
+          protocol: TCP
     - to:
         - namespaceSelector: {}
       ports:
@@ -53,7 +55,10 @@ spec:
               release: {{ .Release.Name }}
               app: {{ template "redis-ha.name" . }}
       ports:
-      {{- include "redis-ports" . | nindent 8 }}
+        - port: {{ .Values.redis.port }}
+          protocol: TCP
+        - port: {{ .Values.sentinel.port }}
+          protocol: TCP
     {{-  range $rule := .Values.haproxy.networkPolicy.ingressRules }}
     - from:
         {{- (tpl (toYaml $rule.selectors) $) | nindent 8 }}
@@ -61,6 +66,9 @@ spec:
         {{- if $rule.ports }}
         {{- toYaml $rule.ports | nindent 8 }}
         {{- end }}
-        {{- include "redis-ports" . | nindent 8 }}
+        - port: {{ $root.Values.redis.port }}
+          protocol: TCP
+        - port: {{ $root.Values.sentinel.port }}
+          protocol: TCP
     {{- end }}
 {{- end }}

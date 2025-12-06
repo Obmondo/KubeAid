@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2024 Zentrum für Digitale Souveränität der Öffentlichen Verwaltung (ZenDiS) GmbH
+# SPDX-License-Identifier: Apache-2.0
+---
+annotations:
+  licenses: "Apache-2.0"
+apiVersion: "v2"
+description: "A Helm chart deploying openDesk as Argo CD applications"
+home: "https://zendis.de"
+keywords:
+  - "openDesk"
+  - "argocd"
+name: "opendesk"
+sources:
+  - "https://gitlab.opencode.de:bmi/opendesk/deployment/options/argocd-deploy.git"
+type: "application"
+version: "0.0.1"
+...

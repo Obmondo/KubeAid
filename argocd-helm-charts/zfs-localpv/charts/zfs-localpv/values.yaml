@@ -142,11 +142,12 @@ zfsPlugin:
   image:
     # Make sure that registry name end with a '/'.
     # For example : registry.k8s.io/ is a correct value here and quay.io is incorrect
-    registry: docker.io/
+    registry:
     repository: openebs/zfs-driver
     pullPolicy: IfNotPresent
     # Overrides the image tag whose default is the chart appVersion.
-    tag: 2.9.0
+    tag: 2.8.0
+
 role: openebs-zfs
 
 serviceAccount:

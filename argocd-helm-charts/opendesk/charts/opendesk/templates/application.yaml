@@ -1,0 +1,118 @@
+{{/*
+SPDX-FileCopyrightText: 2024 Zentrum für Digitale Souveränität der Öffentlichen Verwaltung (ZenDiS) GmbH
+SPDX-License-Identifier: Apache-2.0
+*/}}
+{{- range .Values.argo.applications }}
+---
+apiVersion: "argoproj.io/v1alpha1"
+kind: "Application"
+metadata:
+  # NOTE: This is added manually, since it will deploy in a diff namespace, which we don't want.
+  # Need to raise a upstream PR
+  name: "argocd-opendesk-{{ .name }}{{ if .selector }}-{{.selector | regexFind "=(.+)" | trimPrefix "=" }}{{ end }}"
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: {{ .syncWave | quote }}
+  finalizers:
+    - "resources-finalizer.argocd.argoproj.io"
+spec:
+  project: {{ $.Values.argo.project | quote }}
+  source:
+    repoURL: {{ $.Values.argo.source.repoURL | quote }}
+    targetRevision: {{ $.Values.argo.source.targetRevision | quote }}
+    path: "helmfile/apps/{{ .name }}"
+    plugin:
+      name: "helmfile"
+      env:
+        - name: "MASTER_PASSWORD"
+          value: {{ $.Values.openDesk.masterPassword | quote }}
+        - name: "TURN_CREDENTIALS"
+          value: {{ $.Values.openDesk.turnPassword | quote }}
+        - name: "DOMAIN"
+          value: {{ $.Values.openDesk.domain | quote }}
+      parameters:
+        - name: "HELMFILE_GLOBAL_OPTIONS"
+          string: "--file helmfile.yaml.gotmpl --state-values-set {{ include "yamlToArgs" (dict "map" $.Values.openDesk.overwrites "path" "") | trimSuffix "," }} {{ if .selector }} --selector {{ .selector }}{{ end }}"
+  destination:
+    server: {{ $.Values.argo.destination.server | quote }}
+    namespace: {{ $.Values.argo.destination.namespace | quote }}
+  syncPolicy:
+    {{- if $.Values.argo.syncPolicy }}
+    {{ $.Values.argo.syncPolicy | toYaml | nindent 4 }}
+    {{- end }}
+    syncOptions:
+      - "CreateNamespace=true"
+      - "RespectIgnoreDifferences=true"
+      {{- if eq .name "nubus" }}
+      - "Replace=true"
+      {{- end }}
+  ignoreDifferences:
+    - kind: "ConfigMap"
+      name: "jitsi-jvb"
+      jsonPointers:
+        - "/data/JVB_PORT"
+    - kind: "ConfigMap"
+      name: "ums-portal-listener"
+      jsonPointers:
+        - "/data/LDAP_PASSWORD"
+    - group: "apps"
+      kind: "Deployment"
+      name: "jitsi-jvb"
+      jqPathExpressions:
+        - ".spec.template.spec.containers[].env"
+    - group: "apps"
+      kind: "Deployment"
+      name: "ums-guardian-management-ui"
+      jqPathExpressions:
+        - ".spec.template.spec.containers[].securityContext"
+    - group: "apps"
+      kind: "StatefulSet"
+      name: "ums-umc-server"
+      jqPathExpressions:
+        - ".spec.template.spec.containers[].resources"
+        - ".spec.template.spec.initContainers[].resources"
+        - ".spec.strategy"
+    - group: "apps"
+      kind: "Deployment"
+      name: "ums-guardian-management-ui"
+      jqPathExpressions:
+        - ".spec.template.spec.containers[].resources"
+    - kind: "Secret"
+      name: "ums-portal-consumer-ldap-tls"
+      jqPathExpressions:
+        - ".data"
+    - kind: "Secret"
+      name: "ums-portal-listener-ldap-tls"
+      jqPathExpressions:
+        - ".data"
+    - kind: "Secret"
+      name: "ums-provisioning-udm-listener-ldap-tls"
+      jqPathExpressions:
+        - ".data"
+    - kind: "Secret"
+      name: "ums-selfservice-listener-ldap-tls"
+      jqPathExpressions:
+        - ".data"
+    - kind: "Secret"
+      name: "ums-umc-server-ldap-tls"
+      jqPathExpressions:
+        - ".data"
+    - kind: "Secret"
+      name: "ums-umc-server"
+      jqPathExpressions:
+        - ".data.cert_pem"
+        - ".data.ldap_secret"
+        - ".data.machine_secret"
+        - ".data.private_key"
+    - kind: "Service"
+      name: "ums-ldap-server-primary"
+      jqPathExpressions:
+        - ".spec.selector"
+    - kind: "Secret"
+      name: "openproject-cron-environment"
+      jqPathExpressions:
+        - ".data.IMAP_HOST"
+        - ".data.IMAP_PASSWORD"
+        - ".data.IMAP_USERNAME"
+...
+{{- end }}

@@ -17,7 +17,6 @@ metadata:
     {{- end }}
 spec:
   serviceAccountName: {{ include "promtail.serviceAccountName" . }}
-  automountServiceAccountToken: {{ .Values.automountServiceAccountToken }}
   {{- include "promtail.enableServiceLinks" . | nindent 2 }}
   {{- with .Values.hostNetwork }}
   hostNetwork: {{ . }}
@@ -27,7 +26,7 @@ spec:
   {{- end }}
   {{- with .Values.initContainer }}
   initContainers:
-    {{- tpl (toYaml .) $ | nindent 4 }}
+    {{- toYaml . | nindent 4 }}
   {{- end }}
   {{- with .Values.global.imagePullSecrets | default .Values.imagePullSecrets }}
   imagePullSecrets:
@@ -167,6 +166,6 @@ spec:
     {{- toYaml . | nindent 4 }}
     {{- end }}
     {{- with .Values.extraVolumes }}
-    {{- tpl (toYaml .) $ | nindent 4 }}
+    {{- toYaml . | nindent 4 }}
     {{- end }}
 {{- end }}

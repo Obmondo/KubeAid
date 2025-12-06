@@ -3,7 +3,6 @@
     "type": "object",
     "required": [
         "proxyAddr",
-        "relayAddr",
         "roles",
         "joinParams",
         "kubeClusterName",
@@ -48,11 +47,6 @@
         },
         "proxyAddr": {
             "$id": "#/properties/proxyAddr",
-            "type": "string",
-            "default": ""
-        },
-        "relayAddr": {
-            "$id": "#/properties/relayAddr",
             "type": "string",
             "default": ""
         },
@@ -529,11 +523,6 @@
             "$id": "#/properties/affinity",
             "type": "object",
             "default": {}
-        },
-        "topologySpreadConstraints": {
-            "$id": "#/properties/topologySpreadConstraints",
-            "type": "array",
-            "default": []
         },
         "dnsConfig": {
             "$id": "#/properties/dnsConfig",

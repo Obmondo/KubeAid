@@ -1,4 +1,4 @@
-{{- if or .Values.serviceMonitor.enabled .Values.service.enabled }}
+{{- if .Values.serviceMonitor.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -6,13 +6,6 @@ metadata:
   namespace: {{ include "promtail.namespaceName" . }}
   labels:
     {{- include "promtail.labels" . | nindent 4 }}
-    {{- with .Values.service.labels }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
-  {{- with .Values.service.annotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
 spec:
   clusterIP: None
   ports:

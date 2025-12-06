@@ -1,4 +1,3 @@
-{{ if .Values.redisOperator.webhook }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -19,4 +18,3 @@ spec:
       targetPort: 9443
   selector:
     name: {{ .Values.redisOperator.name }}
-{{ end }}

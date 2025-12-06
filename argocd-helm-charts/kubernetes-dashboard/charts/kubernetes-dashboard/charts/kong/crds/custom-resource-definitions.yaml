@@ -2,8 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    kubernetes-configuration.konghq.com/channels: ingress-controller
-    kubernetes-configuration.konghq.com/version: v1.5.2
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: ingressclassparameterses.configuration.konghq.com
 spec:
   group: configuration.konghq.com
@@ -60,15 +59,13 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    kubernetes-configuration.konghq.com/channels: ingress-controller
-    kubernetes-configuration.konghq.com/version: v1.5.2
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: kongclusterplugins.configuration.konghq.com
 spec:
   group: configuration.konghq.com
   names:
     categories:
     - kong-ingress-controller
-    - kong
     kind: KongClusterPlugin
     listKind: KongClusterPluginList
     plural: kongclusterplugins
@@ -368,15 +365,13 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    kubernetes-configuration.konghq.com/channels: ingress-controller,gateway-operator
-    kubernetes-configuration.konghq.com/version: v1.5.2
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: kongconsumergroups.configuration.konghq.com
 spec:
   group: configuration.konghq.com
   names:
     categories:
     - kong-ingress-controller
-    - kong
     kind: KongConsumerGroup
     listKind: KongConsumerGroupList
     plural: kongconsumergroups
@@ -415,104 +410,17 @@ spec:
             type: string
           metadata:
             type: object
-          spec:
-            description: KongConsumerGroupSpec defines the desired state of KongConsumerGroup.
-            properties:
-              controlPlaneRef:
-                description: ControlPlaneRef is a reference to a ControlPlane this
-                  ConsumerGroup is associated with.
-                properties:
-                  konnectID:
-                    description: |-
-                      KonnectID is the schema for the KonnectID type.
-                      This field is required when the Type is konnectID.
-                    pattern: ^[0-9a-f]{8}(?:\-[0-9a-f]{4}){3}-[0-9a-f]{12}$
-                    type: string
-                  konnectNamespacedRef:
-                    description: |-
-                      KonnectNamespacedRef is a reference to a Konnect Control Plane entity inside the cluster.
-                      It contains the name of the Konnect Control Plane.
-                      This field is required when the Type is konnectNamespacedRef.
-                    properties:
-                      name:
-                        description: Name is the name of the Konnect Control Plane.
-                        type: string
-                      namespace:
-                        description: |-
-                          Namespace is the namespace where the Konnect Control Plane is in.
-                          Currently only cluster scoped resources (KongVault) are allowed to set `konnectNamespacedRef.namespace`.
-                        type: string
-                    required:
-                    - name
-                    type: object
-                  type:
-                    default: kic
-                    description: |-
-                      Type indicates the type of the control plane being referenced. Allowed values:
-                      - konnectID
-                      - konnectNamespacedRef
-                      - kic
-
-                      The default is kic, which implies that the Control Plane is KIC.
-                    enum:
-                    - konnectID
-                    - konnectNamespacedRef
-                    - kic
-                    type: string
-                type: object
-                x-kubernetes-validations:
-                - message: '''konnectID'' type is not supported'
-                  rule: self.type != 'konnectID'
-                - message: when type is konnectNamespacedRef, konnectNamespacedRef
-                    must be set
-                  rule: '(has(self.type) && self.type == ''konnectNamespacedRef'')
-                    ? has(self.konnectNamespacedRef) : true'
-                - message: when type is konnectNamespacedRef, konnectID must not be
-                    set
-                  rule: '(has(self.type) && self.type == ''konnectNamespacedRef'')
-                    ? !has(self.konnectID) : true'
-                - message: when type is konnectID, konnectID must be set
-                  rule: '(has(self.type) && self.type == ''konnectID'') ? has(self.konnectID)
-                    : true'
-                - message: when type is konnectID, konnectNamespacedRef must not be
-                    set
-                  rule: '(has(self.type) && self.type == ''konnectID'') ? !has(self.konnectNamespacedRef)
-                    : true'
-                - message: when type is kic, konnectID must not be set
-                  rule: '(has(self.type) && self.type == ''kic'') ? !has(self.konnectID)
-                    : true'
-                - message: when type is kic, konnectNamespacedRef must not be set
-                  rule: '(has(self.type) && self.type == ''kic'') ? !has(self.konnectNamespacedRef)
-                    : true'
-                - message: when type is unset, konnectID must not be set
-                  rule: '!has(self.type) ? !has(self.konnectID) : true'
-                - message: when type is unset, konnectNamespacedRef must not be set
-                  rule: '!has(self.type) ? !has(self.konnectNamespacedRef) : true'
-              name:
-                description: Name is the name of the ConsumerGroup in Kong.
-                type: string
-              tags:
-                description: Tags is an optional set of tags applied to the ConsumerGroup.
-                items:
-                  type: string
-                maxItems: 20
-                type: array
-                x-kubernetes-validations:
-                - message: tags entries must not be longer than 128 characters
-                  rule: self.all(tag, size(tag) >= 1 && size(tag) <= 128)
-            type: object
           status:
-            default:
-              conditions:
-              - lastTransitionTime: "1970-01-01T00:00:00Z"
-                message: Waiting for controller
-                reason: Pending
-                status: Unknown
-                type: Programmed
             description: Status represents the current status of the KongConsumerGroup
               resource.
             properties:
               conditions:
+                default:
+                - lastTransitionTime: "1970-01-01T00:00:00Z"
+                  message: Waiting for controller
+                  reason: Pending
+                  status: Unknown
+                  type: Programmed
                 description: |-
                   Conditions describe the current conditions of the KongConsumerGroup.
 
@@ -578,39 +486,8 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              konnect:
-                description: Konnect contains the Konnect entity status.
-                properties:
-                  controlPlaneID:
-                    description: ControlPlaneID is the Konnect ID of the ControlPlane
-                      this Route is associated with.
-                    type: string
-                  id:
-                    description: |-
-                      ID is the unique identifier of the Konnect entity as assigned by Konnect API.
-                      If it's unset (empty string), it means the Konnect entity hasn't been created yet.
-                    type: string
-                  organizationID:
-                    description: OrgID is ID of Konnect Org that this entity has been
-                      created in.
-                    type: string
-                  serverURL:
-                    description: ServerURL is the URL of the Konnect server in which
-                      the entity exists.
-                    type: string
-                type: object
             type: object
         type: object
-        x-kubernetes-validations:
-        - message: controlPlaneRef is required once set
-          rule: (!has(oldSelf.spec) || !has(oldSelf.spec.controlPlaneRef)) || has(self.spec.controlPlaneRef)
-        - message: spec.controlPlaneRef cannot specify namespace for namespaced resource
-          rule: '(!has(self.spec) || !has(self.spec.controlPlaneRef) || !has(self.spec.controlPlaneRef.konnectNamespacedRef))
-            ? true : !has(self.spec.controlPlaneRef.konnectNamespacedRef.__namespace__)'
-        - message: spec.controlPlaneRef is immutable when an entity is already Programmed
-          rule: '(!has(oldSelf.spec) || !has(oldSelf.spec.controlPlaneRef)) ? true
-            : (!has(self.status) || !self.status.conditions.exists(c, c.type == ''Programmed''
-            && c.status == ''True'')) ? true : oldSelf.spec.controlPlaneRef == self.spec.controlPlaneRef'
     served: true
     storage: true
     subresources:
@@ -620,15 +497,13 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    kubernetes-configuration.konghq.com/channels: ingress-controller,gateway-operator
-    kubernetes-configuration.konghq.com/version: v1.5.2
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: kongconsumers.configuration.konghq.com
 spec:
   group: configuration.konghq.com
   names:
     categories:
     - kong-ingress-controller
-    - kong
     kind: KongConsumer
     listKind: KongConsumerList
     plural: kongconsumers
@@ -692,101 +567,17 @@ spec:
             type: string
           metadata:
             type: object
-          spec:
-            description: KongConsumerSpec defines the specification of the KongConsumer.
-            properties:
-              controlPlaneRef:
-                description: ControlPlaneRef is a reference to a ControlPlane this
-                  Consumer is associated with.
-                properties:
-                  konnectID:
-                    description: |-
-                      KonnectID is the schema for the KonnectID type.
-                      This field is required when the Type is konnectID.
-                    pattern: ^[0-9a-f]{8}(?:\-[0-9a-f]{4}){3}-[0-9a-f]{12}$
-                    type: string
-                  konnectNamespacedRef:
-                    description: |-
-                      KonnectNamespacedRef is a reference to a Konnect Control Plane entity inside the cluster.
-                      It contains the name of the Konnect Control Plane.
-                      This field is required when the Type is konnectNamespacedRef.
-                    properties:
-                      name:
-                        description: Name is the name of the Konnect Control Plane.
-                        type: string
-                      namespace:
-                        description: |-
-                          Namespace is the namespace where the Konnect Control Plane is in.
-                          Currently only cluster scoped resources (KongVault) are allowed to set `konnectNamespacedRef.namespace`.
-                        type: string
-                    required:
-                    - name
-                    type: object
-                  type:
-                    default: kic
-                    description: |-
-                      Type indicates the type of the control plane being referenced. Allowed values:
-                      - konnectID
-                      - konnectNamespacedRef
-                      - kic
-
-                      The default is kic, which implies that the Control Plane is KIC.
-                    enum:
-                    - konnectID
-                    - konnectNamespacedRef
-                    - kic
-                    type: string
-                type: object
-                x-kubernetes-validations:
-                - message: '''konnectID'' type is not supported'
-                  rule: self.type != 'konnectID'
-                - message: when type is konnectNamespacedRef, konnectNamespacedRef
-                    must be set
-                  rule: '(has(self.type) && self.type == ''konnectNamespacedRef'')
-                    ? has(self.konnectNamespacedRef) : true'
-                - message: when type is konnectNamespacedRef, konnectID must not be
-                    set
-                  rule: '(has(self.type) && self.type == ''konnectNamespacedRef'')
-                    ? !has(self.konnectID) : true'
-                - message: when type is konnectID, konnectID must be set
-                  rule: '(has(self.type) && self.type == ''konnectID'') ? has(self.konnectID)
-                    : true'
-                - message: when type is konnectID, konnectNamespacedRef must not be
-                    set
-                  rule: '(has(self.type) && self.type == ''konnectID'') ? !has(self.konnectNamespacedRef)
-                    : true'
-                - message: when type is kic, konnectID must not be set
-                  rule: '(has(self.type) && self.type == ''kic'') ? !has(self.konnectID)
-                    : true'
-                - message: when type is kic, konnectNamespacedRef must not be set
-                  rule: '(has(self.type) && self.type == ''kic'') ? !has(self.konnectNamespacedRef)
-                    : true'
-                - message: when type is unset, konnectID must not be set
-                  rule: '!has(self.type) ? !has(self.konnectID) : true'
-                - message: when type is unset, konnectNamespacedRef must not be set
-                  rule: '!has(self.type) ? !has(self.konnectNamespacedRef) : true'
-              tags:
-                description: Tags is an optional set of tags applied to the consumer.
-                items:
-                  type: string
-                maxItems: 20
-                type: array
-                x-kubernetes-validations:
-                - message: tags entries must not be longer than 128 characters
-                  rule: self.all(tag, size(tag) >= 1 && size(tag) <= 128)
-            type: object
           status:
-            default:
-              conditions:
-              - lastTransitionTime: "1970-01-01T00:00:00Z"
-                message: Waiting for controller
-                reason: Pending
-                status: Unknown
-                type: Programmed
             description: Status represents the current status of the KongConsumer
               resource.
             properties:
               conditions:
+                default:
+                - lastTransitionTime: "1970-01-01T00:00:00Z"
+                  message: Waiting for controller
+                  reason: Pending
+                  status: Unknown
+                  type: Programmed
                 description: |-
                   Conditions describe the current conditions of the KongConsumer.
 
@@ -852,27 +643,6 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              konnect:
-                description: Konnect contains the Konnect entity status.
-                properties:
-                  controlPlaneID:
-                    description: ControlPlaneID is the Konnect ID of the ControlPlane
-                      this Route is associated with.
-                    type: string
-                  id:
-                    description: |-
-                      ID is the unique identifier of the Konnect entity as assigned by Konnect API.
-                      If it's unset (empty string), it means the Konnect entity hasn't been created yet.
-                    type: string
-                  organizationID:
-                    description: OrgID is ID of Konnect Org that this entity has been
-                      created in.
-                    type: string
-                  serverURL:
-                    description: ServerURL is the URL of the Konnect server in which
-                      the entity exists.
-                    type: string
-                type: object
             type: object
           username:
             description: Username is a Kong cluster-unique username of the consumer.
@@ -881,15 +651,6 @@ spec:
         x-kubernetes-validations:
         - message: Need to provide either username or custom_id
           rule: has(self.username) || has(self.custom_id)
-        - message: controlPlaneRef is required once set
-          rule: (!has(oldSelf.spec) || !has(oldSelf.spec.controlPlaneRef)) || has(self.spec.controlPlaneRef)
-        - message: spec.controlPlaneRef cannot specify namespace for namespaced resource
-          rule: '(!has(self.spec) || !has(self.spec.controlPlaneRef) || !has(self.spec.controlPlaneRef.konnectNamespacedRef))
-            ? true : !has(self.spec.controlPlaneRef.konnectNamespacedRef.__namespace__)'
-        - message: spec.controlPlaneRef is immutable when an entity is already Programmed
-          rule: '(!has(self.spec) || !has(self.spec.controlPlaneRef)) ? true : (!has(self.status)
-            || !self.status.conditions.exists(c, c.type == ''Programmed'' && c.status
-            == ''True'')) ? true : oldSelf.spec.controlPlaneRef == self.spec.controlPlaneRef'
     served: true
     storage: true
     subresources:
@@ -899,15 +660,13 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    kubernetes-configuration.konghq.com/channels: ingress-controller
-    kubernetes-configuration.konghq.com/version: v1.5.2
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: kongcustomentities.configuration.konghq.com
 spec:
   group: configuration.konghq.com
   names:
     categories:
     - kong-ingress-controller
-    - kong
     kind: KongCustomEntity
     listKind: KongCustomEntityList
     plural: kongcustomentities
@@ -952,7 +711,6 @@ spec:
           metadata:
             type: object
           spec:
-            description: KongCustomEntitySpec defines the specification of the KongCustomEntity.
             properties:
               controllerName:
                 description: ControllerName specifies the controller that should reconcile
@@ -968,16 +726,10 @@ spec:
                   to the entity(service/route/consumer) where the plugin is attached.
                 properties:
                   group:
-                    description: Group defines the API group of the referred object.
                     type: string
                   kind:
-                    description: Kind defines the kind of the referred object.
-                    enum:
-                    - KongPlugin
-                    - KongClusterPlugin
                     type: string
                   name:
-                    description: Name defines the name of the referred object.
                     type: string
                   namespace:
                     description: Empty namespace means the same namespace of the owning
@@ -995,9 +747,6 @@ spec:
             - fields
             - type
             type: object
-            x-kubernetes-validations:
-            - message: The type field cannot be one of the known Kong entity types
-              rule: '!(self.type in [''services'',''routes'',''upstreams'',''targets'',''plugins'',''consumers'',''consumer_groups''])'
           status:
             description: Status stores the reconciling status of the resource.
             properties:
@@ -1082,6 +831,8 @@ spec:
         x-kubernetes-validations:
         - message: The spec.type field is immutable
           rule: self.spec.type == oldSelf.spec.type
+        - message: The spec.type field cannot be known Kong entity types
+          rule: '!(self.spec.type in [''services'',''routes'',''upstreams'',''targets'',''plugins'',''consumers'',''consumer_groups''])'
     served: true
     storage: true
     subresources:
@@ -1091,8 +842,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    kubernetes-configuration.konghq.com/channels: ingress-controller
-    kubernetes-configuration.konghq.com/version: v1.5.2
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: kongingresses.configuration.konghq.com
 spec:
   group: configuration.konghq.com
@@ -1107,14 +857,10 @@ spec:
     singular: kongingress
   scope: Namespaced
   versions:
-  - deprecated: true
-    deprecationWarning: configuration.konghq.com/v1 KongIngress is deprecated
-    name: v1
+  - name: v1
     schema:
       openAPIV3Schema:
-        description: |-
-          KongIngress is the Schema for the kongingresses API.
-          Deprecated: Use annotations and KongUpstreamPolicy instead. See https://developer.konghq.com/kubernetes-ingress-controller/migrate/kongingress/
+        description: KongIngress is the Schema for the kongingresses API.
         properties:
           apiVersion:
             description: |-
@@ -1487,15 +1233,13 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    kubernetes-configuration.konghq.com/channels: ingress-controller,gateway-operator
-    kubernetes-configuration.konghq.com/version: v1.5.2
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: konglicenses.configuration.konghq.com
 spec:
   group: configuration.konghq.com
   names:
     categories:
     - kong-ingress-controller
-    - kong
     kind: KongLicense
     listKind: KongLicenseList
     plural: konglicenses
@@ -1687,15 +1431,13 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    kubernetes-configuration.konghq.com/channels: ingress-controller,gateway-operator
-    kubernetes-configuration.konghq.com/version: v1.5.2
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: kongplugins.configuration.konghq.com
 spec:
   group: configuration.konghq.com
   names:
     categories:
     - kong-ingress-controller
-    - kong
     kind: KongPlugin
     listKind: KongPluginList
     plural: kongplugins
@@ -1989,8 +1731,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    kubernetes-configuration.konghq.com/channels: ingress-controller
-    kubernetes-configuration.konghq.com/version: v1.5.2
+    controller-gen.kubebuilder.io/version: v0.16.1
   labels:
     gateway.networking.k8s.io/policy: direct
   name: kongupstreampolicies.configuration.konghq.com
@@ -1999,7 +1740,6 @@ spec:
   names:
     categories:
     - kong-ingress-controller
-    - kong
     kind: KongUpstreamPolicy
     listKind: KongUpstreamPolicyList
     plural: kongupstreampolicies
@@ -2054,18 +1794,17 @@ spec:
               algorithm:
                 description: |-
                   Algorithm is the load balancing algorithm to use.
-                  Accepted values are: "round-robin", "consistent-hashing", "least-connections", "latency", "sticky-sessions"
+                  Accepted values are: "round-robin", "consistent-hashing", "least-connections", "latency".
                 enum:
                 - round-robin
                 - consistent-hashing
                 - least-connections
                 - latency
-                - sticky-sessions
                 type: string
               hashOn:
                 description: |-
-                  HashOn defines how to calculate hash for consistent-hashing or sticky-sessions load balancing algorithm.
-                  Algorithm must be set to "consistent-hashing" or "sticky-sessions" for this field to have effect.
+                  HashOn defines how to calculate hash for consistent-hashing load balancing algorithm.
+                  Algorithm must be set to "consistent-hashing" for this field to have effect.
                 properties:
                   cookie:
                     description: Cookie is the name of the cookie to use as hash input.
@@ -2079,14 +1818,12 @@ spec:
                     type: string
                   input:
                     description: |-
-                      Input allows using one of the predefined inputs (ip, consumer, path, none).
-                      Set this to `none` if you want to use sticky sessions.
-                      For other parameterized inputs, use one of the fields below.
+                      Input allows using one of the predefined inputs (ip, consumer, path).
+                      For other parametrized inputs, use one of the fields below.
                     enum:
                     - ip
                     - consumer
                     - path
-                    - none
                     type: string
                   queryArg:
                     description: QueryArg is the name of the query argument to use
@@ -2115,14 +1852,12 @@ spec:
                     type: string
                   input:
                     description: |-
-                      Input allows using one of the predefined inputs (ip, consumer, path, none).
-                      Set this to `none` if you want to use sticky sessions.
-                      For other parameterized inputs, use one of the fields below.
+                      Input allows using one of the predefined inputs (ip, consumer, path).
+                      For other parametrized inputs, use one of the fields below.
                     enum:
                     - ip
                     - consumer
                     - path
-                    - none
                     type: string
                   queryArg:
                     description: QueryArg is the name of the query argument to use
@@ -2331,25 +2066,6 @@ spec:
                 maximum: 65536
                 minimum: 10
                 type: integer
-              stickySessions:
-                description: |-
-                  StickySessions defines the sticky session configuration for the upstream.
-                  When enabled, clients will be routed to the same backend target based on a cookie.
-                  This requires Kong Enterprise Gateway and setting `hash_on` to `none`.
-                properties:
-                  cookie:
-                    description: |-
-                      Cookie is the name of the cookie to use for sticky sessions.
-                      Kong will generate this cookie if it doesn't exist in the request.
-                    minLength: 1
-                    type: string
-                  cookiePath:
-                    default: /
-                    description: CookiePath is the path to set in the cookie.
-                    type: string
-                required:
-                - cookie
-                type: object
             type: object
           status:
             description: Status defines the current state of KongUpstreamPolicy
@@ -2660,11 +2376,10 @@ spec:
         - message: When spec.hashOn.cookiePath is set, spec.hashOn.cookie is required.
           rule: 'has(self.spec.hashOn) && has(self.spec.hashOn.cookiePath) ? has(self.spec.hashOn.cookie)
             : true'
-        - message: spec.algorithm must be set to either 'consistent-hashing' or 'sticky-sessions'
-            when spec.hashOn is set.
-          rule: 'has(self.spec.hashOn) ? has(self.spec.algorithm) && (self.spec.algorithm
-            == "consistent-hashing" || self.spec.algorithm == "sticky-sessions") :
-            true'
+        - message: spec.algorithm must be set to "consistent-hashing" when spec.hashOn
+            is set.
+          rule: 'has(self.spec.hashOn) ? has(self.spec.algorithm) && self.spec.algorithm
+            == "consistent-hashing" : true'
         - message: Only one of spec.hashOnFallback.(input|header|uriCapture|queryArg)
             can be set.
           rule: 'has(self.spec.hashOnFallback) ? [has(self.spec.hashOnFallback.input),
@@ -2675,9 +2390,11 @@ spec:
             is set.
           rule: 'has(self.spec.hashOnFallback) ? has(self.spec.algorithm) && self.spec.algorithm
             == "consistent-hashing" : true'
-        - message: spec.hashOnFallback must not be set when spec.hashOn.cookie is
-            set.
-          rule: 'has(self.spec.hashOn) && has(self.spec.hashOn.cookie) ? !has(self.spec.hashOnFallback)
+        - message: spec.hashOnFallback.cookie must not be set.
+          rule: 'has(self.spec.hashOnFallback) ? !has(self.spec.hashOnFallback.cookie)
+            : true'
+        - message: spec.hashOnFallback.cookiePath must not be set.
+          rule: 'has(self.spec.hashOnFallback) ? !has(self.spec.hashOnFallback.cookiePath)
             : true'
         - message: spec.healthchecks.passive.healthy.interval must not be set.
           rule: 'has(self.spec.healthchecks) && has(self.spec.healthchecks.passive)
@@ -2687,21 +2404,10 @@ spec:
           rule: 'has(self.spec.healthchecks) && has(self.spec.healthchecks.passive)
             && has(self.spec.healthchecks.passive.unhealthy) ? !has(self.spec.healthchecks.passive.unhealthy.interval)
             : true'
-        - message: When spec.stickySessions is set, spec.hashOn.input must be set
-            to 'none' (no other hash_on fields allowed).
-          rule: 'has(self.spec.stickySessions) ? (has(self.spec.hashOn) && has(self.spec.hashOn.input)
-            && self.spec.hashOn.input == ''none'' && !has(self.spec.hashOn.cookie)
-            && !has(self.spec.hashOn.cookiePath) && !has(self.spec.hashOn.header)
-            && !has(self.spec.hashOn.uriCapture) && !has(self.spec.hashOn.queryArg))
+        - message: spec.hashOnFallback must not be set when spec.hashOn.cookie is
+            set.
+          rule: 'has(self.spec.hashOn) && has(self.spec.hashOn.cookie) ? !has(self.spec.hashOnFallback)
             : true'
-        - message: spec.stickySessions.cookie is required when spec.stickySessions
-            is set.
-          rule: 'has(self.spec.stickySessions) ? has(self.spec.stickySessions.cookie)
-            : true'
-        - message: spec.algorithm must be set to 'sticky-sessions' when spec.stickySessions
-            is set.
-          rule: 'has(self.spec.stickySessions) ? (has(self.spec.algorithm) && self.spec.algorithm
-            == "sticky-sessions") : true'
     served: true
     storage: true
     subresources:
@@ -2711,15 +2417,13 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    kubernetes-configuration.konghq.com/channels: ingress-controller,gateway-operator
-    kubernetes-configuration.konghq.com/version: v1.5.2
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: kongvaults.configuration.konghq.com
 spec:
   group: configuration.konghq.com
   names:
     categories:
     - kong-ingress-controller
-    - kong
     kind: KongVault
     listKind: KongVaultList
     plural: kongvaults
@@ -2788,76 +2492,6 @@ spec:
                 description: Config is the configuration of the vault. Varies for
                   different backends.
                 x-kubernetes-preserve-unknown-fields: true
-              controlPlaneRef:
-                description: ControlPlaneRef is a reference to a Konnect ControlPlane
-                  this KongVault is associated with.
-                properties:
-                  konnectID:
-                    description: |-
-                      KonnectID is the schema for the KonnectID type.
-                      This field is required when the Type is konnectID.
-                    pattern: ^[0-9a-f]{8}(?:\-[0-9a-f]{4}){3}-[0-9a-f]{12}$
-                    type: string
-                  konnectNamespacedRef:
-                    description: |-
-                      KonnectNamespacedRef is a reference to a Konnect Control Plane entity inside the cluster.
-                      It contains the name of the Konnect Control Plane.
-                      This field is required when the Type is konnectNamespacedRef.
-                    properties:
-                      name:
-                        description: Name is the name of the Konnect Control Plane.
-                        type: string
-                      namespace:
-                        description: |-
-                          Namespace is the namespace where the Konnect Control Plane is in.
-                          Currently only cluster scoped resources (KongVault) are allowed to set `konnectNamespacedRef.namespace`.
-                        type: string
-                    required:
-                    - name
-                    type: object
-                  type:
-                    default: kic
-                    description: |-
-                      Type indicates the type of the control plane being referenced. Allowed values:
-                      - konnectID
-                      - konnectNamespacedRef
-                      - kic
-
-                      The default is kic, which implies that the Control Plane is KIC.
-                    enum:
-                    - konnectID
-                    - konnectNamespacedRef
-                    - kic
-                    type: string
-                type: object
-                x-kubernetes-validations:
-                - message: '''konnectID'' type is not supported'
-                  rule: self.type != 'konnectID'
-                - message: when type is konnectNamespacedRef, konnectNamespacedRef
-                    must be set
-                  rule: '(has(self.type) && self.type == ''konnectNamespacedRef'')
-                    ? has(self.konnectNamespacedRef) : true'
-                - message: when type is konnectNamespacedRef, konnectID must not be
-                    set
-                  rule: '(has(self.type) && self.type == ''konnectNamespacedRef'')
-                    ? !has(self.konnectID) : true'
-                - message: when type is konnectID, konnectID must be set
-                  rule: '(has(self.type) && self.type == ''konnectID'') ? has(self.konnectID)
-                    : true'
-                - message: when type is konnectID, konnectNamespacedRef must not be
-                    set
-                  rule: '(has(self.type) && self.type == ''konnectID'') ? !has(self.konnectNamespacedRef)
-                    : true'
-                - message: when type is kic, konnectID must not be set
-                  rule: '(has(self.type) && self.type == ''kic'') ? !has(self.konnectID)
-                    : true'
-                - message: when type is kic, konnectNamespacedRef must not be set
-                  rule: '(has(self.type) && self.type == ''kic'') ? !has(self.konnectNamespacedRef)
-                    : true'
-                - message: when type is unset, konnectID must not be set
-                  rule: '!has(self.type) ? !has(self.konnectID) : true'
-                - message: when type is unset, konnectNamespacedRef must not be set
-                  rule: '!has(self.type) ? !has(self.konnectNamespacedRef) : true'
               description:
                 description: Description is the additional information about the vault.
                 type: string
@@ -2867,16 +2501,6 @@ spec:
                   It is immutable after created.
                 minLength: 1
                 type: string
-              tags:
-                description: Tags are the tags associated to the vault for grouping
-                  and filtering.
-                items:
-                  type: string
-                maxItems: 20
-                type: array
-                x-kubernetes-validations:
-                - message: tags entries must not be longer than 128 characters
-                  rule: self.all(tag, size(tag) >= 1 && size(tag) <= 128)
             required:
             - backend
             - prefix
@@ -2957,27 +2581,6 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              konnect:
-                description: Konnect contains the Konnect entity status.
-                properties:
-                  controlPlaneID:
-                    description: ControlPlaneID is the Konnect ID of the ControlPlane
-                      this Route is associated with.
-                    type: string
-                  id:
-                    description: |-
-                      ID is the unique identifier of the Konnect entity as assigned by Konnect API.
-                      If it's unset (empty string), it means the Konnect entity hasn't been created yet.
-                    type: string
-                  organizationID:
-                    description: OrgID is ID of Konnect Org that this entity has been
-                      created in.
-                    type: string
-                  serverURL:
-                    description: ServerURL is the URL of the Konnect server in which
-                      the entity exists.
-                    type: string
-                type: object
             required:
             - conditions
             type: object
@@ -2987,12 +2590,6 @@ spec:
         x-kubernetes-validations:
         - message: The spec.prefix field is immutable
           rule: self.spec.prefix == oldSelf.spec.prefix
-        - message: controlPlaneRef is required once set
-          rule: '!has(oldSelf.spec.controlPlaneRef) || has(self.spec.controlPlaneRef)'
-        - message: spec.controlPlaneRef is immutable when an entity is already Programmed
-          rule: '(!has(self.status) || !self.status.conditions.exists(c, c.type ==
-            ''Programmed'' && c.status == ''True'') || !has(self.spec.controlPlaneRef))
-            ? true : oldSelf.spec.controlPlaneRef == self.spec.controlPlaneRef'
     served: true
     storage: true
     subresources:
@@ -3002,15 +2599,13 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    kubernetes-configuration.konghq.com/channels: ingress-controller
-    kubernetes-configuration.konghq.com/version: v1.5.2
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: tcpingresses.configuration.konghq.com
 spec:
   group: configuration.konghq.com
   names:
     categories:
     - kong-ingress-controller
-    - kong
     kind: TCPIngress
     listKind: TCPIngressList
     plural: tcpingresses
@@ -3026,14 +2621,10 @@ spec:
       jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    deprecated: true
-    deprecationWarning: configuration.konghq.com/v1beta1 TCPIngress is deprecated
     name: v1beta1
     schema:
       openAPIV3Schema:
-        description: |-
-          TCPIngress is the Schema for the tcpingresses API.
-          Deprecated: Use Gateway API instead. See https://developer.konghq.com/kubernetes-ingress-controller/migrate/ingress-to-gateway/
+        description: TCPIngress is the Schema for the tcpingresses API.
         properties:
           apiVersion:
             description: |-
@@ -3171,8 +2762,6 @@ spec:
                             Ports is a list of records of service ports
                             If used, every port defined in the service should have an entry in it
                           items:
-                            description: PortStatus represents the error condition
-                              of a service port
                             properties:
                               error:
                                 description: |-
@@ -3217,15 +2806,13 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    kubernetes-configuration.konghq.com/channels: ingress-controller
-    kubernetes-configuration.konghq.com/version: v1.5.2
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: udpingresses.configuration.konghq.com
 spec:
   group: configuration.konghq.com
   names:
     categories:
     - kong-ingress-controller
-    - kong
     kind: UDPIngress
     listKind: UDPIngressList
     plural: udpingresses
@@ -3241,14 +2828,10 @@ spec:
       jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    deprecated: true
-    deprecationWarning: configuration.konghq.com/v1beta1 UDPIngress is deprecated
     name: v1beta1
     schema:
       openAPIV3Schema:
-        description: |-
-          UDPIngress is the Schema for the udpingresses API.
-          Deprecated: Use Gateway API instead. See https://developer.konghq.com/kubernetes-ingress-controller/migrate/ingress-to-gateway/
+        description: UDPIngress is the Schema for the udpingresses API.
         properties:
           apiVersion:
             description: |-
@@ -3350,8 +2933,6 @@ spec:
                             Ports is a list of records of service ports
                             If used, every port defined in the service should have an entry in it
                           items:
-                            description: PortStatus represents the error condition
-                              of a service port
                             properties:
                               error:
                                 description: |-

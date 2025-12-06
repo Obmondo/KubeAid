@@ -121,10 +121,6 @@ spec:
                       a failed sync. If set to 0, no retries will be performed.
                     format: int64
                     type: integer
-                  refresh:
-                    description: 'Refresh indicates if the latest revision should
-                      be used on retry instead of the initial one (default: false)'
-                    type: boolean
                 type: object
               sync:
                 description: Sync contains parameters for the operation
@@ -1489,15 +1485,11 @@ spec:
                       path:
                         description: |-
                           Path is a directory path within the git repository where hydrated manifests should be committed to and synced
-                          from. The Path should never point to the root of the repo. If hydrateTo is set, this is just the path from which
-                          hydrated manifests will be synced.
-                        minLength: 1
-                        pattern: ^.{2,}|[^./]$
+                          from. If hydrateTo is set, this is just the path from which hydrated manifests will be synced.
                         type: string
                       targetBranch:
-                        description: |-
-                          TargetBranch is the branch from which hydrated manifests will be synced.
-                          If HydrateTo is not set, this is also the branch to which hydrated manifests are committed.
+                        description: TargetBranch is the branch to which hydrated
+                          manifests should be committed
                         type: string
                     required:
                     - path
@@ -1956,10 +1948,6 @@ spec:
                           a failed sync. If set to 0, no retries will be performed.
                         format: int64
                         type: integer
-                      refresh:
-                        description: 'Refresh indicates if the latest revision should
-                          be used on retry instead of the initial one (default: false)'
-                        type: boolean
                     type: object
                   syncOptions:
                     description: Options allow you to specify whole app sync-options
@@ -2928,11 +2916,6 @@ spec:
                               be performed.
                             format: int64
                             type: integer
-                          refresh:
-                            description: 'Refresh indicates if the latest revision
-                              should be used on retry instead of the initial one (default:
-                              false)'
-                            type: boolean
                         type: object
                       sync:
                         description: Sync contains parameters for the operation
@@ -4905,15 +4888,11 @@ spec:
                               path:
                                 description: |-
                                   Path is a directory path within the git repository where hydrated manifests should be committed to and synced
-                                  from. The Path should never point to the root of the repo. If hydrateTo is set, this is just the path from which
-                                  hydrated manifests will be synced.
-                                minLength: 1
-                                pattern: ^.{2,}|[^./]$
+                                  from. If hydrateTo is set, this is just the path from which hydrated manifests will be synced.
                                 type: string
                               targetBranch:
-                                description: |-
-                                  TargetBranch is the branch from which hydrated manifests will be synced.
-                                  If HydrateTo is not set, this is also the branch to which hydrated manifests are committed.
+                                description: TargetBranch is the branch to which hydrated
+                                  manifests should be committed
                                 type: string
                             required:
                             - path
@@ -4988,15 +4967,11 @@ spec:
                               path:
                                 description: |-
                                   Path is a directory path within the git repository where hydrated manifests should be committed to and synced
-                                  from. The Path should never point to the root of the repo. If hydrateTo is set, this is just the path from which
-                                  hydrated manifests will be synced.
-                                minLength: 1
-                                pattern: ^.{2,}|[^./]$
+                                  from. If hydrateTo is set, this is just the path from which hydrated manifests will be synced.
                                 type: string
                               targetBranch:
-                                description: |-
-                                  TargetBranch is the branch from which hydrated manifests will be synced.
-                                  If HydrateTo is not set, this is also the branch to which hydrated manifests are committed.
+                                description: TargetBranch is the branch to which hydrated
+                                  manifests should be committed
                                 type: string
                             required:
                             - path
@@ -5925,3 +5900,4 @@ spec:
     storage: true
     subresources: {}
 {{- end }}
+
