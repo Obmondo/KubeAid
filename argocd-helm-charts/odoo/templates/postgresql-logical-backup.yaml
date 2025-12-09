@@ -14,7 +14,7 @@ spec:
         spec:
           containers:
             - name: logical-backup
-              image: ghcr.io/obmondo/logical-backup:1.0.1
+              image: ghcr.io/obmondo/postgres-logical-backup
               imagePullPolicy: IfNotPresent
               env:
                 - name: POD_NAMESPACE
@@ -34,7 +34,7 @@ spec:
                 - name: PGUSER
                   value: {{ .Values.postgres.user | default "odoo" }}
                 - name: PGDATABASE
-                  value: {{ .Values.postgres.db | default "registry" }}
+                  value: {{ .Values.postgres.db | default "odoo" }}
                 - name: CLUSTER_NAME_LABEL
                   value: {{ (.Values.postgres.logicalbackup).pgOperatorClusterName | default "odoo-pgsql" }}
               {{- if eq .Values.postgres.logicalbackup.provider "az" }}
@@ -84,6 +84,8 @@ spec:
                   value: "{{ (.Values.postgres.logicalbackup).pgversion | default 16 }}"
                 - name: POSTGRES_OPERATOR
                   value: cngp
+                - name: USE_PG_DUMP
+                  value: "{{ (.Values.postgres.logicalbackup).usePgDump | default true }}"
               resources:
                 limits:
                   memory: 500Mi
