@@ -1,0 +1,6 @@
+dependencies:
+- name: peertube
+  repository: https://ananace.gitlab.io/charts
+  version: 1.6.0
+digest: sha256:59d1173fe1d2c5053d929b49755aded274234954405be7a8e8d5426644d1c009
+generated: "2025-12-10T19:21:33.234483086+05:30"

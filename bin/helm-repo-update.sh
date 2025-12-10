@@ -317,7 +317,8 @@ function add_last_update_date() {
 }
 
 function update_helm_chart {
-  HELM_CHART_PATH="$ARGOCD_CHART_PATH/$1"
+  
+  HELM_CHART_PATH="$1"
   HELM_CHART_YAML="$HELM_CHART_PATH/Chart.yaml"
   HELM_CHART_NEW_VERSION=$2
 
@@ -345,7 +346,14 @@ function update_helm_chart {
       fi
 
       HELM_CHART_DEP_CHART_YAML="$HELM_CHART_DEP_PATH/$HELM_CHART_NAME/Chart.yaml"
-      HELM_CHART_DEP_CURRENT_VERSION=$(yq eval ".version" "$HELM_CHART_DEP_CHART_YAML")
+      HELM_CHART_DEP_CURRENT_VERSION="" # default is empty string, i.e, new chart is being added
+
+      # If the dependency chart has already been added
+      if test -f "$HELM_CHART_DEP_CHART_YAML"; then
+        HELM_CHART_DEP_CURRENT_VERSION=$(yq eval ".version" "$HELM_CHART_DEP_CHART_YAML")
+      fi
+
+      
 
       CURRENT_DATE="$(date '+%Y-%m-%d')"
       HELM_LAST_UPDATE_DATE="$(get_repo_last_update_date "$HELM_CHART_NAME")"
@@ -412,31 +420,35 @@ function update_helm_chart {
         echo "Helm chart $HELM_CHART_NAME is cached and on latest version $HELM_CHART_CURRENT_VERSION, locally on the filesystem,"
       fi
 
-      local update_type
-      HELM_CHART_CURRENT_TAG_VERSION=$(git show "$CURRENT_VERSION:$HELM_CHART_YAML" | yq eval ".dependencies[$i].version")
+      # Incase of updates, i.e, chart is already added
+      if [[ "$HELM_CHART_DEP_CURRENT_VERSION" != "" ]]; then
+        local update_type
+        CURRENT_VERSION=$(get_current_kubeaid_version)
+        HELM_CHART_CURRENT_TAG_VERSION=$(git show "$CURRENT_VERSION:$HELM_CHART_YAML" | yq eval ".dependencies[$i].version")
+        update_type=$(get_update_type "$HELM_CHART_CURRENT_TAG_VERSION" "$HELM_CHART_NEW_VERSION")
 
-      update_type=$(get_update_type "$HELM_CHART_CURRENT_TAG_VERSION" "$HELM_CHART_NEW_VERSION")
+        local update_line="- Updated $HELM_CHART_NAME from version $HELM_CHART_CURRENT_VERSION to $HELM_CHART_NEW_VERSION"
 
-      local update_line="- Updated $HELM_CHART_NAME from version $HELM_CHART_CURRENT_VERSION to $HELM_CHART_NEW_VERSION"
-
-      case $update_type in
-        major)
-          MAJOR_UPDATES+=("$update_line")
-          HAS_MAJOR=true
-          ;;
-        minor)
-          MINOR_UPDATES+=("$update_line")
-          if [ "$HAS_MAJOR" = false ]; then
-            HAS_MINOR=true
-          fi
-          ;;
-        patch)
-          PATCH_UPDATES+=("$update_line")
-          if [ "$HAS_MAJOR" = false ] && [ "$HAS_MINOR" = false ]; then
-            HAS_PATCH=true
-          fi
-          ;;
-      esac
+        case $update_type in
+          major)
+            MAJOR_UPDATES+=("$update_line")
+            HAS_MAJOR=true
+            ;;
+          minor)
+            MINOR_UPDATES+=("$update_line")
+            if [ "$HAS_MAJOR" = false ]; then
+              HAS_MINOR=true
+            fi
+            ;;
+          patch)
+            PATCH_UPDATES+=("$update_line")
+            if [ "$HAS_MAJOR" = false ] && [ "$HAS_MINOR" = false ]; then
+              HAS_PATCH=true
+            fi
+            ;;
+        esac
+      fi
+      
     done
   fi
 }

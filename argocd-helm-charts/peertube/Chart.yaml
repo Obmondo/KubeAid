@@ -1,0 +1,7 @@
+apiVersion: v2
+name: peertube
+version: 1.0.0
+dependencies:
+  - name: peertube
+    version: 1.6.0
+    repository: "https://ananace.gitlab.io/charts"
