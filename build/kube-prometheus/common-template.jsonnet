@@ -289,7 +289,6 @@ local scrape_namespaces = std.uniq(std.sort(std.flattenArrays(
     vars.prometheus_scrape_namespaces,
   ] + [
     ['argocd'],
-    ['system'],
     ['sealed-secrets'],
     ['cert-manager'],
     ['traefik'],
