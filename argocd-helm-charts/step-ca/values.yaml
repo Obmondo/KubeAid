@@ -2,13 +2,30 @@ step-issuer:
   stepClusterIssuer:
     create: false
 
+# Generate this by running `step ca init --helm > values.yaml`
+# Open the values.yaml file and use values from there
+
 step-certificates:
   inject:
-    enabled: false
+    enabled: true
+    config:
+      files:
+        ca.json:
+          # Add your custom dns names 
+          dnsNames:
+            - k8sdemo.kubeaid.io
+            - step-ca-step-certificates.step-ca.svc.cluster.local
+            - 127.0.0.1
+        defaults.json:
+          # Add your Certificate Authority URL (typically the ingress url)
+          ca-url: https://ca.k8sdemo.kubeaid.io
+
+          # Add fingerprint from the generated values.yaml 
+          fingerprint: 2bb4f98b6e66bd86b72e69d402856b9035732c8894e4553de4f8c234d11f4a25   # replace this
   autocert:
     enabled: false
   ca:
-    name: Kubeaid
+    name: Kubeaid CA
     dns: k8sdemo.kubeaid.io,step-ca-step-certificates.step-ca.svc.cluster.local,127.0.0.1
     url: https://step-ca-step-certificates.step-ca.svc.cluster.local
     bootstrap:
