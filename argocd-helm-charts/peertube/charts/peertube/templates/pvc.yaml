@@ -1,22 +1,17 @@
-{{- if (and (not .Values.config.persistence.existingClaim) .Values.config.persistence.enabled) }}
----
+{{- if and .Values.persistence.enabled (not .Values.persistence.existingClaim) }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ include "peertube.fullname" . }}
+  annotations:
+    {{- toYaml .Values.persistence.annotations | nindent 4 }}
   labels:
     {{- include "peertube.labels" . | nindent 4 }}
+  name: {{ include "peertube.fullname" . }}
 spec:
   accessModes:
-    {{- .Values.config.persistence.accessModes | default (list "ReadWriteOnce") | toYaml | nindent 4 }}
+    {{- toYaml .Values.persistence.accessModes | nindent 4 }}
   resources:
     requests:
-      storage: {{ .Values.config.persistence.size | quote }}
-  {{- if .Values.config.persistence.storageClass }}
-  {{- if (eq "-" .Values.config.persistence.storageClass) }}
-  storageClassName: ""
-  {{- else }}
-  storageClassName: {{ .Values.config.persistence.storageClass | quote }}
-  {{- end }}
-  {{- end }}
+      storage: {{ .Values.persistence.storage }}
+  storageClassName: {{ .Values.persistence.storageClassName }}
 {{- end }}

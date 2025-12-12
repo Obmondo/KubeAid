@@ -1,19 +1,20 @@
 apiVersion: v2
-appVersion: 8.0.0
+appVersion: v7.3.0-bookworm
 dependencies:
 - condition: postgresql.enabled
   name: postgresql
-  repository: https://charts.bitnami.com/bitnami
-  version: ^12.1.4
-- condition: redis.enabled
-  name: redis
-  repository: https://charts.bitnami.com/bitnami
-  version: ^17.3.17
-description: 'Free software to take back control of your videos '
-icon: https://upload.wikimedia.org/wikipedia/commons/2/2b/Logo_de_PeerTube.svg
+  repository: oci://registry-1.docker.io/bitnamicharts
+  version: 16.7.27
+- condition: valkey.enabled
+  name: valkey
+  repository: oci://registry-1.docker.io/bitnamicharts
+  version: 2.4.7
+description: A Helm chart for deploying PeerTube on Kubernetes
 maintainers:
-- email: ace@haxalot.com
-  name: Alexander Olofsson
+- name: cloudymax
+  url: https://github.com/cloudymax
+- name: JesseBot
+  url: https://github.com/jessebot
 name: peertube
 type: application
-version: 1.6.0
+version: 0.8.0

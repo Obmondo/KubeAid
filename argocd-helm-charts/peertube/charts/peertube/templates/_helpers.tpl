@@ -23,28 +23,20 @@ If release name contains chart name it will be used as a full name.
 {{- end }}
 {{- end }}
 
+
+{{- define "peertube.valkey.fullname" -}}
+{{- printf "%s-%s" .Release.Name "valkey" | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{- define "peertube.postgresql.fullname" -}}
+{{- printf "%s-%s" .Release.Name "postgresql" | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
 {{/*
 Create chart name and version as used by the chart label.
 */}}
 {{- define "peertube.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
-{{- end }}
-
-{{/*
-Build a valid peertube image tag
-*/}}
-{{- define "peertube.imageTag" -}}
-{{- if .Values.image.tag }}
-{{- .Values.image.tag }}
-{{- else }}
-{{-   if semverCompare ">=8.0.0" .Chart.AppVersion }}
-{{- printf "v%s" .Chart.AppVersion }}
-{{-   else if semverCompare ">=6.0.0" .Chart.AppVersion }}
-{{- printf "v%s-bookworm" .Chart.AppVersion }}
-{{-   else }}
-{{- printf "v%s-bullseye" .Chart.AppVersion }}
-{{-   end}}
-{{- end }}
 {{- end }}
 
 {{/*
@@ -79,108 +71,29 @@ Create the name of the service account to use
 {{- end }}
 
 {{/*
-include "peertube.randHex" 2  > result "4e"
+Get the valkey secret name
 */}}
-{{- define "peertube.randHex" -}}
-    {{- $result := "" -}}
-    {{- range $i := until . -}}
-        {{- $base := shuffle "0123456789abcdef" -}}
-        {{- $i_curr := (randNumeric 1) | int -}}
-        {{- $i_next := add $i_curr 1 | int -}}
-        {{- $rand_hex := substr $i_curr $i_next $base -}}
-        {{- $result = print $result $rand_hex -}}
-    {{- end -}}
-    {{- $result -}}
-{{- end -}}
-
-
-{{/*
-Replicate the Postgres fullname
-*/}}
-{{- define "peertube.postgresql.fullname" -}}
-{{- printf "%s-%s" .Release.Name "postgresql" | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-
-{{/*
-Get the postgres hostname
-*/}}
-{{- define "peertube.postgresql.host" -}}
-{{- if .Values.postgresql.enabled -}}
-{{- template "peertube.postgresql.fullname" . -}}
+{{- define "peertube.valkey.secretName" -}}
+{{- if .Values.valkey.auth.existingSecret }}
+    {{- printf "%s" (tpl .Values.valkey.auth.existingSecret $) -}}
+{{- else if .Values.externalValkey.existingSecret }}
+    {{- printf "%s" (tpl .Values.externalValkey.existingSecret $) -}}
 {{- else -}}
-{{ required "A valid externalPostgresql.host is required" .Values.externalPostgresql.host }}
+    {{- printf "%s-valkey" (tpl .Release.Name $) -}}
 {{- end -}}
 {{- end -}}
 
 {{/*
-Get the postgres port
+Get the postgresql secret.
 */}}
-{{- define "peertube.postgresql.port" -}}
-{{- if .Values.postgresql.enabled -}}
-{{- .Values.postgresql.port | default 5432 }}
+{{- define "peertube.postgresql.secretName" -}}
+{{- if (and (or .Values.postgresql.enabled .Values.postgresql.postgresqlHostname) .Values.postgresql.auth.existingSecret) }}
+    {{- printf "%s" (tpl .Values.postgresql.auth.existingSecret $) -}}
+{{- else if and .Values.postgresql.enabled (not .Values.postgresql.auth.existingSecret) -}}
+    {{- printf "%s-postgresql" (tpl .Release.Name $) -}}
+{{- else if and .Values.externalDatabase.enabled .Values.externalDatabase.existingSecret -}}
+    {{- printf "%s" (tpl .Values.externalDatabase.existingSecret $) -}}
 {{- else -}}
-{{- .Values.externalPostgresql.port | default 5432 }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Get the postgres SSL capability
-*/}}
-{{- define "peertube.postgresql.ssl" -}}
-{{- if .Values.postgresql.enabled -}}
-{{- true }}
-{{- else -}}
-{{- .Values.externalPostgresql.ssl | default true }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Get the postgres database
-*/}}
-{{- define "peertube.postgresql.database" -}}
-{{- if .Values.postgresql.enabled -}}
-{{- .Values.postgresql.auth.database | default "peertube" }}
-{{- else -}}
-{{- .Values.externalPostgresql.database | default "peertube" }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Get the postgres username
-*/}}
-{{- define "peertube.postgresql.username" -}}
-{{- if .Values.postgresql.enabled -}}
-{{- .Values.postgresql.auth.username | default "peertube" }}
-{{- else -}}
-{{- .Values.externalPostgresql.username | default "peertube" }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Replicate the Redis fullname
-*/}}
-{{- define "peertube.redis.fullname" -}}
-{{- printf "%s-%s" .Release.Name "redis" | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-
-{{/*
-Get the redis hostname
-*/}}
-{{- define "peertube.redis.host" -}}
-{{- if .Values.redis.enabled -}}
-{{- printf "%s-%s" (include "peertube.redis.fullname" .) "master" | trunc 63 | trimSuffix "-" -}}
-{{- else -}}
-{{ required "A valid externalRedis.host is required" .Values.externalRedis.host }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Get the redis port
-*/}}
-{{- define "peertube.redis.port" -}}
-{{- if .Values.redis.enabled -}}
-{{- .Values.redis.master.port | default 6379 }}
-{{- else -}}
-{{- .Values.externalRedis.port | default 6379 }}
+    {{- printf "%s" (include "common.names.fullname" .) -}}
 {{- end -}}
 {{- end -}}

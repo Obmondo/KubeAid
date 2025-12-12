@@ -1,7 +1,7 @@
 apiVersion: v2
 name: peertube
-version: 1.0.0
+version: 0.0.1
 dependencies:
   - name: peertube
-    version: 1.6.0
-    repository: "https://ananace.gitlab.io/charts"
+    version: 0.8.0
+    repository: "https://small-hack.github.io/peertube-helm-chart/"

@@ -1,20 +1,25 @@
 {{/*
-Copyright VMware, Inc.
+Copyright Broadcom, Inc. All Rights Reserved.
 SPDX-License-Identifier: APACHE-2.0
 */}}
 
 {{/* vim: set filetype=mustache: */}}
 
 {{/*
+Create a global name for the chart to use and parse with other naming functions
+Please use instead of "common.names.fullname" to preserve support for .Values.global.postgresql.fullnameOverride
+*/}}
+{{- define "postgresql.v1.chart.fullname" -}}
+{{- default (include "common.names.fullname" .) .Values.global.postgresql.fullnameOverride -}}
+{{- end -}}
+
+{{/*
 Create a default fully qualified app name for PostgreSQL Primary objects
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 */}}
 {{- define "postgresql.v1.primary.fullname" -}}
-{{- if eq .Values.architecture "replication" -}}
-    {{- printf "%s-%s" (include "common.names.fullname" .) .Values.primary.name | trunc 63 | trimSuffix "-" -}}
-{{- else -}}
-    {{- include "common.names.fullname" . -}}
-{{- end -}}
+{{- $fullname := include "postgresql.v1.chart.fullname" . -}}
+{{- ternary (printf "%s-%s" $fullname .Values.primary.name | trunc 63 | trimSuffix "-") $fullname (eq .Values.architecture "replication") -}}
 {{- end -}}
 
 {{/*
@@ -22,7 +27,7 @@ Create a default fully qualified app name for PostgreSQL read-only replicas obje
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 */}}
 {{- define "postgresql.v1.readReplica.fullname" -}}
-{{- printf "%s-%s" (include "common.names.fullname" .) .Values.readReplicas.name | trunc 63 | trimSuffix "-" -}}
+{{- printf "%s-%s" (include "postgresql.v1.chart.fullname" .) .Values.readReplicas.name | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{/*
@@ -66,7 +71,7 @@ Return the proper image name (for the init container volume-permissions image)
 Return the proper Docker Image Registry Secret Names
 */}}
 {{- define "postgresql.v1.imagePullSecrets" -}}
-{{ include "common.images.pullSecrets" (dict "images" (list .Values.image .Values.metrics.image .Values.volumePermissions.image) "global" .Values.global) }}
+{{ include "common.images.renderPullSecrets" (dict "images" (list .Values.image .Values.metrics.image .Values.volumePermissions.image) "context" $) }}
 {{- end -}}
 
 {{/*
@@ -100,7 +105,7 @@ Get the password secret.
 {{- else if .Values.auth.existingSecret -}}
     {{- printf "%s" (tpl .Values.auth.existingSecret $) -}}
 {{- else -}}
-    {{- printf "%s" (include "common.names.fullname" .) -}}
+    {{- printf "%s" (include "postgresql.v1.chart.fullname" .) -}}
 {{- end -}}
 {{- end -}}
 
@@ -160,10 +165,48 @@ Return true if a secret object should be created
 */}}
 {{- define "postgresql.v1.createSecret" -}}
 {{- $customUser := include "postgresql.v1.username" . -}}
-{{- $postgresPassword := include "common.secrets.lookup" (dict "secret" (include "common.names.fullname" .) "key" .Values.auth.secretKeys.adminPasswordKey "defaultValue" (ternary (coalesce .Values.global.postgresql.auth.postgresPassword .Values.auth.postgresPassword .Values.global.postgresql.auth.password .Values.auth.password) (coalesce .Values.global.postgresql.auth.postgresPassword .Values.auth.postgresPassword) (or (empty $customUser) (eq $customUser "postgres"))) "context" $) -}}
+{{- $postgresPassword := include "common.secrets.lookup" (dict "secret" (include "postgresql.v1.chart.fullname" .) "key" .Values.auth.secretKeys.adminPasswordKey "defaultValue" (ternary (coalesce .Values.global.postgresql.auth.postgresPassword .Values.auth.postgresPassword .Values.global.postgresql.auth.password .Values.auth.password) (coalesce .Values.global.postgresql.auth.postgresPassword .Values.auth.postgresPassword) (or (empty $customUser) (eq $customUser "postgres"))) "context" $) -}}
 {{- if and (not (or .Values.global.postgresql.auth.existingSecret .Values.auth.existingSecret)) (or $postgresPassword .Values.auth.enablePostgresUser (and (not (empty $customUser)) (ne $customUser "postgres")) (eq .Values.architecture "replication") (and .Values.ldap.enabled (or .Values.ldap.bind_password .Values.ldap.bindpw))) -}}
     {{- true -}}
 {{- end -}}
+{{- end -}}
+
+{{/*
+Return true if a secret object should be created for PostgreSQL
+*/}}
+{{- define "postgresql.v1.createPreviousSecret" -}}
+{{- if and .Values.passwordUpdateJob.previousPasswords.postgresPassword (not .Values.passwordUpdateJob.previousPasswords.existingSecret) }}
+    {{- true -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Return the secret with previous PostgreSQL credentials
+*/}}
+{{- define "postgresql.v1.update-job.previousSecretName" -}}
+    {{- if .Values.passwordUpdateJob.previousPasswords.existingSecret -}}
+        {{- /* The secret with the new password is managed externally */ -}}
+        {{- tpl .Values.passwordUpdateJob.previousPasswords.existingSecret $ -}}
+    {{- else if .Values.passwordUpdateJob.previousPasswords.postgresPassword -}}
+        {{- /* The secret with the new password is managed externally */ -}}
+        {{- printf "%s-previous-secret" (include "postgresql.v1.chart.fullname" .) | trunc 63 | trimSuffix "-" -}}
+    {{- else -}}
+        {{- /* The secret with the new password is managed by the helm chart. We use the current secret name as it has the old password */ -}}
+        {{- include "postgresql.v1.chart.fullname" . -}}
+    {{- end -}}
+{{- end -}}
+
+{{/*
+Return the secret with new PostgreSQL credentials
+*/}}
+{{- define "postgresql.v1.update-job.newSecretName" -}}
+    {{- if and (not .Values.passwordUpdateJob.previousPasswords.existingSecret) (not .Values.passwordUpdateJob.previousPasswords.postgresPassword) -}}
+        {{- /* The secret with the new password is managed by the helm chart. We create a new secret as the current one has the old password */ -}}
+        {{- printf "%s-new-secret" (include "postgresql.v1.chart.fullname" .) | trunc 63 | trimSuffix "-" -}}
+    {{- else -}}
+        {{- /* The secret with the new password is managed externally */ -}}
+        {{- include "postgresql.v1.secretName" . -}}
+    {{- end -}}
 {{- end -}}
 
 {{/*
@@ -252,7 +295,7 @@ Return true if a configmap object should be created for PostgreSQL read replica 
  */}}
 {{- define "postgresql.v1.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create -}}
-    {{ default (include "common.names.fullname" .) .Values.serviceAccount.name }}
+    {{ default (include "postgresql.v1.chart.fullname" .) .Values.serviceAccount.name }}
 {{- else -}}
     {{ default "default" .Values.serviceAccount.name }}
 {{- end -}}
@@ -264,6 +307,17 @@ Return true if a configmap should be mounted with PostgreSQL configuration
 {{- define "postgresql.v1.mountConfigurationCM" -}}
 {{- if or .Values.primary.configuration .Values.primary.pgHbaConfiguration .Values.primary.existingConfigmap -}}
     {{- true -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Get the pre-initialization scripts ConfigMap name.
+*/}}
+{{- define "postgresql.v1.preInitDb.scriptsCM" -}}
+{{- if .Values.primary.preInitDb.scriptsConfigMap -}}
+    {{- printf "%s" (tpl .Values.primary.preInitDb.scriptsConfigMap $) -}}
+{{- else -}}
+    {{- printf "%s-preinit-scripts" (include "postgresql.v1.primary.fullname" .) -}}
 {{- end -}}
 {{- end -}}
 
@@ -300,9 +354,7 @@ Get the readiness probe command
 {{- else }}
   exec pg_isready -U {{ default "postgres" $customUser | quote }} {{- if .Values.tls.enabled }} -d "sslcert={{ include "postgresql.v1.tlsCert" . }} sslkey={{ include "postgresql.v1.tlsCertKey" . }}"{{- end }} -h 127.0.0.1 -p {{ .Values.containerPorts.postgresql }}
 {{- end }}
-{{- if contains "bitnami/" .Values.image.repository }}
   [ -f /opt/bitnami/postgresql/tmp/.initialized ] || [ -f /bitnami/postgresql/.initialized ]
-{{- end }}
 {{- end -}}
 
 {{/*
@@ -399,8 +451,8 @@ Return the path to the CA cert file.
 */}}
 {{- define "postgresql.v1.tlsSecretName" -}}
 {{- if .Values.tls.autoGenerated -}}
-    {{- printf "%s-crt" (include "common.names.fullname" .) -}}
+    {{- printf "%s-crt" (include "postgresql.v1.chart.fullname" .) -}}
 {{- else -}}
-    {{ required "A secret containing TLS certificates is required when TLS is enabled" .Values.tls.certificatesSecret }}
+    {{ tpl (required "A secret containing TLS certificates is required when TLS is enabled" .Values.tls.certificatesSecret) . }}
 {{- end -}}
 {{- end -}}
