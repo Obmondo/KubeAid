@@ -14,7 +14,7 @@ spec:
         spec:
           containers:
             - name: logical-backup
-              image: ghcr.io/obmondo/postgres-logical-backup:3.1.6
+              image: ghcr.io/obmondo/postgres-logical-backup:v3.1.5@sha256:b3af614aeb295b7f40d94301fa6cd418742fdf5f4ca04c2e6e1b7c2973404fd9
               imagePullPolicy: IfNotPresent
               env:
                 - name: POD_NAMESPACE
