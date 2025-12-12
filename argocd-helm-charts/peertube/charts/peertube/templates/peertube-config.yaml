@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: peertube-config
+  namespace: peertube
+data:
+  production.yaml: |-
+    listen:
+      hostname: '0.0.0.0'
+      port: 9000
+
+    rates_limit:
+      login:
+        # 15 attempts in 5 min
+        window: 5 minutes
+        max: 15
+      ask_send_email:
+        # 3 attempts in 5 min
+        window: 5 minutes
+        max: 3
+
+    # From the project root directory
+    storage:
+      tmp: '../data/tmp/' # Use to download data (imports etc), store uploaded files before and during processing...
+      tmp_persistent: '../data/tmp-persistent/' # As tmp but the directory is not cleaned up between PeerTube restarts
+      bin: '../data/bin/'
+      avatars: '../data/avatars/'
+      web_videos: '../data/web-videos/'
+      streaming_playlists: '../data/streaming-playlists'
+      original_video_files: '../data/original-video-files'
+      redundancy: '../data/redundancy/'
+      logs: '../data/logs/'
+      previews: '../data/previews/'
+      thumbnails: '../data/thumbnails/'
+      storyboards: '../data/storyboards/'
+      torrents: '../data/torrents/'
+      captions: '../data/captions/'
+      cache: '../data/cache/'
+      plugins: '../data/plugins/'
+      well_known: '../data/well-known/'
+      # Overridable client files in client/dist/assets/images :
+      # - logo.svg
+      # - favicon.png
+      # - default-playlist.jpg
+      # - default-avatar-account.png
+      # - default-avatar-video-channel.png
+      # - and icons/*.png (PWA)
+      # Could contain for example assets/images/favicon.png
+      # If the file exists, peertube will serve it
+      # If not, peertube will fallback to the default fil
+      client_overrides: '../data/client-overrides/'
+
+    object_storage:
+      store_live_streams: true
+      endpoint: ""
+
+      streaming_playlists:
+        bucket_name: 'hls-videos'
+        prefix: ''
+
+      videos:
+        bucket_name: 'web-videos'
+        prefix: ''
+
+      user_exports:
+        bucket_name: 'user-exports'
+        prefix: ''
+
+      original_video_files:
+        bucket_name: 'original-video-files'
+        prefix: ''
+
+    log:
+      level: 'debug'
+
+    tracker:
+      enabled: true
+      reject_too_many_announces: false # false because we have issues with docker ws ip/port forwarding
+
+    admin:
+      email: null

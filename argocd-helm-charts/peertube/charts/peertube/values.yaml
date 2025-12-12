@@ -1,0 +1,318 @@
+nameOverride: ""
+
+# -- full name override for all peertube resources
+fullnameOverride: ""
+
+# -- replica count if not using autoscaling
+replicaCount: 1
+
+image:
+  # -- docker registry if not using docker.io
+  registry: "docker.io"
+  # -- docker repo
+  repository: chocobozzz/peertube
+  # -- image pull policy, set to Always if using latest and it changes frequently
+  pullPolicy: IfNotPresent
+  # -- Overrides the image tag whose default is appVersion in Chart.yaml
+  tag: ""
+
+# -- optional image pull secrets
+imagePullSecrets: []
+
+# -- command to pass to docker container
+containerCommand:
+  - gosu
+  - peertube
+  - npm
+  - start
+
+# -- env list for deployment main container
+extraEnv: []
+
+envFrom: []
+
+# -- extra init containers for the default deployment
+initcontainers: {}
+
+# -- extra pod annotations for the deployment
+podAnnotations: {}
+
+# -- extra pod labels for the deployment
+podLabels: {}
+
+# -- pod securityContext deployment's main container
+podSecurityContext: {}
+  # fsGroup: 2000
+
+# -- securityContext whole deployment
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+# -- Additional volumes on the output Deployment definition.
+extraVolumes: []
+
+# -- Additional volumeMounts on the output Deployment definition.
+extraVolumeMounts: []
+
+# -- tolerations of taints on a node
+tolerations: []
+
+# -- affinity settings for the deployment
+affinity: {}
+
+# -- node selector for deployment
+nodeSelector: {}
+
+persistence:
+  # -- enable using a persistent volume claim
+  enabled: false
+  # -- annotations to apply to the persistent volume claim
+  annotations: {}
+  # -- access mode of the persistent volume claim, e.g. ReadWriteOnce
+  accessModes: []
+  # -- storage class of the persistent volume claim
+  storageClassName: ""
+  # -- size of the persistent volume claim
+  storage: "10Gi"
+  # -- use an exisitng persistent volume claim
+  existingClaim: ""
+
+# -- resources for the deployment
+resources:
+  limits:
+    cpu: 4000m
+    memory: 4Gi
+  requests:
+    cpu: 100m
+    memory: 512Mi
+
+# -- enable livenessProbe for the deployment
+livenessProbe:
+  httpGet:
+    path: /
+    port: peertube
+
+# -- enable readinessProbe for the deployment
+readinessProbe:
+  httpGet:
+    path: /
+    port: peertube
+
+autoscaling:
+  # -- enable autoscaling for the deployment
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+serviceAccount:
+  # -- Specifies whether a service account should be created
+  create: true
+  # -- Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # -- Annotations to add to the service account
+  annotations: {}
+  # -- The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: "peertube-sa"
+
+service:
+  enabled: true
+  type: ClusterIP
+  port: 80
+
+ingress:
+  # -- enable ingress from outside the cluster to this peertube instance
+  enabled: true
+  # -- ingress controller class name
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/connection-proxy-header: "keep-alive"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: 500m
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Frame-Options: ALLOWALL";
+      proxy_set_header Host $host;
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: peertube-tls
+      hosts:
+        - chart-example.local
+
+peertube:
+  # -- set peertube's logging level
+  log_level: debug
+  # -- set peertube's trusted proxies
+  trust_proxy: '10.0.0.0/8'
+  # -- set peertube's hostname
+  webserver_hostname: chart-example.local
+  # -- set peertube's port
+  webserver_port: 443
+  # -- enable https for peertube web frontend
+  webserver_https: true
+  # -- set peertube's secret
+  secret: ""
+  # -- use an existing Kubernetes Secret for Peertube's secret
+  existingSecret: ""
+  # -- a key in an existing Kubernetes Secret for Peertube's secret
+  existingSecretKey: "secret"
+
+  # parameters for creating an initial admin password
+  admin:
+    # -- email address of peertube admin user
+    email: ""
+    # -- initial peertube of peertube admin password
+    password: ""
+    # -- use an existing Kubernetes Secret for Peertube's admin credentials
+    existingSecret: ""
+    existingSecretKeys:
+      # -- a key in an existing Kubernetes Secret for Peertube's admin user email
+      email: ""
+      # -- a key in an existing Kubernetes Secret for Peertube's admin password
+      password: ""
+
+  s3:
+    # -- enable object storage, s3, for peertube
+    enabled: false
+    # -- s3 endpoint to connect to for peertube storage
+    endpoint: ""
+    # -- s3 bucket for peertube to store streaming playlists
+    streaming_playlists_bucket: ""
+    # -- s3 bucket for peertube to store web videos
+    web_videos_bucket: ""
+    # -- s3 bucket for peertube to store user exports
+    user_exports_bucket: ""
+    # -- s3 bucket for peertube to store original video files
+    original_video_files_bucket: ""
+    # -- access key id for connecting to s3
+    access_key_id: ""
+    # -- secret access key id for connecting to s3
+    secret_access_key: ""
+    upload_acl_public: "public-read"
+    upload_acl_private: "private"
+    # -- get the credentials for s3 from an existing Kubernetes Secret
+    existingSecret: ""
+    existingSecretKeys:
+      # -- key in existing secret for s3 endpoint
+      endpoint: ""
+      # -- key in existing secret for s3 bucket for streaming playlists
+      streaming_playlists_bucket: ""
+      # -- key in existing secret for s3 bucket for web videos
+      web_videos_bucket: ""
+      # -- key in existing secret for s3 bucket for user exports
+      user_exports_bucket: ""
+      # -- key in existing secret for s3 bucket for original video files
+      original_video_files_bucket: ""
+      # -- key in existing secret for s3 access_key_id
+      access_key_id: ""
+      # -- key in existing secret for s3 secret_access_key
+      secret_access_key: ""
+
+  smtp:
+    # -- mail hostname
+    host: ""
+    # -- mail port
+    port: ""
+    # -- mail username
+    user: ""
+    # -- mail password
+    password: ""
+    # -- mail tls setting
+    tls: true
+    # -- mail disable starttls
+    disable_starttls: false
+    # -- email address to send emails from
+    from_address: ""
+    # -- use an existing Kubernetes Secret to connect to SMTP host
+    # if set, ignores above smtp.host/port/username/password
+    existingSecret: ""
+    # keys in an existing Kubernetes Secret to use for connecting to SMTP host
+    existingSecretKeys:
+      # -- key in existing secret for smtp hostname
+      host: ""
+      # -- key in existing secret for smtp port
+      port: ""
+      # -- key in existing secret for smtp username
+      username: ""
+      # -- key in existing secret for smtp password
+      password: ""
+
+# external database credentials
+externalDatabase:
+  # -- enable external database, if postgresql.enabled=false is set
+  enabled: false
+  # -- postgresql hostname
+  hostname: "peertube-postgres-rw"
+  # -- postgresql database name
+  database: "peertube"
+  # -- postgresql username
+  username: "peertube"
+  # -- postgresql password
+  password: ""
+  # -- use an existing Kubernetes Secret to connect to PostgreSQL
+  existingSecret: ""
+  # keys to use in an existing Kubernetes Secret to connect to PostgreSQL
+  existingSecretKeys:
+    hostname: ""
+    database: ""
+    username: ""
+    password: ""
+
+externalValkey:
+  # -- enable external valkey/redis, if valkey.enabled=false is set
+  enabled: false
+  # -- hostname of external valkey/redis
+  hostname: "valkey-primary"
+  # -- valkey/redis password
+  password: ""
+  # -- use an existing Kubernetes Secret to connect to Redis/Valkey
+  existingSecret: ""
+  # -- key to use in an existing Kubernetes Secret to connect to Redis/Valkey
+  existingSecretKey: valkey-password
+
+# optionally use the bundled Bitnami PostgreSQL subchart
+# https://github.com/bitnami/charts/tree/main/bitnami/postgresql#parameters
+postgresql:
+  # -- if externalDatabase.enabled is true, postgresql.enabled must be false
+  enabled: true
+  auth:
+    database: peertube_production
+    username: peertube
+    # you must set a password; the password generated by the postgresql chart will
+    # be rotated on each upgrade:
+    # https://github.com/bitnami/charts/tree/main/bitnami/postgresql#upgrade
+    password: ""
+    # Set the password for the "postgres" admin user
+    # set this to the same value as above if you've previously installed
+    # this chart and you're having problems getting peertube to connect to the DB
+    # postgresPassword: ""
+    # you can also specify the name of an existing Secret
+    # with a key of password set to the password you want
+    existingSecret: ""
+
+# optionally use the bundled Bitnami Valkey subchart
+# https://github.com/bitnami/charts/tree/main/bitnami/valkey
+valkey:
+  # -- enable the valkey (alternative to redis) subchart
+  enabled: true
+  auth:
+    # -- you must set a password; the password generated by the valkey chart will be
+    # rotated on each upgrade:
+    password: ""
+    # -- you can also specify the name of an existing Secret
+    existingSecret: ""
+    # -- key of password in existing secret
+    existingSecretPasswordKey: ""

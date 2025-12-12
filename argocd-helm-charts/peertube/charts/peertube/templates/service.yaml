@@ -1,0 +1,29 @@
+{{- if .Values.service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "peertube.fullname" . }}
+  labels:
+    {{- include "peertube.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80
+    - name: https
+      protocol: TCP
+      port: 443
+      targetPort: 443
+    - name: peertube
+      protocol: TCP
+      port: 9000
+      targetPort: 9000
+    - name: rtmp
+      protocol: TCP
+      port: 1935
+      targetPort: 1935
+  selector:
+    {{- include "peertube.selectorLabels" . | nindent 4 }}
+{{- end }}

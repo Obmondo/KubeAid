@@ -1,0 +1,17 @@
+{{- if and .Values.persistence.enabled (not .Values.persistence.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  annotations:
+    {{- toYaml .Values.persistence.annotations | nindent 4 }}
+  labels:
+    {{- include "peertube.labels" . | nindent 4 }}
+  name: {{ include "peertube.fullname" . }}
+spec:
+  accessModes:
+    {{- toYaml .Values.persistence.accessModes | nindent 4 }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.storage }}
+  storageClassName: {{ .Values.persistence.storageClassName }}
+{{- end }}

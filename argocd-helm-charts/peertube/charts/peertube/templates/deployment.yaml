@@ -1,0 +1,290 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "peertube.fullname" . }}
+  labels:
+    {{- include "peertube.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "peertube.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "peertube.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "peertube.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+
+      {{- if .Values.initContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.containerCommand }}
+          command:
+            {{- toYaml . | nindent 12}}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+            - name: https
+              containerPort: 443
+              protocol: TCP
+            - name: peertube
+              containerPort: 9000
+              protocol: TCP
+            - name: rtmp
+              containerPort: 1935
+              protocol: TCP
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: peertube-config
+              mountPath: /config/production.yaml
+              subPath: production.yaml
+            - name: peertube-data
+              mountPath: /data
+            - name: custom-env-vars
+              mountPath: /config/custom-environment-variables.yaml
+              subPath: custom-environment-variables.yaml
+          {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          env:
+            {{- with .Values.extraEnv }}
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
+            - name: PEERTUBE_LOG_LEVEL
+              value: {{ .Values.peertube.log_level }}
+            - name: PEERTUBE_TRUST_PROXY
+              value: '["{{ .Values.peertube.trust_proxy }}"]'
+            - name: PEERTUBE_WEBSERVER_HOSTNAME
+              value: {{ .Values.peertube.webserver_hostname }}
+            - name: PEERTUBE_WEBSERVER_PORT
+              value: {{ .Values.peertube.webserver_port | quote }}
+            - name: PEERTUBE_WEBSERVER_HTTPS
+              value: {{ .Values.peertube.webserver_https | quote }}
+
+            # admin user
+            - name: PEERTUBE_ADMIN_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.peertube.admin.existingSecret | default "peertube-admin-secret" }}
+                  key: {{ .Values.peertube.admin.existingSecretKeys.email | default "email" }}
+
+            - name: PT_INITIAL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.peertube.admin.existingSecret | default "peertube-admin-secret" }}
+                  key: {{ .Values.peertube.admin.existingSecretKeys.password | default "password" }}
+
+            # secret for... something peertube requires?
+            - name: PEERTUBE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.peertube.existingSecret | default "peertube-secret" }}
+                  key: {{ .Values.peertube.existingSecretKey | default "secret" }}
+
+            # db info
+            - name: PEERTUBE_DB_HOSTNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "peertube.postgresql.secretName" . }}
+                  key: {{ .Values.externalDatabase.existingSecretKeys.hostname | default "hostname" }}
+            - name: PEERTUBE_DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "peertube.postgresql.secretName" . }}
+                  key: {{ .Values.externalDatabase.existingSecretKeys.username | default "username" }}
+            - name: PEERTUBE_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "peertube.postgresql.secretName" . }}
+                  key: {{ .Values.externalDatabase.existingSecretKeys.password | default "password" }}
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "peertube.postgresql.secretName" . }}
+                  key: {{ .Values.externalDatabase.existingSecretKeys.username | default "username" }}
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "peertube.postgresql.secretName" . }}
+                  key: {{ .Values.externalDatabase.existingSecretKeys.database | default "database" }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "peertube.postgresql.secretName" . }}
+                  key: {{ .Values.externalDatabase.existingSecretKeys.password | default "password" }}
+
+            # valkey (redis) info
+            {{- if .Values.externalValkey.enabled }}
+            - name: PEERTUBE_REDIS_HOSTNAME
+              value: {{ .Values.externalValkey.hostname }}
+            - name: PEERTUBE_REDIS_AUTH
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "peertube.valkey.secretName" . }}
+                  key: {{ .Values.externalValkey.existingSecretKey | default "password" }}
+            {{- end }}
+
+            # s3 info
+            {{- if .Values.peertube.s3.enabled }}
+            - name: PEERTUBE_OBJECT_STORAGE_ENABLED
+              value: {{ .Values.peertube.s3.enabled | quote }}
+            - name: PEERTUBE_OBJECT_STORAGE_ENDPOINT
+              {{- if .Values.peertube.s3.existingSecretKeys.endpoint }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.peertube.s3.existingSecret }}
+                  key: {{ .Values.peertube.s3.existingSecretKeys.endpoint }}
+              {{- else -}}
+              value: {{ .Values.peertube.s3.endpoint }}
+              {{- end }}
+            - name: PEERTUBE_OBJECT_STORAGE_STREAMING_PLAYLISTS_BUCKET_NAME
+              {{- if .Values.peertube.s3.existingSecretKeys.streaming_playlists_bucket }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.peertube.s3.existingSecret }}
+                  key: {{ .Values.peertube.s3.existingSecretKeys.streaming_playlists_bucket }}
+              {{- else -}}
+              value: {{ .Values.peertube.s3.streaming_playlists_bucket }}
+              {{- end }}
+            - name: PEERTUBE_OBJECT_STORAGE_WEB_VIDEOS_BUCKET_NAME
+              {{- if .Values.peertube.s3.existingSecretKeys.web_videos_bucket }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.peertube.s3.existingSecret }}
+                  key: {{ .Values.peertube.s3.existingSecretKeys.web_videos_bucket }}
+              {{- else -}}
+              value: {{ .Values.peertube.s3.web_videos_bucket }}
+              {{- end }}
+            - name: PEERTUBE_OBJECT_STORAGE_USER_EXPORTS_BUCKET_NAME
+              {{- if .Values.peertube.s3.existingSecretKeys.user_exports_bucket }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.peertube.s3.existingSecret }}
+                  key: {{ .Values.peertube.s3.existingSecretKeys.user_exports_bucket }}
+              {{- else -}}
+              value: {{ .Values.peertube.s3.user_exports_bucket }}
+              {{- end }}
+            - name: PEERTUBE_OBJECT_STORAGE_ORIGINAL_VIDEO_FILES_BUCKET_NAME
+              {{- if .Values.peertube.s3.existingSecretKeys.original_video_files_bucket }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.peertube.s3.existingSecret }}
+                  key: {{ .Values.peertube.s3.existingSecretKeys.original_video_files_bucket }}
+              {{- else -}}
+              value: {{ .Values.peertube.s3.original_video_files_bucket }}
+              {{- end }}
+            - name: PEERTUBE_OBJECT_STORAGE_UPLOAD_ACL_PUBLIC
+              value: {{ .Values.peertube.s3.upload_acl_public }}
+            - name: PEERTUBE_OBJECT_STORAGE_UPLOAD_ACL_PRIVATE
+              value: {{ .Values.peertube.s3.upload_acl_private }}
+            - name: PEERTUBE_OBJECT_STORAGE_CREDENTIALS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.peertube.s3.existingSecret }}
+                  key: {{ .Values.peertube.s3.existingSecretKeys.access_key_id }}
+            - name: PEERTUBE_OBJECT_STORAGE_CREDENTIALS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.peertube.s3.existingSecret }}
+                  key: {{ .Values.peertube.s3.existingSecretKeys.secret_access_key }}
+            {{- end }}
+
+            # smtp info
+            - name: PEERTUBE_SMTP_FROM
+              value: {{ .Values.peertube.smtp.from_address }}
+            - name: PEERTUBE_SMTP_TLS
+              value: {{ .Values.peertube.smtp.tls | quote }}
+            {{ if .Values.peertube.smtp.disable_starttls }}
+            - name: PEERTUBE_SMTP_DISABLE_STARTTLS
+              value: {{ .Values.peertube.smtp.disable_starttls | quote }}
+            {{- end }}
+            - name: PEERTUBE_SMTP_HOSTNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.peertube.smtp.existingSecret | default "peertube-smtp"}}
+                  key: {{ .Values.peertube.smtp.existingSecretKeys.host }}
+            - name: PEERTUBE_SMTP_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.peertube.smtp.existingSecret | default "peertube-smtp"}}
+                  key: {{ .Values.peertube.smtp.existingSecretKeys.port }}
+            - name: PEERTUBE_SMTP_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.peertube.smtp.existingSecret | default "peertube-smtp"}}
+                  key: {{ .Values.peertube.smtp.existingSecretKeys.username }}
+            - name: PEERTUBE_SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.peertube.smtp.existingSecret | default "peertube-smtp"}}
+                  key: {{ .Values.peertube.smtp.existingSecretKeys.password }}
+
+          {{- with .Values.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: peertube-config
+          configMap:
+            name: peertube-config
+        - name: custom-env-vars
+          configMap:
+            name: custom-env-vars
+        {{- if .Values.persistence.enabled }}
+        - name: peertube-data
+          persistentVolumeClaim:
+            {{- if .Values.persistence.existingClaim }}
+            claimName: {{ .Values.persistence.existingClaim }}
+            {{- else }}
+            claimName: {{ include "peertube.fullname" . }}
+            {{- end }}
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
