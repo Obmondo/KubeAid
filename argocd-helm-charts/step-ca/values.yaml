@@ -16,6 +16,8 @@ step-certificates:
             - k8sdemo.kubeaid.io
             - step-ca-step-certificates.step-ca.svc.cluster.local
             - 127.0.0.1
+          db:
+            type: badgerv2
         defaults.json:
           # Add your Certificate Authority URL (typically the ingress url)
           ca-url: https://ca.k8sdemo.kubeaid.io
