@@ -7,7 +7,7 @@ step-issuer:
 
 step-certificates:
   inject:
-    enabled: false
+    enabled: true
     config:
       files:
         ca.json:
