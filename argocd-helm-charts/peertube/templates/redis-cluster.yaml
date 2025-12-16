@@ -10,14 +10,14 @@ spec:
     runAsUser: 1000
     fsGroup: 1000
   kubernetesConfig:
-    image: {{ .Values.rediscluster.image | default "quay.io/opstree/redis:v7.2.6" }}
-    imagePullPolicy: {{ .Values.rediscluster.imagePullPolicy | default "IfNotPresent" }}
+    image: {{ .Values.redisCluster.image | default "quay.io/opstree/redis:v7.2.6" }}
+    imagePullPolicy: {{ .Values.redisCluster.imagePullPolicy | default "IfNotPresent" }}
     resources:
       requests:
-        cpu: {{ .Values.rediscluster.resources.requests.cpu | default "101m" }} 
-        memory: {{ .Values.rediscluster.resources.requests.cpu | default "128Mi" }}
+        cpu: {{ .Values.redisCluster.resources.requests.cpu | default "101m" }} 
+        memory: {{ .Values.redisCluster.resources.requests.cpu | default "128Mi" }}
       limits:
-        memory: {{ .Values.rediscluster.resources.limits.memory | default "256Mi" }}
+        memory: {{ .Values.redisCluster.resources.limits.memory | default "256Mi" }}
   redisExporter:
     enabled: false
     image: quay.io/opstree/redis-exporter:v1.44.0

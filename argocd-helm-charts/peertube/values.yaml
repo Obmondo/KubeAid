@@ -4,8 +4,8 @@ postgresql:
   recover: false
   bootstrap:
     initdb:
-      database: peertubedb
-      owner: peertubedb
+      database: peertube
+      owner: peertube
   resources:
     limits:
       memory: 256Mi
@@ -17,3 +17,32 @@ redisCluster:
   replicas: 1
   name: peertube-redis
   storage: 4Gi
+  image: quay.io/opstree/redis:v7.2.6
+  imagePullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 101m
+      memory: 128Mi
+    limits:
+      memory: 256Mi 
+
+peertube:
+  ingress:
+    enabled: false
+
+  config:
+    serverName: peertube.example.com
+    admin:
+      email:  "admin@example.com"
+    mail:
+      hostname: webmail.example.com
+
+  postgresql:
+    enabled: false
+
+  redis:
+    enabled: false
+
+  externalPostgresql:
+    existingSecret: "peertube-postgres-app"
+    existingSecretKey: password
