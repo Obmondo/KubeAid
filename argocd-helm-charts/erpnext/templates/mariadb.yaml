@@ -31,5 +31,7 @@ spec:
 
   image: {{ .Values.mariadb.image }}
   imagePullPolicy: {{ .Values.mariadb.imagePullPolicy }}
+  {{- with .Values.mariadb.imagePullSecrets }}
   imagePullSecrets:
-    - name: registry
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
