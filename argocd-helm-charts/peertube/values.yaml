@@ -1,0 +1,19 @@
+postgresql:
+  instance: 1
+  size: 2Gi
+  recover: false
+  bootstrap:
+    initdb:
+      database: peertubedb
+      owner: peertubedb
+  resources:
+    limits:
+      memory: 256Mi
+    requests:
+      memory: 256Mi
+      cpu: 100m
+
+redisCluster:
+  replicas: 1
+  name: peertube-redis
+  storage: 4Gi
