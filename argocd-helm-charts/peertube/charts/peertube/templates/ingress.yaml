@@ -37,11 +37,10 @@ spec:
     {{- end }}
   {{- end }}
   rules:
-    {{- range .Values.ingress.hosts }}
-    - host: {{ .host | quote }}
+    - host: {{ .Values.config.serverName | quote }}
       http:
         paths:
-          {{- range .paths }}
+          {{- range .Values.ingress.paths }}
           - path: {{ .path }}
             {{- if and .pathType (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
             pathType: {{ .pathType }}
@@ -51,11 +50,10 @@ spec:
               service:
                 name: {{ $fullName }}
                 port:
-                  number: 9000
+                  number: {{ $svcPort }}
               {{- else }}
               serviceName: {{ $fullName }}
               servicePort: {{ $svcPort }}
               {{- end }}
           {{- end }}
-    {{- end }}
 {{- end }}

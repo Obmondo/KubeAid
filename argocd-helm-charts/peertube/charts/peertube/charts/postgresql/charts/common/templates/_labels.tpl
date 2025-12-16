@@ -1,5 +1,5 @@
 {{/*
-Copyright Broadcom, Inc. All Rights Reserved.
+Copyright VMware, Inc.
 SPDX-License-Identifier: APACHE-2.0
 */}}
 
@@ -11,19 +11,13 @@ Kubernetes standard labels
 */}}
 {{- define "common.labels.standard" -}}
 {{- if and (hasKey . "customLabels") (hasKey . "context") -}}
-{{- $default := dict "app.kubernetes.io/name" (include "common.names.name" .context) "helm.sh/chart" (include "common.names.chart" .context) "app.kubernetes.io/instance" .context.Release.Name "app.kubernetes.io/managed-by" .context.Release.Service -}}
-{{- with .context.Chart.AppVersion -}}
-{{- $_ := set $default "app.kubernetes.io/version" . -}}
-{{- end -}}
-{{ template "common.tplvalues.merge" (dict "values" (list .customLabels $default) "context" .context) }}
+{{ merge (include "common.tplvalues.render" (dict "value" .customLabels "context" .context) | fromYaml) (dict "app.kubernetes.io/name" (include "common.names.name" .context) "helm.sh/chart" (include "common.names.chart" .context) "app.kubernetes.io/instance" .context.Release.Name "app.kubernetes.io/managed-by" .context.Release.Service "app.kubernetes.io/version" .context.Chart.AppVersion) | toYaml }}
 {{- else -}}
 app.kubernetes.io/name: {{ include "common.names.name" . }}
 helm.sh/chart: {{ include "common.names.chart" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
-{{- with .Chart.AppVersion }}
-app.kubernetes.io/version: {{ . | quote }}
-{{- end -}}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end -}}
 {{- end -}}
 

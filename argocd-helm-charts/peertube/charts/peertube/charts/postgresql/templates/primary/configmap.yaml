@@ -1,5 +1,5 @@
 {{- /*
-Copyright Broadcom, Inc. All Rights Reserved.
+Copyright VMware, Inc.
 SPDX-License-Identifier: APACHE-2.0
 */}}
 
@@ -8,7 +8,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ printf "%s-configuration" (include "postgresql.v1.primary.fullname" .) }}
-  namespace: {{ include "common.names.namespace" . | quote }}
+  namespace: {{ .Release.Namespace | quote }}
   labels: {{- include "common.labels.standard" ( dict "customLabels" .Values.commonLabels "context" $ ) | nindent 4 }}
     app.kubernetes.io/component: primary
   {{- if .Values.commonAnnotations }}
@@ -16,7 +16,7 @@ metadata:
   {{- end }}
 data:
   {{- if .Values.primary.configuration }}
-  postgresql.conf: |
+  postgresql.conf: |-
     {{- include "common.tplvalues.render" ( dict "value" .Values.primary.configuration "context" $ ) | nindent 4 }}
   {{- end }}
   {{- if .Values.primary.pgHbaConfiguration }}

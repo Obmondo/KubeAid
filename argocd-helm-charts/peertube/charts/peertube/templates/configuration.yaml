@@ -1,0 +1,86 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "peertube.fullname" . }}
+  labels:
+    {{- include "peertube.labels" . | nindent 4 }}
+data:
+  production.yaml: |
+    listen:
+      hostname: null
+      port: 9000
+
+    webserver:
+      hostname: {{ required "You need to specify a server name" .Values.config.serverName | quote }}
+      port: 443
+      https: true
+
+    webadmin:
+      configuration:
+        edition:
+          allowed: {{ .Values.config.webadminConfig }}
+
+    admin:
+      email: {{ required "You need to specify an admin email" .Values.config.admin.email | quote }}
+
+    database:
+      name: {{ (include "peertube.postgresql.database" .) | quote }}
+      hostname: {{ (include "peertube.postgresql.host" .) | quote }}
+      port: {{ include "peertube.postgresql.port" . }}
+      username: {{ (include "peertube.postgresql.database" .) | quote }}
+      ssl: {{ include "peertube.postgresql.ssl" . }}
+
+    redis:
+{{- if not .Values.redis.enabled }}
+  {{- if .Values.externalRedis.db }}
+      db: {{ .Values.externalRedis.db }}
+  {{- end }}
+{{- end }}
+      hostname: {{ (include "peertube.redis.host" .) | quote }}
+      port: {{ include "peertube.redis.port" . }}
+
+    smtp:
+      transport: {{ .Values.config.mail.transport }}
+      {{- if (eq "smtp" .Values.config.mail.transport) }}
+      hostname: {{ required "You need to specify a SMTP hostname for the SMTP mail transport" .Values.config.mail.hostname | quote }}
+      {{- else }}
+      sendmail: {{ .Values.config.mail.sendmail }}
+      {{- end }}
+      port: {{ .Values.config.mail.port | default 465 }}
+      {{- if .Values.config.mail.username }}
+      username: {{ .Values.config.mail.username | quote }}
+      {{- end }}
+      {{- if .Values.config.mail.fromAddress }}
+      from_address: {{ .Values.config.mail.fromAddress | quote }}
+      {{- end }}
+
+    object_storage:
+      enabled: {{ .Values.config.objectStorage.enabled }}
+
+      {{- if .Values.config.objectStorage.endpoint }}
+      endpoint: {{ .Values.config.objectStorage.endpoint | quote }}
+      {{- end }}
+      {{- if .Values.config.objectStorage.region }}
+      region: {{ .Values.config.objectStorage.region | quote }}
+      {{- end }}
+      {{- if .Values.config.objectStorage.uploadACL }}
+      upload_acl: {{ .Values.config.objectStorage.uploadACL | quote }}
+      {{- end }}
+      {{- if .Values.config.objectStorage.maxUploadPart }}
+      max_upload_part: {{ .Values.config.objectStorage.maxUploadPart | quote }}
+      {{- end }}
+
+      streaming_playlists:
+        {{- .Values.config.objectStorage.streaming | toYaml | nindent 8 }}
+      web_videos:
+        {{- .Values.config.objectStorage.videos | toYaml | nindent 8 }}
+      user_exports:
+        {{- .Values.config.objectStorage.exports | toYaml | nindent 8 }}
+      original_video_files:
+        {{- .Values.config.objectStorage.originals | toYaml | nindent 8 }}
+      captions:
+        {{- .Values.config.objectStorage.captions | toYaml | nindent 8 }}
+
+    # Extra config
+    {{- .Values.extraConfig | toYaml | nindent 4 }}

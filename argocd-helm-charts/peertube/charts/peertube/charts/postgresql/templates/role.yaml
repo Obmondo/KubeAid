@@ -1,5 +1,5 @@
 {{- /*
-Copyright Broadcom, Inc. All Rights Reserved.
+Copyright VMware, Inc.
 SPDX-License-Identifier: APACHE-2.0
 */}}
 
@@ -7,15 +7,16 @@ SPDX-License-Identifier: APACHE-2.0
 kind: Role
 apiVersion: {{ include "common.capabilities.rbac.apiVersion" . }}
 metadata:
-  name: {{ include "postgresql.v1.chart.fullname" . }}
-  namespace: {{ include "common.names.namespace" . | quote }}
+  name: {{ include "common.names.fullname" . }}
+  namespace: {{ .Release.Namespace | quote }}
   labels: {{- include "common.labels.standard" ( dict "customLabels" .Values.commonLabels "context" $ ) | nindent 4 }}
   {{- if .Values.commonAnnotations }}
   annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
   {{- end }}
 # yamllint disable rule:indentation
 rules:
-  {{- if and (include "common.capabilities.psp.supported" .) .Values.psp.create }}
+  {{- $pspAvailable := (semverCompare "<1.25-0" (include "common.capabilities.kubeVersion" .)) -}}
+  {{- if and $pspAvailable .Values.psp.create }}
   - apiGroups:
       - 'policy'
     resources:
@@ -23,7 +24,7 @@ rules:
     verbs:
       - 'use'
     resourceNames:
-      - {{ include "postgresql.v1.chart.fullname" . }}
+      - {{ include "common.names.fullname" . }}
   {{- end }}
   {{- if .Values.rbac.rules }}
   {{- include "common.tplvalues.render" ( dict "value" .Values.rbac.rules "context" $ ) | nindent 2 }}
