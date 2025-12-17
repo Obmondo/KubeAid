@@ -1,4 +1,3 @@
----
 apiVersion: certmanager.step.sm/v1beta1
 kind: StepClusterIssuer
 metadata:
@@ -6,11 +5,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   # The CA URL.
-  {{- if .Values.step-certificates.ca.url }}
-  url: {{ .Values.step-certificates.ca.url }}/acme/acme/directory
+  {{- if ".Values.stepClusterIssuer.url" }}
+  url: {{ .Values.stepClusterIssuer.url }}
   {{- else }}
   url: https://step-certificates.{{ .Release.Namespace }}.svc.cluster.local
-  {{- end }}
+  {{ end }}
   caBundle: {{ .Values.stepClusterIssuer.root_ca }}
   provisioner:
     name: admin
