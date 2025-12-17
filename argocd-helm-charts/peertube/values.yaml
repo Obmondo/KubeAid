@@ -33,7 +33,7 @@ peertube:
     enabled: false
 
   config:
-    serverName: localhost:9000
+    serverName: peertube
     admin:
       email:  "admin@example.com"
     mail:
@@ -76,3 +76,6 @@ peertube:
 
     signup:
       enabled: true
+
+    webserver:
+      https: false
