@@ -5,11 +5,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   # The CA URL.
-  {{- if ".Values.stepClusterIssuer.url" }}
-  url: {{ .Values.stepClusterIssuer.url }}
-  {{- else }}
-  url: https://step-certificates.{{ .Release.Namespace }}.svc.cluster.local
-  {{ end }}
+  url: {{ .Values.stepClusterIssuer.url | default "https://step-certificates.step-ca.svc.cluster.local" }}
   caBundle: {{ .Values.stepClusterIssuer.root_ca }}
   provisioner:
     name: admin
