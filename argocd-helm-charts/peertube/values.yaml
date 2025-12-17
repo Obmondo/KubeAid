@@ -30,7 +30,11 @@ externalRedis:
 
 peertube:
   ingress:
-    enabled: false
+    enabled: true
+    tls:
+      - hosts:
+          - peertube.example.com
+        secretName: peertube-example-tls
 
   config:
     serverName: peertube
