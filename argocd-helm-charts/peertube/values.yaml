@@ -14,6 +14,8 @@ postgresql:
       cpu: 100m
 
 redis:
+  enabled: true
+  mode: standalone
   replicas: 1
   name: peertube-redis
   storage: 4Gi
@@ -50,7 +52,7 @@ peertube:
   
   externalRedis:
     host: peertube-redis
-    port: 6379
+    # port: 6379
     # db: 0
 
     # password:
