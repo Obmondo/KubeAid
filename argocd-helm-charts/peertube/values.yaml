@@ -47,3 +47,13 @@ peertube:
     host: "peertube-pgsql-rw"
     existingSecret: "peertube-pgsql-app"
     existingSecretKey: password
+  
+  externalRedis:
+    host: peertube-redis-master
+    port: 6379
+    # db: 0
+
+    # password:
+
+    existingSecret: peertube-redis
+    existingSecretKey: redis-password
