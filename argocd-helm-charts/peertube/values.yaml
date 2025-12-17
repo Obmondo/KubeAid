@@ -64,8 +64,12 @@ peertube:
   extraEnv:
     - name: PEERTUBE_REDIS_PORT
       value: "6379"
-    # - name: PT_INITIAL_ROOT_PASSWORD
-    #   value: testpassword
+    - name: PT_INITIAL_ROOT_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: peertube-admin
+          key: password
+
     # password:
   extraConfig:
     # copied from default values with modifications
