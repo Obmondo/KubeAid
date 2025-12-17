@@ -37,7 +37,7 @@ peertube:
         secretName: peertube-example-tls
 
   config:
-    serverName: peertube
+    serverName: peertube.example.com
     admin:
       email:  "admin@example.com"
     mail:
