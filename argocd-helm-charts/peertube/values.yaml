@@ -54,10 +54,14 @@ peertube:
     host: peertube-redis
     # port: 6379
     # db: 0
+
+  # using externalRedis.port was giving an error even tho config values are rendered correctly in configmap
+  # Adding below fixed it
   extraEnv:
     - name: PEERTUBE_REDIS_PORT
       value: "6379"
-
+    - name: PT_INITIAL_ROOT_PASSWORD
+      value: testpassword
     # password:
   extraConfig:
     # copied from default values with modifications
