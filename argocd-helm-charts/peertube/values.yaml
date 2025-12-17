@@ -49,7 +49,7 @@ peertube:
     existingSecretKey: password
   
   externalRedis:
-    host: peertube-redis-cluster-master
+    host: peertube-redis
     port: 6379
     # db: 0
 
