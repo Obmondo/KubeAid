@@ -54,6 +54,9 @@ peertube:
     host: peertube-redis
     # port: 6379
     # db: 0
+  extraEnv:
+    - name: PEERTUBE_REDIS_PORT
+      value: "6379"
 
     # password:
   extraConfig:
