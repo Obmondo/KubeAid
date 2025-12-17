@@ -15,6 +15,6 @@ spec:
     name: admin
     kid: {{ .Values.stepClusterIssuer.kid }}
     passwordRef:
-      name: step-ca-acme-password
+      name: step-ca-step-certificates-provisioner-password
       key: password
       namespace: {{ .Release.Namespace }}
