@@ -29,7 +29,7 @@ step-certificates:
   ca:
     name: Kubeaid CA
     dns: k8sdemo.kubeaid.io,step-ca-step-certificates.step-ca.svc.cluster.local,127.0.0.1
-    url: https://step-ca-step-certificates.step-ca.svc.cluster.local
+    url: https://ca.k8sdemo.kubeaid.io
     bootstrap:
       # 90 days
       postInitHook: |

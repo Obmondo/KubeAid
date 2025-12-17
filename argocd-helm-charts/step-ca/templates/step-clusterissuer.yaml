@@ -5,12 +5,16 @@ metadata:
   name: step-cluster-issuer
   namespace: {{ .Release.Namespace }}
 spec:
-  url: https://step-ca-step-certificates.{{ .Release.Namespace }}.svc.cluster.local
+  # The CA URL.
+  {{- if .Values.step-certificates.ca.url }}
+  url: {{ .Values.step-certificates.ca.url }}/acme/acme/directory
+  {{- else }}
+  url: https://step-certificates.{{ .Release.Namespace }}.svc.cluster.local
+  {{- end }}
   caBundle: {{ .Values.stepClusterIssuer.root_ca }}
   provisioner:
     name: admin
-    kid: {{ .Values.stepClusterIssuer.kid }}
     passwordRef:
-      name: step-ca-step-certificates-provisioner-password
+      name: step-ca-acme-password
       key: password
       namespace: {{ .Release.Namespace }}
