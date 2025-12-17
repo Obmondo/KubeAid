@@ -54,6 +54,16 @@ peertube:
     # db: 0
 
     # password:
+  extraConfig:
+    # copied from default values with modifications
+    trust_proxy:
+      - 10.0.0.0/8
+      - 172.16.0.0/12
+      - 192.168.0.0/24
+      - fc00::/7
 
-    # existingSecret: peertube-redis
-    # existingSecretKey: redis-password
+    instance:
+      description: "PeerTube on Kubernetes"
+
+    signup:
+      enabled: true
