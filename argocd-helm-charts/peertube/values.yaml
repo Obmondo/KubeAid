@@ -55,5 +55,5 @@ peertube:
 
     # password:
 
-    existingSecret: peertube-redis
-    existingSecretKey: redis-password
+    # existingSecret: peertube-redis
+    # existingSecretKey: redis-password
