@@ -60,8 +60,8 @@ peertube:
   extraEnv:
     - name: PEERTUBE_REDIS_PORT
       value: "6379"
-    - name: PT_INITIAL_ROOT_PASSWORD
-      value: testpassword
+    # - name: PT_INITIAL_ROOT_PASSWORD
+    #   value: testpassword
     # password:
   extraConfig:
     # copied from default values with modifications
@@ -76,6 +76,3 @@ peertube:
 
     signup:
       enabled: true
-
-    webserver:
-      https: false
