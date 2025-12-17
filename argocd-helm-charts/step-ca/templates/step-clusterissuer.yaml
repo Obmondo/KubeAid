@@ -11,6 +11,7 @@ spec:
   url: https://step-certificates.{{ .Release.Namespace }}.svc.cluster.local
   {{ end }}
   caBundle: {{ .Values.stepClusterIssuer.root_ca }}
+  kid: {{ .Values.stepClusterIssuer.kid }}
   provisioner:
     name: admin
     passwordRef:
