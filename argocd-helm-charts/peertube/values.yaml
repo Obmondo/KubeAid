@@ -29,6 +29,8 @@ externalRedis:
       memory: 256Mi 
 
 peertube:
+  # ingress needs to be enabled because the chart only supports https for webserver
+  # If TLS is not enabled, login with root user fails
   ingress:
     enabled: true
     tls:
@@ -64,11 +66,11 @@ peertube:
   extraEnv:
     - name: PEERTUBE_REDIS_PORT
       value: "6379"
-    - name: PT_INITIAL_ROOT_PASSWORD
+    - name: PT_INITIAL_ROOT_PASSWORD # required because without this the password won't be set for root user
       valueFrom:
         secretKeyRef:
           name: peertube-admin
-          key: password
+          key: password # can add this as sealed secret
 
     # password:
   extraConfig:
