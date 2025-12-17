@@ -44,5 +44,6 @@ peertube:
     enabled: false
 
   externalPostgresql:
-    existingSecret: "peertube-postgres-app"
+    host: "peertube-pgsql-rw"
+    existingSecret: "peertube-pgsql-app"
     existingSecretKey: password
