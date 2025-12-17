@@ -33,7 +33,7 @@ peertube:
     enabled: false
 
   config:
-    serverName: peertube.example.com
+    serverName: localhost:9000
     admin:
       email:  "admin@example.com"
     mail:
