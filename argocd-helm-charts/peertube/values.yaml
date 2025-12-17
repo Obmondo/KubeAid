@@ -13,7 +13,7 @@ postgresql:
       memory: 256Mi
       cpu: 100m
 
-redis:
+externalRedis:
   enabled: true
   mode: standalone
   replicas: 1
