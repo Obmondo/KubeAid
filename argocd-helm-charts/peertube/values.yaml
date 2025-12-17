@@ -13,7 +13,7 @@ postgresql:
       memory: 256Mi
       cpu: 100m
 
-redisCluster:
+redis:
   replicas: 1
   name: peertube-redis
   storage: 4Gi
