@@ -7,7 +7,7 @@
 * Create the runner token
 
 ```sh
-kubectl create secret generic gitea-runner-token --namespace gitea --dry-run=client --from-literal=act-runner-token='lolmyrunnertoken' -o yaml | kubeseal --controller-namespace system --controller-name sealed-secrets -o yaml
+kubectl create secret generic gitea-runner-token --namespace gitea --dry-run=client --from-literal=act-runner-token='lolmyrunnertoken' -o yaml | kubeseal --controller-namespace sealed-secrets --controller-name sealed-secrets-controller -o yaml
 ```
 
 ## Increase parallel jobs execution

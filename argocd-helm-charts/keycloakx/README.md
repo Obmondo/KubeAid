@@ -9,7 +9,7 @@ NOTE: Do not give admin password from the webUI, add the password via an ENV var
 openssl rand -base64 14 > ./keycloak_password
 # Sealed Secret way
 kubectl create secret generic keycloak-admin -n keycloak --dry-run=client --from-file=KEYCLOAK_PASSWORD=./keycloak_password -o json >mysecret.json
-kubeseal --controller-name sealed-secrets --controller-namespace system <mysecret.json >keycloak-admin.json
+kubeseal --controller-name sealed-secrets-controller --controller-namespace sealed-secrets <mysecret.json >keycloak-admin.json
 ```
 
 ## Keycloak Client Setup

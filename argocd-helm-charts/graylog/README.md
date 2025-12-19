@@ -6,7 +6,7 @@
 # pwgen 20 1 | tr -d '\n' > graylog-password
 # cat graylog-password | sha256sum | tr -d '\n' > graylog-sha2
 # kubectl create secret generic graylog -n graylog  --dry-run=client --from-file=graylog-password-secret=./graylog-password --from-file=graylog-password-sha2=./graylog-sha2 -o json >graylog.json
-# kubeseal --controller-name sealed-secrets --controller-namespace system < graylog.json > graylog-final.json
+# kubeseal --controller-name sealed-secrets-controller --controller-namespace sealed-secrets < graylog.json > graylog-final.json
 ```
 
 **TODO:** Add infomation about creating the graylog-es-svc secret

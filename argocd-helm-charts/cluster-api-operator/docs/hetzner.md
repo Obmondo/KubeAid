@@ -43,9 +43,9 @@
 * Create required secrets
 
   ```sh
-  kubectl -n capi-cluster-$CUSTOMER_ID create secret generic capi-cluster-hetzner --dry-run=client --from-literal=hcloud=$HCLOUD_TOKEN --from-literal=robot-user=$HETZNER_ROBOT_USER --from-literal=robot-password=$HETZNER_ROBOT_PASSWORD -o yaml | kubeseal --controller-name sealed-secrets --controller-namespace system -o yaml > capi-cluster-hetzner.yaml
+  kubectl -n capi-cluster-$CUSTOMER_ID create secret generic capi-cluster-hetzner --dry-run=client --from-literal=hcloud=$HCLOUD_TOKEN --from-literal=robot-user=$HETZNER_ROBOT_USER --from-literal=robot-password=$HETZNER_ROBOT_PASSWORD -o yaml | kubeseal --controller-name sealed-secrets-controller --controller-namespace sealed-secrets -o yaml > capi-cluster-hetzner.yaml
 
-   kubectl -n capi-cluster-$CUSTOMER_ID create secret generic capi-cluster-robot-ssh --dry-run=client --from-literal=sshkey-name=cluster --from-file=ssh-privatekey=$HETZNER_SSH_PRIV_PATH --from-file=ssh-publickey=$HETZNER_SSH_PUB_PATH -o yaml | kubeseal --controller-name sealed-secrets --controller-namespace system -o yaml > capi-cluster-robot-ssh.yaml
+   kubectl -n capi-cluster-$CUSTOMER_ID create secret generic capi-cluster-robot-ssh --dry-run=client --from-literal=sshkey-name=cluster --from-file=ssh-privatekey=$HETZNER_SSH_PRIV_PATH --from-file=ssh-publickey=$HETZNER_SSH_PUB_PATH -o yaml | kubeseal --controller-name sealed-secrets-controller --controller-namespace sealed-secrets -o yaml > capi-cluster-robot-ssh.yaml
   ```
 
 * Sync the capi-cluster-<cluster-name> app on argo-cd

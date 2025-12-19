@@ -17,7 +17,7 @@ Example [postgres-cluster](./examples/postgres-cluster.yaml)
   * Create the secret for accessing self-hosted s3
 
   ```sh
-  kubectl create secret generic $postgres-cluster-name-postgres-pod-env -n $namspace-where-is-your-postgres-cluster-deployed --dry-run=client --from-literal=AWS_SECRET_ACCESS_KEY=boolol -o yaml | kubeseal --controller-namespace system --controller-name sealed-secrets -o yaml > /path/to/sealed-secret/dir/$postgres-cluster-postgres-pod-env.yaml
+  kubectl create secret generic $postgres-cluster-name-postgres-pod-env -n $namspace-where-is-your-postgres-cluster-deployed --dry-run=client --from-literal=AWS_SECRET_ACCESS_KEY=boolol -o yaml | kubeseal --controller-namespace sealed-secrets --controller-name sealed-secrets-controller -o yaml > /path/to/sealed-secret/dir/$postgres-cluster-postgres-pod-env.yaml
   ```
 
   * Setup the s3 profile

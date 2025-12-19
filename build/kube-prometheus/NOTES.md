@@ -44,7 +44,7 @@ maintain the RBAC policies per team too.
 * Create secret with the token you get from the grafana client on keycloak
 
 ```console
-kubectl create secret generic kube-prometheus-stack-grafana -n monitoring --dry-run=client --from-literal=grafana-keycloak-secret=i_love_k8s -o json | kubeseal --controller-name sealed-secrets --controller-namespace system - > sealed-secrets/cluster_name/monitoring/kube-prometheus-stack-grafana.json
+kubectl create secret generic kube-prometheus-stack-grafana -n monitoring --dry-run=client --from-literal=grafana-keycloak-secret=i_love_k8s -o json | kubeseal --controller-name sealed-secrets-controller --controller-namespace sealed-secrets - > sealed-secrets/cluster_name/monitoring/kube-prometheus-stack-grafana.json
 ```
 
   
@@ -53,7 +53,7 @@ kubectl create secret generic kube-prometheus-stack-grafana -n monitoring --dry-
 ```bash
 # You will get the private key and cert from KubeAid Support team.
 
-kubectl create secret tls obmondo-clientcert --namespace monitoring --dry-run=client --key=./private.key --cert=./cert.pem --output=yaml | kubeseal --controller-namespace system --controller-name sealed-secrets --format yaml -
+kubectl create secret tls obmondo-clientcert --namespace monitoring --dry-run=client --key=./private.key --cert=./cert.pem --output=yaml | kubeseal --controller-namespace sealed-secrets --controller-name sealed-secrets-controller --format yaml -
 ```
 
 ```bash
@@ -61,7 +61,7 @@ kubectl create secret tls obmondo-clientcert --namespace monitoring --dry-run=cl
 cp alertmanager-main-slack.yaml /to/your/kubeaid-config/k8s/your-cluster/sealed-secret/monitoring/alertmanager-main.yaml
 
 # add your slack url with this command.
-kubectl create secret generic alertmanager-main --dry-run=client --from-literal=slack-url="https://hooks.slack.com/services/lol/my/token" -o yaml | kubeseal --controller-namespace system --controller-name sealed-secrets --format yaml --merge-into alertmanager-main.yaml
+kubectl create secret generic alertmanager-main --dry-run=client --from-literal=slack-url="https://hooks.slack.com/services/lol/my/token" -o yaml | kubeseal --controller-namespace sealed-secrets --controller-name sealed-secrets-controller --format yaml --merge-into alertmanager-main.yaml
 ```
 
 ## Troubleshooting

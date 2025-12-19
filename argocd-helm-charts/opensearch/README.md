@@ -57,7 +57,7 @@ Create a secret with template functionality
 * Create the secret
 
 ```bash
-# kubectl create secret generic s3-backup -n graylog --dry-run=client --from-literal=username=admin --from-literal=password=xxxx -o yaml | kubeseal --controller-namespace system --controller-name sealed-secrets -o yaml --merge-into kubeaid-config/k8s/$cluster-name/sealed-secret/graylog/s3-backup.yaml
+# kubectl create secret generic s3-backup -n graylog --dry-run=client --from-literal=username=admin --from-literal=password=xxxx -o yaml | kubeseal --controller-namespace sealed-secrets --controller-name sealed-secrets-controller -o yaml --merge-into kubeaid-config/k8s/$cluster-name/sealed-secret/graylog/s3-backup.yaml
 ```
 
 ## Down sizing the cluster

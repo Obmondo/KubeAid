@@ -53,7 +53,7 @@ service:
 * NOTE: Make sure the key is either ca.crt or tls.ca
 
 ```sh
-kubectl create secret generic internalca-cert --namespace traefik --dry-run=client --from-file=/path/to/ca.crt -o yaml | kubeseal --controller-namespace system --controller-name sealed-secrets -o yaml
+kubectl create secret generic internalca-cert --namespace traefik --dry-run=client --from-file=/path/to/ca.crt -o yaml | kubeseal --controller-namespace sealed-secrets --controller-name sealed-secrets-controller -o yaml
 ```
 
 * Add this in the values file

@@ -71,8 +71,8 @@ These are required for Harbor to run the core and jobservice successfully.
       --from-literal=REGISTRY_PASSWD=harbor_registry_password \
       --from-literal=oidc-config='{"auth_mode":"oidc_auth","oidc_name":"Obmondo Keycloak","oidc_endpoint":"https://keycloak.example.com/auth/realms/harbor","oidc_client_id":"harbor","oidc_client_secret":"{oidc client secret}","oidc_scope":"openid,profile,email,offline_access","oidc_verify_cert":"true","oidc_auto_onboard":"true","oidc_user_claim":"email","oidc_admin_group":"harborAdmins"}'\
       -o yaml | \
-      kubeseal --controller-namespace system \
-      --controller-name sealed-secrets \
+      kubeseal --controller-namespace sealed-secrets \
+      --controller-name sealed-secrets-controller \
       --format yaml > harbor-core-custom.yaml
     ```
 

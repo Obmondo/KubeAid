@@ -60,7 +60,7 @@ Using kubeseal, the secret can then be converted to a sealed secret.
 kubeseal --cert secret-certificate.pem <mysecret.json >mysealedsecret.json
 
 #for pulling public cert from service in cluster
-kubeseal --controller-namespace system --controller-name sealed-secrets < mysecret.json > mysealedsecret.json
+kubeseal --controller-namespace sealed-secrets --controller-name sealed-secrets-controller < mysecret.json > mysealedsecret.json
 ```
 
 **mysecret.json** is your target secret file, which will generated to sealedsecret one (can be yaml format too)
@@ -74,7 +74,7 @@ You can use this f.ex to create sealed secrets for adding repos to ArgoCD.
 (If you are using a token, the scope has to include full repo privilges, and the UN can be any **non-empty** string):
 
   ```sh
-  kubectl create secret generic sample-git --namespace argocd --dry-run=client --from-literal=type='git' --from-literal=name='sample-git' --from-literal=url=https://gitlab.com/Obmondo/myreponame.git --from-literal=username='gitlab+deploy-token-20' --from-literal=password='lolpassword' --output yaml | yq eval '.metadata.labels.["argocd.argoproj.io/secret-type"]="repository"' - | yq eval '.metadata.annotations.["sealedsecrets.bitnami.com/managed"]="true"' - | yq eval '.metadata.annotations.["managed-by"]="argocd.argoproj.io"' - | kubeseal --controller-namespace system --controller-name sealed-secrets --format yaml - > argocdrepo-myreponame.yaml
+  kubectl create secret generic sample-git --namespace argocd --dry-run=client --from-literal=type='git' --from-literal=name='sample-git' --from-literal=url=https://gitlab.com/Obmondo/myreponame.git --from-literal=username='gitlab+deploy-token-20' --from-literal=password='lolpassword' --output yaml | yq eval '.metadata.labels.["argocd.argoproj.io/secret-type"]="repository"' - | yq eval '.metadata.annotations.["sealedsecrets.bitnami.com/managed"]="true"' - | yq eval '.metadata.annotations.["managed-by"]="argocd.argoproj.io"' - | kubeseal --controller-namespace sealed-secrets --controller-name sealed-secrets-controller --format yaml - > argocdrepo-myreponame.yaml
   ```
 
 ### Important - verify
@@ -129,8 +129,8 @@ kubectl create secret generic example\
  --from-literal=password="super_secret_pass" \
  --from-literal=access-token="0123abcDEF" -o yaml | \
  kubeseal \
- --controller-namespace system \
- --controller-name sealed-secrets \
+ --controller-namespace sealed-secrets \
+ --controller-name sealed-secrets-controller \
  --namespace test -o yaml \
  --merge-into sealedSecret.yaml
 ```

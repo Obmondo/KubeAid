@@ -40,7 +40,7 @@ kubectl create secret generic cluster-autoscaler-azure-cluster-autoscaler -n  cl
  --from-literal=NodeResourceGroup="MC_k8s-prod-az1_prod_az1_obmondo_eu_northeurope" \
  --from-literal=VMType="vmss" \
  --from-literal=ClusterName="obmondo" \
- -o yaml | kubeseal --controller-namespace system --controller-name sealed-secrets > cluster-autoscaler.yaml
+ -o yaml | kubeseal --controller-namespace sealed-secrets --controller-name sealed-secrets-controller > cluster-autoscaler.yaml
 ```
 
 Where, the literals from cloud to cloud differs. And NOTE that this is only valid for Azure cloud.
