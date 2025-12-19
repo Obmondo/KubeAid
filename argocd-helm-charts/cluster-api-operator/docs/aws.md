@@ -38,7 +38,7 @@ clusterawsadm version
 * Create the required secret and git push and sync it on argocd (mgmt cluster)
 
   ```sh
-  kubectl create secret generic cluster-api-token --dry-run=client --namespace capi-cluster-${CUSTOMERID} --from-literal=AWS_B64ENCODED_CREDENTIALS=${AWS_B64ENCODED_CREDENTIALS} -o yaml | kubeseal --controller-namespace system --controller-name sealed-secrets --namespace cluster-api -o yaml > capi-cluster-token.yaml
+  kubectl create secret generic cluster-api-token --dry-run=client --namespace capi-cluster-${CUSTOMERID} --from-literal=AWS_B64ENCODED_CREDENTIALS=${AWS_B64ENCODED_CREDENTIALS} -o yaml | kubeseal --controller-namespace sealed-secrets --controller-name sealed-secrets-controller --namespace cluster-api -o yaml > capi-cluster-token.yaml
   ```
 
 * Sample [values.yaml](./examples/values-aws.yaml)
