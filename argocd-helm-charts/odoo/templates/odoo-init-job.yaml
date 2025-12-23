@@ -1,0 +1,76 @@
+{{- if and .Values.odoo.image (eq .Values.odoo.image.repository "odoo") }}
+{{- if .Values.initJob }}
+{{- if .Values.initJob.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "common.names.fullname" .Subcharts.odoo }}-init
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "common.labels.standard" .Subcharts.odoo | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  ttlSecondsAfterFinished: {{ .Values.initJob.ttlSecondsAfterFinished | default 300 }}
+  backoffLimit: {{ .Values.initJob.backoffLimit | default 3 }}
+  template:
+    spec:
+      restartPolicy: Never
+      {{- if .Values.odoo.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.odoo.nodeSelector | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: odoo-init
+          image: {{ .Values.odoo.image.registry }}/{{ .Values.odoo.image.repository }}:{{ .Values.odoo.image.tag }}
+          imagePullPolicy: {{ .Values.odoo.image.pullPolicy | default "IfNotPresent" }}
+          command:
+            - /bin/bash
+            - -c
+          args:
+            - |
+              echo "Waiting for PostgreSQL to be ready..."
+              DB_HOST="{{ .Values.odoo.externalDatabase.host }}"
+              DB_PORT="{{ .Values.odoo.externalDatabase.port }}"
+              DB_USER="{{ .Values.odoo.externalDatabase.user }}"
+              DB_NAME="{{ .Values.odoo.externalDatabase.database }}"
+              DB_PASS="$(cat /opt/bitnami/odoo/secrets/password)"
+              
+              until PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d postgres -c "SELECT 1" > /dev/null 2>&1; do
+                echo "PostgreSQL not ready, waiting..."
+                sleep 5
+              done
+              echo "PostgreSQL is ready!"
+              
+              # Check if database needs initialization
+              TABLE_COUNT=$(PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT count(*) FROM pg_tables WHERE schemaname = 'public'" 2>/dev/null | tr -d ' ' || echo "0")
+              
+              if [ "$TABLE_COUNT" -lt "50" ]; then
+                echo "Database needs initialization (table count: $TABLE_COUNT)"
+                /usr/bin/odoo \
+                  --database="$DB_NAME" \
+                  --db_host="$DB_HOST" \
+                  --db_port="$DB_PORT" \
+                  --db_user="$DB_USER" \
+                  --db_password="$DB_PASS" \
+                  --init=base \
+                  --stop-after-init
+                echo "Database initialized successfully!"
+              else
+                echo "Database already initialized (table count: $TABLE_COUNT), skipping init"
+              fi
+          resources:
+            {{- toYaml .Values.initJob.resources | nindent 12 }}
+          volumeMounts:
+            - name: db-secrets
+              mountPath: /opt/bitnami/odoo/secrets
+              readOnly: true
+      volumes:
+        - name: db-secrets
+          secret:
+            secretName: {{ .Values.odoo.externalDatabase.existingSecret }}
+{{- end }}
+{{- end }}
+{{- end }}
