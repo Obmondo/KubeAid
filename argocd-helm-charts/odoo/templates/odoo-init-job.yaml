@@ -9,9 +9,9 @@ metadata:
   labels:
     {{- include "common.labels.standard" .Subcharts.odoo | nindent 4 }}
   annotations:
-    "helm.sh/hook": post-install
-    "helm.sh/hook-weight": "-5"
-    "helm.sh/hook-delete-policy": hook-succeeded
+    # ArgoCD hook - runs after all resources are synced
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
 spec:
   ttlSecondsAfterFinished: {{ .Values.initJob.ttlSecondsAfterFinished | default 300 }}
   backoffLimit: {{ .Values.initJob.backoffLimit | default 3 }}
