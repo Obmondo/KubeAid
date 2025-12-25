@@ -1,0 +1,88 @@
+postgresql:
+  instance: 1
+  size: 2Gi
+  recover: false
+  bootstrap:
+    initdb:
+      database: peertube
+      owner: peertube
+  resources:
+    limits:
+      memory: 256Mi
+    requests:
+      memory: 256Mi
+      cpu: 100m
+
+externalRedis:
+  enabled: true
+  mode: standalone
+  replicas: 1
+  name: peertube-redis
+  storage: 4Gi
+  image: quay.io/opstree/redis:v7.2.6
+  imagePullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 101m
+      memory: 128Mi
+    limits:
+      memory: 256Mi 
+
+peertube:
+  # ingress needs to be enabled because the chart only supports https for webserver
+  # If TLS is not enabled, login with root user fails
+  ingress:
+    enabled: true
+    tls:
+      - hosts:
+          - peertube.example.com
+        secretName: peertube-example-tls
+
+  config:
+    serverName: peertube.example.com
+    admin:
+      email:  "admin@example.com"
+    mail:
+      hostname: webmail.example.com
+
+  postgresql:
+    enabled: false
+
+  redis:
+    enabled: false
+
+  externalPostgresql:
+    host: "peertube-pgsql-rw"
+    existingSecret: "peertube-pgsql-app"
+    existingSecretKey: password
+  
+  externalRedis:
+    host: peertube-redis
+    # port: 6379
+    # db: 0
+
+  # using externalRedis.port was giving an error even tho config values are rendered correctly in configmap
+  # Adding below fixed it
+  extraEnv:
+    - name: PEERTUBE_REDIS_PORT
+      value: "6379"
+    - name: PT_INITIAL_ROOT_PASSWORD # required because without this the password won't be set for root user
+      valueFrom:
+        secretKeyRef:
+          name: peertube-admin
+          key: password # can add this as sealed secret
+
+    # password:
+  extraConfig:
+    # copied from default values with modifications
+    trust_proxy:
+      - 10.0.0.0/8
+      - 172.16.0.0/12
+      - 192.168.0.0/24
+      - fc00::/7
+
+    instance:
+      description: "PeerTube on Kubernetes"
+
+    signup:
+      enabled: true

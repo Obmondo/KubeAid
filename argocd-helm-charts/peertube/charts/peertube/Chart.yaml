@@ -1,0 +1,19 @@
+apiVersion: v2
+appVersion: 8.0.0
+dependencies:
+- condition: postgresql.enabled
+  name: postgresql
+  repository: https://charts.bitnami.com/bitnami
+  version: ^12.1.4
+- condition: redis.enabled
+  name: redis
+  repository: https://charts.bitnami.com/bitnami
+  version: ^17.3.17
+description: 'Free software to take back control of your videos '
+icon: https://upload.wikimedia.org/wikipedia/commons/2/2b/Logo_de_PeerTube.svg
+maintainers:
+- email: ace@haxalot.com
+  name: Alexander Olofsson
+name: peertube
+type: application
+version: 1.6.1

@@ -1,0 +1,272 @@
+---
+replicaCount: 1
+
+image:
+  repository: chocobozzz/peertube
+  pullPolicy: IfNotPresent
+
+  ## Overrides the image tag whose default is the chart appVersion.
+  # tag: production-bullseye
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# strategy:
+#   type: RollingUpdate
+
+## Main Peertube configuration
+##
+config:
+  ## Public server name, will be used to configure both Peertube and the Ingress
+  ## resource if enabled.
+  serverName:
+
+  ## Should in-application configuration be possible, enabling this will
+  ## use an init-container to create a config folder in your persistent storage.
+  webadminConfig: true
+
+  ## Generate with something like `openssl rand -hex 32` - will auto-generate if left blank
+  # secret:
+
+  admin:
+    email:
+
+  ## Mail transfer setup, need to provide a hostname for SMTP
+  mail:
+    transport: smtp
+    # sendmail:
+    # hostname:
+    # port: 465
+    # username:
+    # fromAddress: admin@example.com
+
+    ## Password can be set either directly or with an existing secret.
+    # password:
+
+    # existingSecret:
+    # existingSecretKey: smtp-password
+
+  ## Data storage on S3 - will still require persistence even if enabled.
+  objectStorage:
+    enabled: false
+
+    # endpoint:
+    # region: us-east-1
+    # uploadACL: public-read
+    # maxUploadPart: 2GB
+
+    # accessKey: ""
+    # secretKey: ""
+
+    streaming:
+      bucket_name: peertube-streaming
+      # prefix:
+      # base_url:
+
+    videos:
+      bucket_name: peertube-videos
+      # prefix:
+      # base_url:
+
+    exports:
+      bucket_name: peertube-exports
+      # prefix:
+      # base_url:
+
+    originals:
+      bucket_name: peertube-originals
+      # prefix:
+      # base_url:
+
+    captions:
+      bucket_name: peertube-captions
+      # prefix:
+      # base_url:
+
+  ## Main persistent storage, will be used for uploads, processing, plugins, etc
+  persistence:
+    enabled: true
+
+    size: 16Gi
+    # storageClass: "-"
+    # accessModes: [ReadWriteOnce]
+
+## Additional configuration to set on the main production.yaml configuration.
+## See https://github.com/Chocobozzz/PeerTube/blob/develop/config/production.yaml.example
+##
+extraConfig:
+  ## It's recommended to limit this to only your internal cluster network
+  trust_proxy:
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/24
+    - fc00::/7
+    # - loopback
+
+  instance:
+    description: "PeerTube on Kubernetes"
+
+## Extra environment variables to set on Peertube
+##
+extraEnv: []
+  # - name: TZ
+  #   value: Europe/Stockholm
+extraSecret: {}
+  # PEERTUBE_INSTANCE_TERMS: "These are some very secret terms-of-service"
+
+## Extra values to set on the pod spec.
+## Can be used for setting things like host aliases, overhead, custom schedulers, etc
+##
+extraPodSpec: {}
+
+# Additional volumes of the peertube pod.
+extraVolumes: []
+  # - name: my-config
+  #   configMap:
+  #     name: my-config
+
+# Additional volume mounts of the peertube container.
+extraVolumeMounts: []
+  # - name: my-config
+  #   mountPath: /my-path/
+  #   subPath: my-file
+
+## Self-deployed PostgreSQL database
+## See: https://github.com/bitnami/charts/tree/master/bitnami/postgresql
+##
+postgresql:
+  enabled: true
+
+  auth:
+    database: peertube
+    username: peertube
+
+    # existingSecret:
+    # secretKeys:
+    #   userPasswordKey: password
+
+  persistence:
+    enabled: true
+
+## Externally managed PostgreSQL, required if postgresql.enabled=false
+##
+externalPostgresql:
+  host:
+  # port: 5432
+
+  database: peertube
+  username: peertube
+  # password:
+  # ssl: true
+
+  # existingSecret:
+  # existingSecretKey: postgres-password
+
+## Self-deployed Redis database
+## See: https://github.com/bitnami/charts/tree/master/bitnami/redis
+##
+redis:
+  enabled: true
+  architecture: standalone
+
+  auth:
+    enabled: true
+    # password: peertube
+
+    # existingSecret: redis-secret
+    # existingSecretPasswordKey: redis-password
+
+  master:
+    kind: Deployment
+    persistence:
+      enabled: true
+
+## Externally managed Redis, required if redis.enabled=false
+##
+externalRedis:
+  host:
+  # port: 6379
+  # db: 0
+
+  # password:
+
+  # existingSecret:
+  # existingSecretKey: redis-password
+
+## Default probes, using ping API to avoid excessive echo
+##
+livenessProbe:
+  httpGet:
+    path: /api/v1/ping
+    port: http
+readinessProbe:
+  httpGet:
+    path: /api/v1/ping
+    port: http
+startupProbe:
+  httpGet:
+    path: /api/v1/ping
+    port: http
+
+serviceAccount:
+  ## Specifies whether a service account should be created
+  create: true
+  ## Annotations to add to the service account
+  annotations: {}
+  ## The name of the service account to use.
+  ## If not set and create is true, a name is generated using the fullname template
+  # name:
+
+podAnnotations: {}
+
+podSecurityContext:
+  fsGroup: 999
+
+securityContext:
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 999
+  # capabilities:
+  #   drop:
+  #   - ALL
+
+service:
+  type: ClusterIP
+  port: 80
+  rtmpPort: 1935
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  paths:
+    - path: /
+      pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+resources: {}
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
