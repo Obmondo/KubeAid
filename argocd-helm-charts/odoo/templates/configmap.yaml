@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: odoo-custom-conf
+  namespace: {{ .Release.Namespace | quote }}
+data:
+  odoo.conf: |
+    [options]
+    limit_time_real = 1200
+    limit_time_cpu = 1200
+    max_cron_threads = 0
+    workers = 3
+    addons_path = /mnt/extra-addons
+    data_dir = /var/lib/odoo
