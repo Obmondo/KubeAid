@@ -270,6 +270,9 @@ spec:
           resources: {{- include "common.resources.preset" (dict "type" .Values.resourcesPreset) | nindent 12 }}
           {{- end }}
           volumeMounts:
+            - mountPath: /etc/odoo/odoo.conf
+              name: odoo-custom-conf
+              subPath: odoo.conf
             - name: odoo-data
               mountPath: /bitnami/odoo
               {{- if .Values.persistence.subPath }}
@@ -290,6 +293,10 @@ spec:
         {{- include "common.tplvalues.render" (dict "value" .Values.sidecars "context" $) | nindent 8 }}
         {{- end }}
       volumes:
+        - configMap:
+            defaultMode: 420
+            name: odoo-custom-conf
+          name: odoo-custom-conf
         - name: odoo-data
           {{- if .Values.persistence.enabled }}
           persistentVolumeClaim:
