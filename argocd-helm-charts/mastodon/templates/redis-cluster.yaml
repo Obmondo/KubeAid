@@ -3,6 +3,8 @@ apiVersion: redis.redis.opstreelabs.in/v1beta2
 kind: RedisCluster
 metadata:
   name: {{ .Values.redis.name | default (printf "%s-redis" .Release.Name) }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-5"
 spec:
   clusterSize: {{ .Values.redis.replicas | default 3 }}
   clusterVersion: v7
@@ -36,6 +38,9 @@ spec:
         resources:
           requests:
             storage: {{ .Values.redis.storage | default "2Gi" }}
+        {{- if .Values.redis.storageClass }}
+        storageClassName: {{ .Values.redis.storageClass }}
+        {{- end }}
     nodeConfVolume: true
     nodeConfVolumeClaimTemplate:
       spec:
@@ -43,4 +48,7 @@ spec:
         resources:
           requests:
             storage: {{ .Values.redis.storage | default "2Gi" }}
+        {{- if .Values.redis.storageClass }}
+        storageClassName: {{ .Values.redis.storageClass }}
+        {{- end }}
 {{- end }}

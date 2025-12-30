@@ -3,6 +3,8 @@ apiVersion: redis.redis.opstreelabs.in/v1beta2
 kind: Redis
 metadata:
   name: {{ .Values.redis.name | default (printf "%s-redis" .Release.Name) }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-5"
 spec:
   kubernetesConfig:
     image: quay.io/opstree/redis:v7.2.6
@@ -24,6 +26,9 @@ spec:
         resources:
           requests:
             storage: {{ .Values.redis.storage | default "2Gi" }}
+        {{- if .Values.redis.storageClass }}
+        storageClassName: {{ .Values.redis.storageClass }}
+        {{- end }}
   podSecurityContext:
     runAsUser: 1000
     fsGroup: 1000
