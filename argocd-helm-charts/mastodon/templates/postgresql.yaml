@@ -8,6 +8,8 @@ metadata:
   name: {{ .Release.Name }}-pgsql
   {{- end }}
   namespace: {{ .Release.Namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-5"
 spec:
   instances: {{ .Values.postgres.instance | default 1 }}
   {{- if .Values.postgres.recover }}
