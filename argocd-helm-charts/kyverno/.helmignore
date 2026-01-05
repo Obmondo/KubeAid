@@ -1,0 +1,6 @@
+# Ignore Kyverno test files
+templates/replace-container-image-registries/.kyverno-test/
+templates/harbor-proxy-cache/test-example.yaml
+templates/harbor-proxy-cache/README.md
+templates/harbor-proxy-cache/.kyverno-test/
+

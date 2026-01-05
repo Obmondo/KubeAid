@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: docker-io-pod
+  namespace: default
+spec:
+  containers:
+  - name: nginx
+    image: harbor.example.com/docker-hub-proxy-cache/library/nginx:latest
+  imagePullSecrets:
+  - name: harbor-proxy-cache

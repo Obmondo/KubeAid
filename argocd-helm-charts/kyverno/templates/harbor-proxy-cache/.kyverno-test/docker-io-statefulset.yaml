@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: docker-io-statefulset
+  namespace: default
+spec:
+  serviceName: test
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test
+  template:
+    metadata:
+      labels:
+        app: test
+    spec:
+      containers:
+      - name: mongodb
+        image: docker.io/mongodb/mongodb-community-server:5.0.14-ubi8

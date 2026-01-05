@@ -1,0 +1,61 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: harbor-proxy-cache-mutate
+policies:
+  - policy.yaml
+resources:
+  - docker-io-pod.yaml
+  - index-docker-io-pod.yaml
+  - docker-io-statefulset.yaml
+  - already-harbor-pod.yaml
+  - implicit-org-pod.yaml
+  - implicit-official-pod.yaml
+results:
+  - policy: harbor-proxy-cache-mutate
+    rule: mutate-docker-io-containers
+    kind: Pod
+    resources:
+      - docker-io-pod
+    patchedResources: docker-io-pod.patched.yaml
+    result: pass
+
+  - policy: harbor-proxy-cache-mutate
+    rule: mutate-docker-io-containers
+    kind: Pod
+    resources:
+      - index-docker-io-pod
+    patchedResources: index-docker-io-pod.patched.yaml
+    result: pass
+
+  - policy: harbor-proxy-cache-mutate
+    rule: mutate-docker-io-workload-containers
+    kind: StatefulSet
+    resources:
+      - docker-io-statefulset
+    patchedResources: docker-io-statefulset.patched.yaml
+    result: pass
+
+  - policy: harbor-proxy-cache-mutate
+    rule: mutate-docker-io-containers
+    kind: Pod
+    resources:
+      - already-harbor-pod
+    patchedResources: already-harbor-pod.patched.yaml
+    result: skip
+
+  - policy: harbor-proxy-cache-mutate
+    rule: mutate-docker-io-containers
+    kind: Pod
+    resources:
+      - implicit-org-pod
+    patchedResources: implicit-org-pod.patched.yaml
+    result: pass
+
+  - policy: harbor-proxy-cache-mutate
+    rule: mutate-docker-io-containers
+    kind: Pod
+    resources:
+      - implicit-official-pod
+    patchedResources: implicit-official-pod.patched.yaml
+    result: pass

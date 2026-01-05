@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: implicit-org-pod
+  namespace: default
+spec:
+  containers:
+  - name: graylog
+    image: graylog/graylog:6.3.1

@@ -21,6 +21,9 @@ global:
   # -- Enable/Disable custom resource watcher to invalidate cache
   crdWatcher: false
 
+  imagePullSecretName: harbor-proxy-cache
+    # - name: harbor-proxy-cache
+
   caCertificates:
     # -- Global CA certificates to use with Kyverno deployments
     # This value is expected to be one large string of CA certificates
