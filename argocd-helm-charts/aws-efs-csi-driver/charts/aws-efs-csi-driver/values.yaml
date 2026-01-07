@@ -11,14 +11,14 @@ portRangeUpperBound: "21049"
 
 image:
   repository: public.ecr.aws/efs-csi-driver/amazon/aws-efs-csi-driver
-  tag: "v2.1.15"
+  tag: "v2.2.0"
   pullPolicy: IfNotPresent
 
 sidecars:
   livenessProbe:
     image:
       repository: public.ecr.aws/csi-components/livenessprobe
-      tag: v2.16.0-eksbuild.5
+      tag: v2.17.0-eksbuild.2
       pullPolicy: IfNotPresent
     resources: {}
     securityContext:
@@ -27,7 +27,7 @@ sidecars:
   nodeDriverRegistrar:
     image:
       repository: public.ecr.aws/csi-components/csi-node-driver-registrar
-      tag: v2.14.0-eksbuild.5
+      tag: v2.15.0-eksbuild.2
       pullPolicy: IfNotPresent
     resources: {}
     securityContext:
@@ -36,7 +36,7 @@ sidecars:
   csiProvisioner:
     image:
       repository: public.ecr.aws/csi-components/csi-provisioner
-      tag: v5.3.0-eksbuild.4
+      tag: v5.3.0-eksbuild.5
       pullPolicy: IfNotPresent
     resources: {}
     securityContext:
@@ -86,6 +86,7 @@ controller:
     # requests:
     #   cpu: 100m
     #   memory: 128Mi
+  revisionHistoryLimit: 10
   nodeSelector: {}
   updateStrategy: {}
   tolerations:
@@ -97,6 +98,8 @@ controller:
   env: []
   volumes: []
   volumeMounts: []
+  socketDirVolume:
+    emptyDir: {}
   # Specifies whether a service account should be created
   serviceAccount:
     create: true
@@ -182,6 +185,7 @@ node:
     # requests:
     #   cpu: 100m
     #   memory: 128Mi
+  revisionHistoryLimit: 10
   nodeSelector: {}
   updateStrategy:
     {}

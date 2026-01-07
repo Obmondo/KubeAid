@@ -1,6 +1,6 @@
 apiVersion: v2
-appVersion: 29.0.4
+appVersion: 32.0.0
 description: A Helm chart for Ironic, used by Metal3
 name: ironic
 type: application
-version: 0.11.6
+version: 0.12.1

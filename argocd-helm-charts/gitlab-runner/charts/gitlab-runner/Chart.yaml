@@ -1,5 +1,5 @@
 apiVersion: v1
-appVersion: 18.6.3
+appVersion: 18.7.1
 description: GitLab Runner
 icon: https://gitlab.com/uploads/-/system/project/avatar/250833/runner_logo.png
 keywords:
@@ -14,4 +14,4 @@ sources:
 - https://gitlab.com/gitlab-org/charts/gitlab-runner
 - https://gitlab.com/gitlab-org/gitlab-runner
 - https://docs.gitlab.com/runner/
-version: 0.83.3
+version: 0.84.1

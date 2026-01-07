@@ -28,7 +28,7 @@ images:
   baremetalOperator:
     repository: registry.opensuse.org/isv/suse/edge/containers/images/baremetal-operator
     pullPolicy: IfNotPresent
-    tag: "0.10.2.1"
+    tag: "0.11.2.0"
 
 imagePullSecrets: []
 nameOverride: "manger"

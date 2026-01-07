@@ -1,5 +1,5 @@
 apiVersion: v2
-appVersion: v3.31.2
+appVersion: v3.31.3
 description: Installs the Tigera operator for Calico
 home: https://docs.tigera.io/calico
 icon: https://docs.tigera.io/img/calico-logo.png
@@ -8,4 +8,4 @@ sources:
 - https://github.com/projectcalico/calico/tree/master/charts/tigera-operator
 - https://github.com/tigera/operator
 - https://github.com/projectcalico/calico
-version: v3.31.2
+version: v3.31.3

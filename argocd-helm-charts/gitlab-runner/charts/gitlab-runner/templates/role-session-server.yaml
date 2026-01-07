@@ -1,0 +1,16 @@
+{{- if eq (include "gitlab-runner.isSessionServerAllowed" . ) "true" }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "gitlab-runner.fullname" . }}-session-server
+  labels:
+    app: {{ include "gitlab-runner.fullname" . }}
+    chart: {{ include "gitlab-runner.chart" . }}
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+  namespace: {{ default .Release.Namespace .Values.namespace | quote }}
+rules:
+- apiGroups: [""]
+  resources: ["services"]
+  verbs: ["get"]
+{{- end -}}

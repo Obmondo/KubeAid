@@ -64,7 +64,7 @@ images:
   ironic:
     repository: registry.opensuse.org/isv/suse/edge/containers/images/ironic
     pullPolicy: IfNotPresent
-    tag: 29.0.4.4
+    tag: 32.0.0.1
   ironicIPADownloader:
     repository: registry.opensuse.org/isv/suse/edge/containers/images/ironic-ipa-downloader
     pullPolicy: IfNotPresent
@@ -96,6 +96,12 @@ securityContext:
   seccompProfile:
     type: RuntimeDefault
   runAsNonRoot: true
+
+dnsmasqSecurityContext:
+  capabilities:
+    add:
+    - NET_ADMIN
+    - NET_RAW
 
 service:
   type: LoadBalancer

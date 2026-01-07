@@ -1,11 +1,9 @@
 annotations:
-  artifacthub.io/changes: "- \"feat: allow `publishedService` to be set without service
-    being enabled\"\n- \"feat: :rocket: add support of Nginx provider\"\n- \"feat(plugins):
-    support ConfigMap inline local plugins alongside hostPath\"\n- \"feat(deps): update
-    traefik docker tag to v3.6.2\"\n- \"feat(deps): update traefik docker tag to v3.6.1\"\n-
-    \"chore(release): \U0001F680 publish traefik 37.4.0\"\n"
+  artifacthub.io/changes: "- \"fix(ports): \U0001F41B add missing `http.maxHeaderBytes`
+    option\"\n- \"fix(ports): \U0001F41B `http.encodedCharacters` on custom entrypoints\"\n-
+    \"chore(release): \U0001F680 publish traefik 38.0.1\"\n"
 apiVersion: v2
-appVersion: v3.6.2
+appVersion: v3.6.5
 description: A Traefik based Kubernetes ingress controller
 home: https://traefik.io/
 icon: https://raw.githubusercontent.com/traefik/traefik/master/docs/content/assets/img/traefik.logo.png
@@ -25,4 +23,4 @@ sources:
 - https://github.com/traefik/traefik-helm-chart
 - https://github.com/traefik/traefik
 type: application
-version: 37.4.0
+version: 38.0.1

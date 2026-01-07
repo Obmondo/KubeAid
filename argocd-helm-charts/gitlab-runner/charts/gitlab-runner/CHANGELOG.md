@@ -1,3 +1,19 @@
+## v0.84.1 (2025-12-23)
+
+### New features
+
+- Update GitLab Runner version to v18.7.1
+
+## v0.84.0 (2025-12-18)
+
+### New features
+
+- Update GitLab Runner version to v18.7.0
+
+### Other changes
+
+- Create Role in correct namespace when using the runners.jobNamespace feature [!522](https://gitlab.com/gitlab-org/charts/gitlab-runner/-/merge_requests/522) (Jellyfrog @Jellyfrog)
+
 ## v0.83.3 (2025-11-28)
 
 ### New features

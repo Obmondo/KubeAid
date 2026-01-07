@@ -1,23 +1,17 @@
 annotations:
   artifacthub.io/changes: |
     - kind: changed
-      description: "Update Chart's appVersion to 2025.5.0"
+      description: "Update Chart's version to 2025.6.1"
     - kind: changed
-      description: "Update Chart's version to 2025.5.0"
-    - kind: changed
-      description: "Upgrade SonarQube Community Build to 25.9.0.112764"
-    - kind: changed
-      description: "Update the image and readinessProbe used by postgresql after they migrated to a legacy repository"
-    - kind: changed
-      description: "Support Kubernetes v1.34.0"
+      description: "Update SonarQube Server to 2025.6.1"
   artifacthub.io/containsSecurityUpdates: "false"
   artifacthub.io/images: |
     - name: sonarqube-community
-      image: sonarqube:25.9.0.112764-community
+      image: sonarqube:25.12.0.117093-community
     - name: sonarqube-developer
-      image: sonarqube:2025.5.0-developer
+      image: sonarqube:2025.6.1-developer
     - name: sonarqube-enterprise
-      image: sonarqube:2025.5.0-enterprise
+      image: sonarqube:2025.6.1-enterprise
   artifacthub.io/links: |
     - name: support
       url: https://community.sonarsource.com/
@@ -25,7 +19,7 @@ annotations:
       url: https://github.com/SonarSource/helm-chart-sonarqube/tree/master/charts/sonarqube
   charts.openshift.io/name: sonarqube
 apiVersion: v2
-appVersion: 2025.5.0
+appVersion: 2025.6.1
 dependencies:
 - condition: postgresql.enabled
   name: postgresql
@@ -52,14 +46,10 @@ kubeVersion: '>= 1.24.0-0'
 maintainers:
 - email: carmine.vassallo@sonarsource.com
   name: carminevassallo
-- email: jeremy.cotineau@sonarsource.com
-  name: jCOTINEAU
-- email: davi.koscianski-vidal@sonarsource.com
-  name: davividal
 name: sonarqube
 sources:
 - https://github.com/SonarSource/helm-chart-sonarqube/tree/master/charts/sonarqube
 - https://github.com/SonarSource/docker-sonarqube
 - https://github.com/SonarSource/sonarqube
 type: application
-version: 2025.5.0
+version: 2025.6.1

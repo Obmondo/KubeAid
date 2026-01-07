@@ -3,5 +3,5 @@ name: keda
 version: 0.1.0
 dependencies:
   - name: keda
-    version: "2.18.1"
+    version: "2.18.3"
     repository: https://kedacore.github.io/charts

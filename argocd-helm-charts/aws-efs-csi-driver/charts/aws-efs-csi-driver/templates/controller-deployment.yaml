@@ -12,6 +12,9 @@ metadata:
     {{- end }}
 spec:
   replicas: {{ .Values.controller.replicaCount }}
+  {{- if or (kindIs "float64" .Values.controller.revisionHistoryLimit) (kindIs "int64" .Values.controller.revisionHistoryLimit) }}
+  revisionHistoryLimit: {{ .Values.controller.revisionHistoryLimit }}
+  {{- end }}
   selector:
     matchLabels:
       app: {{ .Values.controller.name }}
@@ -180,7 +183,11 @@ spec:
           {{- end }}
       volumes:
         - name: socket-dir
+          {{- if .Values.controller.socketDirVolume }}
+          {{- toYaml .Values.controller.socketDirVolume | nindent 10 }}
+          {{- else }}
           emptyDir: {}
+          {{- end }}
         {{- with .Values.controller.volumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
