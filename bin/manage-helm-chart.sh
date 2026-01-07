@@ -87,7 +87,6 @@ EOF
 }
 
 declare UPDATE_ALL=false
-declare ACTIONS=false
 declare UPDATE_HELM_CHART=
 declare SKIP_CHARTS=
 declare ARGOCD_CHART_PATH="argocd-helm-charts"
@@ -96,9 +95,9 @@ declare CHART_VERSION=
 declare NEW_CHART=false
 
 # Arrays to track updates
-declare -a MINOR_UPDATES=()
-declare -a PATCH_UPDATES=()
-declare -a MAJOR_UPDATES=()
+declare -a MINOR_UPDATES
+declare -a PATCH_UPDATES
+declare -a MAJOR_UPDATES
 
 # Flags to track highest version bump needed
 HAS_MAJOR=false
@@ -145,9 +144,6 @@ while [[ $# -gt 0 ]]; do
 
       shift
       ;;
-    --actions)
-      ACTIONS=true
-      ;;
     --skip-charts)
       if [[ $# -gt 0 && ! "$1" =~ ^-- ]]; then
         SKIP_CHARTS=$1
@@ -155,17 +151,6 @@ while [[ $# -gt 0 ]]; do
       else
         echo "Warning: --skip-charts provided without value, skipping no charts"
       fi
-      ;;
-    --chart-version)
-      if [[ $# -eq 0 || "$1" =~ ^-- ]]; then
-        echo "Error: --chart-version requires a version number"
-        ARGFAIL
-        exit 1
-      fi
-
-      CHART_VERSION=$1
-
-      shift
       ;;
     -h|--help)
       ARGFAIL
@@ -348,7 +333,8 @@ function add_last_update_date() {
     echo "$HELM_CHART_LINE" >> "$HELM_VERSION_LAST_UPDATE_FILE"
   else
     # Remove duplicate line if its present for any reason
-    sed -i "/$HELM_CHART_NAME/d; \$a $HELM_CHART_LINE" "$HELM_VERSION_LAST_UPDATE_FILE"
+    sed -i "/$HELM_CHART_NAME/d" "$HELM_VERSION_LAST_UPDATE_FILE"
+    echo "$HELM_CHART_LINE" >> "$HELM_VERSION_LAST_UPDATE_FILE"
   fi
 }
 
@@ -451,19 +437,30 @@ function update_helm_chart {
           continue
         }
       else
-        echo "Helm chart $HELM_CHART_NAME is cached and on latest version $HELM_CHART_CURRENT_VERSION, locally on the filesystem,"
+        echo "Helm chart $HELM_CHART_NAME is cached and on latest version $HELM_CHART_CURRENT_VERSION, locally on the filesystem"
       fi
 
-      # Incase of updates, i.e, chart is already added
       local update_type update_line
-      CURRENT_VERSION=$(get_current_kubeaid_version)
-      if [ "$NEW_CHART" = true ]; then
-        update_type="major"
-        update_line="- Added new chart $HELM_CHART_NAME with version $CHART_VERSION"
-      else
+      # Check if the file is present in the old tag, this could be when a new helm chart
+      # was added.
+      if git show "$CURRENT_VERSION:$HELM_CHART_YAML" >/dev/null 2>&1; then
+        # Incase of updates, i.e, chart is already added
+        CURRENT_VERSION=$(get_current_kubeaid_version)
         HELM_CHART_CURRENT_TAG_VERSION=$(git show "$CURRENT_VERSION:$HELM_CHART_YAML" | yq eval ".dependencies[$i].version")
-        update_type=$(get_update_type "$HELM_CHART_CURRENT_TAG_VERSION" "$HELM_CHART_NEW_VERSION")
-        update_line="- Updated $HELM_CHART_NAME from version $HELM_CHART_CURRENT_VERSION to $HELM_CHART_NEW_VERSION"
+
+        # The older tag has no dependency, or less dependency then current chart.yaml
+        if [ "$HELM_CHART_CURRENT_TAG_VERSION" != "null" ]; then
+          update_type=$(get_update_type "$HELM_CHART_CURRENT_TAG_VERSION" "$HELM_CHART_NEW_VERSION")
+          update_line="- Updated $HELM_CHART_NAME from version $HELM_CHART_CURRENT_VERSION to $HELM_CHART_NEW_VERSION"
+        fi
+      else
+        echo "$HELM_CHART_NAME is recently added after the last kubeaid release"
+        continue
+      fi
+
+      if $NEW_CHART; then
+        update_type="new"
+        update_line="- Added new chart $HELM_CHART_NAME with version $CHART_VERSION"
       fi
 
       case $update_type in
@@ -483,6 +480,10 @@ function update_helm_chart {
             HAS_PATCH=true
           fi
           ;;
+        new)
+          # New helm chart can be skipped, since they will show up as individual commit
+          continue
+          ;;
       esac
 
     done
@@ -495,9 +496,7 @@ function main (){
   COMMIT_MSG_FILE=$(mktemp)
   CURRENT_VERSION=$(get_current_kubeaid_version)
 
-  if [ "$ACTIONS" = false ]; then
-    git switch -c "$GIT_BRANCH_NAME" --track origin/master
-  fi
+  git switch -c "$GIT_BRANCH_NAME" --track origin/master
 
   if $NEW_CHART; then
     create_new_chart "$CHART_NAME $CHART_URL $CHART_VERSION"
@@ -520,10 +519,6 @@ function main (){
 
       update_helm_chart "$ARGOCD_CHART_PATH/$HELM_CHART_NAME" "$CHART_VERSION"
     done < <(find ./"$ARGOCD_CHART_PATH" -maxdepth 1 -mindepth 1 -type d -exec basename {} \; | sort)
-    {
-      echo "chore: update helm charts to v$NEW_VERSION"
-      echo ""
-    } > "$COMMIT_MSG_FILE"
   fi
 
   if [ "$HAS_MAJOR" = true ]; then
@@ -538,6 +533,13 @@ function main (){
 
   NEW_VERSION=$(bump_version "$CURRENT_VERSION" "$BUMP_TYPE")
   echo "New KubeAid version: v$NEW_VERSION"
+
+  if "$UPDATE_ALL"; then
+    {
+      echo "chore: Update kubeaid helm charts v$NEW_VERSION"
+      echo ""
+    } > "$COMMIT_MSG_FILE"
+  fi
 
   # Generate commit message
   {
@@ -564,7 +566,7 @@ function main (){
   # Update the version file
   # go release script can update with the correct tag
   echo "$NEW_VERSION" > VERSION
-  git add VERSION
+  git add VERSION .helm_version_last_update
 
   if [[ -n "$(git status --porcelain)" ]]; then
     git add -A "$ARGOCD_CHART_PATH"
