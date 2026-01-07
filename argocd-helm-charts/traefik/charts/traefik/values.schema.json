@@ -1459,7 +1459,10 @@
                     "type": "string"
                 },
                 "storageClass": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "subPath": {
                     "type": "string"
@@ -1518,532 +1521,293 @@
         },
         "ports": {
             "type": "object",
-            "properties": {
-                "metrics": {
-                    "type": "object",
-                    "properties": {
-                        "expose": {
-                            "type": "object",
-                            "properties": {
-                                "default": {
-                                    "type": "boolean"
-                                }
+            "additionalProperties": {
+                "type": "object",
+                "properties": {
+                    "allowACMEByPass": {
+                        "type": "boolean"
+                    },
+                    "appProtocol": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "asDefault": {
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
+                    },
+                    "containerPort": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "expose": {
+                        "type": "object",
+                        "properties": {
+                            "default": {
+                                "type": "boolean"
                             }
-                        },
-                        "exposedPort": {
-                            "type": "integer"
-                        },
-                        "observability": {
-                            "type": "object",
-                            "properties": {
-                                "accessLogs": {
-                                    "default": true,
-                                    "type": [
-                                        "boolean",
-                                        "null"
-                                    ]
-                                },
-                                "metrics": {
-                                    "default": true,
-                                    "type": [
-                                        "boolean",
-                                        "null"
-                                    ]
-                                },
-                                "traceVerbosity": {
-                                    "default": "minimal",
-                                    "type": [
-                                        "string",
-                                        "null"
-                                    ],
-                                    "enum": [
-                                        "minimal",
-                                        "detailed",
-                                        null
-                                    ]
-                                },
-                                "tracing": {
-                                    "default": true,
-                                    "type": [
-                                        "boolean",
-                                        "null"
-                                    ]
-                                }
-                            },
-                            "additionalProperties": false
-                        },
-                        "port": {
-                            "type": "integer"
-                        },
-                        "protocol": {
-                            "type": "string"
                         }
-                    }
-                },
-                "traefik": {
-                    "type": "object",
-                    "properties": {
-                        "expose": {
-                            "type": "object",
-                            "properties": {
-                                "default": {
-                                    "type": "boolean"
-                                }
-                            }
-                        },
-                        "exposedPort": {
-                            "type": "integer"
-                        },
-                        "hostIP": {
-                            "type": [
-                                "string",
-                                "null"
-                            ]
-                        },
-                        "hostPort": {
-                            "type": [
-                                "integer",
-                                "null"
-                            ],
-                            "minimum": 0
-                        },
-                        "observability": {
-                            "type": "object",
-                            "properties": {
-                                "accessLogs": {
-                                    "default": true,
-                                    "type": [
-                                        "boolean",
-                                        "null"
-                                    ]
-                                },
-                                "metrics": {
-                                    "default": true,
-                                    "type": [
-                                        "boolean",
-                                        "null"
-                                    ]
-                                },
-                                "traceVerbosity": {
-                                    "default": "minimal",
-                                    "type": [
-                                        "string",
-                                        "null"
-                                    ],
-                                    "enum": [
-                                        "minimal",
-                                        "detailed",
-                                        null
-                                    ]
-                                },
-                                "tracing": {
-                                    "default": true,
-                                    "type": [
-                                        "boolean",
-                                        "null"
-                                    ]
-                                }
+                    },
+                    "exposedPort": {
+                        "type": "integer"
+                    },
+                    "forwardedHeaders": {
+                        "type": "object",
+                        "properties": {
+                            "insecure": {
+                                "type": "boolean"
                             },
-                            "additionalProperties": false
-                        },
-                        "port": {
-                            "type": "integer"
-                        },
-                        "protocol": {
-                            "type": "string"
+                            "trustedIPs": {
+                                "type": "array"
+                            }
                         }
-                    }
-                },
-                "web": {
-                    "type": "object",
-                    "properties": {
-                        "expose": {
-                            "type": "object",
-                            "properties": {
-                                "default": {
-                                    "type": "boolean"
-                                }
-                            }
-                        },
-                        "exposedPort": {
-                            "type": "integer"
-                        },
-                        "forwardedHeaders": {
-                            "type": "object",
-                            "properties": {
-                                "insecure": {
-                                    "type": "boolean"
-                                },
-                                "trustedIPs": {
-                                    "type": "array"
-                                }
-                            }
-                        },
-                        "nodePort": {
-                            "type": [
-                                "integer",
-                                "null"
-                            ],
-                            "minimum": 0
-                        },
-                        "observability": {
-                            "type": "object",
-                            "properties": {
-                                "accessLogs": {
-                                    "default": true,
-                                    "type": [
-                                        "boolean",
-                                        "null"
-                                    ]
-                                },
-                                "metrics": {
-                                    "default": true,
-                                    "type": [
-                                        "boolean",
-                                        "null"
-                                    ]
-                                },
-                                "traceVerbosity": {
-                                    "default": "minimal",
-                                    "type": [
-                                        "string",
-                                        "null"
-                                    ],
-                                    "enum": [
-                                        "minimal",
-                                        "detailed",
-                                        null
-                                    ]
-                                },
-                                "tracing": {
-                                    "default": true,
-                                    "type": [
-                                        "boolean",
-                                        "null"
-                                    ]
-                                }
-                            },
-                            "additionalProperties": false
-                        },
-                        "port": {
-                            "type": "integer"
-                        },
-                        "protocol": {
-                            "type": "string"
-                        },
-                        "proxyProtocol": {
-                            "type": "object",
-                            "properties": {
-                                "insecure": {
-                                    "type": "boolean"
-                                },
-                                "trustedIPs": {
-                                    "type": "array"
-                                }
-                            }
-                        },
-                        "redirections": {
-                            "type": "object",
-                            "properties": {
-                                "entryPoint": {
-                                    "type": "object"
-                                }
-                            }
-                        },
-                        "targetPort": {
-                            "type": [
-                                "string",
-                                "integer",
-                                "null"
-                            ],
-                            "minimum": 0
-                        },
-                        "transport": {
-                            "type": "object",
-                            "properties": {
-                                "keepAliveMaxRequests": {
-                                    "type": [
-                                        "integer",
-                                        "null"
-                                    ],
-                                    "minimum": 0
-                                },
-                                "keepAliveMaxTime": {
-                                    "type": [
-                                        "string",
-                                        "integer",
-                                        "null"
-                                    ]
-                                },
-                                "lifeCycle": {
-                                    "type": "object",
-                                    "properties": {
-                                        "graceTimeOut": {
-                                            "type": [
-                                                "string",
-                                                "integer",
-                                                "null"
-                                            ]
-                                        },
-                                        "requestAcceptGraceTimeout": {
-                                            "type": [
-                                                "string",
-                                                "integer",
-                                                "null"
-                                            ]
-                                        }
+                    },
+                    "hostIP": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "hostPort": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "http": {
+                        "type": "object",
+                        "properties": {
+                            "encodedCharacters": {
+                                "type": "object",
+                                "properties": {
+                                    "allowEncodedBackSlash": {
+                                        "type": "boolean"
+                                    },
+                                    "allowEncodedHash": {
+                                        "type": "boolean"
+                                    },
+                                    "allowEncodedNullCharacter": {
+                                        "type": "boolean"
+                                    },
+                                    "allowEncodedPercent": {
+                                        "type": "boolean"
+                                    },
+                                    "allowEncodedQuestionMark": {
+                                        "type": "boolean"
+                                    },
+                                    "allowEncodedSemicolon": {
+                                        "type": "boolean"
+                                    },
+                                    "allowEncodedSlash": {
+                                        "type": "boolean"
                                     }
-                                },
-                                "respondingTimeouts": {
-                                    "type": "object",
-                                    "properties": {
-                                        "idleTimeout": {
-                                            "type": [
-                                                "string",
-                                                "integer",
-                                                "null"
-                                            ]
-                                        },
-                                        "readTimeout": {
-                                            "type": [
-                                                "string",
-                                                "integer",
-                                                "null"
-                                            ]
-                                        },
-                                        "writeTimeout": {
-                                            "type": [
-                                                "string",
-                                                "integer",
-                                                "null"
-                                            ]
-                                        }
+                                }
+                            },
+                            "maxHeaderBytes": {
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ],
+                                "minimum": 0
+                            },
+                            "sanitizePath": {
+                                "type": [
+                                    "boolean",
+                                    "null"
+                                ]
+                            }
+                        }
+                    },
+                    "http3": {
+                        "type": "object",
+                        "properties": {
+                            "advertisedPort": {
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ],
+                                "minimum": 0
+                            },
+                            "enabled": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "middlewares": {
+                        "type": [
+                            "array",
+                            "null"
+                        ]
+                    },
+                    "nodePort": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "observability": {
+                        "type": "object",
+                        "properties": {
+                            "accessLogs": {
+                                "default": true,
+                                "type": [
+                                    "boolean",
+                                    "null"
+                                ]
+                            },
+                            "metrics": {
+                                "default": true,
+                                "type": [
+                                    "boolean",
+                                    "null"
+                                ]
+                            },
+                            "traceVerbosity": {
+                                "default": "minimal",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "enum": [
+                                    "minimal",
+                                    "detailed",
+                                    null
+                                ]
+                            },
+                            "tracing": {
+                                "default": true,
+                                "type": [
+                                    "boolean",
+                                    "null"
+                                ]
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    "port": {
+                        "type": "integer"
+                    },
+                    "protocol": {
+                        "type": "string"
+                    },
+                    "proxyProtocol": {
+                        "type": "object",
+                        "properties": {
+                            "insecure": {
+                                "type": "boolean"
+                            },
+                            "trustedIPs": {
+                                "type": "array"
+                            }
+                        }
+                    },
+                    "redirections": {
+                        "type": "object",
+                        "properties": {
+                            "entryPoint": {
+                                "type": "object"
+                            }
+                        }
+                    },
+                    "targetPort": {
+                        "type": [
+                            "string",
+                            "integer",
+                            "null"
+                        ],
+                        "minimum": 0
+                    },
+                    "tls": {
+                        "type": "object",
+                        "properties": {
+                            "certResolver": {
+                                "type": "string"
+                            },
+                            "domains": {
+                                "type": "array"
+                            },
+                            "enabled": {
+                                "type": "boolean"
+                            },
+                            "options": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "transport": {
+                        "type": "object",
+                        "properties": {
+                            "keepAliveMaxRequests": {
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ],
+                                "minimum": 0
+                            },
+                            "keepAliveMaxTime": {
+                                "type": [
+                                    "string",
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "lifeCycle": {
+                                "type": "object",
+                                "properties": {
+                                    "graceTimeOut": {
+                                        "type": [
+                                            "string",
+                                            "integer",
+                                            "null"
+                                        ]
+                                    },
+                                    "requestAcceptGraceTimeout": {
+                                        "type": [
+                                            "string",
+                                            "integer",
+                                            "null"
+                                        ]
+                                    }
+                                }
+                            },
+                            "respondingTimeouts": {
+                                "type": "object",
+                                "properties": {
+                                    "idleTimeout": {
+                                        "type": [
+                                            "string",
+                                            "integer",
+                                            "null"
+                                        ]
+                                    },
+                                    "readTimeout": {
+                                        "type": [
+                                            "string",
+                                            "integer",
+                                            "null"
+                                        ]
+                                    },
+                                    "writeTimeout": {
+                                        "type": [
+                                            "string",
+                                            "integer",
+                                            "null"
+                                        ]
                                     }
                                 }
                             }
                         }
                     }
                 },
-                "websecure": {
-                    "type": "object",
-                    "properties": {
-                        "allowACMEByPass": {
-                            "type": "boolean"
-                        },
-                        "appProtocol": {
-                            "type": [
-                                "string",
-                                "null"
-                            ]
-                        },
-                        "containerPort": {
-                            "type": [
-                                "integer",
-                                "null"
-                            ],
-                            "minimum": 0
-                        },
-                        "expose": {
-                            "type": "object",
-                            "properties": {
-                                "default": {
-                                    "type": "boolean"
-                                }
-                            }
-                        },
-                        "exposedPort": {
-                            "type": "integer"
-                        },
-                        "forwardedHeaders": {
-                            "type": "object",
-                            "properties": {
-                                "insecure": {
-                                    "type": "boolean"
-                                },
-                                "trustedIPs": {
-                                    "type": "array"
-                                }
-                            }
-                        },
-                        "hostPort": {
-                            "type": [
-                                "integer",
-                                "null"
-                            ],
-                            "minimum": 0
-                        },
-                        "http3": {
-                            "type": "object",
-                            "properties": {
-                                "advertisedPort": {
-                                    "type": [
-                                        "integer",
-                                        "null"
-                                    ],
-                                    "minimum": 0
-                                },
-                                "enabled": {
-                                    "type": "boolean"
-                                }
-                            }
-                        },
-                        "middlewares": {
-                            "type": "array"
-                        },
-                        "nodePort": {
-                            "type": [
-                                "integer",
-                                "null"
-                            ],
-                            "minimum": 0
-                        },
-                        "observability": {
-                            "type": "object",
-                            "properties": {
-                                "accessLogs": {
-                                    "default": true,
-                                    "type": [
-                                        "boolean",
-                                        "null"
-                                    ]
-                                },
-                                "metrics": {
-                                    "default": true,
-                                    "type": [
-                                        "boolean",
-                                        "null"
-                                    ]
-                                },
-                                "traceVerbosity": {
-                                    "default": "minimal",
-                                    "type": [
-                                        "string",
-                                        "null"
-                                    ],
-                                    "enum": [
-                                        "minimal",
-                                        "detailed",
-                                        null
-                                    ]
-                                },
-                                "tracing": {
-                                    "default": true,
-                                    "type": [
-                                        "boolean",
-                                        "null"
-                                    ]
-                                }
-                            },
-                            "additionalProperties": false
-                        },
-                        "port": {
-                            "type": "integer"
-                        },
-                        "protocol": {
-                            "type": "string"
-                        },
-                        "proxyProtocol": {
-                            "type": "object",
-                            "properties": {
-                                "insecure": {
-                                    "type": "boolean"
-                                },
-                                "trustedIPs": {
-                                    "type": "array"
-                                }
-                            }
-                        },
-                        "targetPort": {
-                            "type": [
-                                "string",
-                                "integer",
-                                "null"
-                            ],
-                            "minimum": 0
-                        },
-                        "tls": {
-                            "type": "object",
-                            "properties": {
-                                "certResolver": {
-                                    "type": "string"
-                                },
-                                "domains": {
-                                    "type": "array"
-                                },
-                                "enabled": {
-                                    "type": "boolean"
-                                },
-                                "options": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "transport": {
-                            "type": "object",
-                            "properties": {
-                                "keepAliveMaxRequests": {
-                                    "type": [
-                                        "integer",
-                                        "null"
-                                    ],
-                                    "minimum": 0
-                                },
-                                "keepAliveMaxTime": {
-                                    "type": [
-                                        "string",
-                                        "integer",
-                                        "null"
-                                    ]
-                                },
-                                "lifeCycle": {
-                                    "type": "object",
-                                    "properties": {
-                                        "graceTimeOut": {
-                                            "type": [
-                                                "string",
-                                                "integer",
-                                                "null"
-                                            ]
-                                        },
-                                        "requestAcceptGraceTimeout": {
-                                            "type": [
-                                                "string",
-                                                "integer",
-                                                "null"
-                                            ]
-                                        }
-                                    }
-                                },
-                                "respondingTimeouts": {
-                                    "type": "object",
-                                    "properties": {
-                                        "idleTimeout": {
-                                            "type": [
-                                                "string",
-                                                "integer",
-                                                "null"
-                                            ]
-                                        },
-                                        "readTimeout": {
-                                            "type": [
-                                                "string",
-                                                "integer",
-                                                "null"
-                                            ]
-                                        },
-                                        "writeTimeout": {
-                                            "type": [
-                                                "string",
-                                                "integer",
-                                                "null"
-                                            ]
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                "additionalProperties": false
             }
         },
         "priorityClassName": {
@@ -2064,7 +1828,8 @@
                         "watch": {
                             "type": "boolean"
                         }
-                    }
+                    },
+                    "additionalProperties": false
                 },
                 "knative": {
                     "type": "object",
@@ -2072,13 +1837,14 @@
                         "enabled": {
                             "type": "boolean"
                         },
-                        "labelselector": {
+                        "labelSelector": {
                             "type": "string"
                         },
                         "namespaces": {
                             "type": "array"
                         }
-                    }
+                    },
+                    "additionalProperties": false
                 },
                 "kubernetesCRD": {
                     "type": "object",
@@ -2098,13 +1864,17 @@
                         "ingressClass": {
                             "type": "string"
                         },
+                        "labelSelector": {
+                            "type": "string"
+                        },
                         "namespaces": {
                             "type": "array"
                         },
                         "nativeLBByDefault": {
                             "type": "boolean"
                         }
-                    }
+                    },
+                    "additionalProperties": false
                 },
                 "kubernetesGateway": {
                     "type": "object",
@@ -2115,7 +1885,7 @@
                         "experimentalChannel": {
                             "type": "boolean"
                         },
-                        "labelselector": {
+                        "labelSelector": {
                             "type": "string"
                         },
                         "namespaces": {
@@ -2149,7 +1919,8 @@
                                 }
                             }
                         }
-                    }
+                    },
+                    "additionalProperties": false
                 },
                 "kubernetesIngress": {
                     "type": "object",
@@ -2160,10 +1931,19 @@
                         "allowExternalNameServices": {
                             "type": "boolean"
                         },
+                        "disableIngressClassLookup": {
+                            "type": "boolean"
+                        },
                         "enabled": {
                             "type": "boolean"
                         },
                         "ingressClass": {
+                            "type": [
+                                "string",
+                                "null"
+                            ]
+                        },
+                        "labelSelector": {
                             "type": [
                                 "string",
                                 "null"
@@ -2189,7 +1969,8 @@
                         "strictPrefixMatching": {
                             "type": "boolean"
                         }
-                    }
+                    },
+                    "additionalProperties": false
                 },
                 "kubernetesIngressNginx": {
                     "type": "object",
@@ -2218,12 +1999,6 @@
                         "ingressClassByName": {
                             "type": "boolean"
                         },
-                        "namespaceSelector": {
-                            "type": "string"
-                        },
-                        "namespaces": {
-                            "type": "array"
-                        },
                         "publishService": {
                             "type": "object",
                             "properties": {
@@ -2246,8 +2021,15 @@
                         },
                         "watchIngressWithoutClass": {
                             "type": "boolean"
+                        },
+                        "watchNamespace": {
+                            "type": "string"
+                        },
+                        "watchNamespaceSelector": {
+                            "type": "string"
                         }
-                    }
+                    },
+                    "additionalProperties": false
                 }
             },
             "additionalProperties": false

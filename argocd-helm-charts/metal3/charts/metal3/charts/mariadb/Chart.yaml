@@ -1,6 +1,6 @@
 apiVersion: v2
-appVersion: "10.11"
+appVersion: "11.8"
 description: A Helm chart for MariaDB, used by Metal3
 name: mariadb
 type: application
-version: 0.6.1
+version: 0.6.2

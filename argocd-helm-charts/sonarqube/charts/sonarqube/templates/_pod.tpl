@@ -43,7 +43,7 @@ spec:
     {{- if .Values.extraInitContainers }}
     {{- toYaml .Values.extraInitContainers | nindent 4 }}
     {{- end }}
-    {{- if .Values.postgresql.enabled }}
+    {{- if and .Values.postgresql.enabled (not (or .Values.jdbcOverwrite.enabled .Values.jdbcOverwrite.enable)) }}
     - name: "wait-for-db"
       image: {{ default (include "sonarqube.image" $) .Values.initContainers.image }}
       imagePullPolicy: {{ .Values.image.pullPolicy  }}
@@ -294,6 +294,10 @@ spec:
       envFrom:
         - configMapRef:
             name: {{ include "sonarqube.fullname" . }}-jdbc-config
+        {{- if include "sonarqube.azure.enabled" . }}
+        - configMapRef:
+            name: {{ template "sonarqube.fullname" . }}-azure-config
+        {{- end }}
         {{- range .Values.extraConfig.secrets }}
         - secretRef:
             name: {{ . }}

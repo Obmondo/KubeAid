@@ -9,7 +9,7 @@ metadata:
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
   {{ if not .Values.rbac.clusterWideAccess -}}
-  namespace: {{ default .Release.Namespace .Values.namespace | quote }}
+  namespace: {{ coalesce .Values.runners.jobNamespace .Values.namespace .Release.Namespace | quote }}
   {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io

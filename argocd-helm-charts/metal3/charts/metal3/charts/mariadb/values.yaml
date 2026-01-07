@@ -14,7 +14,7 @@ service:
 image:
   repository: registry.suse.com/suse/mariadb
   pullPolicy: IfNotPresent
-  tag: 10.11
+  tag: 11.8
 
 nameOverride: ""
 fullnameOverride: ""

@@ -160,12 +160,7 @@ spec:
         image: {{ .Values.images.ironic.repository }}:{{ .Values.images.ironic.tag }}
         imagePullPolicy: {{ .Values.images.ironic.pullPolicy }}
         securityContext:
-          {{- toYaml .Values.securityContext | nindent 10 }}
-        securityContext:
-          capabilities:
-            add:
-            - NET_ADMIN
-            - NET_RAW
+          {{- merge .Values.securityContext .Values.dnsmasqSecurityContext | toYaml | nindent 10 }}
         command:
         - /bin/rundnsmasq
         envFrom:

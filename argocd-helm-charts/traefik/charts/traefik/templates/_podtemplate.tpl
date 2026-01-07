@@ -435,7 +435,7 @@
           {{- end }}
           {{- range $pluginName, $plugin := .Values.experimental.plugins }}
           {{- if or (ne (typeOf $plugin) "map[string]interface {}") (not (hasKey $plugin "moduleName")) (not (hasKey $plugin "version")) }}
-            {{- fail  (printf "ERROR: plugin %s is missing moduleName/version keys !" $pluginName) }}
+            {{- fail  (printf "ERROR: plugin %s is missing moduleName/version keys!" $pluginName) }}
           {{- end }}
           - "--experimental.plugins.{{ $pluginName }}.moduleName={{ $plugin.moduleName }}"
           - "--experimental.plugins.{{ $pluginName }}.version={{ $plugin.version }}"
@@ -450,7 +450,7 @@
           {{- end }}
           {{- range $localPluginName, $localPlugin := .Values.experimental.localPlugins }}
           {{- if not (hasKey $localPlugin "moduleName") }}
-            {{- fail  (printf "ERROR: local plugin %s is missing moduleName !" $localPluginName) }}
+            {{- fail  (printf "ERROR: local plugin %s is missing moduleName!" $localPluginName) }}
           {{- end }}
           - "--experimental.localPlugins.{{ $localPluginName }}.moduleName={{ $localPlugin.moduleName }}"
            {{- $settings := (get $localPlugin "settings") | default dict }}
@@ -560,8 +560,8 @@
             {{- if .experimentalChannel }}
           - "--providers.kubernetesgateway.experimentalchannel=true"
             {{- end }}
-            {{- with .labelselector }}
-          - "--providers.kubernetesgateway.labelselector={{ . }}"
+            {{- with .labelSelector }}
+          - "--providers.kubernetesgateway.labelSelector={{ . }}"
             {{- end }}
            {{- end }}
           {{- end }}
@@ -593,10 +593,10 @@
             {{- if .watchIngressWithoutClass }}
           - "--providers.kubernetesingressnginx.watchingresswithoutclass=true"
             {{- end }}
-            {{- if or .namespaces (and $.Values.rbac.enabled $.Values.rbac.namespaced) }}
+            {{- if or .watchNamespace (and $.Values.rbac.enabled $.Values.rbac.namespaced) }}
           - "--providers.kubernetesingressnginx.watchnamespace={{ template "providers.kubernetesIngressNginx.namespaces" $ }}"
             {{- end }}
-            {{- with .namespaceSelector }}
+            {{- with .watchNamespaceSelector }}
           - "--providers.kubernetesingressnginx.watchnamespaceselector={{ . }}"
             {{- end }}
             {{- if and $.Values.service.enabled .publishService.enabled }}
@@ -631,16 +631,13 @@
             {{- if or .namespaces (and $.Values.rbac.enabled $.Values.rbac.namespaced) }}
           - "--providers.knative.namespaces={{ template "providers.knative.namespaces" $ }}"
             {{- end }}
-            {{- with .labelselector }}
-          - "--providers.knative.labelselector={{ . }}"
+            {{- with .labelSelector }}
+          - "--providers.knative.labelSelector={{ . }}"
             {{- end }}
            {{- end }}
           {{- end }}
           {{- range $entrypoint, $config := $.Values.ports }}
           {{- if $config }}
-            {{- if $config.redirectTo }}
-              {{- fail "ERROR: redirectTo syntax has been removed in v34 of this Chart. See Release notes or EXAMPLES.md for new syntax." -}}
-            {{- end }}
             {{- if $config.redirections }}
              {{- with $config.redirections.entryPoint }}
               {{- if not (hasKey $.Values.ports .to) }}
@@ -666,6 +663,37 @@
             {{- end }}
             {{- if $config.middlewares }}
           - "--entryPoints.{{ $entrypoint }}.http.middlewares={{ join "," $config.middlewares }}"
+            {{- end }}
+            {{- with $config.http }}
+             {{- if ne .sanitizePath nil }}
+              {{- with .sanitizePath | toString }}
+          - "--entryPoints.{{ $entrypoint }}.http.sanitizePath={{ . }}"
+              {{- end }}
+             {{- end }}
+             {{- with (.encodedCharacters).allowEncodedSlash }}
+          - "--entryPoints.{{ $entrypoint }}.http.encodedCharacters.allowEncodedSlash={{ . }}"
+             {{- end }}
+             {{- with (.encodedCharacters).allowEncodedBackSlash }}
+          - "--entryPoints.{{ $entrypoint }}.http.encodedCharacters.allowEncodedBackSlash={{ . }}"
+             {{- end }}
+             {{- with (.encodedCharacters).allowEncodedNullCharacter }}
+          - "--entryPoints.{{ $entrypoint }}.http.encodedCharacters.allowEncodedNullCharacter={{ . }}"
+             {{- end }}
+             {{- with (.encodedCharacters).allowEncodedSemicolon }}
+          - "--entryPoints.{{ $entrypoint }}.http.encodedCharacters.allowEncodedSemicolon={{ . }}"
+             {{- end }}
+             {{- with (.encodedCharacters).allowEncodedPercent }}
+          - "--entryPoints.{{ $entrypoint }}.http.encodedCharacters.allowEncodedPercent={{ . }}"
+             {{- end }}
+             {{- with (.encodedCharacters).allowEncodedQuestionMark }}
+          - "--entryPoints.{{ $entrypoint }}.http.encodedCharacters.allowEncodedQuestionMark={{ . }}"
+             {{- end }}
+             {{- with (.encodedCharacters).allowEncodedHash }}
+          - "--entryPoints.{{ $entrypoint }}.http.encodedCharacters.allowEncodedHash={{ . }}"
+             {{- end }}
+             {{- with .maxHeaderBytes }}
+          - "--entryPoints.{{ $entrypoint }}.http.maxHeaderBytes={{ . | int64 }}"
+             {{- end }}
             {{- end }}
             {{- if $config.tls }}
               {{- if $config.tls.enabled }}

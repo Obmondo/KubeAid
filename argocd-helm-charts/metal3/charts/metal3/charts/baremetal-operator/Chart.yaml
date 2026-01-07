@@ -1,6 +1,6 @@
 apiVersion: v2
-appVersion: 0.10.2
+appVersion: 0.11.2
 description: A Helm chart for baremetal-operator, used by Metal3
 name: baremetal-operator
 type: application
-version: 0.10.4
+version: 0.11.2

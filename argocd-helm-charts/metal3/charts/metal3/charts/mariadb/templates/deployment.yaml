@@ -20,7 +20,7 @@ spec:
       labels:
         {{- include "mariadb.selectorLabels" . | nindent 8 }}
     spec:
-      {{- $volmounts := toYaml .Values.volumeMounts | trim | nindent 12 }}
+      {{- $volmounts := toYaml .Values.volumeMounts | trim | nindent 10 }}
       {{- $volumes := toYaml .Values.volumes | trim | nindent 8 }}
       serviceAccountName: {{ include "mariadb.serviceAccountName" . }}
       securityContext:
@@ -103,11 +103,11 @@ spec:
           successThreshold: 1
           timeoutSeconds: 10
         volumeMounts:
-            - name: mariadb-conf
-              mountPath: /etc/mysql/conf.d
-            - name: mariadb-run
-              mountPath: /run/mysql
-            {{- $volmounts }}
+          - name: mariadb-conf
+            mountPath: /etc/mysql/conf.d
+          - name: mariadb-run
+            mountPath: /run/mysql
+          {{- $volmounts }}
       {{- with .Values.global.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

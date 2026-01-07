@@ -291,6 +291,15 @@ spec:
                 required:
                 - url
                 type: object
+              inspectionMode:
+                description: |-
+                  Specifies the mode for host inspection.
+                  "disabled" - no inspection will be performed
+                  "agent" - normal agent-based inspection will run
+                enum:
+                - disabled
+                - agent
+                type: string
               metaData:
                 description: |-
                   MetaData holds the reference to the Secret containing host metadata
@@ -578,9 +587,8 @@ spec:
                       description: Required. The taint key to be applied to a node.
                       type: string
                     timeAdded:
-                      description: |-
-                        TimeAdded represents the time at which the taint was added.
-                        It is only written for NoExecute taints.
+                      description: TimeAdded represents the time at which the taint
+                        was added.
                       format: date-time
                       type: string
                     value:
@@ -710,6 +718,19 @@ spec:
                             if one is present.  If both IPv4 and IPv6 addresses are present in a
                             dual-stack environment, two nics will be output, one with each IP.
                           type: string
+                        lldp:
+                          description: LLDP data for this interface
+                          properties:
+                            portID:
+                              description: The switch port ID from LLDP
+                              type: string
+                            switchID:
+                              description: The switch chassis ID from LLDP
+                              type: string
+                            switchSystemName:
+                              description: The switch system name from LLDP
+                              type: string
+                          type: object
                         mac:
                           description: The device MAC address
                           pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'

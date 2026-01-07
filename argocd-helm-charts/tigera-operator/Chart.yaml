@@ -3,7 +3,7 @@ name: tigera-operator
 version: 1.0.0
 dependencies:
   - name: tigera-operator
-    version: v3.31.2
+    version: v3.31.3
     #repository: https://github.com/projectcalico/calico/tree/master/calico/_includes/charts/tigera-operator
     #repository: "oci://ghcr.io/Obmondo"
     repository: https://projectcalico.docs.tigera.io/charts

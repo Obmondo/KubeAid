@@ -1,12 +1,25 @@
 # SonarQube Chart Changelog
 All changes to this chart will be documented in this file.
 
+## [2025.6.1]
+* Update Chart's version to 2025.6.1
+* Upgrade SonarQube Server to to 2025.6.1
+
+## [2025.6.0]
+* Upgrade SonarQube Server to to 2025.6.0
+* Update Chart's version to 2025.6.0
+* Upgrade SonarQube Community Build to 25.12.0.117093
+* Disable Postgresql when the JDBC overwrite is used
+* Make SonarQube Server available as an Container App on the Azure Marketplace
+
 ## [2025.5.0]
 * Upgrade SonarQube Server to to 2025.5.0
 * Update Chart's version to 2025.5.0
 * Upgrade SonarQube Community Build to 25.9.0.112764
 * Update the image and readinessProbe used by postgresql after they migrated to a legacy repository
 * Support Kubernetes v1.34.0
+* Make SonarQube Server available as an Container App on the Azure Marketplace
+* Disable Postgresql when the JDBC overwrite is used
 
 ## [2025.4.0]
 * Update Chart's version to 2025.4.0
