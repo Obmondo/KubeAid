@@ -20,10 +20,10 @@ spec:
               imagePullPolicy: IfNotPresent
               resources:
                 requests:
-                  cpu: {{ (.Values.postgres.logicalbackup).resources.requests.cpu | default "100m" | quote }}
-                  memory: {{ (.Values.postgres.logicalbackup).resources.requests.memory | default "128Mi" | quote }}
+                  cpu: 100m
+                  memory: 128Mi
                 limits:
-                  memory: {{ (.Values.postgres.logicalbackup).resources.limits.memory | default "500Mi" | quote }}
+                  memory: 500Mi
               env:
                 - name: POD_NAMESPACE
                   valueFrom:
