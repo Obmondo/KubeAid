@@ -5,98 +5,77 @@ metadata:
   name: postgres-logical-backup
 spec:
   concurrencyPolicy: Forbid
-  failedJobsHistoryLimit: 1
   schedule: {{ (.Values.postgres.logicalbackup).schedule | default "30 00 * * *" }}
-  successfulJobsHistoryLimit: 3
+  successfulJobsHistoryLimit: {{ (.Values.postgres.logicalbackup).successfulJobsHistoryLimit | default 3 }}
+  failedJobsHistoryLimit: {{ (.Values.postgres.logicalbackup).failedJobsHistoryLimit | default 1 }}
   jobTemplate:
     spec:
       template:
         spec:
-          containers:
-            - name: logical-backup
-              image: ghcr.io/obmondo/logical-backup:1.0.1
-              imagePullPolicy: IfNotPresent
-              env:
-                - name: POD_NAMESPACE
-                  valueFrom:
-                    fieldRef:
-                      apiVersion: v1
-                      fieldPath: metadata.namespace
-                - name: PGHOST
-                  value: {{ .Values.postgres.host | default "odoo-pgsql-rw" }}
-                - name: PGPASSWORD
-                  valueFrom:
-                    secretKeyRef:
-                      name: odoo-pgsql-app
-                      key: password
-                - name: PGPORT
-                  value: "{{ .Values.postgres.port | default 5432 }}"
-                - name: PGUSER
-                  value: {{ .Values.postgres.user | default "odoo" }}
-                - name: PGDATABASE
-                  value: {{ .Values.postgres.db | default "registry" }}
-                - name: CLUSTER_NAME_LABEL
-                  value: {{ (.Values.postgres.logicalbackup).pgOperatorClusterName | default "odoo-pgsql" }}
-              {{- if eq .Values.postgres.logicalbackup.provider "az" }}
-                - name: LOGICAL_BACKUP_PROVIDER
-                  value: "az"
-                - name: LOGICAL_BACKUP_AZURE_STORAGE_ACCOUNT_NAME
-                  value: {{ (.Values.postgres.logicalbackup).storeageaccount }}
-                - name: LOGICAL_BACKUP_AZURE_STORAGE_CONTAINER
-                  value: {{ (.Values.postgres.logicalbackup).azurecontainer }}
-                - name: LOGICAL_BACKUP_AZURE_STORAGE_ACCOUNT_KEY
-                  valueFrom:
-                    secretKeyRef:
-                      key: LOGICAL_BACKUP_AZURE_STORAGE_ACCOUNT_KEY
-                      name: odoo-pgsql-postgres-pod-env
-                - name: LOGICAL_BACKUP_S3_BUCKET
-                  value: {{ (.Values.postgres.logicalbackup).azurecontainer }}
-                - name: LOGICAL_BACKUP_S3_BUCKET_SCOPE_SUFFIX
-                  value: {{ (.Values.postgres.logicalbackup).s3bucketscopesuffix | default "logicalbackup" }}
-
-              {{- else if eq .Values.postgres.logicalbackup.provider "s3" }}
-                - name: LOGICAL_BACKUP_PROVIDER
-                  value: "s3"
-                - name: AWS_ACCESS_KEY_ID
-                  valueFrom:
-                    secretKeyRef:
-                      key: AWS_ACCESS_KEY_ID
-                      name: odoo-pgsql-postgres-pod-env
-                - name: AWS_SECRET_ACCESS_KEY
-                  valueFrom:
-                    secretKeyRef:
-                      key: AWS_SECRET_ACCESS_KEY
-                      name: odoo-pgsql-postgres-pod-env
-                - name: LOGICAL_BACKUP_S3_ENDPOINT
-                  value: {{ (.Values.postgres.logicalbackup).s3endpoint }}
-                - name: LOGICAL_BACKUP_PROVIDER
-                  value: "s3"
-                - name: LOGICAL_BACKUP_S3_BUCKET_SCOPE_SUFFIX
-                  value: {{ (.Values.postgres.logicalbackup).s3bucketscopesuffix | default "logicalbackup" }}
-                - name: LOGICAL_BACKUP_S3_REGION
-                  value: {{ (.Values.postgres.logicalbackup).s3region }}
-                - name: LOGICAL_BACKUP_S3_BUCKET
-                  value: {{ (.Values.postgres.logicalbackup).s3bucket }}
-                - name: LOGICAL_BACKUP_S3_RETENTION_TIME
-                  value: {{ (.Values.postgres.logicalbackup).retention }}
-              {{- end }}
-                - name: PG_VERSION
-                  value: "{{ (.Values.postgres.logicalbackup).pgversion | default 16 }}"
-                - name: POSTGRES_OPERATOR
-                  value: cngp
-              resources:
-                limits:
-                  memory: 500Mi
-                requests:
-                  cpu: 100m
-                  memory: 128Mi
-              securityContext:
-                allowPrivilegeEscalation: true
-                privileged: false
-                readOnlyRootFilesystem: false
-              terminationMessagePath: /dev/termination-log
-              terminationMessagePolicy: File
-          dnsPolicy: ClusterFirst
           restartPolicy: Never
+          containers:
+          - name: logical-backup
+            image: ghcr.io/obmondo/postgres-logical-backup:3.1.6
+            imagePullPolicy: IfNotPresent
+            resources:
+              requests:
+                cpu: {{ (.Values.postgres.logicalbackup).resources.requests.cpu | default "100m" }}
+                memory: {{ (.Values.postgres.logicalbackup).resources.requests.memory | default "128Mi" }}
+              limits:
+                memory: {{ (.Values.postgres.logicalbackup).resources.limits.memory | default "500Mi" }}
+            env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: PGHOST
+              value: {{ .Values.postgres.host | default "odoo-pgsql-rw" }}
+            - name: PGPORT
+              value: "{{ .Values.postgres.port | default 5432 }}"
+            - name: PGUSER
+              value: {{ .Values.postgres.user | default "odoo" }}
+            - name: PGDATABASE
+              value: {{ .Values.postgres.db | default "odoo" }}
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: odoo-pgsql-app
+                  key: password
+            - name: CLUSTER_NAME_LABEL
+              value: {{ (.Values.postgres.logicalbackup).pgOperatorClusterName | default "odoo-pgsql" }}
+            {{- if eq (.Values.postgres.logicalbackup).provider "s3" }}
+            - name: LOGICAL_BACKUP_PROVIDER
+              value: "s3"
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ (.Values.postgres.logicalbackup).secretName | default "odoo-pgsql-postgres-pod-env" }}
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ (.Values.postgres.logicalbackup).secretName | default "odoo-pgsql-postgres-pod-env" }}
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: LOGICAL_BACKUP_S3_ENDPOINT
+              value: {{ (.Values.postgres.logicalbackup).s3endpoint | quote }}
+            - name: LOGICAL_BACKUP_S3_BUCKET
+              value: {{ (.Values.postgres.logicalbackup).s3bucket }}
+            - name: LOGICAL_BACKUP_S3_BUCKET_SCOPE_SUFFIX
+              value: {{ (.Values.postgres.logicalbackup).s3bucketscopesuffix | default "logicalbackup" }}
+            - name: LOGICAL_BACKUP_S3_REGION
+              value: {{ (.Values.postgres.logicalbackup).s3region | default "us-east-1" }}
+            - name: LOGICAL_BACKUP_S3_RETENTION_TIME
+              value: {{ (.Values.postgres.logicalbackup).retention | default "30 days" }}
+            {{- end }}
+            - name: PG_VERSION
+              value: "{{ (.Values.postgres.logicalbackup).pgversion | default 17 }}"
+            - name: POSTGRES_OPERATOR
+              value: {{ (.Values.postgres.logicalbackup).postgresOperator | default "cngp" }}
+            - name: USE_PG_DUMP
+              value: "true"
+            securityContext:
+              allowPrivilegeEscalation: false
+              runAsNonRoot: true
+              runAsUser: 1000
           terminationGracePeriodSeconds: 300
 {{- end }}
