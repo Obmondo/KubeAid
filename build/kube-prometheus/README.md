@@ -193,10 +193,13 @@ kubectl apply -f <path to alert rules file>.yaml -n monitoring
 kubectl port-forward pod/prometheus-k8s-0 -n monitoring 9090:9090
 ```
 
-* The web.enable-admin-api flag should be enabled. You can check this in the Prometheus UI.
+* The web.enable-admin-api flag should be enabled. You can check this in the Prometheus UI. 
 ```
 http://localhost:9090/rules
 ```
+Use this [example](https://github.com/prometheus-operator/prometheus-operator/blob/bf74f41229e23da12e8a1ea571385b01fdc48bea/example/user-guides/getting-started/prometheus-pod-monitor.yaml#L13)
+
+> Make sure to disable it after cleaning up the metric
 
 * Delete the metrics by hitting the `/api/v1/admin/tsdb/delete_series?match[]=` endpoint.
 ```
