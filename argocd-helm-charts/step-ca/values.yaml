@@ -15,6 +15,11 @@ step-certificates:
           db:
             type: badgerv2
           authority:
+            claims:
+              minTLSCertDuration: 5m
+              maxTLSCertDuration: 2160h
+              defaultTLSCertDuration: 2160h
+              disableRenewal: false
             provisioners:
               - type: JWK
                 name: "info@obmondo.com"
