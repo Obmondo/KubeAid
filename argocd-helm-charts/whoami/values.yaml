@@ -4,3 +4,4 @@ whoami:
 
   ingress:
     enabled: true
+    ingressClassName: "traefik"
