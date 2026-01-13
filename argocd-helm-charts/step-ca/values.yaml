@@ -1,16 +1,3 @@
-# This works
-step-issuer:
-  stepClusterIssuer:
-    create: true
-    caUrl: https://step-ca-step-certificates.step-ca.svc.cluster.local
-    caBundle: LS0fwefowe # replace this
-    provisioner:
-      name: "info@obmondo.com"
-      kid: "UsdkqFwheUTevoVeSXyKtoABqP9tlFyMCy9Dj7Ab_nc"    # replace this kid
-      passwordRef:
-        name: "step-ca-step-certificates-provisioner-password"
-        namespace: "step-ca"
-        key: "password"
 # Generate this by running `step ca init --helm > values.yaml`
 # Open the values.yaml file and use values from there
 
