@@ -1,0 +1,129 @@
+# PostgreSQL configuration using CloudNative-PG operator
+postgresql:
+  instance: 1
+  size: 5Gi
+  recover: false
+  bootstrap:
+    initdb:
+      database: funkwhale
+      owner: funkwhale
+  resources:
+    limits:
+      memory: 512Mi
+    requests:
+      memory: 256Mi
+      cpu: 100m
+
+# Redis configuration using Redis Operator
+externalRedis:
+  enabled: true
+  mode: standalone
+  replicas: 1
+  name: funkwhale-redis
+  storage: 2Gi
+  image: quay.io/opstree/redis:v7.2.6
+  imagePullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
+
+# Funkwhale chart configuration
+funkwhale:
+  # Domain configuration
+  ingress:
+    enabled: true
+    protocol: https
+    host: funkwhale.example.com
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt
+      nginx.ingress.kubernetes.io/proxy-body-size: 500m
+    tls:
+      - secretName: funkwhale-tls
+        hosts:
+          - funkwhale.example.com
+
+  # Django secret key
+  djangoSecret: ""
+
+  # Disable bundled PostgreSQL - we use CloudNative-PG operator
+  postgresql:
+    enabled: false
+    host: funkwhale-pgsql-rw
+    auth:
+      username: funkwhale
+      password: ""  # Will use secret instead
+      database: funkwhale
+
+  # Disable bundled Redis - we use Redis Operator
+  redis:
+    enabled: false
+    host: funkwhale-redis
+    auth:
+      enabled: false  # Redis operator standalone doesn't use password by default
+
+  # Persistence configuration
+  persistence:
+    enabled: true
+    accessMode: ReadWriteOnce
+    size: 10Gi
+    # storageClass: ""
+
+  # S3/MinIO configuration for media storage (optional)
+  s3:
+    enabled: false
+    # proxy: true
+    # accessKey: ""
+    # secretKey: ""
+    # bucket: funkwhale
+    # region: us-east-1
+    # url: http://s3.example.com
+
+  # API server configuration
+  api:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        memory: 512Mi
+
+  # Frontend/proxy configuration
+  front:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+
+  # Celery configuration
+  celery:
+    beat:
+      resources:
+        requests:
+          cpu: 10m
+          memory: 64Mi
+        limits:
+          cpu: 100m
+          memory: 128Mi
+
+    worker:
+      replicaCount: 1
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          memory: 256Mi
+
+  # Additional environment variables
+  extraEnv: {}
+  # LDAP_ENABLED: "True"
+
+  # Additional secret environment variables
+  extraSecret: {}
+  # EMAIL_CONFIG: smtp://
+  # DEFAULT_FROM_EMAIL: funkwhale@example.com

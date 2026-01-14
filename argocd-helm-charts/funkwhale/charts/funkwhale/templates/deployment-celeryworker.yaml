@@ -1,0 +1,79 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "funkwhale.fullname" . }}-worker
+  labels:
+    app.kubernetes.io/name: {{ include "funkwhale.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    audio.funkwhale/component: celery-worker
+    helm.sh/chart: {{ include "funkwhale.chart" . }}
+spec:
+  replicas: {{ .Values.celery.worker.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "funkwhale.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      audio.funkwhale/component: celery-worker
+  template:
+    metadata:
+      annotations:
+        checksum/configmap: {{ include (print .Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print .Template.BasePath "/secret.yaml") . | sha256sum }}
+      labels:
+        app.kubernetes.io/name: {{ include "funkwhale.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        audio.funkwhale/component: celery-worker
+    spec:
+      containers:
+        - name: worker
+          image: {{ include "funkwhale.imageUri" (dict "Scope" .Values.celery.image "Values" .Values "Chart" .Chart) | quote }}
+          imagePullPolicy: {{ .Values.celery.image.pullPolicy | default .Values.image.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - |
+              celery -A funkwhale_api.taskapp worker -l INFO
+          env:
+            - name: C_FORCE_ROOT
+              value: "true"
+          envFrom:
+          - configMapRef:
+              name: {{ include "funkwhale.fullname" . }}
+          - secretRef:
+              name: {{ include "funkwhale.fullname" . }}
+          volumeMounts:
+            - mountPath: /srv/funkwhale/data
+              name: data
+{{- if .Values.celery.worker.extraVolumeMounts }}
+{{ toYaml .Values.celery.worker.extraVolumeMounts | indent 12 }}
+{{- end }}
+          resources:
+            {{- toYaml .Values.celery.worker.resources | nindent 12 }}
+      {{- with .Values.celery.worker.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.celery.worker.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.celery.worker.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "funkwhale.fullname" . }}-front
+        - name: data
+      {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim | default (include "funkwhale.fullname" .) }}
+      {{- else }}
+          emptyDir: {}
+      {{- end }}
+{{- if .Values.celery.worker.extraVolumes }}
+{{ toYaml .Values.celery.worker.extraVolumes | indent 8 }}
+{{- end }}
