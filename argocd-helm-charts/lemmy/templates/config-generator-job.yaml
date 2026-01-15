@@ -1,0 +1,128 @@
+{{- if and (not .Values.lemmy.postgresql.enabled) .Values.lemmy.postgresql.auth.existingSecret }}
+# This Job runs as an ArgoCD PreSync hook to create the Lemmy config secret
+# with the correct password from the CNPG-generated secret
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-lemmy-config-generator
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}-lemmy
+    app.kubernetes.io/component: config-generator
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 3
+  template:
+    spec:
+      serviceAccountName: {{ .Release.Name }}-lemmy-config-generator
+      restartPolicy: OnFailure
+      containers:
+        - name: config-generator
+          image: bitnami/kubectl:1.28
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.lemmy.postgresql.auth.existingSecret }}
+                  key: {{ .Values.lemmy.postgresql.auth.existingSecretKey | default "password" }}
+            - name: RELEASE_NAME
+              value: {{ .Release.Name }}
+            - name: NAMESPACE
+              value: {{ .Release.Namespace }}
+            - name: PG_HOST
+              value: {{ .Values.lemmy.postgresql.host | default (printf "%s-pgsql-rw" .Release.Name) }}
+            - name: PG_PORT
+              value: "{{ .Values.lemmy.postgresql.service.port | default 5432 }}"
+            - name: PG_USER
+              value: {{ .Values.lemmy.postgresql.auth.username | default "lemmy" }}
+            - name: PG_DATABASE
+              value: {{ .Values.lemmy.postgresql.auth.database | default "lemmy" }}
+            - name: PG_SSLMODE
+              value: {{ .Values.lemmy.postgresql.sslmode | default "prefer" }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              
+              echo "Waiting for CNPG secret to be available..."
+              for i in $(seq 1 30); do
+                if kubectl get secret {{ .Values.lemmy.postgresql.auth.existingSecret }} -n $NAMESPACE >/dev/null 2>&1; then
+                  echo "Secret found!"
+                  break
+                fi
+                echo "Waiting... ($i/30)"
+                sleep 10
+              done
+              
+              # Check if lemmy config secret exists
+              if kubectl get secret ${RELEASE_NAME}-lemmy -n $NAMESPACE >/dev/null 2>&1; then
+                echo "Lemmy config secret exists, checking if password placeholder needs replacement..."
+                
+                # Get current config
+                CURRENT_CONFIG=$(kubectl get secret ${RELEASE_NAME}-lemmy -n $NAMESPACE -o jsonpath='{.data.config\.hjson}' | base64 -d)
+                
+                if echo "$CURRENT_CONFIG" | grep -q "CNPG_PASSWORD_PLACEHOLDER"; then
+                  echo "Found placeholder, replacing with actual password..."
+                  
+                  # URL-encode the password
+                  ENCODED_PW=$(printf '%s' "$PGPASSWORD" | python3 -c "import sys, urllib.parse; print(urllib.parse.quote(sys.stdin.read(), safe=''))")
+                  
+                  # Replace placeholder
+                  NEW_CONFIG=$(echo "$CURRENT_CONFIG" | sed "s/CNPG_PASSWORD_PLACEHOLDER/${ENCODED_PW}/g")
+                  
+                  # Update the secret
+                  kubectl get secret ${RELEASE_NAME}-lemmy -n $NAMESPACE -o json | \
+                    jq --arg config "$(echo "$NEW_CONFIG" | base64 -w0)" '.data["config.hjson"]=$config' | \
+                    kubectl apply -f -
+                  
+                  echo "Secret updated with actual password"
+                else
+                  echo "No placeholder found, secret is already configured"
+                fi
+              else
+                echo "Lemmy config secret not found yet, it will be created by Helm"
+              fi
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}-lemmy-config-generator
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Release.Name }}-lemmy-config-generator
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Release.Name }}-lemmy-config-generator
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Release.Name }}-lemmy-config-generator
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ .Release.Name }}-lemmy-config-generator
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
