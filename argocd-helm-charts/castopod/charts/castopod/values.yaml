@@ -1,0 +1,173 @@
+replicaCount: 1
+
+image:
+  repository: castopod/castopod
+  pullPolicy: IfNotPresent
+  # -- Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+secrets:
+  # -- Set to true if you want to create new secret, also provide mariadb and redis passwords as it shown below in values.yaml
+  create: false
+  
+  # Example of the mariadb and redis password definitions (not recommended)
+  # mariadb:
+  #   password: default
+  # redis:
+  #   password: default
+  
+  # -- The name of the secret (existing or being created). 
+  # If you are using an existing secret, make sure it has the `redis-password`, `mariadb-root-password`,
+  # `mariadb-replication-password` and `mariadb-password` fields.
+  # It is recommended to use existing secrets (e.g. sealed secrets)
+  name: castopod
+  
+
+env:
+  https:
+    enabled: false
+  CP_BASEURL: "http://castopod.local"
+  CP_ANALYTICS_SALT: ""
+
+serviceAccount:
+  # -- Specifies whether a service account should be created
+  create: false
+  # -- Annotations to add to the service account
+  annotations: {}
+  # -- The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+persistence:
+  enabled: true
+  size: 50G
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 8000
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: castopod.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - castopod.local
+
+httpRoute:
+  # -- HTTPRoute enabled.
+  enabled: false
+  # -- HTTPRoute annotations.
+  annotations: {}
+  # -- Which Gateways this Route is attached to
+  parentRefs:
+  - name: kong
+    group: gateway.networking.k8s.io
+    namespace: kong
+  # -- Hostnames matching HTTP header.
+  hostnames:
+  - castopod.local
+  # -- List of rules and filters applied.
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+  #   filters:
+  #   - type: RequestHeaderModifier
+  #     requestHeaderModifier:
+  #       set:
+  #       - name: My-Overwrite-Header
+  #         value: this-is-the-only-value
+  #       remove:
+  #       - User-Agent
+  # - matches:
+  #   - path:
+  #       type: PathPrefix
+  #       value: /echo
+  #     headers:
+  #     - name: version
+  #       value: v2
+
+livenessProbe:
+  enabled: true
+  probe:
+    httpGet:
+      path: /
+      port: http
+
+readinessProbe:
+  enabled: true
+  probe:
+    httpGet:
+      path: /
+      port: http
+
+resources: {}
+  # limits:
+  #   cpu: 300m
+  #   memory: 512Mi
+  # requests:
+  #   cpu: 300m
+  #   memory: 512Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+mariadb:
+  enabled: true
+  global:
+    imagePullSecrets: []
+    storageclass: ""
+  auth:
+    database: castopod
+    username: castopod
+    existingSecret: castopod # -- Must be equal to secrets.name
+  primary:
+    persistence:
+      enabled: true
+      size: 8Gi
+
+redis:
+  enabled: true # -- Do NOT enable sentinel, castopod doesn't support it
+  architecture: replication # -- Or standalone, do not use sentinel
+  global:
+    imagePullSecrets: []
+    storageclass: ""
+  master:
+    persistence:
+      size: 8Gi
+  auth:
+    enabled: true
+    existingSecret: castopod # -- Must be equal to secrets.name
+    existingSecretPasswordKey: "redis-password"
+    usePasswordFiles: false
+    usePasswordFileFromSecret: false
