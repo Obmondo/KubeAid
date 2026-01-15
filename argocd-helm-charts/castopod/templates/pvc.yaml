@@ -1,3 +1,7 @@
+# NOTE: This file is a workaround because the upstream castopod chart (hiimluck3r/helm-charts)
+# hardcodes ReadWriteMany access mode without storageClass support.
+# TODO: Remove this file once the upstream PR is merged and released.
+# Upstream PR: (to be created at https://github.com/hiimluck3r/helm-charts)
 {{- if .Values.castopod.persistence.enabled }}
 apiVersion: v1
 kind: PersistentVolumeClaim
