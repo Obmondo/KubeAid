@@ -16,7 +16,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: logical-backup
-              image: ghcr.io/obmondo/postgres-logical-backup:3.1.6
+              image: ghcr.io/obmondo/postgres-logical-backup:3.1.7
               imagePullPolicy: IfNotPresent
               resources:
                 requests:
@@ -87,7 +87,7 @@ spec:
 
             {{- end }}
                 - name: PG_VERSION
-                  value: {{ (.Values.postgres.logicalbackup).pgversion | default 17 | quote }}
+                  value: {{ (.Values.postgres.logicalbackup).pgversion | default 18 | quote }}
                 - name: POSTGRES_OPERATOR
                   value: {{ (.Values.postgres.logicalbackup).postgresOperator | default "cnpg" | quote }}
                 - name: USE_PG_DUMP
