@@ -69,10 +69,13 @@ castopod:
     CP_ANALYTICS_SALT: ""
 
   # Persistence for media files
-  # Note: Uses ReadWriteMany access mode - requires RWX-capable storage class
+  # We create the PVC in our wrapper chart to support storageClass
+  # The upstream chart PVC is disabled via persistence.enabled: false
   persistence:
-    enabled: true
+    enabled: false  # Disable upstream PVC, we create our own
     size: 50Gi
+    accessMode: ReadWriteMany
+    storageClass: ceph-filesystem
 
   # Service configuration
   service:
