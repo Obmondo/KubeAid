@@ -1,0 +1,22 @@
+# NOTE: This file is a workaround because the upstream castopod chart (hiimluck3r/helm-charts)
+# hardcodes ReadWriteMany access mode without storageClass support.
+# TODO: Remove this file once the upstream PR is merged and released.
+# Upstream PR: (to be created at https://github.com/hiimluck3r/helm-charts)
+{{- if .Values.castopod.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-media
+  labels:
+    app.kubernetes.io/name: castopod
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  accessModes:
+    - {{ .Values.castopod.persistence.accessMode | default "ReadWriteMany" }}
+  {{- if .Values.castopod.persistence.storageClass }}
+  storageClassName: {{ .Values.castopod.persistence.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.castopod.persistence.size | default "50Gi" }}
+{{- end }}
