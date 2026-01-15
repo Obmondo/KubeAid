@@ -4,6 +4,8 @@
 {{- $releaseName := .Release.Name }}
 {{- $namespace := .Release.Namespace }}
 {{- $fullname := printf "%s-funkwhale" $releaseName }}
+{{- $djangoExistingSecret := .Values.funkwhale.djangoExistingSecret | default "" }}
+{{- $djangoExistingSecretKey := .Values.funkwhale.djangoExistingSecretKey | default "django-secret-key" }}
 # ServiceAccount for the config generator job
 ---
 apiVersion: v1
@@ -49,7 +51,7 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 ---
 # This Job runs as an ArgoCD PreSync hook to patch the Funkwhale secret
-# with the actual password from the CNPG-generated secret
+# with the actual password from the CNPG-generated secret and preserve Django secret
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -71,19 +73,28 @@ spec:
       containers:
         - name: config-generator
           image: bitnami/kubectl:latest
+          env:
+            - name: SECRET_NAME
+              value: "{{ $fullname }}"
+            - name: CNPG_SECRET
+              value: "{{ $secretName }}"
+            - name: CNPG_KEY
+              value: "{{ $secretKey }}"
+            - name: NAMESPACE
+              value: "{{ $namespace }}"
+            - name: DJANGO_EXISTING_SECRET
+              value: "{{ $djangoExistingSecret }}"
+            - name: DJANGO_EXISTING_SECRET_KEY
+              value: "{{ $djangoExistingSecretKey }}"
           command:
             - /bin/bash
             - -c
             - |
               set -e
               
-              SECRET_NAME="{{ $fullname }}"
-              CNPG_SECRET="{{ $secretName }}"
-              CNPG_KEY="{{ $secretKey }}"
-              
               echo "Waiting for CNPG secret ${CNPG_SECRET} to be available..."
               for i in $(seq 1 30); do
-                if kubectl get secret "${CNPG_SECRET}" -n {{ $namespace }} >/dev/null 2>&1; then
+                if kubectl get secret "${CNPG_SECRET}" -n ${NAMESPACE} >/dev/null 2>&1; then
                   echo "CNPG secret found!"
                   break
                 fi
@@ -92,7 +103,7 @@ spec:
               done
               
               # Read password from CNPG secret
-              PGPASSWORD=$(kubectl get secret "${CNPG_SECRET}" -n {{ $namespace }} -o jsonpath="{.data.${CNPG_KEY}}" | base64 -d)
+              PGPASSWORD=$(kubectl get secret "${CNPG_SECRET}" -n ${NAMESPACE} -o jsonpath="{.data.${CNPG_KEY}}" | base64 -d)
               
               if [ -z "$PGPASSWORD" ]; then
                 echo "ERROR: Could not read password from secret ${CNPG_SECRET}"
@@ -104,15 +115,38 @@ spec:
               # URL-encode special characters in password
               ENCODED_PW=$(printf '%s' "$PGPASSWORD" | sed 's/%/%25/g; s/ /%20/g; s/!/%21/g; s/"/%22/g; s/#/%23/g; s/\$/%24/g; s/&/%26/g; s/'\''/%27/g; s/(/%28/g; s/)/%29/g; s/\*/%2A/g; s/+/%2B/g; s/,/%2C/g; s/:/%3A/g; s/;/%3B/g; s/</%3C/g; s/=/%3D/g; s/>/%3E/g; s/\?/%3F/g; s/@/%40/g; s/\[/%5B/g; s/\\/%5C/g; s/\]/%5D/g; s/\^/%5E/g; s/{/%7B/g; s/|/%7C/g; s/}/%7D/g')
               
+              # Handle Django secret - either from existing secret or preserve existing
+              DJANGO_SECRET=""
+              if [ -n "${DJANGO_EXISTING_SECRET}" ]; then
+                echo "Reading Django secret from ${DJANGO_EXISTING_SECRET}..."
+                if kubectl get secret "${DJANGO_EXISTING_SECRET}" -n ${NAMESPACE} >/dev/null 2>&1; then
+                  DJANGO_SECRET=$(kubectl get secret "${DJANGO_EXISTING_SECRET}" -n ${NAMESPACE} -o jsonpath="{.data.${DJANGO_EXISTING_SECRET_KEY}}" | base64 -d)
+                  echo "Got Django secret from sealed secret"
+                else
+                  echo "WARNING: Django existing secret ${DJANGO_EXISTING_SECRET} not found"
+                fi
+              fi
+              
+              # If no Django secret from external source, try to preserve existing one
+              if [ -z "${DJANGO_SECRET}" ]; then
+                if kubectl get secret "${SECRET_NAME}" -n ${NAMESPACE} >/dev/null 2>&1; then
+                  EXISTING_DJANGO=$(kubectl get secret "${SECRET_NAME}" -n ${NAMESPACE} -o jsonpath='{.data.DJANGO_SECRET_KEY}' | base64 -d 2>/dev/null || echo "")
+                  if [ -n "${EXISTING_DJANGO}" ]; then
+                    DJANGO_SECRET="${EXISTING_DJANGO}"
+                    echo "Preserving existing Django secret"
+                  fi
+                fi
+              fi
+              
               # Check if Funkwhale secret exists
-              if ! kubectl get secret "${SECRET_NAME}" -n {{ $namespace }} >/dev/null 2>&1; then
+              if ! kubectl get secret "${SECRET_NAME}" -n ${NAMESPACE} >/dev/null 2>&1; then
                 echo "Funkwhale secret ${SECRET_NAME} not found yet - it will be created by Helm"
                 echo "This job will run again on next sync to patch the password"
                 exit 0
               fi
               
               # Get current DATABASE_URL from the secret
-              CURRENT_DB_URL=$(kubectl get secret "${SECRET_NAME}" -n {{ $namespace }} -o jsonpath='{.data.DATABASE_URL}' | base64 -d)
+              CURRENT_DB_URL=$(kubectl get secret "${SECRET_NAME}" -n ${NAMESPACE} -o jsonpath='{.data.DATABASE_URL}' | base64 -d)
               
               echo "Current DATABASE_URL: ${CURRENT_DB_URL}"
               
@@ -121,9 +155,18 @@ spec:
               
               echo "New DATABASE_URL: ${NEW_DB_URL}"
               
-              # Patch the secret with the correct password
-              kubectl patch secret "${SECRET_NAME}" -n {{ $namespace }} --type='json' \
-                -p="[{\"op\": \"replace\", \"path\": \"/data/DATABASE_URL\", \"value\": \"$(echo -n "${NEW_DB_URL}" | base64 -w0)\"}]"
+              # Build patch - always patch DATABASE_URL
+              PATCH="[{\"op\": \"replace\", \"path\": \"/data/DATABASE_URL\", \"value\": \"$(echo -n "${NEW_DB_URL}" | base64 -w0)\"}"
               
-              echo "Successfully patched ${SECRET_NAME} with CNPG password"
+              # Also patch Django secret if we have one to preserve
+              if [ -n "${DJANGO_SECRET}" ]; then
+                PATCH="${PATCH},{\"op\": \"replace\", \"path\": \"/data/DJANGO_SECRET_KEY\", \"value\": \"$(echo -n "${DJANGO_SECRET}" | base64 -w0)\"}"
+              fi
+              
+              PATCH="${PATCH}]"
+              
+              # Apply patch
+              kubectl patch secret "${SECRET_NAME}" -n ${NAMESPACE} --type='json' -p="${PATCH}"
+              
+              echo "Successfully patched ${SECRET_NAME} with CNPG password and Django secret"
 {{- end }}
