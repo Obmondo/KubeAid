@@ -1,0 +1,56 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "funkwhale.fullname" . }}-beat
+  labels:
+    app.kubernetes.io/name: {{ include "funkwhale.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    audio.funkwhale/component: celery-beat
+    helm.sh/chart: {{ include "funkwhale.chart" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "funkwhale.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      audio.funkwhale/component: celery-beat
+  template:
+    metadata:
+      annotations:
+        checksum/configmap: {{ include (print .Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print .Template.BasePath "/secret.yaml") . | sha256sum }}
+      labels:
+        app.kubernetes.io/name: {{ include "funkwhale.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        audio.funkwhale/component: celery-beat
+    spec:
+      containers:
+        - name: celery-beat
+          image: {{ include "funkwhale.imageUri" (dict "Scope" .Values.celery.image "Values" .Values "Chart" .Chart) | quote }}
+          imagePullPolicy: {{ .Values.celery.image.pullPolicy | default .Values.image.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - |
+              celery -A funkwhale_api.taskapp beat -l INFO
+          envFrom:
+          - configMapRef:
+              name: {{ include "funkwhale.fullname" . }}
+          - secretRef:
+              name: {{ include "funkwhale.fullname" . }}
+          resources:
+            {{- toYaml .Values.celery.beat.resources | nindent 12 }}
+      {{- with .Values.celery.beat.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.celery.beat.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.celery.beat.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}

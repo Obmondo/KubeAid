@@ -1,0 +1,44 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "funkwhale.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "funkwhale.name" . }}
+    helm.sh/chart: {{ include "funkwhale.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+data:
+  FUNKWHALE_HOSTNAME: {{ .Values.ingress.host }}
+  FUNKWHALE_PROTOCOL: {{ .Values.ingress.protocol }}
+  FUNKWHALE_SPA_HTML_ROOT: http://localhost/front/
+  REVERSE_PROXY_TYPE: nginx
+  MEDIA_ROOT: /srv/funkwhale/data/media
+  STATIC_ROOT: /srv/funkwhale/data/static
+  MUSIC_DIRECTORY_PATH: /srv/funkwhale/data/music
+  MUSIC_DIRECTORY_SERVE_PATH: /srv/funkwhale/data/music
+  DJANGO_SETTINGS_MODULE: config.settings.production
+  FUNKWHALE_FRONTEND_PATH: /srv/funkwhale/front/dist
+  NGINX_MAX_BODY_SIZE: 500M
+
+  DJANGO_ALLOWED_HOSTS: '*'
+
+{{- if .Values.s3.enabled }}
+  AWS_ACCESS_KEY_ID: {{ .Values.s3.accessKey }}
+  AWS_SECRET_ACCESS_KEY: {{ .Values.s3.secretKey }}
+  AWS_STORAGE_BUCKET_NAME: {{ .Values.s3.bucket }}
+  {{- if .Values.s3.region }}
+  AWS_S3_REGION_NAME: {{ .Values.s3.region }}
+  {{- end }}
+  {{- if .Values.s3.location }}
+  AWS_LOCATION: {{ .Values.s3.location }}
+  {{- end }}
+  {{- if .Values.s3.url }}
+  AWS_S3_ENDPOINT_URL: {{ .Values.s3.url }}
+  {{- end }}
+  PROXY_MEDIA: {{ .Values.s3.proxy | quote }}
+{{- end }}
+
+{{- with .Values.extraEnv }}
+  {{- toYaml . | nindent 2 }}
+{{- end -}}

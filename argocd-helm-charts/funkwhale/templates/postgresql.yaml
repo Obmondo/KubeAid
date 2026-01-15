@@ -1,0 +1,98 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  {{- if .Values.postgresql.recover }}
+  name: {{ .Release.Name }}-pgsql-recover
+  {{- else }}
+  name: {{ .Release.Name }}-pgsql
+  {{- end }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  instances: {{ .Values.postgresql.instance | default 1 }}
+  {{- if .Values.postgresql.recover }}
+  bootstrap:
+    recovery: {{ .Release.Name }}-pgsql
+  {{- else }}
+  bootstrap:
+    initdb:
+      database: {{ .Values.postgresql.bootstrap.initdb.database | default "funkwhale" }}
+      owner: {{ .Values.postgresql.bootstrap.initdb.owner | default "funkwhale" }}
+  {{- end }}
+  resources:
+    limits:
+      memory: {{ .Values.postgresql.resources.limits.memory | default "512Mi" }}
+    requests:
+      memory: {{ .Values.postgresql.resources.requests.memory | default "256Mi" }}
+      cpu: {{ .Values.postgresql.resources.requests.cpu | default "100m" }}
+  storage:
+    size: {{ .Values.postgresql.size }}
+    {{- if .Values.postgresql.storageClass }}
+    storageClass: {{ .Values.postgresql.storageClass }}
+    {{- end }}
+  {{- if .Values.postgresql.recover }}
+  externalClusters:
+    name: {{ .Release.Name }}-pgsql
+    barmanObjectStore:
+      destinationPath: {{ .Values.postgresql.backup.destinationPath }}
+      endpointURL: {{ .Values.postgresql.backup.endpointURL }}
+      {{- if eq .Values.postgresql.backup.cloud "aws" }}
+      s3Credentials:
+        accessKeyId:
+          name: {{ .Release.Name }}-pgsql-backup-creds
+          key: ACCESS_KEY_ID
+        secretAccessKey:
+          name: {{ .Release.Name }}-pgsql-backup-creds
+          key: ACCESS_SECRET_KEY
+      {{- end }}
+      {{- if eq .Values.postgresql.backup.cloud "azure" }}
+      azureCredentials:
+        connectionString:
+          name: {{ .Release.Name }}-pgsql-backup-creds
+          key: AZURE_CONNECTION_STRING
+        storageAccount:
+          name: {{ .Release.Name }}-pgsql-backup-creds
+          key: AZURE_STORAGE_ACCOUNT
+        storageKey:
+          name: {{ .Release.Name }}-pgsql-backup-creds
+          key: AZURE_STORAGE_KEY
+        storageSasToken:
+          name: {{ .Release.Name }}-pgsql-backup-creds
+          key: AZURE_STORAGE_SAS_TOKEN
+      {{- end }}
+      wal:
+        maxParallel: 8
+  {{- end }}
+  {{- if .Values.postgresql.backup }}
+  backup:
+    barmanObjectStore:
+      destinationPath: {{ .Values.postgresql.backup.destinationPath }}
+      endpointURL: {{ .Values.postgresql.backup.endpointURL }}
+      {{- if eq .Values.postgresql.backup.cloud "aws" }}
+      s3Credentials:
+        accessKeyId:
+          name: {{ .Release.Name }}-pgsql-backup-creds
+          key: ACCESS_KEY_ID
+        secretAccessKey:
+          name: {{ .Release.Name }}-pgsql-backup-creds
+          key: ACCESS_SECRET_KEY
+      {{- end }}
+      {{- if eq .Values.postgresql.backup.cloud "azure" }}
+      azureCredentials:
+        connectionString:
+          name: {{ .Release.Name }}-pgsql-backup-creds
+          key: AZURE_CONNECTION_STRING
+        storageAccount:
+          name: {{ .Release.Name }}-pgsql-backup-creds
+          key: AZURE_STORAGE_ACCOUNT
+        storageKey:
+          name: {{ .Release.Name }}-pgsql-backup-creds
+          key: AZURE_STORAGE_KEY
+        storageSasToken:
+          name: {{ .Release.Name }}-pgsql-backup-creds
+          key: AZURE_STORAGE_SAS_TOKEN
+      {{- end }}
+      wal:
+        compression: gzip
+        encryption: AES256
+    retentionPolicy: "30d"
+  {{- end }}

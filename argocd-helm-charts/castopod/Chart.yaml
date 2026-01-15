@@ -1,0 +1,7 @@
+apiVersion: v2
+name: castopod
+version: 1.0.0
+dependencies:
+  - name: castopod
+    version: 1.12.10
+    repository: https://hiimluck3r.github.io/helm-charts

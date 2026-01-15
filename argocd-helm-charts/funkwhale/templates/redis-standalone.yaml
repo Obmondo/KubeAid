@@ -1,0 +1,33 @@
+{{- if and .Values.externalRedis.enabled (eq .Values.externalRedis.mode "standalone") }}
+apiVersion: redis.redis.opstreelabs.in/v1beta2
+kind: Redis
+metadata:
+  name: {{ .Values.externalRedis.name | default (printf "%s-redis" .Release.Name) }}
+spec:
+  kubernetesConfig:
+    image: {{ .Values.externalRedis.image | default "quay.io/opstree/redis:v7.2.6" }}
+    imagePullPolicy: {{ .Values.externalRedis.imagePullPolicy | default "IfNotPresent" }}
+    resources:
+      requests:
+        cpu: {{ .Values.externalRedis.resources.requests.cpu | default "50m" }}
+        memory: {{ .Values.externalRedis.resources.requests.memory | default "64Mi" }}
+      limits:
+        memory: {{ .Values.externalRedis.resources.limits.memory | default "128Mi" }}
+  redisExporter:
+    enabled: false
+    image: quay.io/opstree/redis-exporter:v1.44.0
+    imagePullPolicy: Always
+  storage:
+    volumeClaimTemplate:
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.externalRedis.storageClass }}
+        storageClassName: {{ .Values.externalRedis.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.externalRedis.storage | default "2Gi" }}
+  podSecurityContext:
+    runAsUser: 1000
+    fsGroup: 1000
+{{- end }}

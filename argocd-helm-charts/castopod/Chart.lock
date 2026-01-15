@@ -1,0 +1,6 @@
+dependencies:
+- name: castopod
+  repository: https://hiimluck3r.github.io/helm-charts
+  version: 1.12.10
+digest: sha256:0bcca4311b1f123b2a90e17b56d25108a26c698d2c5e600d4aa2218962a766ad
+generated: "2026-01-14T18:07:01.474074176+05:30"

@@ -1,0 +1,58 @@
+{{- if .Values.externalMariadb.enabled }}
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: MariaDB
+metadata:
+  name: {{ .Release.Name }}-mariadb
+spec:
+  rootPasswordSecretKeyRef:
+    name: {{ .Values.externalMariadb.rootPasswordSecretKeyRef.name | default (printf "%s-mariadb-root" .Release.Name) }}
+    key: {{ .Values.externalMariadb.rootPasswordSecretKeyRef.key | default "password" }}
+    generate: {{ .Values.externalMariadb.rootPasswordSecretKeyRef.generate | default false }}
+
+  {{- if .Values.externalMariadb.database }}
+  database: {{ .Values.externalMariadb.database }}
+  {{- end }}
+
+  {{- if .Values.externalMariadb.username }}
+  username: {{ .Values.externalMariadb.username }}
+  passwordSecretKeyRef:
+    name: {{ .Values.externalMariadb.passwordSecretKeyRef.name | default (printf "%s-mariadb-user" .Release.Name) }}
+    key: {{ .Values.externalMariadb.passwordSecretKeyRef.key | default "password" }}
+    generate: {{ .Values.externalMariadb.passwordSecretKeyRef.generate | default false }}
+  {{- end }}
+
+  storage:
+    size: {{ .Values.externalMariadb.storage.size | default "10Gi" }}
+    {{- if .Values.externalMariadb.storage.storageClassName }}
+    storageClassName: {{ .Values.externalMariadb.storage.storageClassName }}
+    {{- end }}
+    resizeInUseVolumes: {{ .Values.externalMariadb.storage.resizeInUseVolumes | default true }}
+    waitForVolumeResize: {{ .Values.externalMariadb.storage.waitForVolumeResize | default true }}
+
+  securityContext:
+    allowPrivilegeEscalation: false
+
+  podDisruptionBudget:
+    maxUnavailable: 50%
+
+  myCnf: |
+    [mariadb]
+    bind-address=*
+    default_storage_engine=InnoDB
+    binlog_format=row
+    innodb_autoinc_lock_mode=2
+    max_allowed_packet=256M
+
+  image: {{ .Values.externalMariadb.image | default "mariadb:11.6.2-noble" }}
+  imagePullPolicy: {{ .Values.externalMariadb.imagePullPolicy | default "IfNotPresent" }}
+
+  {{- with .Values.externalMariadb.resources }}
+  resources:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+
+  service:
+    type: ClusterIP
+  
+  port: 3306
+{{- end }}

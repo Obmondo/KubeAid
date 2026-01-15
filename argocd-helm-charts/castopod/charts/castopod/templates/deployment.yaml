@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "castopod.fullname" . }}
+  labels:
+    {{- include "castopod.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "castopod.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "castopod.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "castopod.serviceAccountName" . }}
+      securityContext: {{- toYaml .Values.podSecurityContext | nindent 8 }}
+
+      {{- if .Values.persistence.enabled }}
+      volumes:
+        - name: castopod-media
+          persistentVolumeClaim:
+            claimName: castopod-media
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          {{- if .Values.persistence.enabled }}
+          volumeMounts:
+            - mountPath: /var/www/castopod/public/media
+              name: castopod-media
+          {{- end }}
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe.probe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.readinessProbe.enabled }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe.probe | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          env:
+            - name: CP_ANALYTICS_SALT
+              value: {{ default "changemesalt" .Values.env.CP_ANALYTICS_SALT }}
+            - name: CP_BASEURL
+              value: {{ .Values.env.CP_BASEURL }}
+            - name: CP_CACHE_HANDLER
+              value: "redis"
+            {{- if not .Values.env.https.enabled }}
+            - name: CP_DISABLE_HTTPS
+              value: "1"
+            {{- end }}
+            {{- if not .Values.redis.sentinel.enabled }}
+            - name: CP_REDIS_HOST
+              value: {{ .Release.Name }}-redis-master
+            {{- else }}
+            - name: CP_REDIS_HOST
+              value: {{ .Release.Name }}-redis #Sentinel doesn't work, actually
+            {{- end }}
+            - name: CP_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.name }}
+                  key: redis-password
+            - name: CP_DATABASE_HOSTNAME
+              value: {{ .Release.Name }}-mariadb
+            - name: MYSQL_DATABASE
+              value: {{ .Values.mariadb.auth.database }}
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.name }}
+                  key: mariadb-password
+            - name: MYSQL_USER
+              value: {{ .Values.mariadb.auth.username }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

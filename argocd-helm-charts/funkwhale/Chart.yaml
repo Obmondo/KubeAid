@@ -1,0 +1,8 @@
+apiVersion: v2
+name: funkwhale
+version: 1.0.0
+description: A Helm chart for Funkwhale - a community-driven project for music and audio sharing
+dependencies:
+  - name: funkwhale
+    version: 2.0.6
+    repository: https://ananace.gitlab.io/charts

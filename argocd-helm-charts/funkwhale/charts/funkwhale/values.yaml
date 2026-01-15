@@ -1,0 +1,304 @@
+# Default values for funkwhale.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+---
+image:
+  registry: docker.io/funkwhale
+  # tag:
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 500m
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  host: chart-example.local
+  protocol: http
+
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+  ## Set the name of the IngressClass cluster resource (optional)
+  ## https://kubernetes.io/docs/reference/kubernetes-api/service-resources/ingress-v1/#IngressSpec
+  # className: can-be-anything
+
+postgresql:
+  ## If you already have a Postgresql service you'd like to use, set
+  ## this to false and adjust the host to use your existing service.
+  enabled: true
+
+  ## External Postgresql hostname or IP
+  # host: postgresql.example.com
+
+  auth:
+    ## Database user
+    username: funkwhale
+
+    ## Database password
+    password: funkwhale
+
+    ## Database password
+    database: funkwhale
+
+  ## Database port
+  service:
+    port: 5432
+
+  primary:
+    ## Database storage configuration
+    persistence:
+      enabled: true
+      # storageClass: ""
+      # size: 8Gi
+
+    pgHbaConfiguration: |
+      local all all trust
+      host all all localhost trust
+      host all all 0.0.0.0/0 md5
+      host all all ::/0 md5
+
+    initdb:
+      scripts:
+        enable_extensions.sh: |
+          #!/bin/sh
+
+          echo 'create extension unaccent;' | psql -U postgres $POSTGRESQL_DATABASE
+          echo 'create extension citext;' | psql -U postgres $POSTGRESQL_DATABASE
+
+redis:
+  ## If you already have a Redis service you'd like to use, set
+  ## this to false and adjust the host to use your existing service.
+  enabled: true
+
+  ## External Redis hostname or IP
+  # host: redis.example.com
+  ## The redis database ID that funkwhale should use, defaults to 0
+  # database: 0
+
+  auth:
+    enabled: true
+    password: funkwhale
+
+  architecture: standalone
+  master:
+    kind: Deployment
+    persistence:
+      enabled: false
+    service:
+      port: 6379
+  slave:
+    persistence:
+      enabled: false
+
+## Django secret to use for encoding cookies/macaroons
+djangoSecret: ''
+
+## Additional environment variables to set
+extraEnv: {}
+  # LDAP_ENABLED: "True"
+  # LDAP_ROOT_DN: dc=example,dc=com
+  # LDAP_SEARCH_FILTER: (|(uid={0})(mail={0}))
+  # LDAP_SERVER_URI: ldaps://ldap.example.com
+  # LDAP_START_TLS: "True"
+  # MEDIA_ROOT: /srv/funkwhale/data/media
+
+## Additional secret environment variables to set
+extraSecret: {}
+  # EMAIL_CONFIG: smtp://
+  # DEFAULT_FROM_EMAIL: funkwhale@example.com
+
+## PVC-based data storage configuration
+persistence:
+  enabled: false
+  # existingClaim: netbox-data
+  # storageClass: "-"
+
+  ## Note; Using ReadWriteOnce for persistence will require the addition of
+  ## a required affinity for the celery worker, as well as the use of only a
+  ## single api replica.
+  ##
+  ## An example is provided for the worker affinity
+  accessMode: ReadWriteMany
+  size: 1Gi
+
+## S3-based data storage configuration
+s3:
+  enabled: false
+  proxy: true
+
+  accessKey: ''
+  secretKey: ''
+  bucket: funkwhale
+  # region: eu-west-2
+  # location: /funkwhale
+  # url: http://s3.example.com
+
+## API server configuration
+api:
+  image:
+    # registry:
+    image: api
+    # tag:
+    # pullPolicy:
+
+  ## Additional mounts to add to the API container
+  ## If using an external media mount it needs to be attached to both API and Front
+  extraVolumeMounts: []
+    # - name: extra-music-data
+    #   mountPath: /srv/funkwhale/data/music
+    #   readOnly: true
+
+  ## Additional volumes to add to the API container
+  extraVolumes: []
+    # - name: extra-music-data
+    #   persistentVolumeClaim:
+    #     claimName: volume-claim
+
+  resources: {}
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
+    # requests:
+    #   cpu: 100m
+    #   memory: 128Mi
+
+  nodeSelector: {}
+
+  tolerations: []
+
+  affinity: {}
+
+  readinessProbe:
+    httpGet:
+      path: /
+      port: api
+      scheme: HTTP
+
+  livenessProbe:
+    httpGet:
+      path: /
+      port: api
+      scheme: HTTP
+
+  startupProbe:
+    tcpSocket:
+      port: api
+
+## Web frontend and proxy
+front:
+  image:
+    # registry:
+    image: front
+    # tag:
+    # pullPolicy:
+
+  ## Additional mounts to add to the frontend container
+  extraVolumeMounts: []
+    # - name: extra-music-data
+    #   mountPath: /srv/funkwhale/data/music
+    #   readOnly: true
+
+  ## Additional volumes to add to the frontend container
+  extraVolumes: []
+    # - name: extra-music-data
+    #   persistentVolumeClaim:
+    #     claimName: volume-claim
+
+  resources: {}
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
+    # requests:
+    #   cpu: 100m
+    #   memory: 128Mi
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  readinessProbe:
+    httpGet:
+      path: /
+      port: http
+      scheme: HTTP
+
+  livenessProbe:
+    httpGet:
+      path: /
+      port: http
+      scheme: HTTP
+
+  startupProbe:
+    tcpSocket:
+      port: http
+
+celery:
+  image:
+    # registry:
+    image: api
+    # tag:
+    # pullPolicy:
+
+  beat:
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+      requests:
+        cpu: 10m
+        memory: 75Mi
+
+    nodeSelector: {}
+
+    tolerations: []
+
+    affinity: {}
+
+  worker:
+    replicaCount: 2
+
+    # Additional mounts to add to the worker pod
+    extraVolumeMounts: []
+      # - name: extra-music-data
+      #   mountPath: /srv/funkwhale/data/music
+      #   readOnly: true
+
+    extraVolumes: []
+      # - name: extra-music-data
+      #   persistentVolumeClaim:
+      #     claimName: volume-claim
+
+    resources: {}
+      # limits:
+      #   cpu: 100m
+      #   memory: 128Mi
+      # requests:
+      #   cpu: 100m
+      #   memory: 128Mi
+
+    nodeSelector: {}
+
+    tolerations: []
+
+    # Example provided for always co-locating with the main application, for
+    # use with ReadWriteOnce volumes.
+    affinity: {}
+      # requiredDuringSchedulingIgnoredDuringExecution:
+      # - labelSelector:
+      #     matchExpressions:
+      #     - key: audio.funkwhale/component
+      #       operator: In
+      #       values:
+      #       - app
