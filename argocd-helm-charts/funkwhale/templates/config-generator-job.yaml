@@ -1,0 +1,129 @@
+{{- if and (not .Values.funkwhale.postgresql.enabled) .Values.funkwhale.postgresql.auth.existingSecret }}
+{{- $secretName := .Values.funkwhale.postgresql.auth.existingSecret }}
+{{- $secretKey := .Values.funkwhale.postgresql.auth.existingSecretKey | default "password" }}
+{{- $releaseName := .Release.Name }}
+{{- $namespace := .Release.Namespace }}
+{{- $fullname := printf "%s-funkwhale" $releaseName }}
+# ServiceAccount for the config generator job
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $releaseName }}-funkwhale-config-generator
+  namespace: {{ $namespace }}
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+  labels:
+    app.kubernetes.io/name: {{ $releaseName }}-funkwhale
+    app.kubernetes.io/component: config-generator
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $releaseName }}-funkwhale-config-generator
+  namespace: {{ $namespace }}
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $releaseName }}-funkwhale-config-generator
+  namespace: {{ $namespace }}
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+subjects:
+  - kind: ServiceAccount
+    name: {{ $releaseName }}-funkwhale-config-generator
+    namespace: {{ $namespace }}
+roleRef:
+  kind: Role
+  name: {{ $releaseName }}-funkwhale-config-generator
+  apiGroup: rbac.authorization.k8s.io
+---
+# This Job runs as an ArgoCD PreSync hook to patch the Funkwhale secret
+# with the actual password from the CNPG-generated secret
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $releaseName }}-funkwhale-config-generator
+  namespace: {{ $namespace }}
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+  labels:
+    app.kubernetes.io/name: {{ $releaseName }}-funkwhale
+    app.kubernetes.io/component: config-generator
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  template:
+    spec:
+      serviceAccountName: {{ $releaseName }}-funkwhale-config-generator
+      restartPolicy: OnFailure
+      containers:
+        - name: config-generator
+          image: bitnami/kubectl:latest
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              
+              SECRET_NAME="{{ $fullname }}"
+              CNPG_SECRET="{{ $secretName }}"
+              CNPG_KEY="{{ $secretKey }}"
+              
+              echo "Waiting for CNPG secret ${CNPG_SECRET} to be available..."
+              for i in $(seq 1 30); do
+                if kubectl get secret "${CNPG_SECRET}" -n {{ $namespace }} >/dev/null 2>&1; then
+                  echo "CNPG secret found!"
+                  break
+                fi
+                echo "Waiting... (${i}/30)"
+                sleep 10
+              done
+              
+              # Read password from CNPG secret
+              PGPASSWORD=$(kubectl get secret "${CNPG_SECRET}" -n {{ $namespace }} -o jsonpath="{.data.${CNPG_KEY}}" | base64 -d)
+              
+              if [ -z "$PGPASSWORD" ]; then
+                echo "ERROR: Could not read password from secret ${CNPG_SECRET}"
+                exit 1
+              fi
+              
+              echo "Got password from CNPG secret"
+              
+              # URL-encode special characters in password
+              ENCODED_PW=$(printf '%s' "$PGPASSWORD" | sed 's/%/%25/g; s/ /%20/g; s/!/%21/g; s/"/%22/g; s/#/%23/g; s/\$/%24/g; s/&/%26/g; s/'\''/%27/g; s/(/%28/g; s/)/%29/g; s/\*/%2A/g; s/+/%2B/g; s/,/%2C/g; s/:/%3A/g; s/;/%3B/g; s/</%3C/g; s/=/%3D/g; s/>/%3E/g; s/\?/%3F/g; s/@/%40/g; s/\[/%5B/g; s/\\/%5C/g; s/\]/%5D/g; s/\^/%5E/g; s/{/%7B/g; s/|/%7C/g; s/}/%7D/g')
+              
+              # Check if Funkwhale secret exists
+              if ! kubectl get secret "${SECRET_NAME}" -n {{ $namespace }} >/dev/null 2>&1; then
+                echo "Funkwhale secret ${SECRET_NAME} not found yet - it will be created by Helm"
+                echo "This job will run again on next sync to patch the password"
+                exit 0
+              fi
+              
+              # Get current DATABASE_URL from the secret
+              CURRENT_DB_URL=$(kubectl get secret "${SECRET_NAME}" -n {{ $namespace }} -o jsonpath='{.data.DATABASE_URL}' | base64 -d)
+              
+              echo "Current DATABASE_URL: ${CURRENT_DB_URL}"
+              
+              # Replace placeholder with actual password
+              NEW_DB_URL=$(echo "${CURRENT_DB_URL}" | sed "s/CNPG_PASSWORD_PLACEHOLDER/${ENCODED_PW}/g")
+              
+              echo "New DATABASE_URL: ${NEW_DB_URL}"
+              
+              # Patch the secret with the correct password
+              kubectl patch secret "${SECRET_NAME}" -n {{ $namespace }} --type='json' \
+                -p="[{\"op\": \"replace\", \"path\": \"/data/DATABASE_URL\", \"value\": \"$(echo -n "${NEW_DB_URL}" | base64 -w0)\"}]"
+              
+              echo "Successfully patched ${SECRET_NAME} with CNPG password"
+{{- end }}

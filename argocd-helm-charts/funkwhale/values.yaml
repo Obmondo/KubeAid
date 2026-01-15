@@ -45,7 +45,7 @@ funkwhale:
         hosts:
           - funkwhale.example.com
 
-  # Django secret key
+  # Django secret key (auto-generated if not set)
   djangoSecret: ""
 
   # Disable bundled PostgreSQL - we use CloudNative-PG operator
@@ -54,8 +54,12 @@ funkwhale:
     host: funkwhale-pgsql-rw
     auth:
       username: funkwhale
-      password: ""  # Will use secret instead
       database: funkwhale
+      # For CNPG integration, set existingSecret to the CNPG-generated secret name
+      # existingSecret: "funkwhale-pgsql-app"
+      # existingSecretKey: "password"
+    service:
+      port: 5432
 
   # Disable bundled Redis - we use Redis Operator
   redis:
