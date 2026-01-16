@@ -48,9 +48,9 @@ To retrieve CouchDB credentials, run:
     -o jsonpath="{.data.password}" | base64 --decode
 
 Persistence:
-{{- if .Values.persistence.enabled }}
+{{- if .Values.flohmarkt.persistence.enabled }}
   ✔ Persistent storage enabled
-  Size: {{ .Values.persistence.size }}
+  Size: {{ .Values.flohmarkt.persistence.size }}
 {{- else }}
   ✖ Persistence disabled (data will be lost on pod restart)
 {{- end }}
