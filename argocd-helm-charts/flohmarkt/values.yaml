@@ -33,7 +33,6 @@ ingress:
         - path: /
           pathType: Prefix
   tls:
-    enabled: true
     - secretName: flohmarkt-tls
       hosts:
         - flohmarkt.eusafe.eu
