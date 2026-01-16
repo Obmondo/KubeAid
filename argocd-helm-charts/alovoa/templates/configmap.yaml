@@ -245,14 +245,14 @@ data:
     app.first-name.length-min={{ (((.Values.alovoa).limits).firstNameLengthMin) | default 2 }}
     app.first-name.length-max={{ (((.Values.alovoa).limits).firstNameLengthMax) | default 10 }}
     app.audio.max-time={{ (((.Values.alovoa).limits).audioMaxTime) | default 10 }}
-    app.audio.max-size={{ (((.Values.alovoa).limits).audioMaxSize) | default 10000000 }}
-    app.image.max-size={{ (((.Values.alovoa).limits).imageMaxSize) | default 5000000 }}
+    app.audio.max-size={{ (((.Values.alovoa).limits).audioMaxSize) | default 10000000 | int64 }}
+    app.image.max-size={{ (((.Values.alovoa).limits).imageMaxSize) | default 5000000 | int64 }}
     app.captcha.length={{ (((.Values.alovoa).limits).captchaLength) | default 4 }}
     app.password-token.length={{ (((.Values.alovoa).limits).passwordTokenLength) | default 32 }}
     app.age.min={{ (((.Values.alovoa).limits).ageMin) | default 16 }}
     app.age.max={{ (((.Values.alovoa).limits).ageMax) | default 99 }}
     app.age.range={{ (((.Values.alovoa).limits).ageRange) | default 10 }}
-    app.donation.popup.time={{ (((.Values.alovoa).limits).donationPopupTime) | default 604800000 }}
+    app.donation.popup.time={{ (((.Values.alovoa).limits).donationPopupTime) | default 604800000 | int64 }}
     app.token.length={{ (((.Values.alovoa).limits).tokenLength) | default 30 }}
     app.profile.image.length={{ (((.Values.alovoa).limits).profileImageLength) | default 600 }}
     app.profile.image.max={{ (((.Values.alovoa).limits).profileImageMax) | default 4 }}
@@ -278,7 +278,7 @@ data:
     app.login.remember.key={{ (((.Values.alovoa).security).rememberKey) | default "CWjuiidCW23KnRWUnzVpcpE4pVFcVCC7pi5X9htZVxDPp5ztWDrj2ePahFXQQeTx" }}
     
     # Timings
-    app.intention.delay={{ (((.Values.alovoa).timings).intentionDelay) | default 86400000 }}
+    app.intention.delay={{ (((.Values.alovoa).timings).intentionDelay) | default 86400000 | int64 }}
     app.interest.max={{ (((.Values.alovoa).timings).interestMax) | default 10 }}
     app.interest.min-chars={{ (((.Values.alovoa).timings).interestMinChars) | default 3 }}
     app.interest.max-chars={{ (((.Values.alovoa).timings).interestMaxChars) | default 30 }}
@@ -288,16 +288,16 @@ data:
     app.donation.modulus={{ (((.Values.alovoa).timings).donationModulus) | default 10 }}
     
     # User management timings
-    app.user.delete.duration.valid={{ (((.Values.alovoa).timings).userDeleteDurationValid) | default 86400000 }}
-    app.user.password-reset.duration.valid={{ (((.Values.alovoa).timings).userPasswordResetDurationValid) | default 300000 }}
+    app.user.delete.duration.valid={{ (((.Values.alovoa).timings).userDeleteDurationValid) | default 86400000 | int64 }}
+    app.user.password-reset.duration.valid={{ (((.Values.alovoa).timings).userPasswordResetDurationValid) | default 300000 | int64 }}
     
     # Schedule timings
     app.schedule.enabled={{ (((.Values.alovoa).scheduling).enabled) | default true }}
-    app.schedule.short={{ (((.Values.alovoa).scheduling).short) | default 30000 }}
-    app.schedule.long={{ (((.Values.alovoa).scheduling).long) | default 3600000 }}
-    app.schedule.delay.captcha={{ (((.Values.alovoa).scheduling).delayCaptcha) | default 300000 }}
-    app.schedule.delay.hide={{ (((.Values.alovoa).scheduling).delayHide) | default 9720000000 }}
-    app.schedule.delay.user.cleanup={{ (((.Values.alovoa).scheduling).delayUserCleanup) | default 1209600000 }}
+    app.schedule.short={{ (((.Values.alovoa).scheduling).short) | default 30000 | int64 }}
+    app.schedule.long={{ (((.Values.alovoa).scheduling).long) | default 3600000 | int64 }}
+    app.schedule.delay.captcha={{ (((.Values.alovoa).scheduling).delayCaptcha) | default 300000 | int64 }}
+    app.schedule.delay.hide={{ (((.Values.alovoa).scheduling).delayHide) | default 9720000000 | int64 }}
+    app.schedule.delay.user.cleanup={{ (((.Values.alovoa).scheduling).delayUserCleanup) | default 1209600000 | int64 }}
     
     # Actuator endpoints for health checks
     management.endpoints.web.exposure.include=health,info,prometheus
