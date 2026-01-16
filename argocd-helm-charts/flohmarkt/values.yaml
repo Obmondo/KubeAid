@@ -11,7 +11,6 @@ flohmarkt:
   persistence:
     enabled: true
     claimName: flohmarkt-data
-    mountPath: /var/lib/flohmarkt
     accessModes:
       - ReadWriteOnce
     size: 5Gi

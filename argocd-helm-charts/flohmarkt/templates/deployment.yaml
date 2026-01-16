@@ -28,7 +28,7 @@ spec:
                 name: {{ .Values.flohmarkt.envFrom.secret }}
           volumeMounts:
             - name: flohmarkt-data
-              mountPath: {{ .Values.flohmarkt.persistence.mountPath }}
+              mountPath: /var/lib/flohmarkt
       volumes:
         - name: flohmarkt-data
           persistentVolumeClaim:
