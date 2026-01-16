@@ -3,11 +3,11 @@ kind: Service
 metadata:
   name: {{ .Release.Name }}
   labels:
-    app: {{ .Values.labels.app }}
+    app: flohmarkt
 spec:
   type: {{ .Values.service.type }}
   selector:
-    app: {{ .Values.labels.app }}
+    app: flohmarkt
   ports:
     - port: {{ .Values.service.port }}
       targetPort: {{ .Values.service.targetPort }}
