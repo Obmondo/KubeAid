@@ -32,4 +32,4 @@ spec:
       volumes:
         - name: flohmarkt-data
           persistentVolumeClaim:
-            claimName: {{ .Values.flohmarkt.persistence.claimName }}
+            claimName: flohmarkt-data

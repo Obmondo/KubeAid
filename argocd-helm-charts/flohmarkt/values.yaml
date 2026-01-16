@@ -10,7 +10,6 @@ flohmarkt:
     secret: flohmarkt-secrets
   persistence:
     enabled: true
-    claimName: flohmarkt-data
     accessModes:
       - ReadWriteOnce
     size: 5Gi
