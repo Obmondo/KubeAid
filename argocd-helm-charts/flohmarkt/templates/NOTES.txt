@@ -34,7 +34,11 @@ Get the application URL by running these commands:
 CouchDB configuration:
   Host: couchdb
   Port: 5984
-  Database: {{ .Values.env.FLOHMARKT_DB_NAME | default "flohmarkt" }}
+{{- with .Values.env }}
+Database: {{ .FLOHMARKT_DB_NAME | default "flohmarkt" }}
+{{- else }}
+Database: flohmarkt
+{{- end }}
 
 To retrieve CouchDB credentials, run:
   kubectl get secret --namespace {{ .Release.Namespace }} {{ .Values.couchdb.secretName }} \
