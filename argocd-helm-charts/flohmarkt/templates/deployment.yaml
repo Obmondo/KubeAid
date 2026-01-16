@@ -17,7 +17,7 @@ flohmarkt:
     spec:
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ .Values.flohmarkt.image.repository }}:{{ .Values.image.tag }}"
+          image: {{ .Values.flohmarkt.image.repository }}:{{ .Values.image.tag }}
           imagePullPolicy: {{ .Values.flohmarkt.image.pullPolicy }}
           args: ["web"]
           ports:
