@@ -9,6 +9,7 @@ flohmarkt:
     FLOHMARKT_DB_HOST: flohmarkt-couchdb
     FLOHMARKT_DB_PORT: "5984"
     FLOHMARKT_DB_NAME: flohmarkt
+    LANG: en_US.UTF-8
 
   envFrom:
     configMap: flohmarkt-env
