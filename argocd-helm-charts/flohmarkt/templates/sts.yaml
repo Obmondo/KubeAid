@@ -46,3 +46,14 @@ spec:
         resources:
           requests:
             storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: couchdb
+spec:
+  ports:
+    - port: 5984
+      targetPort: 5984
+  selector:
+    app: couchdb

@@ -1,32 +1,36 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: flohmarkt
+  name: {{ .Release.Name }}
+  labels:
+    app: {{ .Values.labels.app }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: flohmarkt
+      app: {{ .Values.labels.app }}
   template:
     metadata:
       labels:
-        app: flohmarkt
+        app: {{ .Values.labels.app }}
     spec:
       containers:
-        - name: flohmarkt
-          image: harbor.obmondo.com/obmondo/flohmarkt:1.0.0
-          args: ["web"]              # ← THIS is the key fix
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+{{- toYaml .Values.command.args | nindent 12 }}
           ports:
-            - containerPort: 8000
+            - containerPort: {{ .Values.containerPort }}
           envFrom:
             - configMapRef:
-                name: flohmarkt-env
+                name: {{ .Values.envFrom.configMap }}
             - secretRef:
-                name: flohmarkt-secrets
+                name: {{ .Values.envFrom.secret }}
           volumeMounts:
             - name: flohmarkt-data
-              mountPath: /var/lib/flohmarkt
+              mountPath: {{ .Values.persistence.mountPath }}
       volumes:
         - name: flohmarkt-data
           persistentVolumeClaim:
-            claimName: flohmarkt-data
+            claimName: {{ .Values.persistence.claimName }}
