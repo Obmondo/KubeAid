@@ -12,6 +12,9 @@ flohmarkt:
     enabled: true
     claimName: flohmarkt-data
     mountPath: /var/lib/flohmarkt
+    accessModes:
+      - ReadWriteOnce
+    size: 5Gi
 
 couchdb:
   replicas: 1
