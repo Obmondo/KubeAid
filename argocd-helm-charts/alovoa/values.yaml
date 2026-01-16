@@ -211,23 +211,23 @@ resources:
 livenessProbe:
   httpGet:
     path: /actuator/health/liveness
-    port: http
+    port: 8080
     scheme: HTTP
   initialDelaySeconds: 120
   periodSeconds: 10
   timeoutSeconds: 5
-  failureThreshold: 3
+  failureThreshold: 6
 
 # Readiness probe
 readinessProbe:
   httpGet:
     path: /actuator/health/readiness
-    port: http
+    port: 8080
     scheme: HTTP
   initialDelaySeconds: 60
   periodSeconds: 10
   timeoutSeconds: 5
-  failureThreshold: 3
+  failureThreshold: 6
 
 # Autoscaling configuration
 autoscaling:
