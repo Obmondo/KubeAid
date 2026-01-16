@@ -24,13 +24,18 @@ couchdb:
 
 ingress:
   enabled: true
-  host: flohmarkt.example.com
-  path: /
-  pathType: Prefix
-  annotations: {}
+  className: "traefik"
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+  hosts:
+    - host: flohmarkt.eusafe.eu
+      paths:
+        - path: /
+          pathType: Prefix
   tls:
-    enabled: false
-    secretName: ""
+    - secretName: flohmarkt-tls
+      hosts:
+        - flohmarkt.eusafe.eu
 
 service:
   name: flohmarkt
