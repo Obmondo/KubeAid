@@ -5,6 +5,11 @@ flohmarkt:
     tag: "1.0.0"
     pullPolicy: IfNotPresent
   containerPort: 8000
+  env:
+    FLOHMARKT_DB_HOST: flohmarkt-couchdb
+    FLOHMARKT_DB_PORT: "5984"
+    FLOHMARKT_DB_NAME: flohmarkt
+
   envFrom:
     configMap: flohmarkt-env
     secret: flohmarkt-secrets
