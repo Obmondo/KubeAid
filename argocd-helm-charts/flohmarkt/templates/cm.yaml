@@ -5,3 +5,4 @@ metadata:
 data:
   FLOHMARKT_DB_HOST: couchdb
   FLOHMARKT_DB_PORT: "5984"
+  FLOHMARKT_DB_NAME: flohmarkt        # ← THIS WAS MISSING
