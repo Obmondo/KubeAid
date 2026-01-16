@@ -22,3 +22,16 @@ couchdb:
   secretName: flohmarkt-db
   storage: 10Gi
 
+ingress:
+  enabled: true
+  host: flohmarkt.example.com
+  path: /
+  pathType: Prefix
+  annotations: {}
+  tls:
+    enabled: false
+    secretName: ""
+
+service:
+  name: flohmarkt
+  port: 80

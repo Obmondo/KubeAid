@@ -1,0 +1,61 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your release is named {{ .Release.Name }}.
+
+To learn more about the release, try:
+
+  $ helm status {{ .Release.Name }}
+  $ helm get all {{ .Release.Name }}
+
+{{- if .Values.ingress.enabled }}
+
+Flohmarkt is available at:
+  {{- if .Values.ingress.tls.enabled }}
+  https://{{ .Values.ingress.host }}
+  {{- else }}
+  http://{{ .Values.ingress.host }}
+  {{- end }}
+
+{{- else }}
+
+Get the application URL by running these commands:
+
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} \
+    -l app.kubernetes.io/instance={{ .Release.Name }} \
+    -o jsonpath="{.items[0].metadata.name}")
+
+  export CONTAINER_PORT={{ .Values.containerPort }}
+
+  echo "Visit http://127.0.0.1:8000 to use Flohmarkt"
+  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8000:$CONTAINER_PORT
+
+{{- end }}
+
+CouchDB configuration:
+  Host: couchdb
+  Port: 5984
+  Database: {{ .Values.env.FLOHMARKT_DB_NAME | default "flohmarkt" }}
+
+To retrieve CouchDB credentials, run:
+  kubectl get secret --namespace {{ .Release.Namespace }} {{ .Values.couchdb.secretName }} \
+    -o jsonpath="{.data.user}" | base64 --decode
+
+  kubectl get secret --namespace {{ .Release.Namespace }} {{ .Values.couchdb.secretName }} \
+    -o jsonpath="{.data.password}" | base64 --decode
+
+Persistence:
+{{- if .Values.persistence.enabled }}
+  ✔ Persistent storage enabled
+  Size: {{ .Values.persistence.size }}
+{{- else }}
+  ✖ Persistence disabled (data will be lost on pod restart)
+{{- end }}
+
+IMPORTANT:
+1. Ensure the CouchDB service is running and reachable
+2. Verify FLOHMARKT_DB_* environment variables are set
+3. Run database initialization before starting the web container
+4. Configure ingress TLS if exposing publicly
+
+Project homepage:
+https://codeberg.org/flohmarkt/flohmarkt
