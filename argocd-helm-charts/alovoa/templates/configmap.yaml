@@ -9,8 +9,10 @@ data:
   # Spring Boot application properties
   application.properties: |
     # Server configuration
-    server.port={{ .Values.alovoa.serverPort | default 8443 }}
+    server.port={{ .Values.alovoa.serverPort | default 8080 }}
     server.address=0.0.0.0
+    server.http2.enabled=true
+    spring.main.allow-bean-definition-overriding=true
     
     # Spring profiles
     spring.profiles.active={{ .Values.alovoa.springProfiles | default "prod" }}
@@ -20,24 +22,50 @@ data:
     spring.datasource.url=jdbc:postgresql://{{ include "alovoa.databaseHost" . }}:{{ include "alovoa.databasePort" . }}/{{ include "alovoa.databaseName" . }}?sslmode=disable
     spring.datasource.username={{ include "alovoa.databaseUser" . }}
     spring.datasource.driver-class-name=org.postgresql.Driver
+    spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+    spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
     {{- else }}
-    spring.datasource.url=jdbc:mariadb://{{ include "alovoa.databaseHost" . }}:{{ include "alovoa.databasePort" . }}/{{ include "alovoa.databaseName" . }}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    spring.datasource.url=jdbc:mariadb://{{ include "alovoa.databaseHost" . }}:{{ include "alovoa.databasePort" . }}/{{ include "alovoa.databaseName" . }}?createDatabaseIfNotExist=true&serverTimezone=UTC&useLegacyDatetimeCode=false
     spring.datasource.username={{ include "alovoa.databaseUser" . }}
     spring.datasource.driver-class-name=org.mariadb.jdbc.Driver
+    spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MariaDBDialect
+    spring.jpa.database-platform=org.hibernate.dialect.MariaDB103Dialect
     {{- end }}
     
     # JPA/Hibernate configuration
     spring.jpa.hibernate.ddl-auto=update
-    {{- if .Values.postgres.enabled }}
-    spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
-    {{- else }}
-    spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MariaDBDialect
-    {{- end }}
+    spring.jpa.show-sql=false
+    spring.jpa.generate-ddl=true
     spring.jpa.open-in-view=false
+    spring.jpa.properties.hibernate.id.db_structure_naming_strategy=legacy
+    spring.jpa.properties.hibernate.jdbc.time_zone=UTC
+    spring.jpa.properties.hibernate.enable_lazy_load_no_trans=true
+    spring.jpa.properties.hibernate.plan_cache_max_size=16
+    spring.jpa.properties.hibernate.plan_parameter_metadata_max_size=16
+    spring.jpa.properties.hibernate.query.in_clause_parameter_padding=true
     
-    # Application URL
-    app.domain={{ .Values.alovoa.domain }}
-    app.url=https://{{ .Values.alovoa.domain }}
+    # Cache configuration (required for bucket4j)
+    spring.cache.jcache.config=classpath:ehcache.xml
+    
+    # File upload limits
+    spring.servlet.multipart.maxFileSize=10MB
+    spring.servlet.multipart.maxRequestSize=10MB
+    
+    # Session configuration
+    server.servlet.session.timeout=1h
+    server.servlet.session.cookie.max-age=1h
+    server.servlet.session.cookie.same-site=LAX
+    server.compression.enabled=true
+    server.compression.mime-types=text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/json,application/xml
+    server.compression.min-response-size=10240
+    
+    # Application URL and domain
+    app.name={{ .Values.alovoa.appName | default "Alovoa" }}
+    app.company.name={{ .Values.alovoa.companyName | default "Alovoa" }}
+    app.domain=https://{{ .Values.alovoa.domain }}
+    app.url.front-end=https://{{ .Values.alovoa.domain }}
+    app.url.auth.success=/
+    app.url.auth.failure=/?auth-error
     
     # Admin configuration
     app.admin.email={{ .Values.alovoa.adminEmail }}
@@ -56,8 +84,213 @@ data:
     spring.mail.username={{ .Values.alovoa.mail.username }}
     spring.mail.properties.mail.smtp.auth=true
     spring.mail.properties.mail.smtp.starttls.enable=true
+    spring.mail.test-connection={{ .Values.alovoa.mail.testConnection | default false }}
+    spring.mail.properties.mail.smtp.ssl.checkserveridentity=false
     app.mail.from={{ .Values.alovoa.mail.from }}
+    app.mail.plus-addressing={{ .Values.alovoa.mail.plusAddressing | default false }}
     {{- end }}
+    
+    # Bucket4j rate limiting configuration
+    bucket4j.enabled={{ .Values.alovoa.rateLimiting.enabled | default true }}
+    bucket4j.filters[0].cache-name=bucket4j
+    bucket4j.filters[0].url=.*
+    bucket4j.filters[0].rate-limits[0].cache-key=getRemoteAddr()
+    bucket4j.filters[0].rate-limits[0].bandwidths[0].capacity=200
+    bucket4j.filters[0].rate-limits[0].bandwidths[0].time=6
+    bucket4j.filters[0].rate-limits[0].bandwidths[0].unit=seconds
+    
+    bucket4j.filters[1].cache-name=bucket4j
+    bucket4j.filters[1].url=/login
+    bucket4j.filters[1].rate-limits[0].cache-key=getRemoteAddr()
+    bucket4j.filters[1].rate-limits[0].bandwidths[0].capacity=20
+    bucket4j.filters[1].rate-limits[0].bandwidths[0].time=60
+    bucket4j.filters[1].rate-limits[0].bandwidths[0].unit=seconds
+    
+    bucket4j.filters[2].cache-name=bucket4j
+    bucket4j.filters[2].url=/delete-account-confirm
+    bucket4j.filters[2].rate-limits[0].cache-key=getRemoteAddr()
+    bucket4j.filters[2].rate-limits[0].bandwidths[0].capacity=5
+    bucket4j.filters[2].rate-limits[0].bandwidths[0].time=60
+    bucket4j.filters[2].rate-limits[0].bandwidths[0].unit=seconds
+    
+    bucket4j.filters[3].cache-name=bucket4j
+    bucket4j.filters[3].url=/password/reset
+    bucket4j.filters[3].rate-limits[0].cache-key=getRemoteAddr()
+    bucket4j.filters[3].rate-limits[0].bandwidths[0].capacity=5
+    bucket4j.filters[3].rate-limits[0].bandwidths[0].time=60
+    bucket4j.filters[3].rate-limits[0].bandwidths[0].unit=seconds
+    
+    bucket4j.filters[4].cache-name=bucket4j
+    bucket4j.filters[4].url=/password/change
+    bucket4j.filters[4].rate-limits[0].cache-key=getRemoteAddr()
+    bucket4j.filters[4].rate-limits[0].bandwidths[0].capacity=5
+    bucket4j.filters[4].rate-limits[0].bandwidths[0].time=60
+    bucket4j.filters[4].rate-limits[0].bandwidths[0].unit=seconds
+    
+    bucket4j.filters[5].cache-name=bucket4j
+    bucket4j.filters[5].url=/user/like/*
+    bucket4j.filters[5].rate-limits[0].cache-key=getRemoteAddr()
+    bucket4j.filters[5].rate-limits[0].bandwidths[0].capacity=10
+    bucket4j.filters[5].rate-limits[0].bandwidths[0].time=60
+    bucket4j.filters[5].rate-limits[0].bandwidths[0].unit=seconds
+    
+    bucket4j.filters[6].cache-name=bucket4j
+    bucket4j.filters[6].url=/search/users/*
+    bucket4j.filters[6].rate-limits[0].cache-key=getRemoteAddr()
+    bucket4j.filters[6].rate-limits[0].bandwidths[0].capacity=5
+    bucket4j.filters[6].rate-limits[0].bandwidths[0].time=60
+    bucket4j.filters[6].rate-limits[0].bandwidths[0].unit=seconds
+    
+    bucket4j.filters[7].cache-name=bucket4j
+    bucket4j.filters[7].url=/register
+    bucket4j.filters[7].rate-limits[0].cache-key=getRemoteAddr()
+    bucket4j.filters[7].rate-limits[0].bandwidths[0].capacity=5
+    bucket4j.filters[7].rate-limits[0].bandwidths[0].time=60
+    bucket4j.filters[7].rate-limits[0].bandwidths[0].unit=seconds
+    
+    bucket4j.filters[8].cache-name=bucket4j
+    bucket4j.filters[8].url=/user/delete-account-confirm
+    bucket4j.filters[8].rate-limits[0].cache-key=getRemoteAddr()
+    bucket4j.filters[8].rate-limits[0].bandwidths[0].capacity=5
+    bucket4j.filters[8].rate-limits[0].bandwidths[0].time=60
+    bucket4j.filters[8].rate-limits[0].bandwidths[0].unit=seconds
+    
+    bucket4j.filters[9].cache-name=bucket4j
+    bucket4j.filters[9].url=/user/update/profile-picture
+    bucket4j.filters[9].rate-limits[0].cache-key=getRemoteAddr()
+    bucket4j.filters[9].rate-limits[0].bandwidths[0].capacity=5
+    bucket4j.filters[9].rate-limits[0].bandwidths[0].time=60
+    bucket4j.filters[9].rate-limits[0].bandwidths[0].unit=seconds
+    
+    bucket4j.filters[10].cache-name=bucket4j
+    bucket4j.filters[10].url=/user/update/audio*
+    bucket4j.filters[10].rate-limits[0].cache-key=getRemoteAddr()
+    bucket4j.filters[10].rate-limits[0].bandwidths[0].capacity=5
+    bucket4j.filters[10].rate-limits[0].bandwidths[0].time=60
+    bucket4j.filters[10].rate-limits[0].bandwidths[0].unit=seconds
+    
+    bucket4j.filters[11].cache-name=bucket4j
+    bucket4j.filters[11].url=/user/image/add
+    bucket4j.filters[11].rate-limits[0].cache-key=getRemoteAddr()
+    bucket4j.filters[11].rate-limits[0].bandwidths[0].capacity=5
+    bucket4j.filters[11].rate-limits[0].bandwidths[0].time=60
+    bucket4j.filters[11].rate-limits[0].bandwidths[0].unit=seconds
+    
+    bucket4j.filters[12].cache-name=bucket4j
+    bucket4j.filters[12].url=/user/report
+    bucket4j.filters[12].rate-limits[0].cache-key=getRemoteAddr()
+    bucket4j.filters[12].rate-limits[0].bandwidths[0].capacity=5
+    bucket4j.filters[12].rate-limits[0].bandwidths[0].time=60
+    bucket4j.filters[12].rate-limits[0].bandwidths[0].unit=seconds
+    
+    bucket4j.filters[13].cache-name=bucket4j
+    bucket4j.filters[13].url=/profile/view/*
+    bucket4j.filters[13].rate-limits[0].cache-key=getRemoteAddr()
+    bucket4j.filters[13].rate-limits[0].bandwidths[0].capacity=5
+    bucket4j.filters[13].rate-limits[0].bandwidths[0].time=60
+    bucket4j.filters[13].rate-limits[0].bandwidths[0].unit=seconds
+    
+    bucket4j.filters[14].cache-name=bucket4j
+    bucket4j.filters[14].url=/captcha/generate
+    bucket4j.filters[14].rate-limits[0].cache-key=getRemoteAddr()
+    bucket4j.filters[14].rate-limits[0].bandwidths[0].capacity=5
+    bucket4j.filters[14].rate-limits[0].bandwidths[0].time=60
+    bucket4j.filters[14].rate-limits[0].bandwidths[0].unit=seconds
+    
+    bucket4j.filters[15].cache-name=bucket4j
+    bucket4j.filters[15].url=/info
+    bucket4j.filters[15].rate-limits[0].cache-key=getRemoteAddr()
+    bucket4j.filters[15].rate-limits[0].bandwidths[0].capacity=2
+    bucket4j.filters[15].rate-limits[0].bandwidths[0].time=20
+    bucket4j.filters[15].rate-limits[0].bandwidths[0].unit=seconds
+    
+    bucket4j.filters[16].cache-name=bucket4j
+    bucket4j.filters[16].url=/user/*
+    bucket4j.filters[16].rate-limits[0].cache-key=getRemoteAddr()
+    bucket4j.filters[16].rate-limits[0].bandwidths[0].capacity=10
+    bucket4j.filters[16].rate-limits[0].bandwidths[0].time=20
+    bucket4j.filters[16].rate-limits[0].bandwidths[0].unit=seconds
+    
+    bucket4j.filters[17].cache-name=bucket4j
+    bucket4j.filters[17].url=/user/userdata/*
+    bucket4j.filters[17].rate-limits[0].cache-key=getRemoteAddr()
+    bucket4j.filters[17].rate-limits[0].bandwidths[0].capacity=5
+    bucket4j.filters[17].rate-limits[0].bandwidths[0].time=1200
+    bucket4j.filters[17].rate-limits[0].bandwidths[0].unit=seconds
+    
+    bucket4j.filters[18].cache-name=bucket4j
+    bucket4j.filters[18].url=/profile/*
+    bucket4j.filters[18].rate-limits[0].cache-key=getRemoteAddr()
+    bucket4j.filters[18].rate-limits[0].bandwidths[0].capacity=10
+    bucket4j.filters[18].rate-limits[0].bandwidths[0].time=10
+    bucket4j.filters[18].rate-limits[0].bandwidths[0].unit=seconds
+    
+    bucket4j.filters[19].cache-name=bucket4j
+    bucket4j.filters[19].url=/imprint/delete-account-request
+    bucket4j.filters[19].rate-limits[0].cache-key=getRemoteAddr()
+    bucket4j.filters[19].rate-limits[0].bandwidths[0].capacity=10
+    bucket4j.filters[19].rate-limits[0].bandwidths[0].time=1200
+    bucket4j.filters[19].rate-limits[0].bandwidths[0].unit=seconds
+    
+    # Application settings
+    app.privacy.update-date={{ .Values.alovoa.privacyUpdateDate | default "2021-06-16" }}
+    app.tos.update-date={{ .Values.alovoa.tosUpdateDate | default "2021-09-22" }}
+    app.scheduling.enabled={{ .Values.alovoa.scheduling.enabled | default true }}
+    
+    # Donation keys (set via secrets in production)
+    app.donate.kofi.key={{ .Values.alovoa.donate.kofiKey | default "kofi123" }}
+    app.donate.bmac.key={{ .Values.alovoa.donate.bmacKey | default "bmac123" }}
+    
+    # Application limits
+    app.first-name.length-min={{ .Values.alovoa.limits.firstNameLengthMin | default 2 }}
+    app.first-name.length-max={{ .Values.alovoa.limits.firstNameLengthMax | default 10 }}
+    app.audio.max-time={{ .Values.alovoa.limits.audioMaxTime | default 10 }}
+    app.audio.max-size={{ .Values.alovoa.limits.audioMaxSize | default 10000000 }}
+    app.image.max-size={{ .Values.alovoa.limits.imageMaxSize | default 5000000 }}
+    app.captcha.length={{ .Values.alovoa.limits.captchaLength | default 4 }}
+    app.password-token.length={{ .Values.alovoa.limits.passwordTokenLength | default 32 }}
+    app.age.min={{ .Values.alovoa.limits.ageMin | default 16 }}
+    app.age.max={{ .Values.alovoa.limits.ageMax | default 99 }}
+    app.age.range={{ .Values.alovoa.limits.ageRange | default 10 }}
+    app.donation.popup.time={{ .Values.alovoa.limits.donationPopupTime | default 604800000 }}
+    app.token.length={{ .Values.alovoa.limits.tokenLength | default 30 }}
+    app.profile.image.length={{ .Values.alovoa.limits.profileImageLength | default 600 }}
+    app.profile.image.max={{ .Values.alovoa.limits.profileImageMax | default 4 }}
+    app.profile.description.size={{ .Values.alovoa.limits.profileDescriptionSize | default 255 }}
+    app.search.max={{ .Values.alovoa.limits.searchMax | default 20 }}
+    app.search.max.distance={{ .Values.alovoa.limits.searchMaxDistance | default 160 }}
+    app.search.estimate.max={{ .Values.alovoa.limits.searchEstimateMax | default 200 }}
+    app.search.ignore-intention={{ .Values.alovoa.limits.searchIgnoreIntention | default true }}
+    app.message.size={{ .Values.alovoa.limits.messageSize | default 255 }}
+    app.conversation.messages-max={{ .Values.alovoa.limits.conversationMessagesMax | default 50 }}
+    app.donate.users.max={{ .Values.alovoa.limits.donateUsersMax | default 100 }}
+    app.referral.max={{ .Values.alovoa.limits.referralMax | default 20 }}
+    app.like.message.length={{ .Values.alovoa.limits.likeMessageLength | default 120 }}
+    
+    # Security key (should be set via secret)
+    app.login.remember.key={{ .Values.alovoa.security.rememberKey | default "CWjuiidCW23KnRWUnzVpcpE4pVFcVCC7pi5X9htZVxDPp5ztWDrj2ePahFXQQeTx" }}
+    
+    # Timings
+    app.intention.delay={{ .Values.alovoa.timings.intentionDelay | default 86400000 }}
+    app.interest.max={{ .Values.alovoa.timings.interestMax | default 10 }}
+    app.interest.min-chars={{ .Values.alovoa.timings.interestMinChars | default 3 }}
+    app.interest.max-chars={{ .Values.alovoa.timings.interestMaxChars | default 30 }}
+    app.interest.autocomplete.max={{ .Values.alovoa.timings.interestAutocompleteMax | default 5 }}
+    app.prompt.max={{ .Values.alovoa.timings.promptMax | default 6 }}
+    app.prompt.length.max={{ .Values.alovoa.timings.promptLengthMax | default 120 }}
+    app.donation.modulus={{ .Values.alovoa.timings.donationModulus | default 10 }}
+    
+    # User management timings
+    app.user.delete.duration.valid={{ .Values.alovoa.timings.userDeleteDurationValid | default 86400000 }}
+    app.user.password-reset.duration.valid={{ .Values.alovoa.timings.userPasswordResetDurationValid | default 300000 }}
+    
+    # Schedule timings
+    app.schedule.enabled={{ .Values.alovoa.scheduling.enabled | default true }}
+    app.schedule.short={{ .Values.alovoa.scheduling.short | default 30000 }}
+    app.schedule.long={{ .Values.alovoa.scheduling.long | default 3600000 }}
+    app.schedule.delay.captcha={{ .Values.alovoa.scheduling.delayCaptcha | default 300000 }}
+    app.schedule.delay.hide={{ .Values.alovoa.scheduling.delayHide | default 9720000000 }}
+    app.schedule.delay.user.cleanup={{ .Values.alovoa.scheduling.delayUserCleanup | default 1209600000 }}
     
     # Actuator endpoints for health checks
     management.endpoints.web.exposure.include=health,info,prometheus
@@ -66,6 +299,9 @@ data:
     management.health.readinessState.enabled=true
     
     # Logging
-    logging.level.root=INFO
-    logging.level.com.nonononoki.alovoa=INFO
-
+    logging.pattern.console=%d{yyyy-MM-dd HH:mm:ss} %-5level %logger{36} - %msg%n
+    logging.level.root={{ .Values.alovoa.logging.rootLevel | default "INFO" }}
+    logging.level.org.springframework.web={{ .Values.alovoa.logging.springWebLevel | default "INFO" }}
+    logging.level.org.hibernate.SQL={{ .Values.alovoa.logging.hibernateSqlLevel | default "ERROR" }}
+    logging.level.org.hibernate={{ .Values.alovoa.logging.hibernateLevel | default "ERROR" }}
+    logging.level.com.nonononoki.alovoa={{ .Values.alovoa.logging.alovoaLevel | default "INFO" }}
