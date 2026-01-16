@@ -5,6 +5,15 @@ flohmarkt:
     tag: "1.0.0"
     pullPolicy: IfNotPresent
   containerPort: 8000
+  env:
+    FLOHMARKT_DB_HOST: flohmarkt-couchdb
+    FLOHMARKT_DB_PORT: "5984"
+    FLOHMARKT_DB_NAME: flohmarkt
+    LANG: en_US.UTF-8
+    FLOHMARKT_INSTANCE_NAME: instanzname
+    FLOHMARKT_EXTERNAL_URL: https://flohmarkt.eusafe.eu/
+    FLOHMARKT_JWT_SECRET: abcd
+
   envFrom:
     configMap: flohmarkt-env
     secret: flohmarkt-secrets
