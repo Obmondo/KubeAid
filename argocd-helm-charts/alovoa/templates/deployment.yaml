@@ -1,0 +1,143 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "alovoa.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "alovoa.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "alovoa.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "alovoa.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "alovoa.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: wait-for-db
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for database to be ready..."
+              {{- if .Values.mariadb.enabled }}
+              until nc -z {{ include "alovoa.databaseHost" . }} {{ include "alovoa.databasePort" . }}; do
+                echo "Database not ready, waiting..."
+                sleep 5
+              done
+              {{- else if .Values.postgres.enabled }}
+              until nc -z {{ include "alovoa.databaseHost" . }} {{ include "alovoa.databasePort" . }}; do
+                echo "Database not ready, waiting..."
+                sleep 5
+              done
+              {{- end }}
+              echo "Database is ready!"
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.alovoa.serverPort | default 8443 }}
+              protocol: TCP
+          env:
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "alovoa.databaseSecretName" . }}
+                  key: {{ include "alovoa.databaseSecretKey" . }}
+            {{- if and .Values.alovoa.mail.enabled .Values.alovoa.mail.existingSecret }}
+            - name: SPRING_MAIL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.alovoa.mail.existingSecret }}
+                  key: {{ .Values.alovoa.mail.existingSecretKey | default "password" }}
+            {{- end }}
+            {{- if and .Values.alovoa.ssl.enabled .Values.alovoa.ssl.existingSecret }}
+            - name: SERVER_SSL_KEY_STORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.alovoa.ssl.existingSecret }}
+                  key: {{ .Values.alovoa.ssl.existingSecretKey | default "keystore-password" }}
+            {{- end }}
+            - name: SPRING_CONFIG_LOCATION
+              value: "file:/app/config/"
+            {{- with .Values.alovoa.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.alovoa.extraEnvFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+              readOnly: true
+            {{- if .Values.persistence.enabled }}
+            - name: data
+              mountPath: /app/data
+            {{- end }}
+            {{- if .Values.alovoa.ssl.enabled }}
+            - name: certs
+              mountPath: /app/certs
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "alovoa.fullname" . }}-config
+        {{- if .Values.persistence.enabled }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim | default (printf "%s-data" (include "alovoa.fullname" .)) }}
+        {{- end }}
+        {{- if .Values.alovoa.ssl.enabled }}
+        - name: certs
+          secret:
+            secretName: {{ .Values.alovoa.ssl.existingSecret | default (printf "%s-tls" (include "alovoa.fullname" .)) }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+

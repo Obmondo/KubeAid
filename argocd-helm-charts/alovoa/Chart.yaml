@@ -1,0 +1,18 @@
+apiVersion: v2
+name: alovoa
+version: 1.0.0
+description: A Helm chart for Alovoa - Free and open-source dating platform that respects your privacy
+type: application
+appVersion: "v2.0.0"
+keywords:
+  - alovoa
+  - dating
+  - social
+  - privacy
+home: https://github.com/Alovoa/alovoa
+sources:
+  - https://github.com/Alovoa/alovoa
+maintainers:
+  - name: Obmondo
+    url: https://obmondo.com
+

@@ -1,0 +1,57 @@
+{{- if .Values.mariadb.enabled }}
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: MariaDB
+metadata:
+  name: {{ .Values.mariadb.name | default (printf "%s-mariadb" .Release.Name) }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "alovoa.labels" . | nindent 4 }}
+spec:
+  rootPasswordSecretKeyRef:
+    name: {{ .Values.mariadb.rootPasswordSecretRef.name | default (printf "%s-mariadb-root" .Release.Name) }}
+    key: {{ .Values.mariadb.rootPasswordSecretRef.key | default "password" }}
+  
+  database: {{ .Values.mariadb.database | default "alovoa" }}
+  username: {{ .Values.mariadb.username | default "alovoa" }}
+  passwordSecretKeyRef:
+    name: {{ .Values.mariadb.passwordSecretRef.name | default (printf "%s-mariadb" .Release.Name) }}
+    key: {{ .Values.mariadb.passwordSecretRef.key | default "password" }}
+  
+  image: mariadb:11.4
+  imagePullPolicy: IfNotPresent
+  
+  port: 3306
+  
+  replicas: {{ .Values.mariadb.replicas | default 1 }}
+  
+  storage:
+    size: {{ .Values.mariadb.storage.size | default "10Gi" }}
+    {{- if .Values.mariadb.storage.storageClassName }}
+    storageClassName: {{ .Values.mariadb.storage.storageClassName }}
+    {{- end }}
+  
+  {{- if .Values.mariadb.resources }}
+  resources:
+    {{- toYaml .Values.mariadb.resources | nindent 4 }}
+  {{- end }}
+  
+  myCnf: |
+    [mariadb]
+    bind-address=*
+    default_storage_engine=InnoDB
+    binlog_format=row
+    innodb_autoinc_lock_mode=2
+    innodb_buffer_pool_size=256M
+    max_allowed_packet=256M
+    character-set-server=utf8mb4
+    collation-server=utf8mb4_unicode_ci
+  
+  metrics:
+    enabled: true
+  
+  podSecurityContext:
+    runAsUser: 999
+    runAsGroup: 999
+    fsGroup: 999
+{{- end }}
+

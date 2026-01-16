@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "alovoa.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "alovoa.labels" . | nindent 4 }}
+data:
+  # Spring Boot application properties
+  application.properties: |
+    # Server configuration
+    server.port={{ .Values.alovoa.serverPort | default 8443 }}
+    server.address=0.0.0.0
+    
+    # Spring profiles
+    spring.profiles.active={{ .Values.alovoa.springProfiles | default "prod" }}
+    
+    # Database configuration
+    {{- if .Values.postgres.enabled }}
+    spring.datasource.url=jdbc:postgresql://{{ include "alovoa.databaseHost" . }}:{{ include "alovoa.databasePort" . }}/{{ include "alovoa.databaseName" . }}?sslmode=disable
+    spring.datasource.username={{ include "alovoa.databaseUser" . }}
+    spring.datasource.driver-class-name=org.postgresql.Driver
+    {{- else }}
+    spring.datasource.url=jdbc:mariadb://{{ include "alovoa.databaseHost" . }}:{{ include "alovoa.databasePort" . }}/{{ include "alovoa.databaseName" . }}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    spring.datasource.username={{ include "alovoa.databaseUser" . }}
+    spring.datasource.driver-class-name=org.mariadb.jdbc.Driver
+    {{- end }}
+    
+    # JPA/Hibernate configuration
+    spring.jpa.hibernate.ddl-auto=update
+    {{- if .Values.postgres.enabled }}
+    spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+    {{- else }}
+    spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MariaDBDialect
+    {{- end }}
+    spring.jpa.open-in-view=false
+    
+    # Application URL
+    app.domain={{ .Values.alovoa.domain }}
+    app.url=https://{{ .Values.alovoa.domain }}
+    
+    # Admin configuration
+    app.admin.email={{ .Values.alovoa.adminEmail }}
+    
+    {{- if .Values.alovoa.ssl.enabled }}
+    # SSL configuration
+    server.ssl.enabled=true
+    server.ssl.key-store-type={{ .Values.alovoa.ssl.keyStoreType | default "PKCS12" }}
+    server.ssl.key-store={{ .Values.alovoa.ssl.keyStore | default "/app/certs/keystore.p12" }}
+    {{- end }}
+    
+    {{- if .Values.alovoa.mail.enabled }}
+    # Mail configuration
+    spring.mail.host={{ .Values.alovoa.mail.host }}
+    spring.mail.port={{ .Values.alovoa.mail.port | default 587 }}
+    spring.mail.username={{ .Values.alovoa.mail.username }}
+    spring.mail.properties.mail.smtp.auth=true
+    spring.mail.properties.mail.smtp.starttls.enable=true
+    app.mail.from={{ .Values.alovoa.mail.from }}
+    {{- end }}
+    
+    # Actuator endpoints for health checks
+    management.endpoints.web.exposure.include=health,info,prometheus
+    management.endpoint.health.probes.enabled=true
+    management.health.livenessState.enabled=true
+    management.health.readinessState.enabled=true
+    
+    # Logging
+    logging.level.root=INFO
+    logging.level.com.nonononoki.alovoa=INFO
+

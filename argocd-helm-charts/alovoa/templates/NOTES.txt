@@ -1,0 +1,68 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your release is named {{ .Release.Name }}.
+
+To learn more about the release, try:
+
+  $ helm status {{ .Release.Name }}
+  $ helm get all {{ .Release.Name }}
+
+{{- if .Values.ingress.enabled }}
+
+Alovoa is available at:
+{{- range .Values.ingress.hosts }}
+  https://{{ .host }}
+{{- end }}
+
+{{- else if contains "NodePort" .Values.service.type }}
+
+Get the application URL by running these commands:
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "alovoa.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo https://$NODE_IP:$NODE_PORT
+
+{{- else if contains "LoadBalancer" .Values.service.type }}
+
+Get the application URL by running these commands:
+  NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+        You can watch the status of by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "alovoa.fullname" . }}'
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "alovoa.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo https://$SERVICE_IP:{{ .Values.service.port }}
+
+{{- else if contains "ClusterIP" .Values.service.type }}
+
+Get the application URL by running these commands:
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "alovoa.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  echo "Visit https://127.0.0.1:8443 to use your application"
+  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8443:$CONTAINER_PORT
+
+{{- end }}
+
+{{- if .Values.mariadb.enabled }}
+
+MariaDB is being managed by the MariaDB Operator.
+Database: {{ .Values.mariadb.database | default "alovoa" }}
+Username: {{ .Values.mariadb.username | default "alovoa" }}
+
+To get the database password, run:
+  kubectl get secret --namespace {{ .Release.Namespace }} {{ .Values.mariadb.passwordSecretRef.name | default (printf "%s-mariadb" .Release.Name) }} -o jsonpath="{.data.{{ .Values.mariadb.passwordSecretRef.key | default "password" }}}" | base64 --decode
+
+{{- else if .Values.postgres.enabled }}
+
+PostgreSQL is being managed by CloudNative-PG Operator.
+Database: {{ .Values.postgres.bootstrap.initdb.database | default "alovoa" }}
+Username: {{ .Values.postgres.bootstrap.initdb.owner | default "alovoa" }}
+
+To get the database password, run:
+  kubectl get secret --namespace {{ .Release.Namespace }} {{ .Release.Name }}-pgsql-app -o jsonpath="{.data.password}" | base64 --decode
+
+{{- end }}
+
+IMPORTANT: Before using Alovoa, ensure you have:
+1. Created the required database password secrets
+2. Configured mail settings for user registration
+3. Set up SSL certificates or configured cert-manager
+
+For more information, visit: https://github.com/Alovoa/alovoa
+
