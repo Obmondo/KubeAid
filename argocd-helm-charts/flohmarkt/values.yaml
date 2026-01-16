@@ -10,6 +10,9 @@ flohmarkt:
     FLOHMARKT_DB_PORT: "5984"
     FLOHMARKT_DB_NAME: flohmarkt
     LANG: en_US.UTF-8
+    FLOHMARKT_INSTANCE_NAME: instanzname
+    FLOHMARKT_EXTERNAL_URL: https://flohmarkt.eusafe.eu/
+    FLOHMARKT_JWT_SECRET: jE4ehzEHImUfr6nlEKydud4vLpgDJpPbvmHjX8JLAzWv2FCVZTdmFB07USplgjdXSE8h/ABlSgcvyyO4GOk1vjIWEuOYkfNkNYXfQtNkVNFUVVUaN63uU7re0WrWVHfwRgC7bR3nh+AUX31L/MgHy+OLbriYGxGxizx72H9f95DkoZYayXlqr7O7/diWfdZUz6s5KhszuEM0v/JXAdC66jkxYcSXMHSoqeTRZOBjjNfdt+FZskhpWeyXElYBC6q4bJXj+9sBdahZQVG4Lc5LxIe3B428KoY6+rakKzEwLo09vdZ2sF1Z/hnYys4OahrGUMXbAHOX1SdIAmSsEAnEBQ==
 
   envFrom:
     configMap: flohmarkt-env
