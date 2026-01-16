@@ -70,23 +70,17 @@ data:
     # Admin configuration
     app.admin.email={{ .Values.alovoa.adminEmail }}
     
-    # OAuth2 configuration (optional - for Google/Facebook login)
-    {{- if (((.Values.alovoa).oauth2).google).clientId }}
-    spring.security.oauth2.client.registration.google.client-id={{ .Values.alovoa.oauth2.google.clientId }}
-    spring.security.oauth2.client.registration.google.client-secret={{ .Values.alovoa.oauth2.google.clientSecret }}
+    # OAuth2 configuration (required for Alovoa - provides social login)
+    # Google OAuth2
+    spring.security.oauth2.client.registration.google.client-id={{ (((.Values.alovoa).oauth2).google).clientId | default "placeholder-google-client-id" }}
+    spring.security.oauth2.client.registration.google.client-secret={{ (((.Values.alovoa).oauth2).google).clientSecret | default "placeholder-google-client-secret" }}
     spring.security.oauth2.client.registration.google.scope[0]=email
     spring.security.oauth2.client.registration.google.scope[1]=profile
-    {{- end }}
-    {{- if (((.Values.alovoa).oauth2).facebook).clientId }}
-    spring.security.oauth2.client.registration.facebook.client-id={{ .Values.alovoa.oauth2.facebook.clientId }}
-    spring.security.oauth2.client.registration.facebook.client-secret={{ .Values.alovoa.oauth2.facebook.clientSecret }}
+    # Facebook OAuth2
+    spring.security.oauth2.client.registration.facebook.client-id={{ (((.Values.alovoa).oauth2).facebook).clientId | default "placeholder-facebook-client-id" }}
+    spring.security.oauth2.client.registration.facebook.client-secret={{ (((.Values.alovoa).oauth2).facebook).clientSecret | default "placeholder-facebook-client-secret" }}
     spring.security.oauth2.client.registration.facebook.scope[0]=email
     spring.security.oauth2.client.registration.facebook.scope[1]=public_profile
-    {{- end }}
-    # Disable OAuth2 auto-configuration if no providers configured
-    {{- if not (or (((.Values.alovoa).oauth2).google).clientId (((.Values.alovoa).oauth2).facebook).clientId) }}
-    spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.security.oauth2.client.servlet.OAuth2ClientAutoConfiguration
-    {{- end }}
     
     {{- if ((.Values.alovoa).ssl).enabled }}
     # SSL configuration
