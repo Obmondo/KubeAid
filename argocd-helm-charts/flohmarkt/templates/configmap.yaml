@@ -3,6 +3,6 @@ kind: ConfigMap
 metadata:
   name: {{ include "flohmarkt.fullname" . }}-env
 data:
-{{- range $key, $value := .Values.env }}
+{{- range $key, $value := .Values.flohmarkt.env }}
   {{ $key }}: {{ $value | quote }}
 {{- end }}
