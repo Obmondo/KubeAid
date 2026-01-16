@@ -60,7 +60,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: {{ .Values.alovoa.serverPort | default 8443 }}
+              containerPort: {{ .Values.alovoa.serverPort | default 8080 }}
               protocol: TCP
           env:
             - name: SPRING_DATASOURCE_PASSWORD
