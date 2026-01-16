@@ -28,11 +28,14 @@ persistence:
 labels:
   app: flohmarkt
 
-postgresql:
-  enabled: true
-externalDatabase:
-  host: flohmarkt-db
-  port: 5432
-  user: flohmarkt
-  password: flohmarktpass
-  database: flohmarkt
+couchdb:
+  replicas: 1
+  image:
+    repository: couchdb
+    tag: "3.3"
+  secretName: flohmarkt-db
+  readiness:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  storage: 10Gi
+

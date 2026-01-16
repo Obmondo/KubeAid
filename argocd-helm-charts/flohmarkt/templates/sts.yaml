@@ -1,33 +1,33 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: couchdb
+  name: {{ .Release.Name }}-couchdb
 spec:
-  serviceName: couchdb
-  replicas: 1
+  serviceName: {{ .Release.Name }}-couchdb
+  replicas: {{ .Values.couchdb.replicas }}
   selector:
     matchLabels:
-      app: couchdb
+      app: {{ .Release.Name }}-couchdb
   template:
     metadata:
       labels:
-        app: couchdb
+        app: {{ .Release.Name }}-couchdb
     spec:
       containers:
         - name: couchdb
-          image: couchdb:3.3
+          image: "{{ .Values.couchdb.image.repository }}:{{ .Values.couchdb.image.tag }}"
           ports:
             - containerPort: 5984
           env:
             - name: COUCHDB_USER
               valueFrom:
                 secretKeyRef:
-                  name: flohmarkt-db
+                  name: {{ .Values.couchdb.secretName }}
                   key: user
             - name: COUCHDB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: flohmarkt-db
+                  name: {{ .Values.couchdb.secretName }}
                   key: password
           volumeMounts:
             - name: couchdb-data
@@ -36,8 +36,8 @@ spec:
             httpGet:
               path: /
               port: 5984
-            initialDelaySeconds: 10
-            periodSeconds: 10
+            initialDelaySeconds: {{ .Values.couchdb.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.couchdb.readiness.periodSeconds }}
   volumeClaimTemplates:
     - metadata:
         name: couchdb-data
@@ -45,15 +45,6 @@ spec:
         accessModes: ["ReadWriteOnce"]
         resources:
           requests:
-            storage: 10Gi
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: couchdb
-spec:
-  ports:
-    - port: 5984
-      targetPort: 5984
-  selector:
-    app: couchdb
+            storage: {{ .Values.couchdb.storage }}
+
+
