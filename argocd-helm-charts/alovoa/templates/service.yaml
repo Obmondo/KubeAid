@@ -13,9 +13,9 @@ spec:
   type: {{ .Values.service.type }}
   ports:
     - port: {{ .Values.service.port }}
-      targetPort: {{ .Values.service.targetPort | default .Values.alovoa.serverPort | default 8443 }}
+      targetPort: {{ .Values.service.targetPort | default .Values.alovoa.serverPort | default 8080 }}
       protocol: TCP
-      name: https
+      name: http
   selector:
     {{- include "alovoa.selectorLabels" . | nindent 4 }}
 
