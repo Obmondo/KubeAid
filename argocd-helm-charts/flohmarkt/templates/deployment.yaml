@@ -13,10 +13,9 @@ spec:
         app: flohmarkt
     spec:
       containers:
-      
         - name: flohmarkt
           image: harbor.obmondo.com/obmondo/flohmarkt:1.0.0
-          command: ["flohmarkt", "web"]
+          args: ["web"]              # ← THIS is the key fix
           ports:
             - containerPort: 8000
           envFrom:
