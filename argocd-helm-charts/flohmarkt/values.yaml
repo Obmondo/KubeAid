@@ -1,25 +1,17 @@
-replicaCount: 1
-
-image:
-  repository: harbor.obmondo.com/obmondo/flohmarkt
-  tag: "1.0.0"
-  pullPolicy: IfNotPresent
-
-service:
-  type: ClusterIP
-  port: 80
-  targetPort: 8000
-
-containerPort: 8000
-
-envFrom:
-  configMap: flohmarkt-env
-  secret: flohmarkt-secrets
-
-persistence:
-  enabled: true
-  claimName: flohmarkt-data
-  mountPath: /var/lib/flohmarkt
+flohmarkt:
+  replicaCount: 1
+  image:
+    repository: harbor.obmondo.com/obmondo/flohmarkt
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  containerPort: 8000
+  envFrom:
+    configMap: flohmarkt-env
+    secret: flohmarkt-secrets
+  persistence:
+    enabled: true
+    claimName: flohmarkt-data
+    mountPath: /var/lib/flohmarkt
 
 couchdb:
   replicas: 1

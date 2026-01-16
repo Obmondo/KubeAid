@@ -5,7 +5,8 @@ metadata:
   labels:
     app: flohmarkt
 spec:
-  replicas: {{ .Values.replicaCount }}
+flohmarkt:
+  replicas: {{ .Values.flohmarkt.replicaCount }}
   selector:
     matchLabels:
       app: flohmarkt
@@ -17,19 +18,19 @@ spec:
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          imagePullPolicy: {{ .Values.flohmarkt.image.pullPolicy }}
           args: ["web"]
           ports:
-            - containerPort: {{ .Values.containerPort }}
+            - containerPort: {{ .Values.flohmarkt.containerPort }}
           envFrom:
             - configMapRef:
-                name: {{ .Values.envFrom.configMap }}
+                name: {{ .Values.flohmarkt.envFrom.configMap }}
             - secretRef:
-                name: {{ .Values.envFrom.secret }}
+                name: {{ .Values.flohmarkt.envFrom.secret }}
           volumeMounts:
             - name: flohmarkt-data
-              mountPath: {{ .Values.persistence.mountPath }}
+              mountPath: {{ .Values.flohmarkt.persistence.mountPath }}
       volumes:
         - name: flohmarkt-data
           persistentVolumeClaim:
-            claimName: {{ .Values.persistence.claimName }}
+            claimName: {{ .Values.flohmarkt.persistence.claimName }}

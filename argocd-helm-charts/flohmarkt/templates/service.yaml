@@ -5,12 +5,12 @@ metadata:
   labels:
     app: flohmarkt
 spec:
-  type: {{ .Values.service.type }}
+  type: ClusterIP
   selector:
     app: flohmarkt
   ports:
-    - port: {{ .Values.service.port }}
-      targetPort: {{ .Values.service.targetPort }}
+    - port: 80
+      targetPort: 8000
       protocol: TCP
 ---
 apiVersion: v1
