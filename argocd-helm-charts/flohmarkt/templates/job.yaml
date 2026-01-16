@@ -10,7 +10,7 @@ spec:
       containers:
         - name: init
           image: harbor.obmondo.com/obmondo/flohmarkt:1.0.0
-          command: ["flohmarkt", "initdb"]
+          args: ["initdb"]              # ← THIS is the key fix
           envFrom:
             - configMapRef:
                 name: flohmarkt-env
