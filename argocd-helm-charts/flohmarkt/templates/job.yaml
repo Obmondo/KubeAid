@@ -1,23 +1,16 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: Job
 metadata:
-  name: flohmarkt
+  name: flohmarkt-init
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: flohmarkt
+  backoffLimit: 3
   template:
-    metadata:
-      labels:
-        app: flohmarkt
     spec:
+      restartPolicy: Never
       containers:
-        - name: flohmarkt
+        - name: init
           image: flohmarkt:1.0.0
-          command: ["flohmarkt", "web"]
-          ports:
-            - containerPort: 8000
+          command: ["flohmarkt", "initdb"]
           envFrom:
             - configMapRef:
                 name: flohmarkt-env
