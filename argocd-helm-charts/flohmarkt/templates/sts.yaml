@@ -36,8 +36,8 @@ spec:
             httpGet:
               path: /
               port: 5984
-            initialDelaySeconds: {{ .Values.couchdb.readiness.initialDelaySeconds }}
-            periodSeconds: {{ .Values.couchdb.readiness.periodSeconds }}
+            initialDelaySeconds: 10
+            periodSeconds: 10
   volumeClaimTemplates:
     - metadata:
         name: couchdb-data

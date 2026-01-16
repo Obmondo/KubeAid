@@ -3,23 +3,22 @@ kind: Deployment
 metadata:
   name: {{ .Release.Name }}
   labels:
-    app: {{ .Values.labels.app }}
+    app: flohmarkt
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: {{ .Values.labels.app }}
+      app: flohmarkt
   template:
     metadata:
       labels:
-        app: {{ .Values.labels.app }}
+        app: flohmarkt
     spec:
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          args:
-{{- toYaml .Values.command.args | nindent 12 }}
+          args: web
           ports:
             - containerPort: {{ .Values.containerPort }}
           envFrom:
