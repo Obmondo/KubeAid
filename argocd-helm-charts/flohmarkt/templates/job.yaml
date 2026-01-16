@@ -9,7 +9,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: init
-          image: flohmarkt:1.0.0
+          image: harbor.obmondo.com/obmondo/flohmarkt:1.0.0
           command: ["flohmarkt", "initdb"]
           envFrom:
             - configMapRef:
