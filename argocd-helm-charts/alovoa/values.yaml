@@ -89,6 +89,84 @@ alovoa:
   extraEnvFrom: []
   # - secretRef:
   #     name: my-secret
+  
+  # Application name and company
+  appName: "Alovoa"
+  companyName: "Alovoa"
+  
+  # Rate limiting configuration
+  rateLimiting:
+    enabled: true
+  
+  # Scheduling configuration
+  scheduling:
+    enabled: true
+    short: 30000
+    long: 3600000
+    delayCaptcha: 300000
+    delayHide: 9720000000
+    delayUserCleanup: 1209600000
+  
+  # Donation keys (override in production)
+  donate:
+    kofiKey: "kofi123"
+    bmacKey: "bmac123"
+  
+  # Security settings
+  security:
+    rememberKey: "CWjuiidCW23KnRWUnzVpcpE4pVFcVCC7pi5X9htZVxDPp5ztWDrj2ePahFXQQeTx"
+  
+  # Application limits
+  limits:
+    firstNameLengthMin: 2
+    firstNameLengthMax: 10
+    audioMaxTime: 10
+    audioMaxSize: 10000000
+    imageMaxSize: 5000000
+    captchaLength: 4
+    passwordTokenLength: 32
+    ageMin: 16
+    ageMax: 99
+    ageRange: 10
+    donationPopupTime: 604800000
+    tokenLength: 30
+    profileImageLength: 600
+    profileImageMax: 4
+    profileDescriptionSize: 255
+    searchMax: 20
+    searchMaxDistance: 160
+    searchEstimateMax: 200
+    searchIgnoreIntention: true
+    messageSize: 255
+    conversationMessagesMax: 50
+    donateUsersMax: 100
+    referralMax: 20
+    likeMessageLength: 120
+  
+  # Timings
+  timings:
+    intentionDelay: 86400000
+    interestMax: 10
+    interestMinChars: 3
+    interestMaxChars: 30
+    interestAutocompleteMax: 5
+    promptMax: 6
+    promptLengthMax: 120
+    donationModulus: 10
+    userDeleteDurationValid: 86400000
+    userPasswordResetDurationValid: 300000
+  
+  # Logging levels
+  logging:
+    rootLevel: "INFO"
+    springWebLevel: "INFO"
+    hibernateSqlLevel: "ERROR"
+    hibernateLevel: "ERROR"
+    alovoaLevel: "INFO"
+  
+  # Date settings
+  privacyUpdateDate: "2021-06-16"
+  tosUpdateDate: "2021-09-22"
 
 # Service configuration
 service:
