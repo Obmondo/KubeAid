@@ -70,17 +70,15 @@ data:
     # Admin configuration
     app.admin.email={{ .Values.alovoa.adminEmail }}
     
-    # OAuth2 configuration (disabled by default - enable for social login)
-    {{- if .Values.alovoa.oauth2.enabled }}
-    spring.security.oauth2.client.registration.google.client-id={{ .Values.alovoa.oauth2.google.clientId }}
-    spring.security.oauth2.client.registration.google.client-secret={{ .Values.alovoa.oauth2.google.clientSecret }}
+    # OAuth2 configuration (required for Alovoa to start - use placeholder values if not using social login)
+    spring.security.oauth2.client.registration.google.client-id={{ .Values.alovoa.oauth2.google.clientId | default "placeholder-disabled" }}
+    spring.security.oauth2.client.registration.google.client-secret={{ .Values.alovoa.oauth2.google.clientSecret | default "placeholder-disabled" }}
     spring.security.oauth2.client.registration.google.scope[0]=email
     spring.security.oauth2.client.registration.google.scope[1]=profile
-    spring.security.oauth2.client.registration.facebook.client-id={{ .Values.alovoa.oauth2.facebook.clientId }}
-    spring.security.oauth2.client.registration.facebook.client-secret={{ .Values.alovoa.oauth2.facebook.clientSecret }}
+    spring.security.oauth2.client.registration.facebook.client-id={{ .Values.alovoa.oauth2.facebook.clientId | default "placeholder-disabled" }}
+    spring.security.oauth2.client.registration.facebook.client-secret={{ .Values.alovoa.oauth2.facebook.clientSecret | default "placeholder-disabled" }}
     spring.security.oauth2.client.registration.facebook.scope[0]=email
     spring.security.oauth2.client.registration.facebook.scope[1]=public_profile
-    {{- end }}
     
     {{- if .Values.alovoa.ssl.enabled }}
     # SSL configuration

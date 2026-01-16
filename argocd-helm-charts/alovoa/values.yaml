@@ -175,15 +175,15 @@ alovoa:
   privacyUpdateDate: "2021-06-16"
   tosUpdateDate: "2021-09-22"
   
-  # OAuth2 configuration (for social login)
+  # OAuth2 configuration (required for Alovoa - use placeholder values if not using social login)
   oauth2:
-    enabled: false  # Set to true to enable social login
+    enabled: false  # Set to true with real credentials to enable social login
     google:
-      clientId: ""
-      clientSecret: ""
+      clientId: "placeholder-disabled"
+      clientSecret: "placeholder-disabled"
     facebook:
-      clientId: ""
-      clientSecret: ""
+      clientId: "placeholder-disabled"
+      clientSecret: "placeholder-disabled"
 
 # Service configuration
 service:
