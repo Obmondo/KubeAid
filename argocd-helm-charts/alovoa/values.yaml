@@ -112,8 +112,15 @@ alovoa:
     kofiKey: "kofi123"
     bmacKey: "bmac123"
   
-  # Security settings
+  # Security settings (change these in production!)
   security:
+    # Encryption key must be 16, 24 or 32 bytes long
+    textKey: "0123456789abcdef"
+    # Salt must be 16 bytes long
+    textSalt: "0123456789abcdef"
+    # Admin key for admin access
+    adminKey: "admin123"
+    # Remember me key
     rememberKey: "CWjuiidCW23KnRWUnzVpcpE4pVFcVCC7pi5X9htZVxDPp5ztWDrj2ePahFXQQeTx"
   
   # Application limits

@@ -267,7 +267,14 @@ data:
     app.referral.max={{ (((.Values.alovoa).limits).referralMax) | default 20 }}
     app.like.message.length={{ (((.Values.alovoa).limits).likeMessageLength) | default 120 }}
     
-    # Security key (should be set via secret)
+    # Security keys (should be set via secret in production)
+    # Encryption key must be 16, 24 or 32 bytes long
+    app.text.key={{ (((.Values.alovoa).security).textKey) | default "0123456789abcdef" }}
+    # Salt must be 16 bytes long
+    app.text.salt={{ (((.Values.alovoa).security).textSalt) | default "0123456789abcdef" }}
+    # Admin key for admin access
+    app.admin.key={{ (((.Values.alovoa).security).adminKey) | default "admin123" }}
+    # Remember me key
     app.login.remember.key={{ (((.Values.alovoa).security).rememberKey) | default "CWjuiidCW23KnRWUnzVpcpE4pVFcVCC7pi5X9htZVxDPp5ztWDrj2ePahFXQQeTx" }}
     
     # Timings
