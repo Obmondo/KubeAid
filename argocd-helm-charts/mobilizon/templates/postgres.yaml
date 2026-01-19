@@ -18,6 +18,8 @@ spec:
         - name: postgres
           image: {{ .Values.postgres.image }}
           env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
