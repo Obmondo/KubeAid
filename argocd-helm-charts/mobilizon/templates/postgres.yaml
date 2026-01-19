@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: mobilizon-postgres
+  namespace: mobilizon
 spec:
   serviceName: mobilizon-postgres
   replicas: 1
