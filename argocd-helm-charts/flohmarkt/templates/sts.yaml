@@ -39,12 +39,14 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 10
   volumeClaimTemplates:
-    - metadata:
-        name: couchdb-data
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        resources:
-          requests:
-            storage: {{ .Values.couchdb.storage }}
+   - apiVersion: v1
+     kind: PersistentVolumeClaim
+    metadata:
+      name: couchdb-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: {{ .Values.couchdb.storage }}
 
 
