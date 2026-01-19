@@ -6,13 +6,23 @@ flohmarkt:
     pullPolicy: IfNotPresent
   containerPort: 8000
   env:
+    LANG: en_US.UTF-8
+    FLOHMARKT_INSTANCE_NAME: "eu"
+    FLOHMARKT_EXTERNAL_URL: https://flohmarkt.eusafe.eu/
+    FLOHMARKT_JWT_SECRET: "geheimes_jwt_geheimnis"
+
+    FLOHMARKT_DB_HTTPS: "0"
     FLOHMARKT_DB_HOST: flohmarkt-couchdb
     FLOHMARKT_DB_PORT: "5984"
     FLOHMARKT_DB_NAME: flohmarkt
-    LANG: en_US.UTF-8
-    FLOHMARKT_INSTANCE_NAME: instanzname
-    FLOHMARKT_EXTERNAL_URL: https://flohmarkt.eusafe.eu/
-    FLOHMARKT_JWT_SECRET: abcd
+
+    FLOHMARKT_MAIL_METHOD: "smtp"
+    FLOHMARKT_MAIL_FROM: "noreply@example.com"
+    FLOHMARKT_SMTP_SERVER: "smtp_server"
+    FLOHMARKT_SMTP_PORT: "25"
+
+    FLOHMARKT_TILECACHE_SERVER_URL: "https://tile.openstreetmap.org"
+    FLOHMARKT_TILECACHE_SIZE: "10000"
 
   envFrom:
     configMap: flohmarkt-env

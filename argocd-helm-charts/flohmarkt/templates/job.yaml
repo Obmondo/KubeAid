@@ -11,11 +11,63 @@ spec:
         - name: init
           image: harbor.obmondo.com/obmondo/flohmarkt:1.0.0
           args: ["initdb"]        
-          envFrom:
-            - configMapRef:
-                name: flohmarkt-env
-            - secretRef:
-                name: flohmarkt-secrets
+          env:
+            - name: LANG
+              value: {{ .Values.flohmarkt.env.LANG | quote }}
+
+            - name: FLOHMARKT_INSTANCE_NAME
+              value: {{ .Values.flohmarkt.env.FLOHMARKT_INSTANCE_NAME | quote }}
+
+            - name: FLOHMARKT_EXTERNAL_URL
+              value: {{ .Values.flohmarkt.env.FLOHMARKT_EXTERNAL_URL | quote }}
+
+            - name: FLOHMARKT_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "flohmarkt.fullname" . }}-secrets
+                  key: FLOHMARKT_JWT_SECRET
+
+            - name: FLOHMARKT_DB_HTTPS
+              value: {{ .Values.flohmarkt.env.FLOHMARKT_DB_HTTPS | quote }}
+
+            - name: FLOHMARKT_DB_HOST
+              value: {{ .Values.flohmarkt.env.FLOHMARKT_DB_HOST | quote }}
+
+            - name: FLOHMARKT_DB_PORT
+              value: {{ .Values.flohmarkt.env.FLOHMARKT_DB_PORT | quote }}
+
+            - name: FLOHMARKT_DB_NAME
+              value: {{ .Values.flohmarkt.env.FLOHMARKT_DB_NAME | quote }}
+
+            - name: FLOHMARKT_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "flohmarkt.fullname" . }}-secrets
+                  key: FLOHMARKT_DB_USER
+
+            - name: FLOHMARKT_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "flohmarkt.fullname" . }}-secrets
+                  key: FLOHMARKT_DB_PASSWORD
+
+            - name: FLOHMARKT_MAIL_METHOD
+              value: {{ .Values.flohmarkt.env.FLOHMARKT_MAIL_METHOD | quote }}
+
+            - name: FLOHMARKT_MAIL_FROM
+              value: {{ .Values.flohmarkt.env.FLOHMARKT_MAIL_FROM | quote }}
+
+            - name: FLOHMARKT_SMTP_SERVER
+              value: {{ .Values.flohmarkt.env.FLOHMARKT_SMTP_SERVER | quote }}
+
+            - name: FLOHMARKT_SMTP_PORT
+              value: {{ .Values.flohmarkt.env.FLOHMARKT_SMTP_PORT | quote }}
+
+            - name: FLOHMARKT_TILECACHE_SERVER_URL
+              value: {{ .Values.flohmarkt.env.FLOHMARKT_TILECACHE_SERVER_URL | quote }}
+
+            - name: FLOHMARKT_TILECACHE_SIZE
+              value: {{ .Values.flohmarkt.env.FLOHMARKT_TILECACHE_SIZE | quote }}
           volumeMounts:
             - name: flohmarkt-data
               mountPath: /var/lib/flohmarkt
