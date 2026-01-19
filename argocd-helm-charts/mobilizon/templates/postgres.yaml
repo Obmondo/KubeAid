@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mobilizon-postgres
+spec:
+  serviceName: mobilizon-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mobilizon-postgres
+  template:
+    metadata:
+      labels:
+        app: mobilizon-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: {{ .Values.postgres.image }}
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mobilizon.fullname" . }}
+                  key: MOBILIZON_DATABASE_USERNAME
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mobilizon.fullname" . }}
+                  key: MOBILIZON_DATABASE_PASSWORD
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mobilizon.fullname" . }}
+                  key: MOBILIZON_DATABASE_DBNAME
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.postgres.storage }}

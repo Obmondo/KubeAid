@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mobilizon.fullname" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: mobilizon
+  template:
+    metadata:
+      labels:
+        app: mobilizon
+    spec:
+      containers:
+        - name: mobilizon
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+
+          ports:
+            - containerPort: 4000
+
+          env:
+            # Instance settings
+            - name: MOBILIZON_INSTANCE_NAME
+              value: {{ .Values.env.MOBILIZON_INSTANCE_NAME | quote }}
+
+            - name: MOBILIZON_INSTANCE_HOST
+              value: {{ .Values.env.MOBILIZON_INSTANCE_HOST | quote }}
+
+            - name: MOBILIZON_INSTANCE_LISTEN_IP
+              value: {{ .Values.env.MOBILIZON_INSTANCE_LISTEN_IP | quote }}
+
+            - name: MOBILIZON_INSTANCE_PORT
+              value: {{ .Values.env.MOBILIZON_INSTANCE_PORT | quote }}
+
+            - name: MOBILIZON_LOGLEVEL
+              value: {{ .Values.env.MOBILIZON_LOGLEVEL | quote }}
+
+            # Database
+            - name: MOBILIZON_DATABASE_HOST
+              value: {{ .Values.env.MOBILIZON_DATABASE_HOST | quote }}
+
+            - name: MOBILIZON_DATABASE_PORT
+              value: {{ .Values.env.MOBILIZON_DATABASE_PORT | quote }}
+
+            - name: MOBILIZON_DATABASE_SSL
+              value: {{ .Values.env.MOBILIZON_DATABASE_SSL | quote }}
+
+            - name: MOBILIZON_DATABASE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mobilizon.fullname" . }}
+                  key: MOBILIZON_DATABASE_USERNAME
+
+            - name: MOBILIZON_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mobilizon.fullname" . }}
+                  key: MOBILIZON_DATABASE_PASSWORD
+
+            - name: MOBILIZON_DATABASE_DBNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mobilizon.fullname" . }}
+                  key: MOBILIZON_DATABASE_DBNAME
+
+            # Secrets
+            - name: MOBILIZON_INSTANCE_SECRET_KEY_BASE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mobilizon.fullname" . }}
+                  key: MOBILIZON_INSTANCE_SECRET_KEY_BASE
+
+            - name: MOBILIZON_INSTANCE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mobilizon.fullname" . }}
+                  key: MOBILIZON_INSTANCE_SECRET_KEY
+
+            # SMTP (can be empty)
+            - name: MOBILIZON_SMTP_SERVER
+              value: {{ .Values.env.MOBILIZON_SMTP_SERVER | quote }}
+
+            - name: MOBILIZON_SMTP_PORT
+              value: {{ .Values.env.MOBILIZON_SMTP_PORT | quote }}
+
+            - name: MOBILIZON_SMTP_SSL
+              value: {{ .Values.env.MOBILIZON_SMTP_SSL | quote }}
+
+            - name: MOBILIZON_SMTP_TLS
+              value: {{ .Values.env.MOBILIZON_SMTP_TLS | quote }}
+
+            - name: MOBILIZON_SMTP_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mobilizon.fullname" . }}
+                  key: MOBILIZON_SMTP_USERNAME
+                  optional: true
+
+            - name: MOBILIZON_SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mobilizon.fullname" . }}
+                  key: MOBILIZON_SMTP_PASSWORD
+                  optional: true
+
+          volumeMounts:
+            - name: uploads
+              mountPath: /var/lib/mobilizon/uploads
+
+      volumes:
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: {{ include "mobilizon.fullname" . }}-uploads

@@ -1,0 +1,41 @@
+replicaCount: 1
+
+image:
+  repository: kaihuri/mobilizon
+  tag: "5.2.2"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 4000
+
+env:
+  MOBILIZON_INSTANCE_NAME: "Mobilizon"
+  MOBILIZON_INSTANCE_HOST: "mobilizon.example.com"
+  MOBILIZON_INSTANCE_LISTEN_IP: "0.0.0.0"
+  MOBILIZON_INSTANCE_PORT: "4000"
+  MOBILIZON_INSTANCE_EMAIL: "admin@example.com"
+  MOBILIZON_REPLY_EMAIL: "noreply@example.com"
+  MOBILIZON_INSTANCE_REGISTRATIONS_OPEN: "true"
+  MOBILIZON_DATABASE_HOST: "mobilizon-postgres"
+  MOBILIZON_DATABASE_PORT: "5432"
+  MOBILIZON_DATABASE_SSL: "false"
+  MOBILIZON_LOGLEVEL: "info"
+
+secrets:
+  MOBILIZON_DATABASE_USERNAME: mobilizon
+  MOBILIZON_DATABASE_PASSWORD: mobilizon
+  MOBILIZON_DATABASE_DBNAME: mobilizon
+  MOBILIZON_INSTANCE_SECRET_KEY_BASE: changeme
+  MOBILIZON_INSTANCE_SECRET_KEY: changeme
+  MOBILIZON_SMTP_USERNAME: ""
+  MOBILIZON_SMTP_PASSWORD: ""
+
+persistence:
+  uploads:
+    enabled: true
+    size: 10Gi
+
+postgres:
+  image: postgis/postgis:15-3.4
+  storage: 10Gi
