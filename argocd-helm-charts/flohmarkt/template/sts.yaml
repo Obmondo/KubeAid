@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-couchdb
+spec:
+  serviceName: {{ .Release.Name }}-couchdb
+  replicas: {{ .Values.couchdb.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-couchdb
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-couchdb
+    spec:
+      containers:
+        - name: couchdb
+          image: "{{ .Values.couchdb.image.repository }}:{{ .Values.couchdb.image.tag }}"
+          ports:
+            - containerPort: 5984
+          env:
+            - name: COUCHDB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.couchdb.secretName }}
+                  key: user
+            - name: COUCHDB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.couchdb.secretName }}
+                  key: password
+          volumeMounts:
+            - name: couchdb-data
+              mountPath: /opt/couchdb/data
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 5984
+            initialDelaySeconds: 10
+            periodSeconds: 10
+  volumeClaimTemplates:
+   - apiVersion: v1
+     kind: PersistentVolumeClaim
+     metadata:
+       name: couchdb-data
+     spec:
+       accessModes: ["ReadWriteOnce"]
+       resources:
+         requests:
+           storage: {{ .Values.couchdb.storage }}

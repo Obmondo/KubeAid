@@ -1,0 +1,14 @@
+{{- if .Values.flohmarkt.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.flohmarkt.persistence.claimName | default (printf "%s-data" .Release.Name) }}
+spec:
+  accessModes:
+{{- range .Values.flohmarkt.persistence.accessModes }}
+    - {{ . }}
+{{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.flohmarkt.persistence.size }}
+{{- end }}

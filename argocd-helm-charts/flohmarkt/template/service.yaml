@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app: flohmarkt
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Release.Name }}
+  ports:
+    - port: 80
+      targetPort: 8000
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-couchdb
+spec:
+  ports:
+    - port: 5984
+      targetPort: 5984
+  selector:
+    app: {{ .Release.Name }}-couchdb

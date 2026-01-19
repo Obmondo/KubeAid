@@ -1,0 +1,57 @@
+flohmarkt:
+  replicaCount: 1
+  image:
+    repository: harbor.obmondo.com/obmondo/flohmarkt
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  containerPort: 8000
+  env:
+    LANG: en_US.UTF-8
+    FLOHMARKT_INSTANCE_NAME: "eu"
+    FLOHMARKT_EXTERNAL_URL: https://flohmarkt.example.com/
+
+    FLOHMARKT_DB_HTTPS: "0"
+    FLOHMARKT_DB_HOST: flohmarkt-couchdb
+    FLOHMARKT_DB_PORT: "5984"
+    FLOHMARKT_DB_NAME: flohmarkt
+
+    FLOHMARKT_MAIL_METHOD: "smtp"
+    FLOHMARKT_MAIL_FROM: "noreply@example.com"
+    FLOHMARKT_SMTP_SERVER: "smtp_server"
+    FLOHMARKT_SMTP_PORT: "25"
+
+    FLOHMARKT_TILECACHE_SERVER_URL: "https://tile.openstreetmap.org"
+    FLOHMARKT_TILECACHE_SIZE: "10000"
+
+  persistence:
+    enabled: true
+    accessModes:
+      - ReadWriteOnce
+    size: 5Gi
+
+couchdb:
+  replicas: 1
+  image:
+    repository: couchdb
+    tag: "3.3"
+  secretName: flohmarkt-db
+  storage: 10Gi
+
+ingress:
+  enabled: true
+  className: "traefik"
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+  hosts:
+    - host: flohmarkt.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: flohmarkt-tls
+      hosts:
+        - flohmarkt.example.com
+
+service:
+  name: flohmarkt
+  port: 80
