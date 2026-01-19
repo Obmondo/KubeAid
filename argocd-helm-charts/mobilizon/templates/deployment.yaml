@@ -20,7 +20,18 @@ spec:
 
           ports:
             - containerPort: 4000
-
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            initialDelaySeconds: 40
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            initialDelaySeconds: 25
+            periodSeconds: 5
           env:
             # Instance settings
             - name: MOBILIZON_INSTANCE_NAME
@@ -43,7 +54,7 @@ spec:
               value: {{ .Values.env.MOBILIZON_DATABASE_HOST | quote }}
 
             - name: MOBILIZON_DATABASE_PORT
-              value: {{ .Values.env.MOBILIZON_DATABASE_PORT | quote }}
+              value: "5432"
 
             - name: MOBILIZON_DATABASE_SSL
               value: {{ .Values.env.MOBILIZON_DATABASE_SSL | quote }}
