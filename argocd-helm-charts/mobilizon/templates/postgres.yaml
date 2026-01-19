@@ -20,24 +20,28 @@ spec:
           env:
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
+
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
                   name: {{ include "mobilizon.fullname" . }}
                   key: MOBILIZON_DATABASE_USERNAME
+
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ include "mobilizon.fullname" . }}
                   key: MOBILIZON_DATABASE_PASSWORD
+
             - name: POSTGRES_DB
               valueFrom:
                 secretKeyRef:
                   name: {{ include "mobilizon.fullname" . }}
                   key: MOBILIZON_DATABASE_DBNAME
+
           volumeMounts:
             - name: data
-              mountPath: /var/lib/postgresql/data/pgdata
+              mountPath: /var/lib/postgresql/data   # 👈 IMPORTANT
   volumeClaimTemplates:
     - metadata:
         name: data
