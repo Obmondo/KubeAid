@@ -30,7 +30,7 @@ flohmarkt:
     size: 5Gi
 
 couchdb:
-  replicas: 3
+  replicas: 1
   image:
     repository: couchdb
     tag: "3.3"
