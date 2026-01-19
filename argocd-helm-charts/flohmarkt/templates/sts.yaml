@@ -41,12 +41,12 @@ spec:
   volumeClaimTemplates:
    - apiVersion: v1
      kind: PersistentVolumeClaim
-    metadata:
-      name: couchdb-data
-    spec:
-      accessModes: ["ReadWriteOnce"]
-      resources:
-        requests:
-          storage: {{ .Values.couchdb.storage }}
+     metadata:
+       name: couchdb-data
+     spec:
+       accessModes: ["ReadWriteOnce"]
+       resources:
+         requests:
+           storage: {{ .Values.couchdb.storage }}
 
 
