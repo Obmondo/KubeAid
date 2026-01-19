@@ -8,8 +8,7 @@ flohmarkt:
   env:
     LANG: en_US.UTF-8
     FLOHMARKT_INSTANCE_NAME: "eu"
-    FLOHMARKT_EXTERNAL_URL: https://flohmarkt.eusafe.eu/
-    FLOHMARKT_JWT_SECRET: "geheimes_jwt_geheimnis"
+    FLOHMARKT_EXTERNAL_URL: https://flohmarkt.example.com/
 
     FLOHMARKT_DB_HTTPS: "0"
     FLOHMARKT_DB_HOST: flohmarkt-couchdb
@@ -24,9 +23,6 @@ flohmarkt:
     FLOHMARKT_TILECACHE_SERVER_URL: "https://tile.openstreetmap.org"
     FLOHMARKT_TILECACHE_SIZE: "10000"
 
-  envFrom:
-    configMap: flohmarkt-env
-    secret: flohmarkt-secrets
   persistence:
     enabled: true
     accessModes:
@@ -47,14 +43,14 @@ ingress:
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt
   hosts:
-    - host: flohmarkt.eusafe.eu
+    - host: flohmarkt.example.com
       paths:
         - path: /
           pathType: Prefix
   tls:
-    - secretName: flohmarkt-tls
+    - secretName: example-tls
       hosts:
-        - flohmarkt.eusafe.eu
+        - flohmarkt.example.com
 
 service:
   name: flohmarkt
