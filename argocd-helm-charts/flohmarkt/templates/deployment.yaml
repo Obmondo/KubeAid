@@ -99,6 +99,24 @@ spec:
             - name: flohmarkt-data
               mountPath: /var/lib/flohmarkt
 
+          readinessProbe:
+            httpGet:
+              path: /login
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          livenessProbe:
+            httpGet:
+              path: /login
+              port: 8000
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+
       volumes:
         - name: flohmarkt-data
           persistentVolumeClaim:
