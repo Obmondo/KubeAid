@@ -9,7 +9,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: init
-          image: harbor.obmondo.com/obmondo/flohmarkt:1.0.0
+          image: "{{ .Values.flohmarkt.image.repository }}:{{ .Values.flohmarkt.image.tag }}"
           args: ["initdb"]        
           env:
             - name: LANG
