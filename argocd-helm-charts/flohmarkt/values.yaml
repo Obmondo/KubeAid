@@ -48,7 +48,7 @@ ingress:
         - path: /
           pathType: Prefix
   tls:
-    - secretName: example-tls
+    - secretName: flohmarkt-tls
       hosts:
         - flohmarkt.example.com
 
