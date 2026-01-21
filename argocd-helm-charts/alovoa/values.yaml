@@ -1,0 +1,316 @@
+# Default values for Alovoa
+# This is a YAML-formatted file.
+
+# Image configuration
+image:
+  repository: harbor.obmondo.com/obmondo/alovoa
+  tag: "v2.0.0"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Number of replicas
+replicaCount: 1
+
+# Service Account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod annotations and labels
+podAnnotations: {}
+podLabels: {}
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1000
+
+# Container security context
+securityContext:
+  runAsUser: 1000
+  runAsNonRoot: true
+
+# Alovoa application configuration
+alovoa:
+  # Application URL (without protocol)
+  domain: "alovoa.example.com"
+  
+  # Admin email
+  adminEmail: "admin@example.com"
+  
+  # Spring profiles
+  springProfiles: "prod"
+  
+  # Server port (internal) - use 8080 for HTTP, 8443 for HTTPS
+  serverPort: 8080
+  
+  # Database configuration
+  database:
+    # Database host - points to MariaDB operator managed instance
+    host: "alovoa-mariadb"
+    port: 3306
+    name: "alovoa"
+    user: "alovoa"
+    # Use existing secret for database password
+    existingSecret: "alovoa-mariadb"
+    existingSecretKey: "password"
+  
+  # Mail configuration
+  mail:
+    enabled: true
+    host: ""
+    port: 587
+    username: ""
+    from: ""
+    # Use existing secret for mail password
+    existingSecret: ""
+    existingSecretKey: "password"
+  
+  # HTTPS/SSL configuration
+  # Set to false to let ingress handle TLS termination
+  ssl:
+    enabled: false
+    # Use Let's Encrypt for SSL
+    keyStoreType: "PKCS12"
+    keyStore: "/app/certs/keystore.p12"
+    keyStorePassword: ""
+    existingSecret: ""
+    existingSecretKey: "keystore-password"
+  
+  # Additional environment variables
+  extraEnv: []
+  # - name: SPRING_PROFILES_ACTIVE
+  #   value: "prod"
+  
+  # Additional environment variables from secrets/configmaps
+  extraEnvFrom: []
+  # - secretRef:
+  #     name: my-secret
+  
+  # Application name and company
+  appName: "Alovoa"
+  companyName: "Alovoa"
+  
+  # Rate limiting configuration
+  rateLimiting:
+    enabled: true
+  
+  # Scheduling configuration
+  scheduling:
+    enabled: true
+    short: 30000
+    long: 3600000
+    delayCaptcha: 300000
+    delayHide: 9720000000
+    delayUserCleanup: 1209600000
+  
+  # Donation keys (override in production)
+  donate:
+    kofiKey: "kofi123"
+    bmacKey: "bmac123"
+  
+  # Security settings (change these in production!)
+  security:
+    # Encryption key must be 16, 24 or 32 bytes long
+    textKey: "0123456789abcdef"
+    # Salt must be 16 bytes long
+    textSalt: "0123456789abcdef"
+    # Admin key for admin access
+    adminKey: "admin123"
+    # Remember me key
+    rememberKey: "CWjuiidCW23KnRWUnzVpcpE4pVFcVCC7pi5X9htZVxDPp5ztWDrj2ePahFXQQeTx"
+  
+  # Application limits
+  limits:
+    firstNameLengthMin: 2
+    firstNameLengthMax: 10
+    audioMaxTime: 10
+    audioMaxSize: 10000000
+    imageMaxSize: 5000000
+    captchaLength: 4
+    passwordTokenLength: 32
+    ageMin: 16
+    ageMax: 99
+    ageRange: 10
+    donationPopupTime: 604800000
+    tokenLength: 30
+    profileImageLength: 600
+    profileImageMax: 4
+    profileDescriptionSize: 255
+    searchMax: 20
+    searchMaxDistance: 160
+    searchEstimateMax: 200
+    searchIgnoreIntention: true
+    messageSize: 255
+    conversationMessagesMax: 50
+    donateUsersMax: 100
+    referralMax: 20
+    likeMessageLength: 120
+  
+  # Timings
+  timings:
+    intentionDelay: 86400000
+    interestMax: 10
+    interestMinChars: 3
+    interestMaxChars: 30
+    interestAutocompleteMax: 5
+    promptMax: 6
+    promptLengthMax: 120
+    donationModulus: 10
+    userDeleteDurationValid: 86400000
+    userPasswordResetDurationValid: 300000
+  
+  # Logging levels
+  logging:
+    rootLevel: "INFO"
+    springWebLevel: "INFO"
+    hibernateSqlLevel: "ERROR"
+    hibernateLevel: "ERROR"
+    alovoaLevel: "INFO"
+  
+  # Date settings
+  privacyUpdateDate: "2021-06-16"
+  tosUpdateDate: "2021-09-22"
+  
+  # OAuth2 configuration (required for Alovoa - use placeholder values if not using social login)
+  oauth2:
+    enabled: false  # Set to true with real credentials to enable social login
+    google:
+      clientId: "placeholder-disabled"
+      clientSecret: "placeholder-disabled"
+    facebook:
+      clientId: "placeholder-disabled"
+      clientSecret: "placeholder-disabled"
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+  annotations: {}
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "traefik"
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+  hosts:
+    - host: alovoa.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: alovoa-tls
+      hosts:
+        - alovoa.example.com
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 250m
+    memory: 512Mi
+
+# Liveness probe
+livenessProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: http
+    scheme: HTTP
+  initialDelaySeconds: 180
+  periodSeconds: 15
+  timeoutSeconds: 10
+  failureThreshold: 10
+
+# Readiness probe
+readinessProbe:
+  httpGet:
+    path: /actuator/health/readiness
+    port: http
+    scheme: HTTP
+  initialDelaySeconds: 90
+  periodSeconds: 15
+  timeoutSeconds: 10
+  failureThreshold: 10
+
+# Autoscaling configuration
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
+
+# Persistence for user uploads and media
+persistence:
+  enabled: true
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 10Gi
+  annotations: {}
+  # Use existing PVC
+  existingClaim: ""
+
+# MariaDB Operator configuration
+mariadb:
+  enabled: true
+  name: alovoa-mariadb
+  replicas: 1
+  database: alovoa
+  username: alovoa
+  # Storage configuration
+  storage:
+    size: 10Gi
+    storageClassName: ""
+  # Resource limits
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  # Root password secret
+  rootPasswordSecretRef:
+    name: alovoa-mariadb-root
+    key: password
+  # User password secret
+  passwordSecretRef:
+    name: alovoa-mariadb
+    key: password
+
+# CloudNative-PG PostgreSQL configuration (alternative to MariaDB)
+# Alovoa primarily uses MariaDB, but can be configured for PostgreSQL
+postgres:
+  enabled: false
+  instance: 1
+  size: 10Gi
+  recover: false
+  bootstrap:
+    initdb:
+      database: alovoa
+      owner: alovoa
+  resources:
+    limits:
+      memory: 1Gi
+      cpu: 500m
+    requests:
+      memory: 512Mi
+      cpu: 250m
+
