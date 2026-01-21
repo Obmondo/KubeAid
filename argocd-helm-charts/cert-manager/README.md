@@ -148,8 +148,8 @@ kubectl create secret generic cloudflare-api-token \
   --from-literal=api-token=your-cloudflare-api-token \
   --namespace=cert-manager \
   --dry-run=client -o yaml | kubeseal \
-  --controller-name=sealed-secrets \
-  --controller-namespace=system \
+  --controller-name=sealed-secrets-controller \
+  --controller-namespace=sealed-secrets  \
   -o yaml > cloudflare-api-token-secret.yaml
 ```
 

@@ -45,7 +45,7 @@ api:
 ### Create Secret
 
 ```sh
-kubectl create secret generic circleci-runner-token -n circleci --dry-run=client --from-literal=resourceClass=ci-feature-branch-deployment/testing01 --from-literal=runnerToken=xxxx -o yaml | kubeseal --controller-name sealed-secrets --controller-namespace system --cert /tmp/staging.pem -o yaml - > /tmp/circleci-runner-token.yaml
+kubectl create secret generic circleci-runner-token -n circleci --dry-run=client --from-literal=resourceClass=ci-feature-branch-deployment/testing01 --from-literal=runnerToken=xxxx -o yaml | kubeseal --controller-name sealed-secrets-controller --controller-namespace sealed-secrets --cert /tmp/staging.pem -o yaml - > /tmp/circleci-runner-token.yaml
 ```
 
 ### Create KUBECONFIG
