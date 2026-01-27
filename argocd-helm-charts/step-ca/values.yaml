@@ -3,32 +3,7 @@
 
 step-certificates:
   inject:
-    enabled: true
-    config:
-      files:
-        ca.json:
-          # Add your custom dns names 
-          dnsNames:
-            - step-ca-step-certificates.step-ca.svc.cluster.local
-            - 127.0.0.1
-          db:
-            type: badgerv2
-          authority:
-            claims:
-              minTLSCertDuration: 5m
-              maxTLSCertDuration: 2160h
-              defaultTLSCertDuration: 2160h
-              disableRenewal: false
-            provisioners:
-              - type: JWK
-                name: "info@obmondo.com"
-                options:
-                  x509: {}
-                  ssh: {}
-              - type: ACME
-                name: acme
-                forceCN: true
-                claims: {}
+    enabled: false
   autocert:
     enabled: false
   ca:
@@ -37,6 +12,7 @@ step-certificates:
     bootstrap:
       # 90 days
       postInitHook: |
+        step ca provisioner add acme --type ACME
         step ca provisioner update admin --x509-max-dur 2160h --x509-default-dur 2160h
 
 autocert:
