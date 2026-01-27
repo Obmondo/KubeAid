@@ -9,7 +9,6 @@ step-certificates:
         ca.json:
           # Add your custom dns names 
           dnsNames:
-            - k8sdemo.kubeaid.io
             - step-ca-step-certificates.step-ca.svc.cluster.local
             - 127.0.0.1
           db:
@@ -23,15 +22,6 @@ step-certificates:
             provisioners:
               - type: JWK
                 name: "info@obmondo.com"
-                key:
-                  use: "sig"
-                  kty: "EC"
-                  kid: "UsdkqFwheUTevoVeSXyKtoABqP9tlFyMCy9Dj7Ab_nc"    # replace this kid
-                  crv: "P-256"
-                  alg: "ES256"
-                  x: "Es11v2tkaoaZ_p0W-cDUCmP3iMiCpbaUzQy3eoeAGCE"
-                  y: "-MPRFBln_P_B3s8VfVkyVTbkWIMRAT2iEe6xPOzhPoM"
-                encryptedKey: "eyJhbGciOiJQQkVTMi1IUzI1NitBMTI4S1ciLCJjdHkiOiJqd2sranNvbiIsImVuYyI6IkEyNTZHQ00iLCJwMmMiOjYwMDAwMCwicDJzIjoiUWpVXzFTYTNKZWFwcFoyNDNUQi1nUSJ9.9WurmsjG38dBWvN9Jfsb6XQG1b4TJWLsM1nHCUEFpyCZjvGIK5fOqQ.2SsVqJW_3vwzjiZy.sGjrJD3-eoP3gZkckJj5KkgXvXPF2q75hEE5VC8BswkFPK9xUqzOG2DAnLWzic4H5TgrH-RTW1jgwdbeWwRUWRwFl3ECFCW7Ch82vlOoD6iIcnGzarkSkTosVTi5cHM1Lc5oMEEW_D9sI0x3rZr5rPTk6FMZ3OQSbXxP2afA26-0w2L_mWjXDAoUk5ZW2VmF0WapszIwObqtKGua_S2-w-aAjcD8AMwjeTBl3yy2tpcM5LqWwfz2YobEr5aoSp9v4oA8_oZTmWuA_RfcNWpEB_0JxqxFAquehQUys8HH0cvZ_jHsDHv7wt1tXuGL0pTthRdrD3OcSpIAE257b4E.Ugxe1tqXL31PSSB_VcKDow"
                 options:
                   x509: {}
                   ssh: {}
@@ -39,18 +29,11 @@ step-certificates:
                 name: acme
                 forceCN: true
                 claims: {}
-        defaults.json:
-          # Add your Certificate Authority URL (typically the ingress url)
-          ca-url: https://ca.k8sdemo.kubeaid.io
-
-          # Add fingerprint from the generated values.yaml 
-          fingerprint: 2bb4f98b6e66bd86b72e69d402856b9035732c8894e4553de4f8c234d11f4a25   # replace this
   autocert:
     enabled: false
   ca:
-    name: Kubeaid CA
-    dns: k8sdemo.kubeaid.io,step-ca-step-certificates.step-ca.svc.cluster.local,127.0.0.1
-    url: https://ca.k8sdemo.kubeaid.io
+    dns: step-ca-step-certificates.step-ca.svc.cluster.local,127.0.0.1
+    url: https://step-ca-step-certificates.step-ca.svc.cluster.local
     bootstrap:
       # 90 days
       postInitHook: |
