@@ -1,0 +1,83 @@
+{{- if (index .Values "cloudnative-pg" "monitoring" "prometheusRule" "enabled") }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ .Release.Name }}-cnpg-backup-alerts
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: cloudnative-pg
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    {{- with (index .Values "cloudnative-pg" "monitoring" "prometheusRule" "labels") }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: cloudnative-pg-backup
+      rules:
+        # Alert when no successful backup in last 24 hours
+        # This covers both "backup is old" and "no backup exists" cases
+        - alert: CNPGClusterNoRecentBackup
+          annotations:
+            summary: 'CNPG cluster has no successful backup in the last {{ index .Values "cloudnative-pg" "monitoring" "prometheusRule" "backupMaxAgeSeconds" | float64 | duration }}.'
+            description: 'CloudNativePG cluster {{ "{{" }} $labels.cluster {{ "}}" }} in namespace {{ "{{" }} $labels.namespace {{ "}}" }} has not had a successful backup in more than {{ index .Values "cloudnative-pg" "monitoring" "prometheusRule" "backupMaxAgeSeconds" |  float64 | duration }} . This could mean backups are failing or not configured.'
+          expr: |-
+            (
+              (time() - cnpg_collector_last_available_backup_timestamp) > {{ index .Values "cloudnative-pg" "monitoring" "prometheusRule" "backupMaxAgeSeconds" }}
+            )
+            or
+            (
+              cnpg_collector_last_available_backup_timestamp == 0
+            )
+          for: 5m
+          labels:
+            severity: critical
+            {{- with (index .Values "cloudnative-pg" "monitoring" "prometheusRule" "alertLabels") }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+
+        # Alert when WAL archiving is stale (no archive in configured time)
+        # Uses: cnpg_pg_stat_archiver_seconds_since_last_archival
+        - alert: CNPGClusterWALArchivingStale
+          annotations:
+            summary: CNPG WAL archiving is stale.
+            description: 'CloudNativePG instance {{ "{{" }} $labels.pod {{ "}}" }} in namespace {{ "{{" }} $labels.namespace {{ "}}" }} has not archived a WAL segment in more than {{ index .Values "cloudnative-pg" "monitoring" "prometheusRule" "walArchiveMaxAgeSeconds" | float64 | duration }}. This may indicate issues with continuous backup/WAL shipping.'
+          expr: |-
+            cnpg_pg_stat_archiver_seconds_since_last_archival > {{ index .Values "cloudnative-pg" "monitoring" "prometheusRule" "walArchiveMaxAgeSeconds" }}
+          for: 5m
+          labels:
+            severity: warning
+            {{- with (index .Values "cloudnative-pg" "monitoring" "prometheusRule" "alertLabels") }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+
+        # Alert when WAL archiving has failures
+        # Uses: cnpg_pg_stat_archiver_failed_count
+        - alert: CNPGClusterWALArchivingFailing
+          annotations:
+            summary: CNPG WAL archiving is experiencing failures.
+            description: 'CloudNativePG instance {{ "{{" }} $labels.pod {{ "}}" }} in namespace {{ "{{" }} $labels.namespace {{ "}}" }} is experiencing WAL archiving failures. Check the PostgreSQL logs for details.'
+          expr: |-
+            rate(cnpg_pg_stat_archiver_failed_count[5m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+            {{- with (index .Values "cloudnative-pg" "monitoring" "prometheusRule" "alertLabels") }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+
+        # Alert when first recoverability point is too old
+        # Uses: cnpg_collector_first_recoverability_point (Unix timestamp of oldest recovery point)
+        - alert: CNPGClusterLowRecoverability
+          annotations:
+            summary: CNPG cluster has limited point-in-time recovery window.
+            description: 'CloudNativePG instance {{ "{{" }} $labels.pod {{ "}}" }} in namespace {{ "{{" }} $labels.namespace {{ "}}" }} can only recover data from {{ "{{" }} $value | humanizeTimestamp {{ "}}" }}. The recovery window is older than {{ index .Values "cloudnative-pg" "monitoring" "prometheusRule" "firstRecoverabilityPointMaxAgeSeconds" | float64 | duration }}.'
+          expr: |-
+            (time() - cnpg_collector_first_recoverability_point) > {{ index .Values "cloudnative-pg" "monitoring" "prometheusRule" "firstRecoverabilityPointMaxAgeSeconds" }}
+          for: 30m
+          labels:
+            severity: warning
+            {{- with (index .Values "cloudnative-pg" "monitoring" "prometheusRule" "alertLabels") }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+{{- end }}
