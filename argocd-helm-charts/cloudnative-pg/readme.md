@@ -226,6 +226,86 @@ DB_PORT=5432 \
 ---
 
 
+## Monitoring and Alerting
+
+CloudNativePG provides metrics that can be used to monitor backup health. This chart includes PrometheusRule resources for alerting on backup failures.
+
+### Enabling Backup Monitoring Alerts
+
+To enable backup monitoring alerts, set the following in your values:
+
+```yaml
+cloudnative-pg:
+  monitoring:
+    podMonitorEnabled: true
+    prometheusRule:
+      enabled: true
+      # Optional: Add labels for Prometheus selection
+      labels:
+        prometheus: k8s
+      # Optional: Add labels to all alerts
+      alertLabels: {}
+      # Maximum age for last successful backup (default: 24 hours)
+      backupMaxAgeSeconds: 86400
+      # Maximum age for WAL archiving (default: 5 minutes)
+      walArchiveMaxAgeSeconds: 300
+      # Maximum age for first recoverability point (default: 7 days)
+      firstRecoverabilityPointMaxAgeSeconds: 604800
+```
+
+### Available Alerts
+
+| Alert Name | Severity | Description |
+|------------|----------|-------------|
+| `CNPGClusterNoRecentBackup` | critical | No successful backup in the last 24 hours (covers both stale and missing backups) |
+| `CNPGClusterWALArchivingStale` | warning | WAL archiving has not occurred within the configured threshold (default: 5 min) |
+| `CNPGClusterWALArchivingFailing` | warning | WAL archiving is actively failing |
+| `CNPGClusterLowRecoverability` | warning | Point-in-time recovery window is too old (default: > 7 days) |
+
+### Metrics Used
+
+The alerts use the following CNPG metrics:
+
+- `cnpg_collector_last_available_backup_timestamp` - Timestamp of the last successful backup
+- `cnpg_collector_first_recoverability_point` - First point in time recovery is possible
+- `cnpg_pg_stat_archiver_seconds_since_last_archival` - Seconds since last WAL archival
+- `cnpg_pg_stat_archiver_failed_count` - Count of failed WAL archivals
+
+**Note:** Some of these metrics may be deprecated in newer CNPG versions (>= 1.26). Check the CNPG documentation for the latest metrics available in your version.
+
+## Triggering Backups Immediately
+
+Unlike traditional CronJobs, CNPG ScheduledBackups cannot be triggered on-demand directly. The workaround is:
+
+1. Delete the existing ScheduledBackup CR
+2. Recreate it with `immediate: true`:
+
+```yaml
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: my-backup
+spec:
+  immediate: true  # This triggers a backup immediately upon creation
+  schedule: "0 0 0 * * *"
+  cluster:
+    name: my-cluster
+```
+
+Alternatively, you can create a one-off Backup CR:
+
+```yaml
+apiVersion: postgresql.cnpg.io/v1
+kind: Backup
+metadata:
+  name: manual-backup
+spec:
+  cluster:
+    name: my-cluster
+```
+
 ## Docs and External References
 
 - https://www.enterprisedb.com/blog/current-state-major-postgresql-upgrades-cloudnativepg-kubernetes
+- https://cloudnative-pg.io/documentation/current/monitoring/
+- https://cloudnative-pg.io/documentation/current/backup/
