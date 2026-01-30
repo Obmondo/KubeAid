@@ -47,3 +47,7 @@ spec:
           barmanObjectName: keycloak-pgsql-backups
           serverName: "revision-{{ $postgresql.recover.revision }}"
   {{- end }}
+  {{- if $postgresql.monitoring }}
+  monitoring:
+    {{- toYaml $postgresql.monitoring | nindent 4 }}
+  {{- end }}

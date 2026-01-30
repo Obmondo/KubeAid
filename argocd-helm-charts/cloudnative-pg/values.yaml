@@ -6,6 +6,21 @@ cloudnative-pg:
   monitoring:
     podMonitorEnabled: true
 
+    # PrometheusRule for CNPG backup monitoring alerts
+    prometheusRule:
+      # Enable backup monitoring alerts
+      enabled: false
+      # Additional labels for the PrometheusRule (e.g., for Prometheus selection)
+      labels: {}
+      # Additional labels to add to all alerts
+      alertLabels: {}
+      # Maximum age in seconds for last successful backup before alerting (default: 24 hours)
+      backupMaxAgeSeconds: 86400
+      # Maximum age in seconds for WAL archiving before alerting (default: 5 minutes)
+      walArchiveMaxAgeSeconds: 300
+      # Maximum age in seconds for first recoverability point (default: 7 days)
+      firstRecoverabilityPointMaxAgeSeconds: 604800
+
 plugin-barman-cloud:
   certificate:
     # The default renewal time of 360h throws an alert from cert-manager
