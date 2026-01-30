@@ -98,4 +98,8 @@ spec:
         encryption: AES256
     retentionPolicy: "30d"
   {{- end }}
+  {{- if .Values.postgres.monitoring }}
+  monitoring:
+    {{- toYaml .Values.postgres.monitoring | nindent 4 }}
+  {{- end }}
 {{- end }}
