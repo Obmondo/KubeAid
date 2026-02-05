@@ -1,0 +1,25 @@
+apiVersion: v2
+name: kubeaid-agent
+description: KubeAid Agent Helm chart
+icon: https://avatars.githubusercontent.com/u/13882947?s=250&v=4
+
+type: application
+
+version: 0.1.0
+appVersion: 0.1.0
+
+keywords:
+  - obmondo
+  - kubeaid
+  - kubeaid-agent
+
+maintainers:
+  - name: Sanskar Bhushan
+    email: sanskar@obmondo.com
+    url: https://github.com/sbdtu5498
+  - name: Archisman Mridha
+    email: archisman@obmondo.com
+    url: https://github.com/Archisman-Mridha
+  - name: Basit Hasan
+    email: basit@obmondo.com
+    url: https://github.com/basit9958

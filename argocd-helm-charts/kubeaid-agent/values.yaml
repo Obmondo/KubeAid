@@ -1,0 +1,154 @@
+nameOverride: ""
+fullnameOverride: ""
+
+# -- KubeAid Agent config file contents.
+appConfig:
+  argocd:
+    # -- Raw auth token value (use secretRef instead for production)
+    # authToken: ""
+    # -- Reference to Kubernetes Secret containing the ArgoCD auth token
+    authTokenSecretRef:
+      secretName: ""
+      key: ""
+
+    plainText: false
+
+  server:
+    port: 4000
+
+  kubeaidConfig:
+    clusterName:
+    repo:
+      url:
+      insecureSkipTLS: true
+      auth:
+        # Option 1: Username/Password authentication (for HTTPS Git URLs)
+        basic:
+          # username: "your-git-username"
+          # password: "your-password-or-token"
+          #
+          # For production, use Kubernetes Secrets instead of hardcoding credentials:
+          usernameSecretRef:
+            secretName: ""
+            key: ""
+          passwordSecretRef:
+            secretName: ""
+            key: ""
+
+        # Option 2: SSH Key authentication (for SSH Git URLs)
+        sshKey:
+          sshPrivateKey:
+          hostKeyFile:
+          # password: "your-key-passphrase"              # Only needed if your SSH key is encrypted
+          #
+          # For production, use Kubernetes Secrets instead:
+          passwordSecretRef:
+            secretName: ""
+            key: ""
+
+  obmondoAPI:
+    url: https://api.obmondo.com/api
+    tls:
+      keyFile: /etc/kubeaid-agent/obmondo-api/tls.key
+      certFile: /etc/kubeaid-agent/obmondo-api/tls.crt
+      caCertFile: /etc/kubeaid-agent/obmondo-api/ca.crt
+
+  puppetConfigDetails:
+    url:
+    facts:
+      - os
+      - networking
+      - ipaddress
+      - hostname
+      - domain
+      - obmondo_customer
+      - obmondo_system
+    runKubeAidPuppetSync: false
+
+# -- Kubernetes Secret name containing the TLS certificate key-pair, used to communicate with
+# Obmondo API.
+obmondoAPITLSSecretName: obmondo-api-tls
+
+configMap:
+  labels: {}
+  annotations: {}
+
+deployment:
+  replicas: 1
+
+  podLabels: {}
+  podAnnotations: {}
+
+  imagePullSecrets: []
+
+  podSecurityContext:
+    runAsNonRoot: true
+    fsGroup: 65534
+    seccompProfile:
+      type: RuntimeDefault
+
+  image:
+    repository: ghcr.io/obmondo/kubeaid-agent
+    tag: v0.0.1
+    pullPolicy: Always
+
+  env: []
+
+  securityContext:
+    privileged: false
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    capabilities:
+      drop: ["ALL"]
+
+  probes:
+    readiness:
+      httpGet:
+        path: /healthz
+        port: http
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 6
+      successThreshold: 1
+    liveness:
+      httpGet:
+        path: /healthz
+        port: http
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 2
+      successThreshold: 1
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+  extraVolumes: []
+
+  terminationGracePeriodSeconds: 10
+
+  nodeSelector: {}
+  affinity: {}
+  tolerations: []
+
+service:
+  labels: {}
+  annotations: {}
+
+  port: 80
+
+serviceMonitor:
+  enabled: true
+
+  labels: {}
+  annotations: {}
+
+  interval: 30s
+  scrapeTimeout: 10s
