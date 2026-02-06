@@ -7,17 +7,6 @@
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
-{{/* Determine if basic auth is configured*/}}
-{{- define "kubeaid-agent.basicAuthConfigured" -}}
-{{- with .Values.kubeaidConfig.repo.auth.basic }}
-  {{- if and .usernameSecretRef.secretName .passwordSecretRef.secretName }}
-enabled
-  {{- end }}
-{{- end }}
-{{- end }}
-
-
-
 {{/* Determine the final application name. */}}
 {{- define "kubeaid-agent.fullname" -}}
 {{- if .Values.fullnameOverride -}}
