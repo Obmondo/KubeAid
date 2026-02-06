@@ -95,11 +95,11 @@ spec:
               readOnly: true
             - name: kubeaid-git-credentials
               subPath: id_rsa
-              mountPath: {{ .Values.appConfig.kubeaidConfig.repo.auth.sshKey.sshPrivateKey }}
+              mountPath: /etc/kubeaid-agent/git-credentials/id_rsa
               readOnly: true
             - name: kubeaid-git-credentials
               subPath: known_hosts
-              mountPath:  {{ .Values.appConfig.kubeaidConfig.repo.auth.sshKey.hostKeyFile }}
+              mountPath:  /etc/kubeaid-agent/git-credentials/known_hosts
               readOnly: true
             - name: obmondo-api-tls
               subPath: tls.key
