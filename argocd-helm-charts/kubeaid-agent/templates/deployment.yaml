@@ -93,7 +93,6 @@ spec:
               subPath: config.yaml
               mountPath: /etc/kubeaid-agent/config.yaml
               readOnly: true
-          {{- if eq .Values.appConfig.kubeaidConfig.repo.auth.type "ssh" }}
             - name: kubeaid-git-credentials
               subPath: id_rsa
               mountPath: /etc/kubeaid-agent/git-credentials/id_rsa
@@ -102,7 +101,6 @@ spec:
               subPath: known_hosts
               mountPath: /etc/kubeaid-agent/git-credentials/known_hosts
               readOnly: true
-          {{- end }}
             - name: obmondo-api-tls
               subPath: tls.key
               mountPath: {{ .Values.appConfig.obmondoAPI.tls.keyFile }}
@@ -136,11 +134,9 @@ spec:
         - name: obmondo-api-tls
           secret:
             secretName: {{ .Values.obmondoAPITLSSecretName }}
-      {{- if eq .Values.appConfig.kubeaidConfig.repo.auth.type "ssh" }}
         - name: kubeaid-git-credentials
           secret:
             secretName: kubeaid-git-credentials
-      {{- end }}
         - name: tmp
           emptyDir: {}
         {{- with .Values.deployment.extraVolumes }}
