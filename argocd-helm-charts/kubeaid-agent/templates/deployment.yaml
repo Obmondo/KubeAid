@@ -93,7 +93,7 @@ spec:
               subPath: config.yaml
               mountPath: /etc/kubeaid-agent/config.yaml
               readOnly: true
-          {{- if eq (include "kubeaid-agent.basicAuthConfigured" .) "true" }}
+          {{- if include "kubeaid-agent.basicAuthConfigured" . }}
             - name: kubeaid-git-credentials
               subPath: id_rsa
               mountPath: /etc/kubeaid-agent/git-credentials/id_rsa
@@ -136,7 +136,7 @@ spec:
         - name: obmondo-api-tls
           secret:
             secretName: {{ .Values.obmondoAPITLSSecretName }}
-      {{- if eq (include "kubeaid-agent.basicAuthConfigured" .) "true" }}
+      {{- if include "kubeaid-agent.basicAuthConfigured" . }}
         - name: kubeaid-git-credentials
           secret:
             secretName: kubeaid-git-credentials
