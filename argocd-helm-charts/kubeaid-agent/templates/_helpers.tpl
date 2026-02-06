@@ -1,7 +1,22 @@
 {{/* Determine the final chart name. */}}
+
+{{- $basic := .Values.kubeaidConfig.repo.auth.basic }}
+{{- $basicConfigured := and $basic.usernameSecretRef.secretName $basic.passwordSecretRef.secretName }}
+
 {{- define "kubeaid-agent.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
+
+{{/* Determine if basic auth is configured*/}}
+{{- define "kubeaid-agent.basicAuthConfigured" -}}
+{{- $basic := .Values.kubeaidConfig.repo.auth.basic -}}
+{{- if and $basic.usernameSecretRef.secretName $basic.passwordSecretRef.secretName -}}
+true
+{{- else -}}
+false
+{{- end -}}
+{{- end -}}
+
 
 {{/* Determine the final application name. */}}
 {{- define "kubeaid-agent.fullname" -}}
