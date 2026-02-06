@@ -37,6 +37,9 @@ appConfig:
 
         # Option 2: SSH Key authentication (for SSH Git URLs)
         sshKey:
+          sshKey:
+            sshPrivateKey: /etc/kubeaid-agent/git-credentials/id_rsa
+            hostKeyFile: /etc/kubeaid-agent/git-credentials/known_hosts
           # password: "your-key-passphrase"              # Only needed if your SSH key is encrypted
           #
           # For production, use Kubernetes Secrets instead:
