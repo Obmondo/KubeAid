@@ -22,6 +22,7 @@ appConfig:
       url:
       insecureSkipTLS: true
       auth:
+        type: ssh  # basic or ssh must be specified
         # Option 1: Username/Password authentication (for HTTPS Git URLs)
         basic:
           # username: "your-git-username"
@@ -37,8 +38,6 @@ appConfig:
 
         # Option 2: SSH Key authentication (for SSH Git URLs)
         sshKey:
-          sshPrivateKey:
-          hostKeyFile:
           # password: "your-key-passphrase"              # Only needed if your SSH key is encrypted
           #
           # For production, use Kubernetes Secrets instead:
