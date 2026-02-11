@@ -24,7 +24,7 @@ $ kubectl get secret obmondo-clientcert -n monitoring --template="{{index .data 
 $ openssl x509 -in tls.crt -noout -text
 
 # create the new secret and seal it using kubeseal
-$ kubectl create secret tls k8s-agent-tls -n obmondo --dry-run=client --key="tls.key" --cert="tls.crt" -o yaml | kubeseal --controller-namespace system --controller-name sealed-secrets > k8s-agent-tls.yaml
+$ kubectl create secret tls k8s-agent-tls -n obmondo --dry-run=client --key="tls.key" --cert="tls.crt" -o yaml | kubeseal --controller-namespace sealed-secrets --controller-name sealed-secrets-controller > k8s-agent-tls.yaml
 ```
 
 To create the docker secret :
@@ -34,7 +34,7 @@ To create the docker secret :
 # with read_registry permission, or ask Ashish to provide the token
 
 # connect to the K8s cluster you want to deploy agent on
-$ kubectl create secret --namespace obmondo --dry-run=client docker-registry <secret-name> --docker-server=registry.obmondo.com --docker-username="oauth" --docker-password="<access-token>" -o yaml | kubeseal --controller-namespace system --controller-name sealed-secrets -o yaml > my-registry-access-token.yaml
+$ kubectl create secret --namespace obmondo --dry-run=client docker-registry <secret-name> --docker-server=registry.obmondo.com --docker-username="oauth" --docker-password="<access-token>" -o yaml | kubeseal --controller-namespace sealed-secrets --controller-name sealed-secrets-controller -o yaml > my-registry-access-token.yaml
 ```
 
 Create an application file for ArgoCD

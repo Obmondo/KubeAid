@@ -126,7 +126,7 @@ of VolumeSnapshotContent as well as the Snapshot on your cloud provider.
 ## Create SealedSecret for Velero using file
 
 ```sh
-kubectl create secret generic cloud-credentials -n velero  --from-file=cloud=cloud-credentials.yaml -o yaml --dry-run=client | kubeseal --controller-namespace system --controller-name sealed-secrets --format yaml > cloud.yaml
+kubectl create secret generic cloud-credentials -n velero  --from-file=cloud=cloud-credentials.yaml -o yaml --dry-run=client | kubeseal --controller-namespace sealed-secrets --controller-name sealed-secrets-controller --format yaml > cloud.yaml
 ```
 
 Where, contents of file `cloud-credentials.yaml` is shown below. From cloud to cloud the variable

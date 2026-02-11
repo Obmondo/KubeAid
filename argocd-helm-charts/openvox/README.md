@@ -8,13 +8,13 @@
 * Create a file based on the example [file](./examples/netrc)
 
 ```sh
-kubectl create secret generic hiera-git-secret --dry-run=client --from-file=netrc=./netrc.enableit -o yaml | kubeseal --controller-namespace system --controller-name sealed-secrets --format yaml
+kubectl create secret generic hiera-git-secret --dry-run=client --from-file=netrc=./netrc.enableit -o yaml | kubeseal --controller-namespace sealed-secrets --controller-name sealed-secrets-controller --format yaml
 ```
 
 * Create puppet repo secret
 
 ```sh
-kubectl create secret generic puppet-git-secret --dry-run=client --from-file=netrc=./netrc.enableit -o yaml | kubeseal --controller-namespace system --controller-name sealed-secrets --format yaml
+kubectl create secret generic puppet-git-secret --dry-run=client --from-file=netrc=./netrc.enableit -o yaml | kubeseal --controller-namespace sealed-secrets --controller-name sealed-secrets-controller --format yaml
 ```
 
 ## Environment name
@@ -42,7 +42,7 @@ root@b20b838ad0cb:/# eyaml createkeys --pkcs7-private-key=/tmp/private_key.pkcs7
 ```sh
 sudo chmod 775  /tmp/private_key.pkcs7.pem
 sudo chmod 775  /tmp/public_key.pkcs7.pem
-kubectl create secret generic eyaml-keys --namespace puppetserver --dry-run=client --from-file=private_key.pkcs7.pem=/tmp/private_key.pkcs7.pem --from-file=public_key.pkcs7.pem=/tmp/public_key.pkcs7.pem -o yaml | kubeseal --controller-namespace system --controller-name sealed-secrets --format yaml > eyaml-keys.yaml
+kubectl create secret generic eyaml-keys --namespace puppetserver --dry-run=client --from-file=private_key.pkcs7.pem=/tmp/private_key.pkcs7.pem --from-file=public_key.pkcs7.pem=/tmp/public_key.pkcs7.pem -o yaml | kubeseal --controller-namespace sealed-secrets --controller-name sealed-secrets-controller --format yaml > eyaml-keys.yaml
 ```
 
 ## Add PuppetCA cert as a tlsoption (traefik)
