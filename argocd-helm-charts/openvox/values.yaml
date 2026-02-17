@@ -221,12 +221,12 @@ gfetch:
       [gitea.obmondo.com]:2223 ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBFDZKKX5kDl8liLAp6+pkvzcbAODbJ9x2iZlBwUCedH0SiiFB8J8GFBnR/WwwL57tUTtMv+bdvSPx4HyAPIc7e4=
     local_path: /etc/puppetlabs/code/environments
     poll_interval: 2m
+    branches:
+        - "*"
   repos:
     - name: linuxaid
       url: "git@gitea.obmondo.com:Obmondo/LinuxAid.git"
       openvox: true
-      branches:
-        - "*"
       tags:
         - /^v1.4.[5-9]+\./
   ssh:
