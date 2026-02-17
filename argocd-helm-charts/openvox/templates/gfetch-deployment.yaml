@@ -56,7 +56,7 @@ spec:
             name: {{ include "puppetserver.name" . }}-gfetch
         - name: puppet-code-storage
           persistentVolumeClaim:
-            claimName: {{ include "puppetserver.name" . }}-puppet-code-claim
+            claimName: {{ include "puppetserver.name" . }}-code-claim
         {{- if .Values.gfetch.ssh.existingSecret }}
         - name: gfetch-ssh
           secret:
