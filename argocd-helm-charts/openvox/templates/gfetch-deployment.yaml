@@ -1,0 +1,69 @@
+{{- if .Values.gfetch.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "puppetserver.name" . }}-gfetch
+  labels:
+    app.kubernetes.io/component: gfetch
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: gfetch
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: gfetch
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/gfetch-configmap.yaml") . | sha256sum }}
+    spec:
+      {{- with .Values.gfetch.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: gfetch
+          image: "{{ .Values.gfetch.image.repository }}:{{ .Values.gfetch.image.tag }}"
+          imagePullPolicy: {{ .Values.gfetch.image.pullPolicy }}
+          command:
+            - gfetch
+            - daemon
+            - --config
+            - /etc/gfetch/config.yaml
+          {{- with .Values.gfetch.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.gfetch.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: gfetch-config
+              mountPath: /etc/gfetch/config.yaml
+              subPath: config.yaml
+              readOnly: true
+            - name: puppet-code-storage
+              mountPath: /etc/puppetlabs/code
+            {{- if .Values.gfetch.ssh.existingSecret }}
+            - name: gfetch-ssh
+              mountPath: /home/gfetch/.ssh
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: gfetch-config
+          configMap:
+            name: {{ include "puppetserver.name" . }}-gfetch
+        - name: puppet-code-storage
+          persistentVolumeClaim:
+            claimName: {{ include "puppetserver.name" . }}-puppet-code-claim
+        {{- if .Values.gfetch.ssh.existingSecret }}
+        - name: gfetch-ssh
+          secret:
+            secretName: {{ .Values.gfetch.ssh.existingSecret }}
+            defaultMode: 0400
+            items:
+              - key: id_rsa
+                path: id_rsa
+        {{- end }}
+{{- end }}

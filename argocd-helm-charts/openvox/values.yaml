@@ -196,3 +196,38 @@ g10k:
           ## A multi-line string
           value:  # |
         existingSecret: ""
+
+gfetch:
+  enabled: true
+  image:
+    repository: ghcr.io/obmondo/gfetch
+    tag: v0.0.1-beta-2-gff64624
+    pullPolicy: IfNotPresent
+  podSecurityContext:
+    runAsNonRoot: true
+  securityContext: {}
+  resources:
+    requests:
+      memory: 64Mi
+      cpu: 50m
+    limits:
+      memory: 128Mi
+  defaults:
+    ssh_key_path: /home/gfetch/.ssh/id_rsa
+    ssh_known_hosts: ""
+    ssh_known_hosts: |
+      [gitea.obmondo.com]:2223 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKTyoLz71gCQ3RJ3mfLWD+AGvy876irH0SlCoPmkHxUc
+      [gitea.obmondo.com]:2223 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDlF+Kh48gzMPCp+drznpH0fpJrUJpiQUlHoWhBbYkXK1VTvFJ7GWCl3oqqfWlGILJ6tYHGZ6oPh93fzuAHDWjaDgdrMb75AzrbE+7qP6WVDLK/SLy5ynJ8fQNxVVncVlWoq0D79EevIWawG1uECqpV5WAL6vCEhlBwcXDTdVaYF3KZWng5YQxaJzxdLbnQEYeKQ/mMQV/HT2eWF++G00EtRlqD7WR86jLOEwp3PDh5PF0tKKWzMYPWWfrC3FmBdz5L9doJDOksJAhwOyWtkFkt37g7LqWgHOMFRE2xPsz+IgKzxJ7DhZMfxEgkJEpQhS6v8e4nPtG/KdLNTOM5NlV1
+      [gitea.obmondo.com]:2223 ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBFDZKKX5kDl8liLAp6+pkvzcbAODbJ9x2iZlBwUCedH0SiiFB8J8GFBnR/WwwL57tUTtMv+bdvSPx4HyAPIc7e4=
+    local_path: /etc/puppetlabs/code/environments
+    poll_interval: 2m
+  repos:
+    - name: linuxaid
+      url: "git@gitea.obmondo.com:Obmondo/LinuxAid.git"
+      openvox: true
+      branches:
+        - "*"
+      tags:
+        - /^v1.4.[5-9]+\./
+  ssh:
+    existingSecret: g10k-git-secret
