@@ -9,6 +9,21 @@ data:
     ssh_known_hosts: |
       {{- . | nindent 6 }}
     {{- end }}
+    {{- if .Values.gfetch.defaults.openvox }}
+    openvox: {{ .openvox }}
+    {{- end }}
+    {{- with .Values.gfetch.defaults.branches }}
+    branches:
+      {{- range . }}
+      - {{ . | quote }}
+      {{- end }}
+    {{- end }}
+    {{- with .Values.gfetch.defaults.tags }}
+    tags:
+      {{- range . }}
+      - {{ . | quote }}
+      {{- end }}
+    {{- end }}
     repos:
     {{- range .Values.gfetch.repos }}
       - name: {{ .name | quote }}
