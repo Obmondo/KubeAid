@@ -61,7 +61,7 @@ spec:
         - name: gfetch-ssh
           secret:
             secretName: {{ .Values.gfetch.ssh.existingSecret }}
-            defaultMode: 0400
+            defaultMode: 292
             items:
               - key: id_rsa
                 path: id_rsa

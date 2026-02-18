@@ -5,33 +5,35 @@ metadata:
   name: {{ include "puppetserver.name" . }}-gfetch
 data:
   config.yaml: |
-    {{- with .Values.gfetch.defaults.ssh_known_hosts }}
-    ssh_known_hosts: |
-      {{- . | nindent 6 }}
-    {{- end }}
-    {{- if .Values.gfetch.defaults.openvox }}
-    openvox: {{ .openvox }}
-    {{- end }}
-    {{- with .Values.gfetch.defaults.branches }}
-    branches:
-      {{- range . }}
-      - {{ . | quote }}
+    defaults:
+      {{- with .Values.gfetch.defaults.ssh_known_hosts }}
+      ssh_known_hosts: |
+        {{- . | nindent 6 }}
       {{- end }}
-    {{- end }}
-    {{- with .Values.gfetch.defaults.tags }}
-    tags:
-      {{- range . }}
-      - {{ . | quote }}
+      {{- if .Values.gfetch.defaults.openvox }}
+      openvox: {{ .openvox }}
       {{- end }}
-    {{- end }}
+      {{- if .Values.gfetch.defaults.poll_interval }}
+      poll_interval: {{ .Values.gfetch.defaults.poll_interval | quote }}
+      {{- end }}
+      {{- with .Values.gfetch.defaults.branches }}
+      branches:
+        {{- range . }}
+        - {{ . | quote }}
+        {{- end }}
+      {{- end }}
+      {{- with .Values.gfetch.defaults.tags }}
+      tags:
+        {{- range . }}
+        - {{ . | quote }}
+        {{- end }}
+      {{- end }}
     repos:
     {{- range .Values.gfetch.repos }}
       - name: {{ .name | quote }}
         url: {{ .url | quote }}
         {{- if .ssh_key_path }}
         ssh_key_path: {{ .ssh_key_path | quote }}
-        {{- else if $.Values.gfetch.defaults.ssh_key_path }}
-        ssh_key_path: {{ $.Values.gfetch.defaults.ssh_key_path | quote }}
         {{- end }}
         {{- if .ssh_known_hosts }}
         ssh_known_hosts: |
@@ -39,13 +41,9 @@ data:
         {{- end }}
         {{- if .local_path }}
         local_path: {{ .local_path | quote }}
-        {{- else }}
-        local_path: {{ $.Values.gfetch.defaults.local_path | quote }}
         {{- end }}
         {{- if .poll_interval }}
         poll_interval: {{ .poll_interval | quote }}
-        {{- else }}
-        poll_interval: {{ $.Values.gfetch.defaults.poll_interval | quote }}
         {{- end }}
         {{- if .checkout }}
         checkout: {{ .checkout | quote }}
