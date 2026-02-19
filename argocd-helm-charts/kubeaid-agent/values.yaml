@@ -39,10 +39,16 @@ appConfig:
         # Option 2: SSH Key authentication (for SSH Git URLs)
         sshKey:
           sshPrivateKey:
-          hostKeyFile:
+          hostKey:
           # password: "your-key-passphrase"              # Only needed if your SSH key is encrypted
           #
           # For production, use Kubernetes Secrets instead:
+          sshPrivateKeySecretRef:
+            secretName: ""
+            key: ""
+          hostKeySecretRef:
+            secretName: ""
+            key: ""
           passwordSecretRef:
             secretName: ""
             key: ""

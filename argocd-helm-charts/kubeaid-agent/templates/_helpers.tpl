@@ -1,8 +1,4 @@
 {{/* Determine the final chart name. */}}
-
-{{- $basic := .Values.kubeaidConfig.repo.auth.basic }}
-{{- $basicConfigured := and $basic.usernameSecretRef.secretName $basic.passwordSecretRef.secretName }}
-
 {{- define "kubeaid-agent.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
 {{- end -}}

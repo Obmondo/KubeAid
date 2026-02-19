@@ -69,6 +69,26 @@ spec:
             {{- end }}
             {{- end }}
 
+            {{- with .Values.appConfig.kubeaidConfig.repo.auth.sshKey.sshPrivateKeySecretRef }}
+            {{- if and .secretName .key }}
+            - name: KUBEAID_AGENT_REPO_AUTH_SSHKEY_SSHPRIVATEKEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .secretName }}
+                  key: {{ .key }}
+            {{- end }}
+            {{- end }}
+
+            {{- with .Values.appConfig.kubeaidConfig.repo.auth.sshKey.hostKeySecretRef }}
+            {{- if and .secretName .key }}
+            - name: KUBEAID_AGENT_REPO_AUTH_SSHKEY_HOSTKEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .secretName }}
+                  key: {{ .key }}
+            {{- end }}
+            {{- end }}
+
             {{- with .Values.appConfig.kubeaidConfig.repo.auth.sshKey.passwordSecretRef }}
             {{- if and .secretName .key }}
             - name: KUBEAID_AGENT_REPO_AUTH_SSHKEY_PASSWORD
@@ -93,16 +113,6 @@ spec:
               subPath: config.yaml
               mountPath: /etc/kubeaid-agent/config.yaml
               readOnly: true
-          {{- if eq .Values.appConfig.kubeaidConfig.repo.auth.type "ssh" }}
-            - name: kubeaid-git-credentials
-              subPath: id_rsa
-              mountPath: /etc/kubeaid-agent/git-credentials/id_rsa
-              readOnly: true
-            - name: kubeaid-git-credentials
-              subPath: known_hosts
-              mountPath:  /etc/kubeaid-agent/git-credentials/known_hosts
-              readOnly: true
-          {{- end }}
             - name: obmondo-api-tls
               subPath: tls.key
               mountPath: {{ .Values.appConfig.obmondoAPI.tls.keyFile }}
@@ -136,11 +146,6 @@ spec:
         - name: obmondo-api-tls
           secret:
             secretName: {{ .Values.obmondoAPITLSSecretName }}
-      {{- if eq .Values.appConfig.kubeaidConfig.repo.auth.type "ssh" }}
-        - name: kubeaid-git-credentials
-          secret:
-            secretName: kubeaid-git-credentials
-      {{- end }}
         - name: tmp
           emptyDir: {}
         {{- with .Values.deployment.extraVolumes }}
