@@ -7,7 +7,7 @@ rule_files:
 tests:
   - interval: 1m
     input_series:
-      - series: 'puppet_report{host="atat.enableit",environment="master"}'
+      - series: 'puppet_report{host="atat.enableit",environment="1_0_0"}'
         values: 0x3000
       - series: 'puppet_status{state="failed",host="atat01.enableit",environment="master"}'
         values: 1x3000
@@ -71,7 +71,7 @@ tests:
               severity: warning
               host: atat.enableit
               alert_id: 'monitor::system::puppet::last_run'
-              environment: master
+              environment: "1_0_0"
             exp_annotations:
               summary: 'Puppet has not run on **atat.enableit** for more than 2d 2h 0m 0s'
               description: |-2
