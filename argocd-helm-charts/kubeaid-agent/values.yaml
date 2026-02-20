@@ -77,8 +77,8 @@ deployment:
       type: RuntimeDefault
 
   image:
-    repository: ghcr.io/obmondo/kubeaid-agent
-    tag: v0.0.1
+    repository: bh3139/kubeaid-agent
+    tag: "v0.0.5-beta"
     pullPolicy: Always
 
   env: []
