@@ -29,29 +29,29 @@ spec:
             context:
               - name: imageData
                 imageRegistry:
-                  reference: "{{ element.image }}"
+                  reference: "{{`{{ element.image }}`}}"
             preconditions:
               any:
-                - key: "{{ imageData.registry }}"
+                - key: "{{`{{ imageData.registry }}`}}"
                   operator: Equals
                   value: docker.io
             patchStrategicMerge:
               spec:
                 initContainers:
-                  - name: "{{ element.name }}"
-                    image: harbor.obmondo.com/{{ imageData.resolvedImage }}
+                  - name: "{{`{{ element.name }}`}}"
+                    image: harbor.obmondo.com/{{`{{ imageData.resolvedImage }}`}}
           - list: request.object.spec.containers[]
             context:
               - name: imageData
                 imageRegistry:
-                  reference: "{{ element.image }}"
+                  reference: "{{`{{ element.image }}`}}"
             preconditions:
               any:
-                - key: "{{ imageData.registry }}"
+                - key: "{{`{{ imageData.registry }}`}}"
                   operator: Equals
                   value: docker.io
             patchStrategicMerge:
               spec:
                 containers:
-                  - name: "{{ element.name }}"
-                    image: harbor.obmondo.com/{{ imageData.resolvedImage }}
+                  - name: "{{`{{ element.name }}`}}"
+                    image: harbor.obmondo.com/{{`{{ imageData.resolvedImage }}`}}
