@@ -4,12 +4,9 @@ fullnameOverride: ""
 # -- KubeAid Agent config file contents.
 appConfig:
   argocd:
-    # -- Raw auth token value (use secretRef instead for production)
-    # authToken: ""
-    # -- Reference to Kubernetes Secret containing the ArgoCD auth token
-    authTokenSecretRef:
-      secretName: ""
-      key: ""
+    # -- Name of the Kubernetes Secret (in argocd namespace) containing the ArgoCD auth token
+    # under the "token" key. The Go code reads it directly at startup.
+    authTokenSecretName: ""
 
     plainText: false
 

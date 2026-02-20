@@ -40,16 +40,6 @@ spec:
             {{- with .Values.deployment.env }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
-            {{- with .Values.appConfig.argocd.authTokenSecretRef }}
-            {{- if and .secretName .key }}
-            - name: KUBEAID_AGENT_ARGOCD_AUTHTOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .secretName }}
-                  key: {{ .key }}
-            {{- end }}
-            {{- end }}
-
             {{- with .Values.appConfig.kubeaidConfig.repo.auth.basic.usernameSecretRef }}
             {{- if and .secretName .key }}
             - name: KUBEAID_AGENT_REPO_AUTH_BASIC_USERNAME
