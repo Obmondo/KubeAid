@@ -29,9 +29,11 @@ mariadb:
     waitForVolumeResize: true
   image: "mariadb:11.6.2-noble"
   imagePullPolicy: IfNotPresent
-  # Optional: Add imagePullSecrets if using a private registry
-  # imagePullSecrets:
-  #   - name: registry
+  podMetadata:
+    annotations: {}
+# Optional: Add imagePullSecrets if using a private registry
+# imagePullSecrets:
+#   - name: registry
 
 redisCache:
   storage: 4Gi
