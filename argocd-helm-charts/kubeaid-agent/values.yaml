@@ -19,34 +19,16 @@ appConfig:
   kubeaidConfig:
     clusterName:
     repo:
-      url:
       insecureSkipTLS: true
       auth:
-        type: ssh # basic or ssh must be specified
-        # Option 1: Username/Password authentication (for HTTPS Git URLs)
+        # Optional: Username/Password authentication (for HTTPS Git URLs).
+        # If not configured, SSH auth is auto-discovered from ArgoCD secrets in the cluster.
         basic:
           # username: "your-git-username"
           # password: "your-password-or-token"
           #
           # For production, use Kubernetes Secrets instead of hardcoding credentials:
           usernameSecretRef:
-            secretName: ""
-            key: ""
-          passwordSecretRef:
-            secretName: ""
-            key: ""
-
-        # Option 2: SSH Key authentication (for SSH Git URLs)
-        sshKey:
-          sshPrivateKey:
-          hostKey:
-          # password: "your-key-passphrase"              # Only needed if your SSH key is encrypted
-          #
-          # For production, use Kubernetes Secrets instead:
-          sshPrivateKeySecretRef:
-            secretName: ""
-            key: ""
-          hostKeySecretRef:
             secretName: ""
             key: ""
           passwordSecretRef:
@@ -95,8 +77,8 @@ deployment:
       type: RuntimeDefault
 
   image:
-    repository: bh3139/kubeaid-agent
-    tag: "v0.0.5-beta"
+    repository: ghcr.io/obmondo/kubeaid-agent
+    tag: v0.0.1
     pullPolicy: Always
 
   env: []
