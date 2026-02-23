@@ -2,6 +2,15 @@
 
 All releases and the changes included in them (pulled from git commits added since last release) will be detailed in this file.
 
+## KubeAid Release Version 24.1.1
+
+### Features
+- c7b727b6a feat(erpnext): add podMetadata support to MariaDB template for velero backup annotations
+
+### Other Changes
+- 39f963fb4 update release.md with edgecase of new release without helm update
+- 9d12ce359 Fix kyverno chart breaking the helm template
+
 ## KubeAid Release Version 24.1.0
 
 ### Bug Fixes
