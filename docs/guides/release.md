@@ -43,3 +43,26 @@ once the Pull Request from Step 1 is merged into `master`, generate the release 
     2 files changed, 178 insertions(+), 115 deletions(-)
     rewrite .release-notes.md (97%)
     ```
+
+## 2A. Manual Minor/Patch Release (Without Chart Updates)
+Use this process when you need to publish a minor or patch release without running `manage-helm-chart.sh` (for example: feature changes, bug fixes, documentation updates, or internal improvements).
+
+### Steps
+
+1. Pull latest master
+   ```bash
+   git checkout master
+   git pull origin master
+   ```
+
+2. Update the VERSION file
+
+3. Stage the version change
+   ```bash
+   git add VERSION
+   ```
+
+4. Run release script
+   ```bash
+   ./bin/release.sh
+   ```
