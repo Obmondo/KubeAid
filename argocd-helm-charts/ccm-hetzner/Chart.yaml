@@ -3,8 +3,7 @@ name: ccm-hetzner
 description: Wrapper chart for Syself ccm-hetzner
 type: application
 version: 1.0.0
-
 dependencies:
   - name: ccm-hetzner
-    version: 2.0.1
+    version: 2.0.4
     repository: https://charts.syself.com
