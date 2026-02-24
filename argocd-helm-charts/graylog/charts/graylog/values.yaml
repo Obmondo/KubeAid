@@ -691,6 +691,7 @@ mongodb:
     #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
   persistence:
     size: "8Gi"
+    #logsSize: "2Gi"
 
   ## Configure MongoDB containers
   containers: []

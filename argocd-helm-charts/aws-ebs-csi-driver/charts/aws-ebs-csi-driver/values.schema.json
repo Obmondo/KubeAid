@@ -1090,6 +1090,11 @@
                 "type": "string"
               }
             },
+            "healthPort": {
+              "type": "integer",
+              "description": "The port the health probe is bound to",
+              "default": 9809
+            },
             "logLevel": {
               "type": "integer",
               "description": "Set the level of verbosity of the logs",

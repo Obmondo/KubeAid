@@ -4,5 +4,5 @@ version: 1.6.1
 # see latest chart here: https://artifacthub.io/packages/search?org=cert-manager
 dependencies:
   - name: cert-manager
-    version: v1.19.3
+    version: v1.19.4
     repository: https://charts.jetstack.io

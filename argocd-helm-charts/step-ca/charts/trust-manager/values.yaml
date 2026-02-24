@@ -65,7 +65,7 @@ image:
 
   # Kubernetes imagePullPolicy on Deployment.
   pullPolicy: IfNotPresent
-  tag: v0.20.3
+  tag: v0.21.1
 defaultPackage:
   # Whether to load the default trust package during pod initialization, and include it in main container args. This container enables the 'useDefaultCAs' source on Bundles.
   enabled: true
@@ -103,7 +103,7 @@ defaultPackageImage:
 
   # imagePullPolicy for the default package image.
   pullPolicy: IfNotPresent
-  tag: 20230311-deb12u1.2
+  tag: 20230311-deb12u1.4
 # Automounting API credentials for the trust-manager pod.
 # +docs:property
 automountServiceAccountToken: true
@@ -183,6 +183,9 @@ tolerations: []
 topologySpreadConstraints: []
 filterExpiredCertificates:
   # Whether to filter expired certificates from the trust bundle.
+  enabled: false
+filterNonCACerts:
+  # Filter non-CA certificates, only CAs are used in the resulting Bundle.
   enabled: false
 app:
   # Minimum TLS version supported. If omitted, the default Go minimum version will be used.
@@ -291,6 +294,19 @@ app:
         scrapeTimeout: 5s
         # Additional labels to add to the ServiceMonitor.
         labels: {}
+        # EndpointAdditionalProperties allows setting additional properties on the
+        # endpoint such as relabelings, metricRelabelings etc.
+        #
+        # For example:
+        #  endpointAdditionalProperties:
+        #   relabelings:
+        #   - action: replace
+        #     sourceLabels:
+        #     - __meta_kubernetes_pod_node_name
+        #     targetLabel: instance
+        #
+        # +docs:property
+        endpointAdditionalProperties: {}
 podDisruptionBudget:
   # Enable or disable the PodDisruptionBudget resource.
   #

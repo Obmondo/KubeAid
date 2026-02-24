@@ -13,5 +13,5 @@ dependencies:
     repository: https://smallstep.github.io/helm-charts
     condition: autocert.enabled
   - name: trust-manager
-    version: v0.20.3
+    version: v0.21.1
     repository: https://charts.jetstack.io

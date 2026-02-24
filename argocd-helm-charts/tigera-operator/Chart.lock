@@ -1,6 +1,6 @@
 dependencies:
 - name: tigera-operator
   repository: https://projectcalico.docs.tigera.io/charts
-  version: v3.31.3
-digest: sha256:0236e51157fcd838876023ba6b4b67518e28395b08cb1f4f7ba22fcbeec0f29c
-generated: "2026-01-07T17:43:14.388233964+05:30"
+  version: v3.31.4
+digest: sha256:d84d635651dfe998cfd486b0b702d1e9bb3dab600cea33c6309ad12bbc633f5e
+generated: "2026-02-24T22:13:21.179282032+05:30"

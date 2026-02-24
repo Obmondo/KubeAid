@@ -57,6 +57,14 @@ spec:
             resources:
               requests:
                 storage: {{ .Values.mongodb.persistence.size }}
+        {{- if .Values.mongodb.persistence.logsSize }}
+        - metadata:
+            name: logs-volume
+          spec:
+            resources:
+              requests:
+                storage: {{ .Values.mongodb.persistence.logsSize }}
+        {{- end }}
 ---
 {{- $password := include "graylog.mongodb.auth.password" . }}
 apiVersion: v1
