@@ -1,0 +1,86 @@
+# Default values for ccm-hetzner.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/syself/hetzner-cloud-controller-manager
+  pullPolicy: Always
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+env:
+  debug: false
+  loadBalancers: true
+  leaderElect: true
+  hcloudApiToken: # HCloud API Token, fill this only if you don't have a secret already with the token. And set secret.create=true
+  robotUser: # Robot User, fill this only if you don't have a secret already with the token. And set secret.create=true
+  robotPassword: # Robot Password, fill this only if you don't have a secret already with the token. And set secret.create=true
+
+extraEnvVars: []
+##   - name: FOO
+##     value: "bar"
+
+privateNetwork:
+  enabled: false
+  network:
+    id: # If you have a secret with the key network leave it empty. If you specify it manually provide the name or ID of the Hcloud Network here. And set secret.create=true
+  clusterSubnet: 10.244.0.0/16 # Pod CIDR
+
+secret:
+  create: false
+  name: hetzner # Name of an existing secret
+  key:
+    network: network # Name of an existing key for the hcloud-network in the above specified secret
+
+    ## These values could be set in v1. For v2 we introduced hot-reloading of the secret.
+    ## These values are no longer configurable:
+    # token: hcloud
+    # robotUserName: robot-user
+    # robotPassword: robot-password
+
+pdb:
+  enabled: true
+  minAvailable: 1
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  {}
+  # fsGroup: 2000
+
+securityContext:
+  {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 50Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+topologySpreadConstraints: {}
