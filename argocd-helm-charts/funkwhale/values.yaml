@@ -48,7 +48,7 @@ funkwhale:
   # Django secret key (auto-generated if not set)
   # Use djangoExistingSecret to reference a sealed secret instead
   djangoSecret: ""
-  
+
   # Reference an existing secret for Django secret key (e.g., from SealedSecrets)
   # The PreSync job will read from this secret and inject into Funkwhale config
   djangoExistingSecret: ""
