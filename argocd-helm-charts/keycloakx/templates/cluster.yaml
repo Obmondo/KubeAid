@@ -47,3 +47,8 @@ spec:
           barmanObjectName: keycloak-pgsql-backups
           serverName: "revision-{{ $postgresql.recover.revision }}"
   {{- end }}
+  monitoring:
+    enablePodMonitor: {{ if hasKey (default dict $postgresql.monitoring) "enablePodMonitor" }}{{ $postgresql.monitoring.enablePodMonitor }}{{ else }}{{ $postgresql.backups.enabled }}{{ end }}
+    {{- if $postgresql.monitoring }}
+    {{- omit $postgresql.monitoring "enablePodMonitor" | toYaml | nindent 4 }}
+    {{- end }}
