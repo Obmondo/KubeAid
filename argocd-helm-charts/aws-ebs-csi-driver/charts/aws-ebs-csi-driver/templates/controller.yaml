@@ -278,7 +278,7 @@ spec:
               mountPath: /var/lib/csi/sockets/pluginproxy/
           {{- if .Values.controller.enableMetrics }}
           ports:
-            - name: metrics
+            - name: metrics-prov
               containerPort: 3302
               protocol: TCP
           {{- end }}
@@ -351,7 +351,7 @@ spec:
               mountPath: /var/lib/csi/sockets/pluginproxy/
           {{- if .Values.controller.enableMetrics }}
           ports:
-            - name: metrics
+            - name: metrics-attach
               containerPort: 3303
               protocol: TCP
           {{- end }}
@@ -411,7 +411,7 @@ spec:
               mountPath: /var/lib/csi/sockets/pluginproxy/
           {{- if .Values.controller.enableMetrics }}
           ports:
-            - name: metrics
+            - name: metrics-snap
               containerPort: 3306
               protocol: TCP
           {{- end }}
@@ -483,7 +483,7 @@ spec:
               mountPath: /var/lib/csi/sockets/pluginproxy/
           {{- if .Values.controller.enableMetrics }}
           ports:
-            - name: metrics
+            - name: metrics-volmod
               containerPort: 3307
               protocol: TCP
           {{- end }}
@@ -597,7 +597,7 @@ spec:
               mountPath: /var/lib/csi/sockets/pluginproxy/
           {{- if .Values.controller.enableMetrics }}
           ports:
-            - name: metrics
+            - name: metrics-resizer
               containerPort: 3304
               protocol: TCP
           {{- end }}
@@ -631,7 +631,7 @@ spec:
               mountPath: /csi
           {{- if .Values.controller.enableMetrics }}
           ports:
-            - name: metrics
+            - name: metrics-lp
               containerPort: 3305
               protocol: TCP
           {{- end }}

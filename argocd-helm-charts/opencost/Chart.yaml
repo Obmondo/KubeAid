@@ -3,5 +3,5 @@ name: opencost
 version: 1.0.0
 dependencies:
   - name: opencost
-    version: 2.5.8
+    version: 2.5.9
     repository: https://opencost.github.io/opencost-helm-chart

@@ -36,6 +36,9 @@
         "filterExpiredCertificates": {
           "$ref": "#/$defs/helm-values.filterExpiredCertificates"
         },
+        "filterNonCACerts": {
+          "$ref": "#/$defs/helm-values.filterNonCACerts"
+        },
         "global": {
           "$ref": "#/$defs/helm-values.global"
         },
@@ -245,6 +248,9 @@
         "enabled": {
           "$ref": "#/$defs/helm-values.app.metrics.service.servicemonitor.enabled"
         },
+        "endpointAdditionalProperties": {
+          "$ref": "#/$defs/helm-values.app.metrics.service.servicemonitor.endpointAdditionalProperties"
+        },
         "interval": {
           "$ref": "#/$defs/helm-values.app.metrics.service.servicemonitor.interval"
         },
@@ -264,6 +270,11 @@
       "default": false,
       "description": "Create a Prometheus ServiceMonitor for trust-manager.",
       "type": "boolean"
+    },
+    "helm-values.app.metrics.service.servicemonitor.endpointAdditionalProperties": {
+      "default": {},
+      "description": "EndpointAdditionalProperties allows setting additional properties on the endpoint such as relabelings, metricRelabelings etc.\n\nFor example:\nendpointAdditionalProperties:\n relabelings:\n - action: replace\n   sourceLabels:\n   - __meta_kubernetes_pod_node_name\n   targetLabel: instance",
+      "type": "object"
     },
     "helm-values.app.metrics.service.servicemonitor.interval": {
       "default": "10s",
@@ -639,6 +650,20 @@
     "helm-values.filterExpiredCertificates.enabled": {
       "default": false,
       "description": "Whether to filter expired certificates from the trust bundle.",
+      "type": "boolean"
+    },
+    "helm-values.filterNonCACerts": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "$ref": "#/$defs/helm-values.filterNonCACerts.enabled"
+        }
+      },
+      "type": "object"
+    },
+    "helm-values.filterNonCACerts.enabled": {
+      "default": false,
+      "description": "Filter non-CA certificates, only CAs are used in the resulting Bundle.",
       "type": "boolean"
     },
     "helm-values.global": {

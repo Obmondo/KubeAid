@@ -31,7 +31,6 @@ rules:
     resources:
       - services
       - nodes
-      - nodes/proxy
       - persistentvolumes
       - persistentvolumeclaims
       - pods

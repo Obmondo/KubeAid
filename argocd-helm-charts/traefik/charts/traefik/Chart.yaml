@@ -1,14 +1,8 @@
 annotations:
-  artifacthub.io/changes: |
-    - "tests(hub): relocate and clean api gw tests"
-    - "fix(grpc): enforce mutually exclusive TLS and insecure options"
-    - "fix(chart): allow to be used as optional subchart"
-    - "fix(chart): add nameOverride and fullnameOverride to schema file"
-    - "fix(api): add support for missing insecure and debug options"
-    - "feat(deps): update traefik docker tag to v3.6.8"
-    - "feat(deployment): support templating for podLabels"
-    - "docs(schema): add description from helm-docs comments"
-    - "chore(release): publish v39.0.1"
+  artifacthub.io/changes: "- \"chore(release): \U0001F680 publish traefik 39.0.2\"\n-
+    \"docs: fix typo in examples\"\n- \"chore(deps): update helm/kind-action action
+    to v1.14.0\"\n- \"feat: :package: allow IBM cloud values\"\n- \"chore(ci): lint
+    on pr title\"\n"
 apiVersion: v2
 appVersion: v3.6.8
 description: A Traefik based Kubernetes ingress controller
@@ -30,4 +24,4 @@ sources:
 - https://github.com/traefik/traefik-helm-chart
 - https://github.com/traefik/traefik
 type: application
-version: 39.0.1
+version: 39.0.2

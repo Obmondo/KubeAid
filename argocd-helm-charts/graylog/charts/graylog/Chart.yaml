@@ -31,4 +31,4 @@ name: graylog
 sources:
 - https://github.com/KongZ/charts
 type: application
-version: 3.0.12
+version: 3.0.13
