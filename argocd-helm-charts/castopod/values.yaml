@@ -1,0 +1,139 @@
+# Castopod Helm Chart values
+# https://castopod.org/ - Free and open-source hosting platform for podcasters
+
+# External MariaDB using MariaDB Operator
+# Creates a MariaDB CR managed by mariadb-operator
+externalMariadb:
+  enabled: true
+  database: castopod
+  username: castopod
+  rootPasswordSecretKeyRef:
+    name: castopod-mariadb-root
+    key: password
+    generate: false
+  passwordSecretKeyRef:
+    name: castopod-mariadb-user
+    key: password
+    generate: false
+  storage:
+    size: 10Gi
+    # storageClassName: ""
+    resizeInUseVolumes: true
+    waitForVolumeResize: true
+  image: "mariadb:11.6.2-noble"
+  imagePullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+# External Redis using Redis Operator (opstree)
+# Creates a Redis CR managed by redis-operator
+# Note: name must be 'castopod-redis-master' to match upstream chart's hardcoded hostname
+externalRedis:
+  enabled: true
+  name: castopod-redis-master
+  storage: 2Gi
+  # storageClass: ""
+  image: quay.io/opstree/redis:v7.2.6
+  imagePullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
+
+castopod:
+  replicaCount: 1
+
+  image:
+    repository: castopod/castopod
+    pullPolicy: IfNotPresent
+    # tag: ""  # Defaults to chart appVersion
+
+  # Secrets configuration
+  # Use existing secret for credentials (recommended: sealed secrets)
+  # Secret must contain: redis-password, mariadb-password, mariadb-root-password
+  secrets:
+    create: false
+    name: castopod-secrets
+
+  # Environment configuration
+  env:
+    https:
+      enabled: true
+    CP_BASEURL: "https://castopod.example.com"
+    CP_ANALYTICS_SALT: ""
+
+  # Persistence for media files
+  # We create the PVC in our wrapper chart to support storageClass
+  # The upstream chart PVC is disabled via persistence.enabled: false
+  persistence:
+    enabled: false  # Disable upstream PVC, we create our own
+    size: 50Gi
+    accessMode: ReadWriteMany
+    storageClass: ceph-filesystem
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 8000
+
+  # Ingress configuration
+  ingress:
+    enabled: true
+    className: ""
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt
+    hosts:
+      - host: castopod.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: castopod-tls
+        hosts:
+          - castopod.example.com
+
+  # Resource limits
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # MariaDB configuration (bundled - disabled by default, using operator instead)
+  mariadb:
+    enabled: false
+    auth:
+      database: castopod
+      username: castopod
+      existingSecret: castopod-secrets
+    primary:
+      persistence:
+        enabled: true
+        size: 8Gi
+        # storageClass: ""
+
+  # Redis configuration (bundled - disabled by default, using operator instead)
+  redis:
+    enabled: false
+    architecture: standalone
+    sentinel:
+      enabled: false
+    auth:
+      enabled: true
+      existingSecret: castopod-secrets
+      existingSecretPasswordKey: "redis-password"
+      usePasswordFiles: false
+      usePasswordFileFromSecret: false
+    master:
+      persistence:
+        enabled: true
+        size: 2Gi
+        # storageClass: ""
