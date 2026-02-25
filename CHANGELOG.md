@@ -2,6 +2,42 @@
 
 All releases and the changes included in them (pulled from git commits added since last release) will be detailed in this file.
 
+## KubeAid Release Version 24.2.0
+
+### Minor Version Upgrades
+- 5e2ff9ecd Updated aws-ebs-csi-driver from version 2.55.1 to 2.56.1
+- 5e2ff9ecd Updated gitlab-runner from version 0.85.0 to 0.86.0
+- 5e2ff9ecd Updated opentelemetry-operator from version 0.105.1 to 0.106.0
+- 5e2ff9ecd Updated opentelemetry-collector from version 0.145.0 to 0.146.0
+- 5e2ff9ecd Updated prometheus-adapter from version 5.2.1 to 5.3.0
+- 5e2ff9ecd Updated trust-manager from version v0.20.3 to v0.21.1
+- 5e2ff9ecd Updated velero from version 11.3.2 to 11.4.0
+
+### Patch Version Upgrades
+- 5e2ff9ecd Updated argo-cd from version 9.4.3 to 9.4.4
+- 5e2ff9ecd Updated hcloud-cloud-controller-manager from version 1.30.0 to 1.30.1
+- 5e2ff9ecd Updated cert-manager from version v1.19.3 to v1.19.4
+- 5e2ff9ecd Updated graylog from version 3.0.12 to 3.0.13
+- 5e2ff9ecd Updated mattermost-team-edition from version 6.6.91 to 6.6.92
+- 5e2ff9ecd Updated opencost from version 2.5.8 to 2.5.9
+- 5e2ff9ecd Updated tigera-operator from version v3.31.3 to v3.31.4
+- 5e2ff9ecd Updated traefik from version 39.0.1 to 39.0.2
+- a60a6f9ef chore(patch update): Updated ccm-hetzner from version 2.0.1 to 2.0.4
+
+### Features
+- 6b79d349c feat(lemmy): Add secret injection via ArgoCD PostSync Job
+- 53a007b16 feat(funkwhale): Presync job to remove plain text secrets
+- c46c90e0e feat(castopod): Add PVC template with storageClass support
+- 715c2d070 feat(castopod): Add Castopod chart with MariaDB and Redis operator support
+- 5fe872121 feat(keycloakx): enable pod monitoring by default if backups are enabled
+- 1ebcf87df feat: Add comprehensive CNPG backup monitoring and alerting
+
+### Other Changes
+- 14ebb0d54 add how to buy hetzner servers guide
+- 51a70bd78 lint fix
+- 51062bff3 convert ccm-hetzner helm chart to wrapper style
+- c140ffd53 update: add kubeaid agent service account with access to secrets in argocd namespace to be able to read secrets and configmap for s sshPrivateKey and hostkeys
+
 ## KubeAid Release Version 24.1.1
 
 ### Features
