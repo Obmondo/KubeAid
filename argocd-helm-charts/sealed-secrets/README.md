@@ -89,21 +89,6 @@ sealedsecrets.bitnami.com/managed: "true"
 
 and then restart sealed-secrets pod in kube-system to make it do its job (it has already given up at this point).
 
-## Important Considerations
-
-### `docker-registry` secret type is incompatible with `secretKeyRef`
-
-Secrets of type `docker-registry` are **not** usable via `secretKeyRef` in pod environment variables or volume mounts.
-They are exclusively designed to be consumed as `imagePullSecrets`. If you need to reference individual fields (e.g. a
-registry password) from application config, create a separate secret instead.
-
-### Namespace is bound at seal time and cannot be changed
-
-When a SealedSecret is created, the namespace is cryptographically bound into the encryption. This means you **cannot**
-move or re-use a SealedSecret in a different namespace — the controller will fail to decrypt it.
-If you need the secret in a different namespace, you must go back to the original plaintext secret and re-seal it
-with the correct target namespace from the start.
-
 ## Templating Sealed Secrets
 
 Sealed secrets have an interesting feature which can use config files where only a
@@ -211,3 +196,4 @@ Create the s3 bucket
 ```sh
 aws s3api create-bucket --bucket kbm-sealed-secrets-backups --region eu-west-1 --endpoint-url=https://s3.obmondo.com
 ```
+
