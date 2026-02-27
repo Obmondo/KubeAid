@@ -1,7 +1,4 @@
 ---
-# NOTE: this is single node cluster
 localpv-provisioner:
   localpv:
     basePath: "/var/openebs/local"
-  hostpathClass:
-    isDefaultClass: true
