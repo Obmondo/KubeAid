@@ -198,4 +198,4 @@ spec:
 
 - [ArgoCD Application CRD Documentation](https://argo-cd.readthedocs.io/en/stable/operator-manual/declarative-setup/)
 - [Helm Dependencies](https://helm.sh/docs/helm/helm_dependency/)
-- [Available Charts in KubeAid](../../argocd-helm-charts/)
+- [Available Charts in KubeAid](https://github.com/Obmondo/KubeAid/tree/main/argocd-helm-charts/)

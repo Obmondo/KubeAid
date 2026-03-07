@@ -201,7 +201,8 @@ spec:
       selfHeal: true   # Revert manual changes
 ```
 
-> **Warning:** Enable `selfHeal` carefully. It will override any manual changes!
+> [!WARNING]
+> Enable `selfHeal` carefully. It will override any manual changes!
 
 ## Best Practices
 

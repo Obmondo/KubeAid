@@ -46,7 +46,7 @@ export KUBECONFIG=./outputs/kubeconfigs/main.yaml
 kubectl cluster-info
 ```
 
-Logs are saved in `outputs/.log`. Access [ArgoCD]() and [Grafana]() dashboards.
+Logs are saved in `outputs/.log`. Access ArgoCD and Grafana dashboards.
 
 ## Cleanup
 

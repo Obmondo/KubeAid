@@ -163,7 +163,7 @@ kubeaid-cli cluster bootstrap
 
 #### Bare Metal Prerequisites
 
-- Create SSH KeyPair at <https://robot.hetzner.com/key/index>
+- Create SSH KeyPair at [https://robot.hetzner.com/key/index](https://robot.hetzner.com/key/index)
   > No 2 Hetzner Bare Metal SSH KeyPairs can have the same public key
 - If setting `cloud.hetzner.bareMetal.wipeDisks: True`, remove pre-existing RAID:
   ```bash
@@ -228,7 +228,7 @@ export KUBECONFIG=./outputs/kubeconfigs/main.yaml
 kubectl cluster-info
 ```
 
-Logs are saved in `outputs/.log`. Access [ArgoCD]() and [Grafana]() dashboards for monitoring.
+Logs are saved in `outputs/.log`. Access ArgoCD and Grafana dashboards for monitoring.
 
 ## See Also
 

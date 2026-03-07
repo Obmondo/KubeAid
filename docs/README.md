@@ -13,9 +13,10 @@ The complete installation guide for setting up a KubeAid-managed Kubernetes clus
 | [Getting Started Guide](./getting-started/README.md) | Complete installation walkthrough |
 | [Prerequisites](./getting-started/prerequisites.md) | Required tools and setup |
 | [Pre-Configuration](./getting-started/pre-configuration.md) | Configuration file setup |
-| [Installation](./getting-started/installation.md) | Bootstrap your cluster |
+| [Bootstrap](./getting-started/bootstrap.md) | Bootstrap your cluster |
 | [Post-Configuration](./getting-started/post-configuration.md) | Access dashboards and verify setup |
-| [Basic Operations](./getting-started/basic-operations.md) | Day-to-day operations and cleanup |
+| [Upgrade](./getting-started/upgrade.md) | Upgrade procedure |
+| [Deletion](./getting-started/delete.md) | Cleanup procedure |
 
 ### Hosting Reference
 
@@ -59,8 +60,8 @@ Guides for ongoing cluster management:
 
 | Guide | Description |
 |-------|-------------|
-| [GitHub Token](./access_token/github.md) | GitHub PAT setup |
-| [GitLab Token](./access_token/gitlab.md) | GitLab PAT setup |
+| [GitHub Token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) | GitHub PAT setup |
+| [GitLab Token](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html) | GitLab PAT setup |
 
 ### About KubeAid
 

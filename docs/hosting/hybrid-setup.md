@@ -67,7 +67,8 @@ For detailed configuration, see the [Cilium Cluster Mesh documentation](https://
 
 ## Hetzner Hybrid Mode
 
-> **Note:** This is different from Cilium Cluster Mesh.
+> [!NOTE]
+> This is different from Cilium Cluster Mesh.
 
 Hetzner's built-in hybrid mode creates a **single cluster** with mixed node types:
 - Control plane in HCloud (VMs)

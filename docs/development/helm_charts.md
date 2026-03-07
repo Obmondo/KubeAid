@@ -47,5 +47,5 @@ Note:
 For example `postgres-operator` for postgres for postgresql database and so on.
 <!-- markdownlint-disable -->
 - Check
-[doc](postgres-operator/README.md) about postgres operator and how that works.
+[doc](https://github.com/Obmondo/KubeAid/tree/main/argocd-helm-charts/postgres-operator/README.md) about postgres operator and how that works.
 <!-- markdownlint-enable -->

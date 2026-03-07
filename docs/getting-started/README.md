@@ -44,7 +44,7 @@ Follow these steps in order to set up your cluster:
 |------|----------|-------------|
 | 1 | [Prerequisites](./prerequisites.md) | Verify required tools, repositories, and provider credentials |
 | 2 | [Pre-Configuration](./pre-configuration.md) | Generate and configure `general.yaml` and `secrets.yaml` |
-| 3 | [Installation](./installation.md) | Bootstrap the cluster using `kubeaid-cli` |
+| 3 | [Bootstrap](./bootstrap.md) | Bootstrap the cluster using `kubeaid-cli` |
 | 4 | [Post-Configuration](./post-configuration.md) | Access dashboards, verify setup, and configure services |
 
 ## Cluster Operations
@@ -53,7 +53,8 @@ After installation, use these guides for ongoing cluster management:
 
 | Operation | Document | Description |
 |-----------|----------|-------------|
-| Basic Operations | [Basic Operations](./basic-operations.md) | Basic operations including deletion and clean-up |
+| Cluster Upgrade | [Upgrade](./upgrade.md) | Upgrade Kubernetes version |
+| Cluster Deletion | [Deletion](./delete.md) | Delete cluster and clean up |
 
 ## Supported Providers
 
@@ -69,7 +70,8 @@ KubeAid supports the following hosting environments:
 | **Bare Metal (SSH-only)** | On-premise | ❌ Manual | Uses KubeOne |
 | **Local K3D** | Development | ❌ | For testing only |
 
-> **Note:** ClusterAPI is used for providers with API access for host management. KubeOne is used for SSH-only access platforms where there is no API for host management.
+> [!NOTE]
+> ClusterAPI is used for providers with API access for host management. KubeOne is used for SSH-only access platforms where there is no API for host management.
 
 ## Quick Start
 

@@ -218,8 +218,8 @@ spec:
 
 ## Reference Links
 
-- <https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/>
-- <https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale-walkthrough/>
-- <https://github.com/kubernetes-sigs/prometheus-adapter/blob/master/docs/walkthrough.md>
-- <https://github.com/kubernetes-sigs/prometheus-adapter/blob/master/docs/config.md>
-- <https://github.com/kubernetes-sigs/prometheus-adapter/blob/master/docs/config-walkthrough.md>
+- [https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/)
+- [https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale-walkthrough/](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale-walkthrough/)
+- [https://github.com/kubernetes-sigs/prometheus-adapter/blob/master/docs/walkthrough.md](https://github.com/kubernetes-sigs/prometheus-adapter/blob/master/docs/walkthrough.md)
+- [https://github.com/kubernetes-sigs/prometheus-adapter/blob/master/docs/config.md](https://github.com/kubernetes-sigs/prometheus-adapter/blob/master/docs/config.md)
+- [https://github.com/kubernetes-sigs/prometheus-adapter/blob/master/docs/config-walkthrough.md](https://github.com/kubernetes-sigs/prometheus-adapter/blob/master/docs/config-walkthrough.md)

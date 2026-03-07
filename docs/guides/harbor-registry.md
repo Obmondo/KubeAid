@@ -7,13 +7,13 @@ It provides a secure, scalable, and feature-rich solution for hosting container 
 At Obmondo, we rely on Harbor as the central registry for all our build artifacts, container images, and CI/CD operations. 
 Hosting our own registry enhances security, improves performance, and reduces reliance on third-party services.
 
-If you're new to KubeAid, check out our [README](../../README.md).
+If you're new to KubeAid, check out our [README](https://github.com/Obmondo/KubeAid/blob/main/README.md).
 
 
 ## Deploying Harbor with KubeAid
 
-- `argocd-apps/templates/harbor.yaml`: This is a template for ArgoCD application. Click [here](../../argocd-helm-charts/harbor/example/argocd-apps/templates/harbor.yaml)
-- `argocd-apps/values-harbor.yaml`: This file lets you customize Harbor template file using values. Click [here](../../argocd-helm-charts/harbor/example/argocd-apps/values-harbor.yaml)
+- `argocd-apps/templates/harbor.yaml`: This is a template for ArgoCD application. Click [here](https://github.com/Obmondo/KubeAid/tree/main/argocd-helm-charts/harbor/example/argocd-apps/templates/harbor.yaml)
+- `argocd-apps/values-harbor.yaml`: This file lets you customize Harbor template file using values. Click [here](https://github.com/Obmondo/KubeAid/tree/main/argocd-helm-charts/harbor/example/argocd-apps/values-harbor.yaml)
 
 Deployment Steps:
 1. Modify the Harbor template to fit your environment (e.g., sources, destinations, etc.).

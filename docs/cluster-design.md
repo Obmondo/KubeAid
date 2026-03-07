@@ -207,6 +207,7 @@ This is a hardware limitation of Hetzner Cloud (HCloud) servers, not the CSI dri
 
 ### The Key Principle
 
+> [!NOTE]
 > **Use database-level replication (2+ replicas) ONLY when using local storage.**
 > **Use single replica when storage provides failover (cloud CSI, Ceph).**
 
@@ -221,7 +222,8 @@ This is a hardware limitation of Hetzner Cloud (HCloud) servers, not the CSI dri
 
 ### When Do You Actually Need Read Replicas?
 
-> 💡 **Key Insight:** Read replicas are for **performance scaling**, not for HA when using failover-capable storage.
+> [!TIP]
+> Read replicas are for **performance scaling**, not for HA when using failover-capable storage.
 
 | Scenario | Need Read Replicas? | Reason |
 |----------|--------------------|---------|
@@ -376,7 +378,8 @@ postgres:
 
 ### Memory Limits vs Requests
 
-> ⚠️ **CRITICAL:** Never reduce memory **limits** to save resources. Only adjust **requests**.
+> [!CAUTION]
+> Never reduce memory **limits** to save resources. Only adjust **requests**.
 
 | Setting | Purpose | Safe to Reduce? |
 |---------|---------|----------------|
@@ -549,7 +552,8 @@ flowchart LR
     style cloud fill:#667eea,stroke:#a3bffa,color:#fff
 ```
 
-> **Key Insight:** Hetzner Cloud CSI is suitable for dev/small workloads but hits limitations (16 volumes/node) for larger deployments. Migrate to Ceph on bare metal for production scale.
+> [!TIP]
+> Hetzner Cloud CSI is suitable for dev/small workloads but hits limitations (16 volumes/node) for larger deployments. Migrate to Ceph on bare metal for production scale.
 
 ---
 
@@ -660,7 +664,7 @@ kubectl taint nodes <cp-node> node-role.kubernetes.io/control-plane:NoSchedule
 2. Add more worker nodes
 3. Migrate to Ceph storage
 
-See: [Hetzner CSI Volume Limit Debugging](../guides/storage/hetzner/hetzner-csi-volume-limit-debugging.md)
+See: [Hetzner CSI Volume Limit Debugging](https://gitea.obmondo.com/EnableIT/wiki/src/branch/master/guides/storage/hetzner/hetzner-csi-volume-limit-debugging.md)
 
 ### "Database not recovering after node failure"
 

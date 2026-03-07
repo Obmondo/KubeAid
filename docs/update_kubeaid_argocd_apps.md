@@ -22,4 +22,5 @@ For example, in Obmondo, *traefik* is deployed as **external**, **private**, etc
 docker run -it  -v $(pwd):/workspace -v ../../KubeAid:/KubeAid harbor.obmondo.com/obmondo/kubeaid-update-apps:1.0.0 /KubeAid/bin/update-kubeaid-argocd-app.sh -c <cluster-name> -r <tag-for-the-current-window-cycle>
 ```
 
-> **if you're using Obmondo(https://obmondo.com), we will handle your service windows end-to-end — including notifications and coordination with stakeholders or technical contacts. If not, you will need to manage service window planning and communication on your own.**
+> [!TIP]
+> If you're using [Obmondo](https://obmondo.com), we will handle your service windows end-to-end, including notifications and coordination with stakeholders or technical contacts. If not, you will need to manage service window planning and communication on your own.

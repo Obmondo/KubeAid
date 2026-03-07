@@ -1,6 +1,7 @@
 # KubeAid Operations Tips
 
-> **Note:** This document contains legacy operational procedures. Some information may be outdated.
+> [!WARNING]
+> This document contains legacy operational procedures. Some information may be outdated.
 > Please refer to the [Getting Started Guide](../getting-started/README.md) for current installation instructions.
 
 This repository (https://github.com/Obmondo/KubeAid) implements a solution to run any Kubernetes cluster, using GitOps

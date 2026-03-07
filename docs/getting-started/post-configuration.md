@@ -151,7 +151,8 @@ git push origin main
 
 ### Hetzner HCloud
 
-> **Storage Limitation:** HCloud storage only allows a maximum of 16 buckets (PersistentVolumes) per physical node. Monitor PV usage to avoid exhausting storage before node resources.
+> [!WARNING]
+> HCloud storage only allows a maximum of 16 buckets (PersistentVolumes) per physical node. Monitor PV usage to avoid exhausting storage before node resources.
 
 ### Azure
 

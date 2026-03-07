@@ -10,7 +10,7 @@ may be required.
 The `kube-prometheus` needs two secrets thats needs to be present
 
 1. alertmanager-main - It is the secret that contains the alertmanager config file.
-   An example template for the alertmanager config can be found [here](build/kube-prometheus/examples/alertmanager-config/alertmanager-main.yaml)
+   An example template for the alertmanager config can be found [here](https://github.com/Obmondo/KubeAid/blob/main/build/kube-prometheus/examples/alertmanager-config/alertmanager-main.yaml)
 2. obmondo-clientcert - This secret contains the `tls.crt` which is the certificate and `tls.key` which is the private key.
    This cert and key must be generated from the puppetserver. And then copied over to the secret
    **Comment:** Which puppetserver is that, and how is that used?

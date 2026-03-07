@@ -176,7 +176,7 @@ grafana_dashboards: {
 },
 ```
 
-See the [build/kube-prometheus README](../../build/kube-prometheus/README.md#adding-support-for-custom-dashboards-in-grafana) for detailed instructions.
+See the [build/kube-prometheus README](https://github.com/Obmondo/KubeAid/tree/main/build/kube-prometheus/README.md#adding-support-for-custom-dashboards-in-grafana) for detailed instructions.
 
 ### Alertmanager Configuration
 
@@ -194,7 +194,7 @@ kubectl create secret generic alertmanager-main \
            -o yaml > alertmanager-main.yaml
 ```
 
-See [alertmanager configuration examples](../../build/kube-prometheus/examples/alertmanager-config/).
+See [alertmanager configuration examples](https://github.com/Obmondo/KubeAid/tree/main/build/kube-prometheus/examples/alertmanager-config/).
 
 ## CI/CD Integration
 
@@ -267,7 +267,7 @@ kubectl exec -it $GrafanaPod -n monitoring -- grafana-cli admin reset-admin-pass
 
 ## See Also
 
-- [kube-prometheus Build Documentation](../../build/kube-prometheus/README.md)
+- [kube-prometheus Build Documentation](https://github.com/Obmondo/KubeAid/blob/main/build/kube-prometheus/README.md)
 - [Pod Autoscaling Guide](../operations/monitoring/pod-autoscaling.md)
 - [Prometheus Namespace Configuration](../operations/monitoring/prometheus-namespaces.md)
 - [Upstream kube-prometheus](https://github.com/prometheus-operator/kube-prometheus)

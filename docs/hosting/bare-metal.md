@@ -2,6 +2,7 @@
 
 The bare-metal provider provisions a KubeAid-managed Kubernetes cluster across your own Linux servers using **SSH-based access**. There is no cloud API host management-you manage the server lifecycle yourself.
 
+> [!NOTE]
 > Uses [Kubermatic KubeOne](https://github.com/kubermatic/kubeone) under the hood for SSH-only access platforms without API host management support.
 
 ## Features
@@ -30,7 +31,8 @@ Each server must meet these prerequisites:
 | **No Docker** | Docker must not be installed; remove Docker's APT source and keyring |
 | **Packages** | `socat`, `conntrack`, `pigz` must be installed |
 
-> **Important:** If you fixed an uppercase hostname with `hostnamectl`, also update `/etc/hosts` mappings for 127.0.0.1 and the server's public/private IPs.
+> [!IMPORTANT]
+> If you fixed an uppercase hostname with `hostnamectl`, also update `/etc/hosts` mappings for 127.0.0.1 and the server's public/private IPs.
 
 ## Install KubeAid CLI
 
@@ -60,7 +62,7 @@ export KUBECONFIG=./outputs/kubeconfigs/main.yaml
 kubectl cluster-info
 ```
 
-Logs are saved in `outputs/.log`. Access [ArgoCD]() and [Grafana]() dashboards.
+Logs are saved in `outputs/.log`. Access ArgoCD and Grafana dashboards.
 
 ## Cleanup
 

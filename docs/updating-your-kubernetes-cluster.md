@@ -50,11 +50,13 @@ XYZ
 ### **4. Prepare PRs, Merge in Git, Push Upstream & Update KubeAid Apps**
 * Run the KubeAid update script:
   [https://github.com/Obmondo/KubeAid/blob/master/docs/update_kubeaid_argocd_apps.md](https://github.com/Obmondo/KubeAid/blob/master/docs/update_kubeaid_argocd_apps.md)
+> [!NOTE]
 > If a customer chooses to deploy the Helm chart using different application names—such as traefik-external or traefik-internal—we must manually add each of these names to:
-
-```
-k8s/<cluster-name>/kube-prometheus/argocd-application-prometheus-rulesprometheusRuleExample.yaml
-```
+>
+> ```
+> k8s/<cluster-name>/kube-prometheus/argocd-application-prometheus-rulesprometheusRuleExample.yaml
+> ```
+>
 > This has to be done manually because a single Helm chart can be reused to deploy multiple applications under different names. For example, in Obmondo, traefik is deployed as external, private, etc., each requiring its own entry.
 
 * Ensure all relevant PRs are:
@@ -135,4 +137,5 @@ k8s/<cluster-name>/kube-prometheus/argocd-application-prometheus-rulesprometheus
   * **Ensure all desired replicas come back up and enter a Ready state** after the sync.
   * Verify leader election, replication roles, and cluster health.
 
-> if you're using Obmondo(https://obmondo.com/why-obmondo), we will handle your service windows end-to-end — including notifications and coordination with stakeholders or technical contacts. If not, you will need to manage service window planning and communication on your own.
+> [!TIP]
+> If you're using [Obmondo](https://obmondo.com/why-obmondo), we will handle your service windows end-to-end, including notifications and coordination with stakeholders or technical contacts. If not, you will need to manage service window planning and communication on your own.

@@ -18,7 +18,7 @@ We currently have working autoscale for Amazon Web Services (AWS).
 
 **TODO:** Get autoscaling working for Azure Kubernetes Service (AKS) and Google Cloud Platform (GCP).
 
-### Manage an ever-growing list of Open Source Kubernetes applications (see [`argocd-helm-charts`](../../argocd-helm-charts/) folder for a list)
+### Manage an ever-growing list of Open Source Kubernetes applications (see [`argocd-helm-charts`](https://github.com/Obmondo/KubeAid/tree/main/argocd-helm-charts/) folder for a list)
 
 We use upstream Helm charts preferably - and use the Helm Umbrella pattern in ArgoCD - so the 'root' application,
 manages the rest of the applications in a cluster.
