@@ -15,14 +15,9 @@ Make sure:
 - Your configuration files are in `outputs/configs/`
 - Your `secrets.yaml` is backed up in your password store
 
-## Installing KubeAid CLI
+## Step 1: Install KubeAid CLI
 
-If you haven't already installed the KubeAid CLI, follows the instructions in [the getting started guide](./README.md)
-Actually, `installation.md` *was* the bootstrap guide. I should probably rename `installation.md` to `bootstrap.md` or copy the content.
-Let's copy the CLI installation part here too, or assume it's done. `prerequisites.md` lists `kubectl` etc, but not `kubeaid-cli`.
-I will place the CLI installation instructions in `bootstrap.md` as step 1.
-
-### Install CLI Script
+The KubeAid CLI is required to bootstrap and manage your cluster. If you haven't installed it yet, run the following script to download and install the latest release:
 ```bash
 KUBEAID_CLI_VERSION=$(curl -s "https://api.github.com/repos/Obmondo/kubeaid-cli/releases/latest" | jq -r .tag_name)
 OS=$([ "$(uname -s)" = "Linux" ] && echo "Linux" || echo "Darwin")
@@ -40,9 +35,9 @@ Verify the installation:
 kubeaid-cli --version
 ```
 
-## Running Bootstrap
+## Step 2: Run Bootstrap
 
-Run the bootstrap command:
+With the CLI installed and your configuration files in place, run the bootstrap command:
 
 ```bash
 kubeaid-cli cluster bootstrap
@@ -62,9 +57,9 @@ kubeaid-cli cluster bootstrap
 - Detailed logs saved to `outputs/.log`
 - Process takes 10-30 minutes
 
-## Verify Access
+## Step 3: Verify Access
 
-Once complete:
+Once the bootstrap process is complete, verify you can access the cluster:
 
 ```bash
 export KUBECONFIG=./outputs/kubeconfigs/main.yaml
