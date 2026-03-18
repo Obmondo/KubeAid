@@ -663,6 +663,7 @@ local kp =
       grafana+: {
         plugins: vars.grafana_plugins,
         resources: vars.grafana_resources,
+        datasources+: if std.objectHas(vars, 'grafana_datasources') then vars.grafana_datasources else [],
         dashboards+: {
           [mixin.name + '-' + dashboard]: mixin.grafanaDashboards[dashboard]
           for mixin in mixins
@@ -673,7 +674,7 @@ local kp =
         analytics+: {
           check_for_updates: false,
         },
-        env: if vars.grafana_keycloak_enable then [
+        env: (if vars.grafana_keycloak_enable then [
           {
             name: 'GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION',
             value: 'true',
@@ -687,7 +688,33 @@ local kp =
               },
             },
           },
-        ] else [],
+        ] else []) + (if std.objectHas(vars, 'grafana_datasources') && std.length(std.filter(function(ds) ds.type == 'postgres', vars.grafana_datasources)) > 0 then [
+          {
+            name: 'OSV_POSTGRES_USER',
+            value: 'osv-scanner',
+          },
+          {
+            name: 'OSV_POSTGRES_PASSWORD',
+            valueFrom: {
+              secretKeyRef: {
+                name: 'osv-scanner-pgsql-app',
+                key: 'password',
+              },
+            },
+          },
+          {
+            name: 'OSV_POSTGRES_HOST',
+            value: 'osv-scanner-pgsql-rw.osv-scanner.svc.cluster.local',
+          },
+          {
+            name: 'OSV_POSTGRES_PORT',
+            value: '5432',
+          },
+          {
+            name: 'OSV_POSTGRES_DBNAME',
+            value: 'osv-scanner',
+          },
+        ] else []),
         config+: {
           sections: {
             date_formats: { default_timezone: 'UTC' },
