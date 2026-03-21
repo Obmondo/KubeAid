@@ -1,0 +1,90 @@
+---
+openvasd:
+  openvasd:
+    scanner_type: openvas
+    storage_type: redis
+    loglevel: INFO
+    apikey: changeme
+    tls:
+      certificates:
+        deploy_server: false
+        deploy_client: false
+
+  openvas:
+    repository: registry.community.greenbone.net/community/openvas-scanner
+    pullPolicy: Always
+    tag: "edge"
+
+  redis:
+    repository: greenbone/redis-server
+    pullPolicy: Always
+    tag: "latest"
+
+  vulnerabilitytests:
+    repository: registry.community.greenbone.net/community/vulnerability-tests
+    pullPolicy: Always
+    tag: "community"
+
+  notusdata:
+    repository: registry.community.greenbone.net/community/notus-data
+    pullPolicy: Always
+    tag: "community"
+
+  imagePullSecrets: []
+  nameOverride: ""
+
+  serviceAccount:
+    create: true
+    annotations: {}
+    name: ""
+
+  podAnnotations: {}
+
+  service:
+    type: ClusterIP
+    port: 8080
+
+  routing:
+    enabled: false
+    hostname: '^openvasd\.kcm\.obmondo\.com$'
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+
+  podSecurityContext:
+    fsGroup: 0
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      add:
+        - NET_ADMIN
+        - NET_RAW
+
+  nodeSelector: {}
+
+  tolerations: []
+
+  affinity: {}
+
+ingress:
+  enabled: true
+  className: traefik-external
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+    kubernetes.io/ingress.class: traefik-external
+    kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: openvasd.qa.az1.kilroy.eu
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls:
+    - secretName: openvasd-tls
+      hosts:
+        - openvasd.qa.az1.kilroy.eu
