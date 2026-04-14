@@ -1,0 +1,79 @@
+{{- if and ((.Values.global).netpol).enabled ((.Values.global).mongodb).netpol }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{ .Values.global.mongodb.instanceName }}-networkpolicy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/component: cilium-networkpolicy
+spec:
+  # NOTE: `app: <instanceName>-svc` is the pod label assigned by the MongoDB Community Operator.
+  # Cilium enforces at the pod level via eBPF — endpoint selectors match pod identity, not Kubernetes Services.
+  endpointSelector:
+    matchLabels:
+      app: {{ .Values.global.mongodb.instanceName }}-svc
+
+  egress:
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "6443"
+              protocol: TCP
+
+    - toEndpoints:
+        - matchLabels:
+            app: {{ .Values.global.mongodb.instanceName }}-svc
+      toPorts:
+        - ports:
+            - port: "27017"
+              protocol: TCP
+
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app: {{ .Values.global.mongodb.instanceName }}-svc
+      toPorts:
+        - ports:
+            - port: "27017"
+              protocol: TCP
+
+    {{- range .Values.global.mongodb.clients }}
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ $.Release.Namespace }}
+            {{- range $key, $value := .selectorLabels }}
+            {{ $key }}: {{ $value | quote }}
+            {{- end }}
+      toPorts:
+        - ports:
+            - port: "27017"
+              protocol: TCP
+    {{- end }}
+
+    {{- if ((.Values.global.mongodb).operator).selectorLabels }}
+    - fromEndpoints:
+        - matchLabels:
+            {{- range $key, $value := .Values.global.mongodb.operator.selectorLabels }}
+            {{ $key }}: {{ $value | quote }}
+            {{- end }}
+      toPorts:
+        - ports:
+            - port: "27017"
+              protocol: TCP
+    {{- end }}
+
+    {{- if ((.Values.global.mongodb).logicalbackup).enabled }}
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Release.Namespace }}
+            app: {{ .Values.global.mongodb.instanceName }}-backup
+      toPorts:
+        - ports:
+            - port: "27017"
+              protocol: TCP
+    {{- end }}
+{{- end }}

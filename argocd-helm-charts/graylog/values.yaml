@@ -2,7 +2,7 @@ tags:
   install-opensearch: false
   install-mongodb: false
 
-# leaving mongodb without resource definitions per recommendation in mongodb values - it uses so little so it should be okay for it to run on "available resources"
+# Graylog consumes a shared MongoDB provisioned by kubeaid-addons.
 graylog:
   graylog:
     resources:
@@ -54,12 +54,21 @@ graylog:
       install: false
 
 global:
+  netpol:
+    enabled: false
+    traefik:
+      namespace: traefik
+      labels: {}
+
   mongodb:
     enabled: true
-    clusterName: mongodb-replica-set
+    netpol: false
+    instanceName: "mongodb-replica-set"
+    serviceAccountName: "mongodb-database"
     replicas: 2
-    # Set the MongoDB database version, if unset it defaults to 7.0.28
     version: "7.0.28"
+    database: "graylog"
+    user: "graylog-user"
     dataVolume:
       size: "10Gi"
     logsVolume:
@@ -73,14 +82,43 @@ global:
           - db: graylog
             name: readWrite
         scramCredentialsSecretName: mongodb-replica-set
-
     resources:
       requests:
         cpu: "50m"
         memory: "1Gi"
       limits:
         memory: "2Gi"
+    podLabels: {}
+    # -- Client applications allowed to connect on port 27017.
+    # Each entry has: selectorLabels (required). Clients must be in the same namespace.
+    clients:
+      - selectorLabels:
+          app.kubernetes.io/name: graylog
+          app.kubernetes.io/instance: graylog
+    # -- Optional MongoDB operator pod selector.
+    operator:
+      selectorLabels: {}
+    logicalbackup:
+      enabled: false
+      schedule: "45 03 * * *"
+      secretName: mongodbbackup
+      provider: az
+      awsAccessKeyIdSecretName: awsaccesskeyid
 
-    logicalBackup:
-      enabled: true
-      schedule: "0 0 * * *"
+  graylog:
+    netpol: false
+    replicas: 1
+    inputPorts: []
+    ingestors: []
+    metrics:
+      enabled: false
+      namespace: monitoring
+      labels: {}
+    smtp:
+      enabled: false
+      fqdns: []
+      port: 587
+
+  opensearch:
+    selectorLabels:
+      app.kubernetes.io/name: opensearch

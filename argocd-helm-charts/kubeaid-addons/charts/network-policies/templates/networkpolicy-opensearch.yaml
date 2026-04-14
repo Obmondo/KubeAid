@@ -1,0 +1,65 @@
+{{- if and ((.Values.global).netpol).enabled ((.Values.global).graylog).netpol }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-opensearch-networkpolicy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/component: cilium-networkpolicy
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: opensearch
+
+  ingress:
+    # Allow Graylog → OpenSearch (9200/TCP)
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Release.Namespace }}
+            app.kubernetes.io/name: graylog
+            app.kubernetes.io/instance: {{ .Release.Name }}
+      toPorts:
+        - ports:
+            - port: "9200"
+              protocol: TCP
+
+    # Allow OpenSearch inter-node cluster communication (9200 + 9300)
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: opensearch
+      toPorts:
+        - ports:
+            - port: "9200"
+              protocol: TCP
+            - port: "9300"
+              protocol: TCP
+
+    {{- if .Values.global.graylog.metrics.enabled }}
+    # Allow Prometheus metrics scraping (9200 + 9600)
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.global.graylog.metrics.namespace }}
+            {{- range $key, $value := .Values.global.graylog.metrics.labels }}
+            {{ $key }}: {{ $value | quote }}
+            {{- end }}
+      toPorts:
+        - ports:
+            - port: "9200"
+              protocol: TCP
+            - port: "9600"
+              protocol: TCP
+    {{- end }}
+
+  egress:
+    # OpenSearch inter-node cluster communication
+    - toEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: opensearch
+      toPorts:
+        - ports:
+            - port: "9200"
+              protocol: TCP
+            - port: "9300"
+              protocol: TCP
+{{- end }}

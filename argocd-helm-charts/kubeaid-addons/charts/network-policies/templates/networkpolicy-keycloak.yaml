@@ -36,7 +36,7 @@ spec:
             - port: "8443"
               protocol: TCP
 
-    {{- if .Values.global.blackbox.netpol }}
+    {{- if ((.Values.global).blackbox).netpol }}
     - fromEndpoints:
         - matchLabels:
             k8s:io.kubernetes.pod.namespace: {{ .Values.global.blackbox.namespace }}
