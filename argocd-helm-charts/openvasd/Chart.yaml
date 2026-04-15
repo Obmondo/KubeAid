@@ -1,0 +1,7 @@
+apiVersion: v2
+name: openvasd
+version: 1.0.0
+dependencies:
+  - name: openvasd
+    version: 0.1.0
+    repository: "file://charts/openvasd"

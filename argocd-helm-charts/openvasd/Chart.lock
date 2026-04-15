@@ -1,0 +1,6 @@
+dependencies:
+- name: openvasd
+  repository: file://charts/openvasd
+  version: 0.1.0
+digest: sha256:19715c24a030b72c8b823c6b3f85286076b0eeb645dd0ccd6f2c974283cd644d
+generated: "2026-01-28T12:26:27.760242368+05:30"
