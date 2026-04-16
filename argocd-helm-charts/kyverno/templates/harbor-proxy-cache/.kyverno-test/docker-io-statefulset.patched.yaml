@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: docker-io-statefulset
+  namespace: default
+spec:
+  serviceName: test
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test
+  template:
+    metadata:
+      labels:
+        app: test
+    spec:
+      containers:
+      - name: mongodb
+        image: harbor.example.com/docker-hub-proxy-cache/mongodb/mongodb-community-server:5.0.14-ubi8
+      imagePullSecrets:
+      - name: harbor-proxy-cache

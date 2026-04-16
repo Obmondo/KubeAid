@@ -1,0 +1,5 @@
+harborProxyCache:
+  enabled: true
+  registry: "harbor.example.com"
+  project: "docker-hub-proxy-cache"
+  imagePullSecretName: "harbor-proxy-cache"

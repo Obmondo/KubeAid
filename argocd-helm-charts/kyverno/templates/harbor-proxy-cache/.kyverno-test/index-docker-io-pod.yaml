@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: index-docker-io-pod
+  namespace: default
+spec:
+  containers:
+  - name: nginx
+    image: index.docker.io/library/nginx:latest

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: implicit-org-pod
+  namespace: default
+spec:
+  containers:
+  - name: graylog
+    image: harbor.example.com/docker-hub-proxy-cache/graylog/graylog:6.3.1
+  imagePullSecrets:
+  - name: harbor-proxy-cache
