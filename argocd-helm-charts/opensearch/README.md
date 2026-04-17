@@ -168,3 +168,52 @@ curl -u admin:admin -X POST "opensearch-cluster-master:9200/_snapshot/ops-s3/<sn
   "include_global_state": false
 }'
 ```
+## Shrink over-provisioned Kubernetes Persistent Volume Claims (PVCs) for an OpenSearch cluster without incurring data loss or downtime.
+
+### ⚠️ Prerequisites
+* Ensure your actual, used disk space across the *entire cluster* will comfortably fit inside the new, smaller drives once the data is rebalanced.
+* Have your updated Kubernetes manifests ready with the new storage size (e.g., `100Gi`).
+---
+### Step 1: Evict Data from the Target Node
+Identify the specific pod name of the node you want to shrink (e.g., `opensearch-cluster-master-1`). Tell the OpenSearch cluster to securely drain all data from this node and move it to the remaining nodes.
+
+Run this command against any active node in the cluster:
+```bash
+curl -X PUT "http://localhost:9200/_cluster/settings?pretty" -H 'Content-Type: application/json' -d'
+{
+  "transient" : {
+    "cluster.routing.allocation.exclude._name" : "opensearch-cluster-master-1" 
+  }
+}'
+```
+
+### Step 2: Monitor the Drain
+Watch the migration process in real-time. Do not proceed to the next step until the node is completely empty.
+```bash
+curl -X GET "http://localhost:9200/_cat/allocation?v"
+```
+Verification: Look at the row for your target node.
+  - The shards column must drop to exactly 0.
+  - The disk.indices column must drop to 0b (or a few negligible kilobytes of residual metadata).
+### Step 3: Replace the Infrastructure
+Once OpenSearch confirms the node holds no shard data, you can safely swap the underlying infrastructure.
+  - Terminate the Pod: Scale down your Kubernetes StatefulSet or Deployment to terminate the empty pod.
+  - Delete the Storage: Delete the old, oversized PVC.
+  ```
+  kubectl delete pvc <name-of-the-old-pvc>
+  ```
+  - Recreate the Node: Apply your updated Kubernetes manifest and scale the StatefulSet back up so the pod is recreated and binds to a brand new, smaller PVC.
+### Step 4: Allow Data Back onto the Node
+Once the new pod boots up, initializes, and rejoins the OpenSearch cluster, you must clear the routing exclusion rule. If you forget this step, OpenSearch will refuse to put any data on the new drive.
+```bash
+curl -X PUT "http://localhost:9200/_cluster/settings?pretty" -H 'Content-Type: application/json' -d'
+{
+  "transient" : {
+    "cluster.routing.allocation.exclude._name" : null
+  }
+}'
+```
+### Step 5: Verify and Repeat
+  - Run curl -X GET "http://localhost:9200/_cat/allocation?v" to verify data is beginning to naturally balance back onto the new node.
+  - Check curl -X GET "http://localhost:9200/_cluster/health?pretty" to ensure the cluster remains green (or yellow temporarily).
+  - Repeat Steps 1 through 4 sequentially for every remaining oversized node in the cluster.
