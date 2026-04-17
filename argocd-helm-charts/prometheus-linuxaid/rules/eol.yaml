@@ -1,0 +1,58 @@
+groups:
+  - name: monitor::security::os_eol
+    rules:
+    - alert: monitor::security::os_support
+      # Fires per host in two states, distinguished by the phase label:
+      #   phase="eol"      — free security updates are within 75 days of
+      #                      ending and haven't ended yet.
+      #   phase="extended" — the host is already past free eol and still
+      #                      covered by paid extended support (Ubuntu Pro /
+      #                      RHEL ELS / SLES LTSS / Debian ELTS). Fires the
+      #                      whole time the host is in that paid window.
+      #
+      # Value ($value) is the days remaining until the *current* tier ends.
+      expr: |
+        (
+          (security_exporter_os_support_end_timestamp{phase="eol"} - time()) / 86400 < 75
+          and
+          (security_exporter_os_support_end_timestamp{phase="eol"} - time()) > 0
+        )
+        or
+        (
+          (security_exporter_os_support_end_timestamp{phase="extended"} - time()) / 86400 > 0
+          and on (id, version, certname)
+          time() - security_exporter_os_support_end_timestamp{phase="eol"} > 0
+        )
+      for: 1h
+      labels:
+        alert_id: 'monitor::security::os_support'
+        severity: warning
+      annotations:
+        summary: '{{ $labels.id | title }} {{ $labels.version }} on {{ $labels.certname }} — {{ if eq $labels.phase "eol" }}end of free security support in {{ $value | humanize }} days{{ else }}past free eol, paid extended support ends in {{ $value | humanize }} days{{ end }}'
+        description: |-2
+          {{ if eq $labels.phase "eol" -}}
+          Host **{{ $labels.certname }}** runs **{{ $labels.id | title }} {{ $labels.version }}**, which reaches end of free security updates on **{{ $labels.date }}** (in {{ $value | humanize }} days).
+
+          Plan an OS upgrade or move the host to paid extended support before
+          the cutoff.
+          {{- else -}}
+          Host **{{ $labels.certname }}** runs **{{ $labels.id | title }} {{ $labels.version }}**, which is past its free end-of-life. The host currently depends on paid extended support{{ if eq $labels.id "ubuntu" }} (Ubuntu Pro){{ else if eq $labels.id "rhel" }} (RHEL ELS){{ else if eq $labels.id "sles" }} (SLES LTSS){{ else if eq $labels.id "debian" }} (Debian ELTS){{ end }}, which ends on **{{ $labels.date }}** ({{ $value | humanize }} days remaining).
+
+          Plan an OS upgrade before paid extended support also expires —
+          after that there are no more patches at any tier.
+          {{- end }}
+
+          Affected hosts:
+          ```
+          (
+            (security_exporter_os_support_end_timestamp{phase="eol"} - time()) / 86400 < 75
+            and
+            (security_exporter_os_support_end_timestamp{phase="eol"} - time()) > 0
+          )
+          or
+          (
+            (security_exporter_os_support_end_timestamp{phase="extended"} - time()) / 86400 > 0
+            and on (id, version, certname)
+            time() - security_exporter_os_support_end_timestamp{phase="eol"} > 0
+          )
+          ```

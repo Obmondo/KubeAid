@@ -1,0 +1,203 @@
+---
+evaluation_interval: 1m
+
+rule_files:
+  - ../rules/eol.yaml
+
+tests:
+  # Test 1: host within 75 days of free eol (ubuntu 20.04, exactly 40 days
+  # remaining at eval) → fires with phase="eol".
+  # Metric value = 7200 (eval_time 2h) + 40*86400 = 3,463,200
+  - interval: 1m
+    input_series:
+      - series: 'security_exporter_os_support_end_timestamp{phase="eol",id="ubuntu",version="20.04",date="1970-02-10",certname="web01.enableit"}'
+        values: 3463200x150
+
+    alert_rule_test:
+      - alertname: 'monitor::security::os_support'
+        eval_time: 2h
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              alert_id: 'monitor::security::os_support'
+              phase: 'eol'
+              id: 'ubuntu'
+              version: '20.04'
+              date: '1970-02-10'
+              certname: 'web01.enableit'
+            exp_annotations:
+              summary: 'Ubuntu 20.04 on web01.enableit — end of free security support in 40 days'
+              description: |-2
+                Host **web01.enableit** runs **Ubuntu 20.04**, which reaches end of free security updates on **1970-02-10** (in 40 days).
+
+                Plan an OS upgrade or move the host to paid extended support before
+                the cutoff.
+
+                Affected hosts:
+                ```
+                (
+                  (security_exporter_os_support_end_timestamp{phase="eol"} - time()) / 86400 < 75
+                  and
+                  (security_exporter_os_support_end_timestamp{phase="eol"} - time()) > 0
+                )
+                or
+                (
+                  (security_exporter_os_support_end_timestamp{phase="extended"} - time()) / 86400 > 0
+                  and on (id, version, certname)
+                  time() - security_exporter_os_support_end_timestamp{phase="eol"} > 0
+                )
+                ```
+
+  # Test 2: host past free eol, paid extended support ends in 30 days
+  # (debian 10) → fires with phase="extended", days=30.
+  # Metric values: eol=1 (past), extended=7200 + 30*86400 = 2,599,200
+  - interval: 1m
+    input_series:
+      - series: 'security_exporter_os_support_end_timestamp{phase="eol",id="debian",version="10",date="1970-01-01",certname="web02.enableit"}'
+        values: 1x150
+      - series: 'security_exporter_os_support_end_timestamp{phase="extended",id="debian",version="10",date="1970-01-31",certname="web02.enableit"}'
+        values: 2599200x150
+
+    alert_rule_test:
+      - alertname: 'monitor::security::os_support'
+        eval_time: 2h
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              alert_id: 'monitor::security::os_support'
+              phase: 'extended'
+              id: 'debian'
+              version: '10'
+              date: '1970-01-31'
+              certname: 'web02.enableit'
+            exp_annotations:
+              summary: 'Debian 10 on web02.enableit — past free eol, paid extended support ends in 30 days'
+              description: |-2
+                Host **web02.enableit** runs **Debian 10**, which is past its free end-of-life. The host currently depends on paid extended support (Debian ELTS), which ends on **1970-01-31** (30 days remaining).
+
+                Plan an OS upgrade before paid extended support also expires —
+                after that there are no more patches at any tier.
+
+                Affected hosts:
+                ```
+                (
+                  (security_exporter_os_support_end_timestamp{phase="eol"} - time()) / 86400 < 75
+                  and
+                  (security_exporter_os_support_end_timestamp{phase="eol"} - time()) > 0
+                )
+                or
+                (
+                  (security_exporter_os_support_end_timestamp{phase="extended"} - time()) / 86400 > 0
+                  and on (id, version, certname)
+                  time() - security_exporter_os_support_end_timestamp{phase="eol"} > 0
+                )
+                ```
+
+  # Test 3: host still well inside free support (eol 200 days away, no
+  # extended series) → no alert.
+  # Metric value = 7200 + 200*86400 = 17,287,200
+  - interval: 1m
+    input_series:
+      - series: 'security_exporter_os_support_end_timestamp{phase="eol",id="ubuntu",version="24.04",date="1970-07-20",certname="web03.enableit"}'
+        values: 17287200x150
+
+    alert_rule_test:
+      - alertname: 'monitor::security::os_support'
+        eval_time: 2h
+        exp_alerts: []
+
+  # Test 4: host past free eol, paid extended support is 3 years away →
+  # fires with phase="extended". Validates that the post-eol state is
+  # covered continuously, not only in the last 75 days of paid support.
+  # Metric values: eol=1 (past), extended = 3y future ≈ 94,608,000
+  # Days remaining at eval_time=2h: (94,608,000 - 7200) / 86400 ≈ 1094.92
+  - interval: 1m
+    input_series:
+      - series: 'security_exporter_os_support_end_timestamp{phase="eol",id="rhel",version="9",date="1970-01-01",certname="web04.enableit"}'
+        values: 1x150
+      - series: 'security_exporter_os_support_end_timestamp{phase="extended",id="rhel",version="9",date="1972-12-31",certname="web04.enableit"}'
+        values: 94608000x150
+
+    alert_rule_test:
+      - alertname: 'monitor::security::os_support'
+        eval_time: 2h
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              alert_id: 'monitor::security::os_support'
+              phase: 'extended'
+              id: 'rhel'
+              version: '9'
+              date: '1972-12-31'
+              certname: 'web04.enableit'
+            exp_annotations:
+              summary: 'Rhel 9 on web04.enableit — past free eol, paid extended support ends in 1.095k days'
+              description: |-2
+                Host **web04.enableit** runs **Rhel 9**, which is past its free end-of-life. The host currently depends on paid extended support (RHEL ELS), which ends on **1972-12-31** (1.095k days remaining).
+
+                Plan an OS upgrade before paid extended support also expires —
+                after that there are no more patches at any tier.
+
+                Affected hosts:
+                ```
+                (
+                  (security_exporter_os_support_end_timestamp{phase="eol"} - time()) / 86400 < 75
+                  and
+                  (security_exporter_os_support_end_timestamp{phase="eol"} - time()) > 0
+                )
+                or
+                (
+                  (security_exporter_os_support_end_timestamp{phase="extended"} - time()) / 86400 > 0
+                  and on (id, version, certname)
+                  time() - security_exporter_os_support_end_timestamp{phase="eol"} > 0
+                )
+                ```
+
+  # Test 5: host within 75 days of free eol AND paid extended support is
+  # available years out → fires with phase="eol". The presence of future
+  # extended support must not suppress the free-eol warning (and must not
+  # cause a duplicate phase="extended" alert while free support is still
+  # active).
+  # Metric values: eol = 7200 + 40*86400 = 3,463,200
+  #                extended = 3y future ≈ 94,608,000
+  - interval: 1m
+    input_series:
+      - series: 'security_exporter_os_support_end_timestamp{phase="eol",id="ubuntu",version="22.04",date="1970-02-10",certname="web05.enableit"}'
+        values: 3463200x150
+      - series: 'security_exporter_os_support_end_timestamp{phase="extended",id="ubuntu",version="22.04",date="1973-02-10",certname="web05.enableit"}'
+        values: 94608000x150
+
+    alert_rule_test:
+      - alertname: 'monitor::security::os_support'
+        eval_time: 2h
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              alert_id: 'monitor::security::os_support'
+              phase: 'eol'
+              id: 'ubuntu'
+              version: '22.04'
+              date: '1970-02-10'
+              certname: 'web05.enableit'
+            exp_annotations:
+              summary: 'Ubuntu 22.04 on web05.enableit — end of free security support in 40 days'
+              description: |-2
+                Host **web05.enableit** runs **Ubuntu 22.04**, which reaches end of free security updates on **1970-02-10** (in 40 days).
+
+                Plan an OS upgrade or move the host to paid extended support before
+                the cutoff.
+
+                Affected hosts:
+                ```
+                (
+                  (security_exporter_os_support_end_timestamp{phase="eol"} - time()) / 86400 < 75
+                  and
+                  (security_exporter_os_support_end_timestamp{phase="eol"} - time()) > 0
+                )
+                or
+                (
+                  (security_exporter_os_support_end_timestamp{phase="extended"} - time()) / 86400 > 0
+                  and on (id, version, certname)
+                  time() - security_exporter_os_support_end_timestamp{phase="eol"} > 0
+                )
+                ```
