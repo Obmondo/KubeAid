@@ -1,5 +1,7 @@
 # Welcome to **KubeAid.io** - The home of Kubernetes Aid
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Obmondo/KubeAid)
+
 **KubeAid** is a Kubernetes management suite, offering a way to set up and operate Kubernetes clusters, following GitOps
 and
 automation principles.
