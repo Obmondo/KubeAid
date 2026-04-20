@@ -87,6 +87,23 @@ Create the mongodb graylog-user password
 kubectl create secret generic graylog-user-password -n default --dry-run=client --from-literal=password=lolpassword -o yaml
 ```
 
+## 🔧 Critical Configuration: Prevent Deflector Race Conditions
+
+By default, OpenSearch allows the automatic creation of indices. If the cluster experiences temporary instability during a Graylog index rotation, incoming log traffic can cause OpenSearch to mistakenly auto-create a physical `graylog_deflector` index before Graylog has a chance to create the routing alias. This creates a roadblock that completely breaks the log ingestion pipeline.
+
+To prevent this race condition, you must explicitly forbid OpenSearch from auto-creating any index containing the word "deflector". 
+
+**Apply the following persistent cluster setting:**
+
+```bash
+curl -X PUT "http://localhost:9200/_cluster/settings" -H 'Content-Type: application/json' -d'
+{
+  "persistent": {
+    "action.auto_create_index": "-*deflector*,+*"
+  }
+}
+'
+
 ## Opensearch (elasticsearch fork with open source license)
 
 ```bash
