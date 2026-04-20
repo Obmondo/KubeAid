@@ -434,6 +434,15 @@ function update_helm_chart {
           continue
         }
 
+        # make sure a tgz actually got downloaded before we wipe the old chart.
+        # If repository URL is missing or wrong, helm dep up can silently skip the download
+        # and we'd end up deleting the existing chart with nothing to replace it
+        if ! find "$HELM_CHART_DEP_PATH" -maxdepth 1 -type f -name "${HELM_CHART_NAME}-*.tgz" -print -quit | grep -q .; then
+          echo "No tgz found for $HELM_CHART_NAME — download likely failed. Skipping to avoid wiping existing chart."
+          yq eval -i ".dependencies[$i].version = \"$HELM_CHART_CURRENT_VERSION\"" "$HELM_CHART_YAML"
+          continue
+        fi
+
         # Deleting old helm before untar
         rm -rf "${HELM_CHART_DEP_PATH:?}/${HELM_CHART_NAME}" || {
           echo "Failed to remove the $HELM_CHART_NAME tar. Skipping."
