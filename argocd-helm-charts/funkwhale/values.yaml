@@ -1,20 +1,25 @@
-# PostgreSQL configuration using CloudNative-PG operator
-postgresql:
-  instance: 1
-  size: 5Gi
-  recover: false
-  bootstrap:
-    initdb:
-      database: funkwhale
-      owner: funkwhale
-  resources:
-    limits:
-      memory: 512Mi
-    requests:
-      memory: 256Mi
-      cpu: 100m
+global:
+  postgresql:
+    enabled: true
+    instanceName: funkwhale
+    instances: 1
+    size: 5Gi
+    database: funkwhale
+    owner: funkwhale
+    monitoring:
+      enablePodMonitor: true
+    resources:
+      limits:
+        memory: 512Mi
+      requests:
+        memory: 256Mi
+        cpu: 100m
+    backups:
+      enabled: false
+    logicalbackup:
+      enabled: false
 
-# Redis configuration using Redis Operator
+# Redis configuration for wrapper templates
 externalRedis:
   enabled: true
   mode: standalone
@@ -56,8 +61,6 @@ funkwhale:
 
   # Disable bundled PostgreSQL - we use CloudNative-PG operator
   postgresql:
-    monitoring:
-      enablePodMonitor: true
     enabled: false
     host: funkwhale-pgsql-rw
     auth:
@@ -83,12 +86,6 @@ funkwhale:
   # S3/MinIO configuration for media storage (optional)
   s3:
     enabled: false
-    # proxy: true
-    # accessKey: ""
-    # secretKey: ""
-    # bucket: funkwhale
-    # region: us-east-1
-    # url: http://s3.example.com
 
   # API server configuration
   api:

@@ -1,3 +1,29 @@
+global:
+  postgresql:
+    enabled: true
+    instanceName: pixelfed
+    instances: 1
+    monitoring:
+      enablePodMonitor: true
+
+    resources:
+      limits:
+        memory: 1Gi
+        cpu: 500m
+      requests:
+        memory: 512Mi
+        cpu: 250m
+    backups:
+      enabled: false
+    logicalbackup:
+      enabled: false
+
+redis:
+  enabled: true
+  mode: standalone
+  instanceName: pixelfed-redis
+  storage: 2Gi
+
 pixelfed:
   # Disable bundled databases - we use postgres-operator and redis-operator
   postgresql:
@@ -109,8 +135,8 @@ pixelfed:
       from_name: "Pixelfed"
       existingSecret: ""
       existingSecretKeys:
-        username: ""
-        password: ""
+        username: "dummy"
+        password: "dummy"
 
     pf:
       enable_cloud: false
@@ -165,32 +191,3 @@ pixelfed:
 
   securityContext:
     runAsUser: 33
-
-# CloudNative-PG operator configuration
-postgres:
-  monitoring:
-    enablePodMonitor: true
-  enabled: true
-  instance: 1
-  size: 10Gi
-  recover: false
-  bootstrap:
-    initdb:
-      database: pixelfed
-      owner: pixelfed
-  resources:
-    limits:
-      memory: 1Gi
-      cpu: 500m
-    requests:
-      memory: 512Mi
-      cpu: 250m
-
-# Redis operator configuration
-# mode: "standalone" (single instance) or "cluster"
-redis:
-  enabled: true
-  mode: standalone  # standalone | cluster
-  name: pixelfed-redis
-  storage: 2Gi
-  replicas: 3  # Only used when mode=cluster (minimum 3 for cluster mode)

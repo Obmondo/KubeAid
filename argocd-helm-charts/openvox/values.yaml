@@ -1,3 +1,26 @@
+global:
+  postgresql:
+    enabled: true
+    instanceName: openvox
+    instances: 1
+    size: 2Gi
+    monitoring:
+      enablePodMonitor: true
+    resources:
+      limits:
+        memory: 256Mi
+      requests:
+        memory: 256Mi
+        cpu: 100m
+    backups:
+      enabled: false
+      # cloud: aws
+      # destinationPath: ""
+      # endpointURL: ""
+      # secretName: ""
+    logicalbackup:
+      enabled: false
+
 puppetserver:
   global:
     extraEnv:
@@ -132,19 +155,6 @@ puppetserver:
         enabled: true
       jmx:
         enabled: false
-
-postgresql:
-  monitoring:
-    enablePodMonitor: true
-  instance: 1
-  size: 2Gi
-  recover: false
-  resources:
-    limits:
-      memory: 256Mi
-    requests:
-      memory: 256Mi
-      cpu: 100m
 
 puppetAgentExporter:
   image: ghcr.io/obmondo/puppet-agent-exporter

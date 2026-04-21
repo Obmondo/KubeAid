@@ -9,3 +9,8 @@ version: 1.0.0
 #  - name: ciso-assistant-next
 #    version: 0.4.1
 #    repository: https://intuitem.github.io/ca-helm-chart/
+
+dependencies:
+  - name: kubeaid-addons
+    version: 0.1.0
+    repository: file://../kubeaid-addons

@@ -8,3 +8,6 @@ dependencies:
   - name: coturn
     version: 9.4.0
     repository: https://small-hack.github.io/coturn-chart/
+  - name: kubeaid-addons
+    version: 0.1.0
+    repository: file://../kubeaid-addons

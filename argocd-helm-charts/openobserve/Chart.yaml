@@ -21,3 +21,10 @@ version: 0.13.4
 #   - name: openobserve-collector
 #     version: 0.3.22
 #     # repository: https://charts.openobserve.ai/
+#   - name: openobserve-collector
+#     version: 0.3.22
+#     # repository: https://charts.openobserve.ai/
+dependencies:
+  - name: kubeaid-addons
+    version: 0.1.0
+    repository: file://../kubeaid-addons

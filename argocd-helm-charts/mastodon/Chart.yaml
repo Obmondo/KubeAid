@@ -6,3 +6,8 @@ version: 1.0.0
 #    version: 6.5.8
 # Manually copied from upstream https://github.com/mastodon/chart
 # Chart does not have a helm repository yet
+# Chart does not have a helm repository yet
+dependencies:
+  - name: kubeaid-addons
+    version: 0.1.0
+    repository: file://../kubeaid-addons

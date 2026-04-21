@@ -1,3 +1,19 @@
+global:
+  postgresql:
+    enabled: true
+    instanceName: openobserve
+    instances: 1
+    monitoring:
+      enablePodMonitor: true
+    backups:
+      enabled: false
+      # cloud: aws
+      # destinationPath: ""
+      # endpointURL: ""
+      # secretName: ""
+    logicalbackup:
+      enabled: false
+
 openobserve:
   etcd:
     image:
@@ -13,6 +29,3 @@ openobserve:
         tag: 12-debian-12-r30
         pullPolicy: IfNotPresent
         digest: ""
-  cnpg:
-    monitoring:
-      enablePodMonitor: true

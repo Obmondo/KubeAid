@@ -1,3 +1,31 @@
+global:
+  postgresql:
+    enabled: true
+    instanceName: mastodon
+    instances: 1
+    size: 10Gi
+    database: mastodon
+    owner: mastodon
+    monitoring:
+      enablePodMonitor: true
+    resources:
+      limits:
+        memory: 512Mi
+        cpu: 500m
+      requests:
+        memory: 256Mi
+        cpu: 100m
+    backups:
+      enabled: false
+    logicalbackup:
+      enabled: false
+
+redis:
+  enabled: true
+  mode: standalone
+  instanceName: mastodon-redis
+  storage: 2Gi
+
 mastodon:
   # Domain configuration
   local_domain: ""
@@ -24,16 +52,16 @@ mastodon:
 
   # Mastodon secrets
   secrets:
-    secret_key_base: ""
-    otp_secret: ""
+    secret_key_base: "dummy"
+    otp_secret: "dummy"
     vapid:
-      private_key: ""
-      public_key: ""
+      private_key: "dummy"
+      public_key: "dummy"
     activeRecordEncryption:
-      primaryKey: ""
-      deterministicKey: ""
-      keyDerivationSalt: ""
-    existingSecret: ""
+      primaryKey: "dummy"
+      deterministicKey: "dummy"
+      keyDerivationSalt: "dummy"
+    existingSecret: "mastodon-secrets"
 
   # SMTP configuration
   smtp:
@@ -86,32 +114,3 @@ mastodon:
       - secretName: mastodon-tls
         hosts:
           - ""
-
-# PostgreSQL operator configuration
-postgres:
-  monitoring:
-    enablePodMonitor: true
-  enabled: true
-  instance: 1
-  size: 10Gi
-  recover: false
-  bootstrap:
-    initdb:
-      database: mastodon
-      owner: mastodon
-  resources:
-    limits:
-      memory: 512Mi
-      cpu: 500m
-    requests:
-      memory: 256Mi
-      cpu: 100m
-
-# Redis operator configuration
-# mode: "standalone" (single instance) or "cluster"
-redis:
-  enabled: true
-  mode: standalone  # standalone | cluster
-  name: mastodon-redis
-  storage: 2Gi
-  replicas: 3  # Only used when mode=cluster (minimum 3 for cluster mode)

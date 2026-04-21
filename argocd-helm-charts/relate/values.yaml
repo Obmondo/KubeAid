@@ -6,6 +6,8 @@ global:
 
   postgresql:
     enabled: true
+    monitoring:
+      enablePodMonitor: true
 
     instanceName: relate
     instances: 1
@@ -42,3 +44,7 @@ global:
     recover:
       enabled: false
     annotations: {}
+
+relate:
+  nginx:
+    pvcStorage: 2Gi

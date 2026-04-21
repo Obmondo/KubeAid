@@ -5,3 +5,7 @@ dependencies:
   - name: mattermost-team-edition
     version: 6.6.94
     repository: https://helm.mattermost.com
+
+  - name: kubeaid-addons
+    version: 0.1.0
+    repository: file://../kubeaid-addons

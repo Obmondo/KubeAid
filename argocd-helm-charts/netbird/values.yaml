@@ -1,12 +1,24 @@
-externalDatabases:
-  netbird:
+global:
+  postgresql:
+    enabled: true
+    instanceName: netbird
+    instances: 1
+    revision: 1
+    size: 8Gi
     monitoring:
       enablePodMonitor: true
-    size: 8Gi
-    recover: false
-    pass: netbird-pgsql-app
+    backups:
+      enabled: true
+      # cloud: aws
+      # destinationPath: ""
+      # endpointURL: ""
+      # secretName: ""
     logicalbackup:
       enabled: true
+
+externalDatabases:
+  netbird:
+    enabled: false
 
 netbird:
   fullnameOverride: netbird

@@ -1,16 +1,29 @@
----
-# Default values for Odoo 19 setup
-# We use the official Odoo 19 image for latest features and compatibility
-
 global:
   security:
     # Allow insecure images for bitnami legacy compatibility if needed
     allowInsecureImages: true
+  postgresql:
+    enabled: true
+    instanceName: odoo
+    instances: 1
+    size: 4Gi
+    database: odoo
+    owner: odoo
+    monitoring:
+      enablePodMonitor: true
+    resources:
+      limits:
+        memory: 1000Mi
+        cpu: 500m
+      requests:
+        memory: 500Mi
+        cpu: 250m
+    backups:
+      enabled: false
+    logicalbackup:
+      enabled: false
 
 odoo:
-  postgresql:
-    enabled: false
-
   # Use official Odoo 19 image
   image:
     registry: docker.io
@@ -88,22 +101,6 @@ odoo:
 
   ingress:
     enabled: false
-
-# PostgreSQL configuration using CNPG operator
-postgres:
-  monitoring:
-    enablePodMonitor: true
-  size: 4Gi
-  instance: 1
-  recover: false
-  pass: odoo-pgsql-app
-  resources:
-    limits:
-      memory: 1000Mi
-      cpu: 500m
-    requests:
-      memory: 500Mi
-      cpu: 250m
 
 redirectToWWW:
   enabled: false

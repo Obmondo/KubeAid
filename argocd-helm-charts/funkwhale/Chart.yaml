@@ -6,3 +6,6 @@ dependencies:
   - name: funkwhale
     version: 2.0.6
     repository: https://ananace.gitlab.io/charts
+  - name: kubeaid-addons
+    version: 0.1.0
+    repository: file://../kubeaid-addons

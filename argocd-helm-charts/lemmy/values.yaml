@@ -1,4 +1,23 @@
-# Wrapper values for Lemmy (integrating CNPG)
+global:
+  postgresql:
+    enabled: true
+    instanceName: lemmy
+    instances: 1
+    size: 10Gi
+    database: lemmy
+    owner: lemmy
+    monitoring:
+      enablePodMonitor: true
+    resources:
+      limits:
+        memory: 512Mi
+      requests:
+        memory: 256Mi
+        cpu: 100m
+    backups:
+      enabled: false
+    logicalbackup:
+      enabled: false
 
 # Configuration for the upstream 'lemmy' chart dependency
 lemmy:
@@ -27,22 +46,3 @@ lemmy:
       accessMode: ReadWriteOnce
     storage:
       method: filesystem
-
-# Configuration for our custom CloudNative-PG template
-postgresql:
-  monitoring:
-      enablePodMonitor: false
-  instance: 1
-  size: 10Gi
-  storageClass: rook-ceph-block
-  recover: false
-  bootstrap:
-    initdb:
-      database: lemmy
-      owner: lemmy
-  resources:
-    limits:
-      memory: 512Mi
-    requests:
-      memory: 256Mi
-      cpu: 100m

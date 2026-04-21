@@ -5,3 +5,7 @@ dependencies:
   - name: harbor
     version: "1.18.3"
     repository: https://helm.goharbor.io
+
+  - name: kubeaid-addons
+    version: 0.1.0
+    repository: file://../kubeaid-addons

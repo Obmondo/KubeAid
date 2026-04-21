@@ -15,3 +15,8 @@ description: A Helm chart for deploying Pixelfed - a federated social media app 
 #     version: 0.23.0
 # Manually patched from upstream https://github.com/small-hack/pixelfed-chart
 # Chart has template bugs that have been fixed locally
+# Chart has template bugs that have been fixed locally
+dependencies:
+  - name: kubeaid-addons
+    version: 0.1.0
+    repository: file://../kubeaid-addons

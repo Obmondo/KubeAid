@@ -43,30 +43,46 @@ gitea:
       giteadb:
         enabled: true
 
-  global:
-    postgresql:
-      auth:
-        existingSecret: gitea-staging-pgsql-app
-        secretKeys:
-          usernameKey: username
-          userPasswordKey: password
+global:
+  netpol:
+    enabled: false
+  gitea:
+    netpol: false
 
-postgresql:
-  monitoring:
+  postgresql:
+    enabled: true
+    instanceName: gitea
+    auth:
+      existingSecret: gitea-staging-pgsql-app
+      secretKeys:
+        usernameKey: username
+        userPasswordKey: password
+    monitoring:
       enablePodMonitor: true
-  instance: 1
-  size: 2Gi
-  recover: false
-  bootstrap:
-    initdb:
-      database: giteadb
-      owner: giteadb
-  resources:
-    limits:
-      memory: 256Mi
-    requests:
-      memory: 256Mi
-      cpu: 100m
+    instances: 1
+    size: 2Gi
+    recover:
+      enabled: false
+    database: giteadb
+    owner: giteadb
+    backups:
+      enabled: false
+      schedule: "0 2 * * *"
+      retentionPolicy: 30d
+      provider: aws
+      aws:
+        enableKube2IAMIntegration: true
+    logicalbackup:
+      enabled: false
+      schedule: "0 2 * * *"
+      provider: s3
+      retention: "30d"
+    resources:
+      limits:
+        memory: 256Mi
+      requests:
+        memory: 256Mi
+        cpu: 100m
 
 redisCluster:
   replicas: 1

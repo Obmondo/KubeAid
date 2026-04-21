@@ -1,19 +1,23 @@
-postgresql:
-  monitoring:
-    enablePodMonitor: true
-  instance: 1
-  size: 2Gi
-  recover: false
-  bootstrap:
-    initdb:
-      database: peertube
-      owner: peertube
-  resources:
-    limits:
-      memory: 256Mi
-    requests:
-      memory: 256Mi
-      cpu: 100m
+global:
+  postgresql:
+    enabled: true
+    instanceName: peertube
+    instances: 1
+    size: 2Gi
+    database: peertube
+    owner: peertube
+    monitoring:
+      enablePodMonitor: true
+    resources:
+      limits:
+        memory: 256Mi
+      requests:
+        memory: 256Mi
+        cpu: 100m
+    backups:
+      enabled: false
+    logicalbackup:
+      enabled: false
 
 externalRedis:
   enabled: true
@@ -60,9 +64,6 @@ peertube:
 
   externalRedis:
     host: peertube-redis
-    # port: 6379
-    # db: 0
-    # password:
 
   # using externalRedis.port was giving an error even tho config values are rendered correctly in configmap
   # Adding below fixed it

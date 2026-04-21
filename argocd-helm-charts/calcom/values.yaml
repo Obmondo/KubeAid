@@ -1,18 +1,15 @@
 global:
   netpol:
     enabled: false
-  mattermost-operator:
+  calcom:
     netpol: false
 
   postgresql:
     enabled: true
-    instanceName: mattermost-operator
-    instances: 1
     monitoring:
       enablePodMonitor: true
-    size: 8Gi
-    recover:
-      enabled: false
+    instanceName: calcom
+    instances: 1
     backups:
       enabled: false
       schedule: "0 2 * * *"
@@ -25,10 +22,3 @@ global:
       schedule: "0 2 * * *"
       provider: s3
       retention: "30d"
-    resources:
-      limits:
-        memory: 800Mi
-        cpu: 250m
-      requests:
-        memory: 500Mi
-        cpu: 250m

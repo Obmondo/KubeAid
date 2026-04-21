@@ -5,3 +5,7 @@ dependencies:
   - name: gitea
     version: 12.5.1
     repository: https://dl.gitea.com/charts/
+
+  - name: kubeaid-addons
+    version: 0.1.0
+    repository: file://../kubeaid-addons

@@ -1,3 +1,38 @@
+global:
+  netpol:
+    enabled: false
+  mattermost-team-edition:
+    netpol: false
+
+  postgresql:
+    enabled: true
+    instanceName: mattermost-team-edition
+    instances: 1
+    monitoring:
+      enablePodMonitor: true
+    size: 8Gi
+    recover:
+      enabled: false
+    backups:
+      enabled: false
+      schedule: "0 2 * * *"
+      retentionPolicy: 30d
+      provider: aws
+      aws:
+        enableKube2IAMIntegration: true
+    logicalbackup:
+      enabled: false
+      schedule: "0 2 * * *"
+      provider: s3
+      retention: "30d"
+    resources:
+      limits:
+        memory: 800Mi
+        cpu: 250m
+      requests:
+        memory: 500Mi
+        cpu: 250m
+
 mattermost-team-edition:
   revisionHistoryLimit: 0
   mysql:
@@ -46,17 +81,3 @@ mattermost-team-edition:
     initialDelaySeconds: 10
   readinessProbe:
     initialDelaySeconds: 150
-
-postgres:
-  monitoring:
-    enablePodMonitor: true
-  size: 8Gi
-  recover: false
-  pass: mattermost-pgsql-app
-  resources:
-    limits:
-      memory: 800Mi
-      cpu: 250m
-    requests:
-      memory: 500Mi
-      cpu: 250m

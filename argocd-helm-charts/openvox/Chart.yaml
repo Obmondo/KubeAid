@@ -2,9 +2,16 @@ apiVersion: v2
 name: openvox
 version: 1.0.0
 dependencies:
+  - name: kubeaid-addons
+    version: 0.1.0
+    repository: file://../kubeaid-addons
 # This has custom changes, upstream PR are still open
 # https://github.com/OpenVoxProject/openvox-helm-chart/issues/12
 # https://github.com/puppetlabs/puppetserver-helm-chart/pull/221
+# https://github.com/puppetlabs/puppetserver-helm-chart/pull/239
+#  - name: puppetserver
+#    version: 10.0.0
+#    repository: https://openvoxproject.github.io/openvox-helm-chart/
 # https://github.com/puppetlabs/puppetserver-helm-chart/pull/239
 #  - name: puppetserver
 #    version: 10.0.0

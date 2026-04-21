@@ -6,3 +6,6 @@ dependencies:
   - name: odoo
     version: "28.2.10"
     repository: "file://charts/odoo"
+  - name: kubeaid-addons
+    version: 0.1.0
+    repository: file://../kubeaid-addons

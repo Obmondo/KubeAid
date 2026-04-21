@@ -35,11 +35,13 @@ global:
     netpol: false
 
   postgresql:
-    enabled: false
+    enabled: true
     instanceName: sonarqube
     revision: 0
     instances: 1
     size: 8Gi
+    monitoring:
+      enablePodMonitor: true
 
     resources:
       requests:

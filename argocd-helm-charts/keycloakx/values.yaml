@@ -67,8 +67,9 @@ global:
     # That's why, to keep the cluster name same, we initially change the path to
     # s3://blackwoodseven-cnpg-poc/keycloakx/keycloak-pgsql/revision-0. And everytime you recover
     # the cluster, you increment that revision number, and the S3 path will change.
+    monitoring:
+      enablePodMonitor: true
     revision: 0
-
     instances: 1
 
     resources:
