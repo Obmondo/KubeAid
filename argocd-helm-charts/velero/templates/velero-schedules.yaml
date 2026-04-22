@@ -6,7 +6,7 @@ metadata:
   namespace: velero
 spec:
   # Sunday backup are done via weekly scheduled
-  schedule: '0 {{ randInt 0 12 }} * * 1-6'
+  schedule: '0 {{ .Values.schedule.dailyHour | default 3 }} * * 1-6'
   template:
     hooks: {}
     csiSnapshotTimeout: 40m
