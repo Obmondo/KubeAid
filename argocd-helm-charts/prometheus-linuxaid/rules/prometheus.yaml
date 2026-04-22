@@ -51,6 +51,19 @@ groups:
         summary: 'Prometheus scrape intervals are above 61 seconds - should not happen.'
         description: 'Prometheus on {{ $labels.instance }} is scraping targets with an interval > 61 seconds.'
 
+    - alert: HostNotReporting
+      expr: |
+        max by (certname, instance) (last_over_time(up{job="node"}[24h]))
+        unless
+        max by (certname, instance) (up{job="node"})
+      for: 5m
+      labels:
+        severity: critical
+        alert_id: prometheus
+      annotations:
+        summary: 'Host {{ $labels.certname }} stopped reporting'
+        description: '{{ $labels.certname }} ({{ $labels.instance }}) reported within last 24h but now silent. Edge Prometheus down, remote_write broken, or disk full.'
+
     - alert: Watchdog
       expr: vector(1)
       labels:

@@ -89,3 +89,31 @@ tests:
                 Missing Prometheus metrics for node-exporter on **example.jfk**
               description: |
                 Prometheus is missing metrics for node-exporter from instance **example.jfk**
+
+  # HostNotReporting — host reports then goes silent
+  - interval: 1m
+    input_series:
+      # host "example.gone" reports for 20m then stops
+      - series: up{certname="example.gone", instance="example.gone:63392", job="node"}
+        values: 1+0x20
+      # host "example.alive" keeps reporting throughout
+      - series: up{certname="example.alive", instance="example.alive:63392", job="node"}
+        values: 1+0x1800
+    alert_rule_test:
+      # at 60m: example.gone silent 40m → condition true, for:5m elapsed → fires
+      - alertname: HostNotReporting
+        eval_time: 60m
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              alert_id: prometheus
+              alertname: HostNotReporting
+              certname: 'example.gone'
+              instance: 'example.gone:63392'
+            exp_annotations:
+              summary: 'Host example.gone stopped reporting'
+              description: 'example.gone (example.gone:63392) reported within last 24h but now silent. Edge Prometheus down, remote_write broken, or disk full.'
+      # at 22m: only 2m past last sample → still within 5m staleness lookback → no alert
+      - alertname: HostNotReporting
+        eval_time: 22m
+        exp_alerts: []
