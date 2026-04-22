@@ -18,8 +18,8 @@ cloudnative-pg:
       backupMaxAgeSeconds: 86400
       # Maximum age in seconds for WAL archiving before alerting (default: 5 minutes)
       walArchiveMaxAgeSeconds: 300
-      # Maximum age in seconds for first recoverability point (default: 7 days)
-      firstRecoverabilityPointMaxAgeSeconds: 604800
+      # Maximum age in seconds for first recoverability point (default: 30 days)
+      firstRecoverabilityPointMaxAgeSeconds: 2592000
 
 plugin-barman-cloud:
   certificate:

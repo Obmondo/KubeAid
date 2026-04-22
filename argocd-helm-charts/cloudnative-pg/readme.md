@@ -292,8 +292,8 @@ cloudnative-pg:
       backupMaxAgeSeconds: 86400
       # Maximum age for WAL archiving (default: 5 minutes)
       walArchiveMaxAgeSeconds: 300
-      # Maximum age for first recoverability point (default: 7 days)
-      firstRecoverabilityPointMaxAgeSeconds: 604800
+      # Maximum age for first recoverability point (default: 30 days)
+      firstRecoverabilityPointMaxAgeSeconds: 2592000
 ```
 
 ### Available Alerts

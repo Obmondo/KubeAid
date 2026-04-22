@@ -87,7 +87,8 @@ global:
 
   postgresql:
     enabled: true
-    recover: false
+    recover:
+      enabled: false
     instance: 2
     instanceName: oncall-pgsql
     database: oncall
