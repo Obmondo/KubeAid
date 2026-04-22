@@ -233,6 +233,24 @@
       "title": "mode",
       "type": "string"
     },
+    "network": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "default": "private",
+          "description": "Networking model for the workload cluster:\n  private - nodes run on an HCloud private network (or VSwitch in hybrid)\n            and the bootstrap assumes NAT egress via a gateway; no public\n            IPv4/IPv6 on HCloud machines.\n  public  - nodes use public IPv4/IPv6 directly; no private-network /\n            NAT bootstrap assumptions are applied.\nIn mode=hybrid this is effectively always private (hybrid intrinsically\nuses a private network to link HCloud and bare-metal sides).",
+          "enum": [
+            "private",
+            "public"
+          ],
+          "title": "type",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "title": "network",
+      "type": "object"
+    },
     "nodeGroups": {
       "additionalProperties": false,
       "properties": {
@@ -285,6 +303,7 @@
     }
   },
   "required": [
+    "network",
     "sshKeyPair",
     "hcloud",
     "bareMetal",

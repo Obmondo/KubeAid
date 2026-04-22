@@ -3,7 +3,7 @@ release:
   name: capi-cluster-hetzner
   namespace: default
 values:
-  - ../ci/values-hybrid-private-network.yaml
+  - ../values.example.hybrid.private-network.yaml
 
 tests:
   - it: renders HetznerCluster

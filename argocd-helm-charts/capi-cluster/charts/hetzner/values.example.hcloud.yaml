@@ -1,0 +1,80 @@
+# Example values for the Hetzner subchart in pure HCloud mode.
+#
+# In real usage, paste this under a `hetzner:` key in the parent
+# capi-cluster chart's values.yaml. `global.*` is owned by the parent
+# chart and is not shown here.
+#
+# Scenario:
+#   mode           = hcloud     (all nodes run on Hetzner Cloud)
+#   network.type   = private    (HCloud private network + NAT egress)
+#
+# To render the public-network variant, set `network.type: public` and
+# drop the `hcloud.cidrBlock` / `hcloud.subnetCidrBlock` overrides if
+# you prefer. The chart will stop emitting the HCloud private network
+# and will enable public IPv4/IPv6 on every node.
+
+mode: hcloud
+
+network:
+  type: private
+
+# Kubernetes Secret holding Hetzner credentials (hcloud token at minimum).
+cloudCredentialsSecretName: cloud-credentials
+
+sshKeyPair:
+  # Name of an SSH key registered in the HCloud console; used by CAPH
+  # to SSH into HCloud nodes during provisioning.
+  name: cluster-bootstrapper
+  # Unused in pure hcloud mode, but required to exist by the schema.
+  secretName: hetzner-ssh-keypair
+
+hcloud:
+  zone: eu-central
+  imageName: ubuntu-24.04
+  enableVSwitchIntegration: false
+  cidrBlock: 10.0.0.0/16
+  subnetCidrBlock: 10.0.0.0/24
+
+controlPlane:
+  regions:
+    - fsn1
+    - nbg1
+    - hel1
+  endpoint:
+    # Leave empty to let CAPH derive the endpoint from the Load Balancer.
+    host: ""
+  hcloud:
+    machineType: cax21
+    replicas: 3
+    loadBalancer:
+      enabled: true
+      region: hel1
+
+nodeGroups:
+  hcloud:
+    - name: md-0
+      replicas: 2
+      minSize: 2
+      maxSize: 5
+      machineType: cax31
+      memory: 8
+      cpu: 4
+      rootVolumeSize: 80
+      labels:
+        workload: general
+      taints: []
+    - name: md-gpu
+      replicas: 0
+      minSize: 0
+      maxSize: 3
+      machineType: cax41
+      memory: 16
+      cpu: 8
+      rootVolumeSize: 120
+      labels:
+        workload: gpu
+      taints:
+        - key: workload
+          value: gpu
+          effect: NoSchedule
+  bareMetal: []

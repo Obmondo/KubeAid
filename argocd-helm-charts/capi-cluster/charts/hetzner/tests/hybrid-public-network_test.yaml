@@ -3,7 +3,7 @@ release:
   name: capi-cluster-hetzner
   namespace: default
 values:
-  - ../ci/values-hybrid-public-network.yaml
+  - ../values.example.hybrid.public-network.yaml
 
 tests:
   - it: HetznerCluster declares a public load-balancer

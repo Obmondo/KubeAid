@@ -68,6 +68,8 @@ spec:
           secure-port: "10259"
     files:
 
+    {{- if or (eq .Values.mode "hybrid") (eq .Values.network.type "private") }}
+    {{/* NAT gateway script is only needed when nodes run on a private network. */}}
     - content: |
         for i in {1..30}; do
           ip route add default via 10.0.0.1 && break
@@ -79,6 +81,7 @@ spec:
       owner: "root:root"
       path: /connect-nat-gateway.sh
       permissions: "0744"
+    {{- end }}
 
     {{- if eq .Values.mode "bare-metal" }}
     - content: |
@@ -260,7 +263,9 @@ spec:
     preKubeadmCommands:
       - set -x
 
+      {{- if or (eq .Values.mode "hybrid") (eq .Values.network.type "private") }}
       - chmod +x /connect-nat-gateway.sh && /connect-nat-gateway.sh
+      {{- end }}
 
       {{/* Give highest priority to the Network Card / Connection entry in the boot order.
            Otherwise, we cannot boot the servers into rescue mode, and need to reach out to the

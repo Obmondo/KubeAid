@@ -21,11 +21,15 @@ spec:
     region: {{ .Values.controlPlane.hcloud.loadBalancer.region }}
   {{- end }}
 
+  {{/* HCloud private network is only needed when nodes run on a private network.
+       Rendered for hybrid (always private) or for hcloud+network.type=private. */}}
+  {{- if or (eq .Values.mode "hybrid") (eq .Values.network.type "private") }}
   hcloudNetwork:
     enabled: true
     networkZone: {{ .Values.hcloud.zone }}
     cidrBlock: {{ .Values.hcloud.cidrBlock }}
     subnetCidrBlock: {{ .Values.hcloud.subnetCidrBlock }}
+  {{- end }}
 
 {{- end }}
 

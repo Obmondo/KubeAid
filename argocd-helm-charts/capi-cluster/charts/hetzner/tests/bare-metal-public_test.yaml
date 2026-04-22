@@ -1,0 +1,59 @@
+suite: bare-metal mode with public network
+templates:
+  - "*.yaml"
+release:
+  name: demo
+chart:
+  version: 1.0.0
+  appVersion: 1.0.0
+values:
+  - ../values.example.bare-metal.yaml
+set:
+  mode: bare-metal
+  network.type: public
+  global.clusterName: demo
+  global.kubernetes.version: v1.33.0
+  global.pods.cidrBlock: 10.244.0.0/16
+  global.additionalUsers: []
+tests:
+  - it: renders the core CAPI Cluster resource
+    template: Cluster.yaml
+    asserts:
+      - isKind:
+          of: Cluster
+      - equal:
+          path: metadata.name
+          value: demo
+
+  - it: does not render an HCloud private network in bare-metal mode
+    template: HetznerCluster.yaml
+    asserts:
+      - isKind:
+          of: HetznerCluster
+      - notExists:
+          path: spec.hcloudNetwork
+
+  - it: renders a HetznerBareMetalMachineTemplate for the control plane
+    template: HetznerBareMetalMachineTemplate.yaml
+    asserts:
+      - isKind:
+          of: HetznerBareMetalMachineTemplate
+
+  - it: renders a HetznerBareMetalHost per configured control-plane + worker host
+    template: HetznerBareMetalHost.yaml
+    asserts:
+      - hasDocuments:
+          count: 6
+
+  - it: does not ship the NAT gateway bootstrap on the control plane
+    template: KubeadmControlPlane.yaml
+    asserts:
+      - notContains:
+          path: spec.kubeadmConfigSpec.preKubeadmCommands
+          content: chmod +x /connect-nat-gateway.sh && /connect-nat-gateway.sh
+
+  - it: renders no HCloud machine templates in bare-metal mode
+    template: HCloudMachineTemplate.yaml
+    asserts:
+      - hasDocuments:
+          count: 0

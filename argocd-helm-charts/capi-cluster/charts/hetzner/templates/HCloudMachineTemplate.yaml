@@ -14,8 +14,11 @@ spec:
       placementGroupName: control-plane
       type: {{ .Values.controlPlane.hcloud.machineType }}
       publicNetwork:
-        enableIPv4: false
-        enableIPv6: false
+        {{/* Nodes have no public IPv4/IPv6 when using a private network (hcloud
+             with network.type=private) or when running in hybrid mode. */}}
+        {{- $isPrivate := or (eq .Values.mode "hybrid") (eq .Values.network.type "private") }}
+        enableIPv4: {{ not $isPrivate }}
+        enableIPv6: {{ not $isPrivate }}
 {{- end }}
 
 {{/* Handling node-groups in HCloud. */}}
@@ -36,7 +39,10 @@ spec:
       placementGroupName: {{ $nodeGroup.name }}
       type: {{ $nodeGroup.machineType }}
       publicNetwork:
-        enableIPv4: false
-        enableIPv6: false
+        {{/* Nodes have no public IPv4/IPv6 when using a private network (hcloud
+             with network.type=private) or when running in hybrid mode. */}}
+        {{- $isPrivate := or (eq $.Values.mode "hybrid") (eq $.Values.network.type "private") }}
+        enableIPv4: {{ not $isPrivate }}
+        enableIPv6: {{ not $isPrivate }}
 {{- end }}
 {{- end }}

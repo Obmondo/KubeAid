@@ -9,6 +9,22 @@
 # @schema
 mode: hcloud
 
+network:
+  # @schema
+  # type: string
+  # enum: [private, public]
+  # description: |
+  #   Networking model for the workload cluster:
+  #     private - nodes run on an HCloud private network (or VSwitch in hybrid)
+  #               and the bootstrap assumes NAT egress via a gateway; no public
+  #               IPv4/IPv6 on HCloud machines.
+  #     public  - nodes use public IPv4/IPv6 directly; no private-network /
+  #               NAT bootstrap assumptions are applied.
+  #   In mode=hybrid this is effectively always private (hybrid intrinsically
+  #   uses a private network to link HCloud and bare-metal sides).
+  # @schema
+  type: private
+
 # @schema
 # type: string
 # minLength: 1

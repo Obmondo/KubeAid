@@ -15,6 +15,11 @@ global:
     repo: https://github.com/Obmondo/KubeAid.git
   pods:
     cidrBlock: 10.244.0.0/16
+  # -- Extra OS users to create on every node during bootstrap.
+  # Each entry expects:
+  #   name           : login name to create.
+  #   sshPublicKeys  : list of SSH public keys to authorize for the user.
+  additionalUsers: []
 
 provider:
   hetzner: false
