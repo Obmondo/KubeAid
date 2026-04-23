@@ -53,7 +53,7 @@ appConfig:
 
 # -- Kubernetes Secret name containing the TLS certificate key-pair, used to communicate with
 # Obmondo API.
-obmondoAPITLSSecretName: obmondo-api-tls
+obmondoAPITLSSecretName: obmondo-clientcert
 
 configMap:
   labels: {}
