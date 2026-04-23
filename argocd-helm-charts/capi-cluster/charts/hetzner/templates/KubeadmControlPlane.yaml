@@ -404,14 +404,20 @@ spec:
           --set cilium.kubeProxyReplacement=true \
           --set cilium.k8sServiceHost=${API_SERVER_HOST} \
           --set cilium.k8sServicePort=${API_SERVER_PORT} \
-          --set cilium.extraArgs[0]="--devices=eth0\,enp+,eno+" \
+          --set-string cilium.extraArgs[0]="--devices=eth0\,enp+\,eno+" \
           --namespace cilium | kubectl apply -f -
 
       {{- if or (eq .Values.mode "hcloud") (eq .Values.mode "hybrid") }}
       # Install HCloud Cloud Controller Manager.
       - |
         helm template ccm-hcloud kubeaid/argocd-helm-charts/ccm-hcloud \
+          --set hcloud-cloud-controller-manager.additionalTolerations[0].key=node.kubernetes.io/not-ready \
+          --set hcloud-cloud-controller-manager.additionalTolerations[0].operator=Exists \
+          --set hcloud-cloud-controller-manager.additionalTolerations[0].effect=NoSchedule \
+          --set hcloud-cloud-controller-manager.env.HCLOUD_LOAD_BALANCERS_NETWORK_ZONE.value={{ .Values.hcloud.zone }} \
           --set hcloud-cloud-controller-manager.networking.enabled=true \
+          --set hcloud-cloud-controller-manager.networking.network.valueFrom.secretKeyRef.name=cloud-credentials \
+          --set hcloud-cloud-controller-manager.networking.network.valueFrom.secretKeyRef.key=network \
           --values kubeaid/argocd-helm-charts/ccm-hcloud/values.yaml \
           --namespace kube-system | kubectl apply -f -
       {{- end }}

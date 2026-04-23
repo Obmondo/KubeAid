@@ -9,6 +9,8 @@
 # @schema
 mode: hcloud
 
+multipleSubnets: false
+
 network:
   # @schema
   # type: string

@@ -10,6 +10,11 @@
 {{- $namespace = printf "%s-%s" $namespace .Values.global.customerid }}
 {{- end }}
 
+{{- $image := printf "ghcr.io/syself/caph:%s" .Values.global.caph.version }}
+{{- if (.Values.hetzner).multipleSubnets }}
+{{- $image = "ghcr.io/obmondo/caph:multiple-subnets-support-fixed-new" }}
+{{- end }}
+
 apiVersion: operator.cluster.x-k8s.io/v1alpha2
 kind: InfrastructureProvider
 metadata:
@@ -44,7 +49,7 @@ spec:
                 - --namespace=capi-cluster
               command:
                 - /manager
-              image: docker.io/archismanmridha/caph-staging:multiple-subnets
+              image: {{ $image }}
               imagePullPolicy: IfNotPresent
               livenessProbe:
                 failureThreshold: 3

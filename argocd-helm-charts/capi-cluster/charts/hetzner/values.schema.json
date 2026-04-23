@@ -233,6 +233,12 @@
       "title": "mode",
       "type": "string"
     },
+    "multipleSubnets": {
+      "default": false,
+      "description": "Enable CAPH multi-subnet support behavior.",
+      "title": "multipleSubnets",
+      "type": "boolean"
+    },
     "network": {
       "additionalProperties": false,
       "properties": {
