@@ -13,10 +13,13 @@ spec:
   jobTemplate:
     spec:
       template:
+        metadata:
+          labels:
+            app: {{ .Values.global.postgresql.instanceName }}-logical-backup
         spec:
           containers:
             - name: logical-backup
-              image: ghcr.io/obmondo/logical-backup:1.0.1
+              image: ghcr.io/obmondo/postgres-logical-backup:3.1.8
               imagePullPolicy: IfNotPresent
               env:
                 - name: POD_NAMESPACE
@@ -84,6 +87,8 @@ spec:
 
                 - name: PG_VERSION
                   value: {{ (((.Values.global).postgresql).logicalbackup).pgversion | default "16" | quote }}
+                - name: USE_PG_DUMP
+                  value: {{ (((.Values.global).postgresql).logicalbackup).usePgDump | default false | quote }}
                 - name: POSTGRES_OPERATOR
                   value: cngp
               resources:

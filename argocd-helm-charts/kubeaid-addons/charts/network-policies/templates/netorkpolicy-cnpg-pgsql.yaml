@@ -7,17 +7,18 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/component: cilium-networkpolicy
+
 spec:
   endpointSelector:
     matchLabels:
-      cnpg.io/cluster: {{ .Values.global.postgresql.instanceName | default "postgresql" }}
+      cnpg.io/cluster: {{ .Values.global.postgresql.instanceName | default "postgresql" }}-pgsql
 
 # =========
 # EGRESS
 # =========
 
   egress:
-    # Allow egress to kube-apiserver
+    # kube-apiserver
     - toEntities:
         - kube-apiserver
       toPorts:
@@ -27,10 +28,25 @@ spec:
             - port: "6443"
               protocol: TCP
 
-    # Communication between postgres pods
+    {{- if .Values.global.postgresql.cnpg.enabled }}
+    # CNPG operator communication (CRITICAL)
     - toEndpoints:
         - matchLabels:
-            cnpg.io/cluster: {{ .Values.global.postgresql.instanceName | default "postgresql" }}
+            {{- range $key, $value := .Values.global.postgresql.cnpg.labels }}
+            {{ $key }}: {{ $value }}
+            {{- end }}
+      toPorts:
+        - ports:
+            - port: "8000"
+              protocol: TCP
+            - port: "443"
+              protocol: TCP
+    {{- end }}
+
+    # postgres internal communication
+    - toEndpoints:
+        - matchLabels:
+            cnpg.io/cluster: {{ .Values.global.postgresql.instanceName | default "postgresql" }}-pgsql
       toPorts:
         - ports:
             - port: "5432"
@@ -38,13 +54,25 @@ spec:
             - port: "8000"
               protocol: TCP
 
+    {{- if and .Values.global.postgresql.enabled .Values.global.postgresql.backups.enabled }}
+    # S3 via FQDN
+    - toFQDNs:
+        - matchPattern: "*.amazonaws.com"
+        - matchPattern: "*.s3.amazonaws.com"
+        - matchPattern: "*.s3.*.amazonaws.com"
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+    {{- end }}
+
 # ========
 # INGRESS
 # ========
 
   ingress:
     {{- if .Values.global.postgresql.clients }}
-    # allow ingress from client applications
+    # client apps
     {{- range .Values.global.postgresql.clients }}
     - fromEndpoints:
         - matchLabels:
@@ -58,28 +86,45 @@ spec:
     {{- end }}
     {{- end }}
 
-    {{- if .Values.global.postgresql.cnpg }}
-    # allow ingress from CNPG operator
+    {{- if .Values.global.postgresql.cnpg.enabled }}
+    # CNPG operator
     - fromEndpoints:
         - matchLabels:
             {{- range $key, $value := .Values.global.postgresql.cnpg.labels }}
             {{ $key }}: {{ $value }}
-            {{- end }}
-      toPorts:
-        - ports:
-            - port: "8000"
-              protocol: TCP
-    {{- end }}
-
-    # communication between postgres pods
-    - fromEndpoints:
-        - matchLabels:
-            cnpg.io/cluster: {{ .Values.global.postgresql.instanceName | default "postgresql" }}
+            {{- end }}  
       toPorts:
         - ports:
             - port: "5432"
               protocol: TCP
             - port: "8000"
               protocol: TCP
+            - port: "9187"
+              protocol: TCP
+    {{- end }}
+
+    # intra-cluster postgres
+    - fromEndpoints:
+        - matchLabels:
+            cnpg.io/cluster: {{ .Values.global.postgresql.instanceName | default "postgresql" }}-pgsql
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP
+            - port: "8000"
+              protocol: TCP
+
+    {{- if .Values.global.postgresql.monitoring.prometheus.enabled }}
+    # Prometheus scraping
+    - fromEndpoints:
+        - matchLabels:
+            {{- range $key, $value := .Values.global.postgresql.monitoring.prometheus.labels }}
+            {{ $key }}: {{ $value }}
+            {{- end }}
+      toPorts:
+        - ports:
+            - port: "9187"
+              protocol: TCP
+    {{- end }}
 
 {{- end }}

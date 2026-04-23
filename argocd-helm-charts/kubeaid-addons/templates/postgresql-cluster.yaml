@@ -43,7 +43,7 @@ spec:
   bootstrap:
     {{- if $postgresql.recover.enabled }}
     recovery:
-      source: {{ .Values.global.postgresql.instanceName }}-pgsql # FIXED: Changed from string to object with 'source'
+      source: {{ .Values.global.postgresql.instanceName }}-pgsql
     {{- else }}
     initdb:
       database: {{ .Values.global.postgresql.instanceName }}

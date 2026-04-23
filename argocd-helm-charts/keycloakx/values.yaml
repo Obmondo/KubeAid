@@ -48,10 +48,20 @@ keycloakx:
     enabled: true
 
 global:
+
   netpol:
     enabled: false
+    releaseName: ""
+    traefik:
+      namespace: ""
+      labels: {}
+
   keycloakx:
     netpol: false
+
+  blackbox:
+    netpol: false
+    namespace: ""
 
   postgresql:
     enabled: true
