@@ -20,6 +20,7 @@ hcloud-cloud-controller-manager:
       valueFrom:
         secretKeyRef:
           name: cloud-credentials
+          key: network
 
   nodeSelector:
     node-role.kubernetes.io/control-plane: ""
