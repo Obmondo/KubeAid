@@ -44,7 +44,7 @@ spec:
                 - --namespace=capi-cluster
               command:
                 - /manager
-              image: docker.io/archismanmridha/caph-staging:multiple-subnets
+              image: ghcr.io/syself/caph:{{ .Values.global.caph.version }}
               imagePullPolicy: IfNotPresent
               livenessProbe:
                 failureThreshold: 3
