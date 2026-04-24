@@ -9,14 +9,16 @@ metadata:
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  labels:
-    velero.io/exclude-from-backup: "true"
 
 spec:
   instances: {{ $postgresql.instances }}
 
 
   imageName: ghcr.io/cloudnative-pg/postgresql:18.1-system-trixie
+
+  inheritedMetadata:
+    labels:
+      velero.io/exclude-from-backup: "true"
 
   {{- with $postgresql.resources }}
   resources:

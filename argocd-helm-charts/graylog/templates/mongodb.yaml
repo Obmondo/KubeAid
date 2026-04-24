@@ -64,7 +64,19 @@ spec:
               {{- end }}
       volumeClaimTemplates:
         - metadata:
+            name: data-volume
+            labels:
+              velero.io/exclude-from-backup: "true"
+            spec:
+              accessModes:
+                - ReadWriteOnce
+              resources:
+                requests:
+                  storage: {{ .Values.mongodb.size}}
+        - metadata:
             name: logs-volume
+            labels:
+              velero.io/exclude-from-backup: "true"
           spec:
             accessModes:
               - ReadWriteOnce

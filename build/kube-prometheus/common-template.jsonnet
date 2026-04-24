@@ -607,6 +607,11 @@ local kp =
           ),
           storage+: {
             volumeClaimTemplate: {
+              metadata: {
+                labels: {
+                  'velero.io/exclude-from-backup': 'true'
+                },
+              },
               spec: {
                 accessModes: ['ReadWriteOnce'],
                 resources: {
