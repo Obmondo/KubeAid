@@ -1,0 +1,88 @@
+# node-labels-alert-test.yaml
+rule_files:
+  - prometheus.yaml
+
+tests:
+  # ───────────────────────────────────────────────
+  # (1) No nodes have labels → SHOULD fire
+  # ───────────────────────────────────────────────
+  - interval: 5m
+    input_series:
+      - series: 'kube_node_labels'
+        values: '0+0x0'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: BareMetalNodeLabelsMissingOrMismatch
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              alert_id: BareMetalNodeLabelsMissingOrMismatch
+            exp_annotations:
+              summary: "Bare-metal node labels missing or incorrect."
+              description: "Node  with hostname \"not set\" does not follow the required naming pattern. Bare-metal nodes must use consistent hostnames matching bm-*-[0-9]{7} (e.g., bm-worker-1234567) to prevent CAPI from restarting nodes, which would cause PVC attachment failures."
+
+  # ───────────────────────────────────────────────
+  # (2) Bare-metal node with correct hostname → should NOT fire
+  # ───────────────────────────────────────────────
+  - interval: 5m
+    input_series:
+      - series: 'kube_node_labels{node="bm-kcm-1234567",label_beta_kubernetes_io_instance_type="unknown",label_kubernetes_io_hostname="bm-kcm-1234567"}'
+        values: '1+0x1'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: BareMetalNodeLabelsMissingOrMismatch
+        exp_alerts: []
+
+  # ───────────────────────────────────────────────
+  # (3) Node with wrong instance type → SHOULD fire
+  # ───────────────────────────────────────────────
+  - interval: 5m
+    input_series:
+      - series: 'kube_node_labels{node="node1",label_beta_kubernetes_io_instance_type="wrongtype",label_kubernetes_io_hostname="node1"}'
+        values: '1+0x1'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: BareMetalNodeLabelsMissingOrMismatch
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              alert_id: BareMetalNodeLabelsMissingOrMismatch
+              node: "node1"
+              label_beta_kubernetes_io_instance_type: "wrongtype"
+              label_kubernetes_io_hostname: "node1"
+            exp_annotations:
+              summary: "Bare-metal node labels missing or incorrect."
+              description: "Node node1 with hostname \"node1\" does not follow the required naming pattern. Bare-metal nodes must use consistent hostnames matching bm-*-[0-9]{7} (e.g., bm-worker-1234567) to prevent CAPI from restarting nodes, which would cause PVC attachment failures."
+
+  # ───────────────────────────────────────────────
+  # (4) Node with allowed instance type starting with cax(cloud) → should NOT fire
+  # ───────────────────────────────────────────────
+  - interval: 5m
+    input_series:
+      - series: 'kube_node_labels{node="node-cax",label_beta_kubernetes_io_instance_type="cax.large",label_kubernetes_io_hostname="node-cax"}'
+        values: '1+0x1'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: BareMetalNodeLabelsMissingOrMismatch
+        exp_alerts: []
+
+  # ───────────────────────────────────────────────
+  # (5) Node with non-baremetal hostname and non-allowed instance → SHOULD fire
+  # ───────────────────────────────────────────────
+  - interval: 5m
+    input_series:
+      - series: 'kube_node_labels{node="node2",label_beta_kubernetes_io_instance_type="customtype",label_kubernetes_io_hostname="node2"}'
+        values: '1+0x1'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: BareMetalNodeLabelsMissingOrMismatch
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              alert_id: BareMetalNodeLabelsMissingOrMismatch
+              node: "node2"
+              label_beta_kubernetes_io_instance_type: "customtype"
+              label_kubernetes_io_hostname: "node2"
+            exp_annotations:
+              summary: "Bare-metal node labels missing or incorrect."
+              description: "Node node2 with hostname \"node2\" does not follow the required naming pattern. Bare-metal nodes must use consistent hostnames matching bm-*-[0-9]{7} (e.g., bm-worker-1234567) to prevent CAPI from restarting nodes, which would cause PVC attachment failures."

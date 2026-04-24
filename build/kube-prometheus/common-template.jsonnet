@@ -772,7 +772,9 @@ local kp =
 { ['alertmanager-' + name]: kp.alertmanager[name] for name in std.objectFields(kp.alertmanager) } +
 (if vars['blackbox-exporter'] then { ['blackbox-exporter-' + name]: kp.blackboxExporter[name] for name in std.objectFields(kp.blackboxExporter) } else {}) +
 { ['grafana-' + name]: kp.grafana[name] for name in std.objectFields(kp.grafana) } +
-{ ['kube-state-metrics-' + name]: kp.kubeStateMetrics[name] for name in std.objectFields(kp.kubeStateMetrics) } +
+{ ['kube-state-metrics-' + name]: if name == 'deployment' then kp.kubeStateMetrics[name] {
+  spec+: { template+: { spec+: { containers: std.map(function(c) if c.name == 'kube-state-metrics' then c { args+: ['--metric-labels-allowlist=nodes=[beta.kubernetes.io/instance-type,kubernetes.io/hostname]'] } else c, super.containers) } } },
+} else kp.kubeStateMetrics[name] for name in std.objectFields(kp.kubeStateMetrics) } +
 { ['kubernetes-' + name]: kp.kubernetesControlPlane[name] for name in std.objectFields(kp.kubernetesControlPlane) } +
 // Ordering matters! This next absurd object **has** to come after the inclusion
 // of `kubernetesControlPlane` above -- otherwise we'll overwrite the object and
