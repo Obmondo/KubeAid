@@ -1,0 +1,134 @@
+{{- if and ((.Values.global).netpol).enabled ((.Values.global).argocd).netpol }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: argocd-baseline
+  namespace: {{ .Values.global.argocd.namespace | default "argocd" | quote }}
+  labels:
+    app.kubernetes.io/component: cilium-networkpolicy
+spec:
+  endpointSelector:
+    matchLabels:
+      {{- range $k, $v := (.Values.global.argocd.endpointSelectorLabels | default dict) }}
+      {{ $k }}: {{ $v | quote }}
+      {{- end }}
+
+  ingress:
+    # Argo CD components talking to each other
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.global.argocd.namespace | default "argocd" | quote }}
+            {{- range $k, $v := (.Values.global.argocd.endpointSelectorLabels | default dict) }}
+            {{ $k }}: {{ $v | quote }}
+            {{- end }}
+
+    # Traefik → argocd-server
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.global.netpol.traefik.namespace | quote }}
+            {{- range $key, $value := (.Values.global.netpol.traefik.labels | default dict) }}
+            {{ $key }}: {{ $value }}
+            {{- end }}
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+
+    # Prometheus → Argo CD metrics (global.netpol.prometheus)
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ (.Values.global.netpol.prometheus | default dict).namespace | default "monitoring" | quote }}
+            {{- range $key, $value := ((.Values.global.netpol.prometheus | default dict).labels | default dict) }}
+            {{ $key }}: {{ $value }}
+            {{- end }}
+      toPorts:
+        - ports:
+            - port: "8082"
+              protocol: TCP
+            - port: "8083"
+              protocol: TCP
+            - port: "8084"
+              protocol: TCP
+            - port: "9001"
+              protocol: TCP
+            - port: "9121"
+              protocol: TCP
+
+    # kubeaid-agent → argocd-server
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ (.Values.global.argocd.kubeaidAgent | default dict).namespace | default "monitoring" | quote }}
+            {{- range $key, $value := ((.Values.global.argocd.kubeaidAgent | default dict).labels | default dict) }}
+            {{ $key }}: {{ $value }}
+            {{- end }}
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+            - port: "443"
+              protocol: TCP
+
+    {{- $bb := .Values.global.argocd.blackboxExporter | default dict }}
+    {{- if $bb.enabled }}
+    # Blackbox exporter → synthetic probes (server UI, repo-server, redis)
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ ($bb.namespace | default "monitoring") | quote }}
+            {{- range $key, $value := ($bb.labels | default dict) }}
+            {{ $key }}: {{ $value }}
+            {{- end }}
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+            - port: "8081"
+              protocol: TCP
+            - port: "6379"
+              protocol: TCP
+    {{- end }}
+
+  egress:
+    # Argo CD components talking to each other
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.global.argocd.namespace | default "argocd" | quote }}
+            {{- range $k, $v := (.Values.global.argocd.endpointSelectorLabels | default dict) }}
+            {{ $k }}: {{ $v | quote }}
+            {{- end }}
+
+    # application-controller, server → kube-apiserver
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "6443"
+              protocol: TCP
+
+    # DNS to CoreDNS
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: ANY
+
+    {{- $gitFQDNs := (.Values.global.argocd.gitFQDNs | default list) }}
+    {{- if gt (len $gitFQDNs) 0 }}
+    # Git over HTTPS and SSH via explicit FQDN allow-list
+    - toFQDNs:
+        {{- range $fqdn := $gitFQDNs }}
+        - matchName: {{ $fqdn | quote }}
+        {{- end }}
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "22"
+              protocol: TCP
+    {{- end }}
+{{- end }}

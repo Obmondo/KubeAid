@@ -13,6 +13,7 @@ here rather than being scattered across individual application charts.
 | Per-component Cilium network policies | `CiliumNetworkPolicy` | `global.netpol.enabled` + component flag |
 | CNPG PostgreSQL cluster + scheduled backup | `Cluster`, `ScheduledBackup` | `global.postgresql.enabled` |
 | RabbitMQ cluster (via Cluster Operator) | `RabbitmqCluster` | `global.rabbitmq.enabled` |
+| Argo CD baseline policy | `CiliumNetworkPolicy` | `global.netpol.enabled` + `global.argocd.netpol` |
 
 Everything is **nil-safe** - if a key is missing from values, the template renders nothing rather
 than panicking. New operator types (MariaDB, MongoDB, etc.) can be added by dropping a new
@@ -162,6 +163,40 @@ global:
     netpol: true
   postgresql:
     netpol: true
+  argocd:
+    netpol: true
+```
+
+Argo CD baseline policy is configured under **`global.argocd`** plus shared **`global.netpol.traefik`** / **`global.netpol.prometheus`** (same pattern as whoami/oncall). Render it via a parent chart (for example `argo-cd`) that includes `kubeaid-addons` as a dependency; Helm only passes `global` into subcharts.
+
+```yaml
+global:
+  netpol:
+    enabled: true
+    traefik:
+      namespace: traefik
+      labels:
+        "k8s:app.kubernetes.io/name": traefik
+        "k8s:app.kubernetes.io/instance": traefik
+    prometheus:
+      namespace: monitoring
+      labels:
+        "k8s:app.kubernetes.io/name": prometheus
+  argocd:
+    netpol: true
+    namespace: argocd
+    endpointSelectorLabels:
+      app.kubernetes.io/part-of: argocd
+    kubeaidAgent:
+      namespace: monitoring
+      labels:
+        "k8s:app.kubernetes.io/name": kubeaid-agent
+    # Optional: allow kube-prometheus blackbox-exporter probes to Argo (off unless you use that).
+    blackboxExporter:
+      enabled: false
+      namespace: monitoring
+      labels:
+        "k8s:app.kubernetes.io/name": blackbox-exporter
 ```
 
 ## Adding a new operator resource type
@@ -177,5 +212,6 @@ global:
    ```yaml
    {{- if and ((.Values.global).netpol).enabled ((.Values.global).<component>).netpol }}
    ```
-3. Add `global.<component>.netpol: false` to the parent chart's `values.yaml`
+   For Argo CD, the guard is `global.netpol.enabled` plus `global.argocd.netpol` (see `networkpolicy-argocd.yaml`).
+3. Add `global.<component>.netpol: false` to the parent chart's `values.yaml` (for Argo CD use `global.argocd.netpol: false`)
 4. Because dependent charts use a symlink, no re-packaging is needed - changes are picked up immediately

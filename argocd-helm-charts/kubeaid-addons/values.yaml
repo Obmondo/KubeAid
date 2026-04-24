@@ -33,8 +33,16 @@ global:
     traefik:
       # -- Namespace where Traefik pods run.
       namespace: traefik
-      # -- Labels that uniquely identify Traefik pods.
-      labels: {}
+      # -- Labels that uniquely identify Traefik pods (Cilium identity keys).
+      labels:
+        "k8s:app.kubernetes.io/name": traefik
+        "k8s:app.kubernetes.io/instance": traefik
+
+    # -- Prometheus pod selector (namespace + labels) for metrics scrape ingress to workloads.
+    prometheus:
+      namespace: monitoring
+      labels:
+        "k8s:app.kubernetes.io/name": prometheus
 
   # fqdns
   # External FQDNs used in egress rules. Set in your private values file.
@@ -165,3 +173,31 @@ global:
   whoami:
     # -- Enable CiliumNetworkPolicy for whoami (allows ingress from Traefik on port 80)
     netpol: false
+
+  # argocd
+  # Baseline CiliumNetworkPolicy for Argo CD (charts/network-policies/templates/networkpolicy-argocd.yaml).
+  # Requires global.netpol.enabled: true. Uses global.netpol.traefik / global.netpol.prometheus like other netpols.
+  argocd:
+    # -- Enable Argo CD baseline CiliumNetworkPolicy
+    netpol: false
+    # -- Namespace where Argo CD runs (policy metadata.namespace and pod namespace in rules)
+    namespace: argocd
+    # -- Labels selecting Argo CD pods (endpointSelector and internal fromEndpoints/toEndpoints)
+    endpointSelectorLabels:
+      app.kubernetes.io/part-of: argocd
+    # -- kubeaid-agent client ingress (namespace + labels; nested like other clients)
+    kubeaidAgent:
+      namespace: monitoring
+      labels:
+        "k8s:app.kubernetes.io/name": kubeaid-agent
+
+    # -- Optional: allow Prometheus blackbox-exporter synthetic probes (HTTP/TCP to server, repo-server, redis).
+    # Set enabled: true and labels to match your blackbox pod (kubectl get pod -n monitoring -l ... --show-labels).
+    blackboxExporter:
+      enabled: false
+      namespace: monitoring
+      labels:
+        "k8s:app.kubernetes.io/name": blackbox-exporter
+
+    # -- Git hosts allowed for Argo CD repo access over HTTPS/SSH (egress toFQDNs).
+    gitFQDNs: []
