@@ -367,9 +367,11 @@ local kp =
                     },
                   },
                   podSelector: {
-                    matchLabels: {
-                      'app.kubernetes.io/name': 'obmondo-k8s-agent',
-                    },
+                    matchExpressions: [{
+                      key: 'app.kubernetes.io/name',
+                      operator: 'In',
+                      values: ['obmondo-k8s-agent', 'kubeaid-agent'],
+                    }],
                   },
                 },
               ],
