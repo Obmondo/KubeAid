@@ -5,8 +5,8 @@ fullnameOverride: ""
 appConfig:
   argocd:
     # -- Name of the Kubernetes Secret (in argocd namespace) containing the ArgoCD auth token
-    # under the "token" key. The Go code reads it directly at startup.
-    authTokenSecretName: ""
+    # under the "token" key.
+    authTokenSecretName: argocd-project-role-kubeaid-agent
 
     plainText: false
 
