@@ -14,7 +14,8 @@ set -euo pipefail
 
 declare -i debug=0 \
   commit=0 \
-  show_versions=0
+  show_versions=0 \
+  ignore_pinned_version=0
 
 declare cluster_dir=''
 
@@ -47,6 +48,10 @@ Arguments:
     Commit the generated manifests in the kubeaid-config repo.
   --versions
     Show the kube-prometheus / Kubernetes compatibility table and exit.
+  --ignore-pinned-version
+    Do not re-exec build from the kubeaid version pinned in the cluster's
+    kube-prometheus ArgoCD Application (kubeaid.io/version label). Use the
+    current kubeaid checkout as-is.
 EOF
 }
 
@@ -76,6 +81,9 @@ while (($# > 0)); do
   --versions)
     show_versions=1
     ;;
+  --ignore-pinned-version)
+    ignore_pinned_version=1
+    ;;
   -h | --help)
     usage
     exit 0
@@ -100,6 +108,7 @@ if ! [[ "${cluster_dir}" ]]; then
   echo "Missing argument cluster_dir"
   exit 2
 fi
+
 
 # Find the vars.jsonnet file in the cluster directory
 # With CAPI, folder name can differ from cluster name
@@ -127,6 +136,54 @@ if ((_version < 18000)); then
   exit 2
 fi
 
+# Honor the kubeaid.io/version label on the cluster's kube-prometheus ArgoCD
+# Application — re-exec from a git worktree at that ref when it's pinned.
+if ! ((ignore_pinned_version)); then
+  argocd_app_file="${cluster_dir%/}/argocd-apps/templates/kube-prometheus.yaml"
+  pinned_version=''
+  if [[ -f "${argocd_app_file}" ]]; then
+    pinned_version=$(gojsontoyaml -yamltojson <"${argocd_app_file}" 2>/dev/null \
+      | jq -r '.metadata.labels["kubeaid.io/version"] // ""' 2>/dev/null || echo '')
+  fi
+
+  case "${pinned_version}" in
+  '' | HEAD | main | master | null)
+    : # use current kubeaid checkout
+    ;;
+  *)
+    kubeaid_repo_root=$(realpath "${basedir}/../..")
+    if ! pinned_sha=$(git -C "${kubeaid_repo_root}" rev-parse --verify "${pinned_version}^{commit}" 2>/dev/null); then
+      echo "ERROR: Pinned kubeaid version '${pinned_version}' not found locally."
+      echo "Run 'git -C ${kubeaid_repo_root} fetch --tags origin' and retry,"
+      echo "fix the 'kubeaid.io/version' label in ${argocd_app_file},"
+      echo "or pass --ignore-pinned-version to build with the current checkout."
+      exit 2
+    fi
+    current_sha=$(git -C "${kubeaid_repo_root}" rev-parse HEAD)
+    if [[ "${current_sha}" == "${pinned_sha}" ]]; then
+      echo "kubeaid already at pinned version ${pinned_version} (${pinned_sha:0:8})"
+    else
+      worktree_dir="${basedir}/.worktrees/${pinned_version}"
+      if [[ ! -d "${worktree_dir}" ]]; then
+        mkdir -p "$(dirname "${worktree_dir}")"
+        echo "Creating worktree at ${worktree_dir} for kubeaid ${pinned_version}..."
+        git -C "${kubeaid_repo_root}" worktree add -f "${worktree_dir}" "${pinned_version}"
+      fi
+
+      abs_cluster_dir=$(realpath "${cluster_dir}")
+
+      reexec_args=()
+      ((debug)) && reexec_args+=(--debug)
+      ((commit)) && reexec_args+=(--commit)
+      reexec_args+=("${abs_cluster_dir}")
+
+      echo "Re-executing build from kubeaid ${pinned_version} (${pinned_sha:0:8})..."
+      exec "${worktree_dir}/build/kube-prometheus/build.sh" "${reexec_args[@]}"
+    fi
+    ;;
+  esac
+fi
+
 # Make sure to use project tooling
 outdir="${cluster_dir%/}/kube-prometheus"
 
@@ -142,11 +199,10 @@ fi
 
 jsonnet_lib_path="${basedir}/libraries/${kube_prometheus_release}/vendor"
 
-echo "  (run with --versions to see the full compatibility table)"
-
 if ! [ -e "${jsonnet_lib_path}" ]; then
   echo "Libraries not found for ${kube_prometheus_release} at ${jsonnet_lib_path}"
   echo "Run:  ./build/kube-prometheus/setup-version.sh ${kube_prometheus_release}"
+  echo "(run with --versions to see the full compatibility table)"
   exit 2
 fi
 
@@ -182,7 +238,10 @@ rm -rf "${outdir}"
 mv "${tmpdir}" "${outdir}"
 
 build_end=$(date +%s)
-echo "Successfully built for ${cluster_name} (kube-prometheus ${kube_prometheus_release}) in $((build_end - build_start))s → ${outdir}"
+kubeaid_version_desc=$(git -C "${basedir}" describe --tags --always 2>/dev/null || echo "unknown")
+kubeaid_short_sha=$(git -C "${basedir}" rev-parse --short=8 HEAD 2>/dev/null || echo "")
+echo "kubeaid=${kubeaid_version_desc} (${kubeaid_short_sha})  kube-prometheus=${kube_prometheus_release}  cluster=${cluster_name}  elapsed=$((build_end - build_start))s"
+echo "  👉 ${outdir}"
 
 if ((commit)); then
   if git -C "${cluster_dir}" diff --quiet -- kube-prometheus/ && git -C "${cluster_dir}" diff --cached --quiet -- kube-prometheus/; then
