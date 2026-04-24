@@ -399,7 +399,7 @@ spec:
           --set cilium.kubeProxyReplacement=true \
           --set cilium.k8sServiceHost=${API_SERVER_HOST} \
           --set cilium.k8sServicePort=${API_SERVER_PORT} \
-          --set cilium.extraArgs[0]="--devices=eth0\,enp+" \
+          --set cilium.extraArgs[0]="--devices=eth0\,enp+,eno+" \
           --namespace cilium | kubectl apply -f -
 
       {{- if or (eq .Values.mode "hcloud") (eq .Values.mode "hybrid") }}
