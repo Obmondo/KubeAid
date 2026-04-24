@@ -70,11 +70,10 @@ spec:
 
     - content: |
         for i in {1..30}; do
-          ip route add default via 10.0.0.1 && break
+          ip route add default via 10.0.0.2 && break
           sleep 10
         done
 
-        echo "nameserver 1.1.1.1" | tee -a /etc/resolv.conf
         resolvectl dns enp7s0 1.1.1.1
       owner: "root:root"
       path: /connect-nat-gateway.sh
