@@ -652,6 +652,28 @@ local kp =
                 protocol: 'TCP',
               }],
             },
+            {
+              // Allow the kubeaid-agent in the obmondo namespace to poll
+              // Alertmanager for active alerts.
+              from: [
+                {
+                  namespaceSelector: {
+                    matchLabels: {
+                      'kubernetes.io/metadata.name': 'obmondo',
+                    },
+                  },
+                  podSelector: {
+                    matchLabels: {
+                      'app.kubernetes.io/name': 'kubeaid-agent',
+                    },
+                  },
+                },
+              ],
+              ports: [{
+                port: 9093,
+                protocol: 'TCP',
+              }],
+            },
           ],
         },
       },
