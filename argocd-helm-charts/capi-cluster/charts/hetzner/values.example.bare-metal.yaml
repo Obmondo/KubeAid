@@ -1,0 +1,105 @@
+# Example values for the Hetzner subchart in pure bare-metal mode.
+#
+# In real usage, paste this under a `hetzner:` key in the parent
+# capi-cluster chart's values.yaml. `global.*` is owned by the parent
+# chart and is not shown here.
+#
+# Scenario:
+#   mode           = bare-metal  (all nodes are Hetzner Robot servers)
+#   network.type   = public      (nodes use public IPv4/IPv6 directly)
+#
+# For the private-network variant, set `network.type: private` and
+# provide an external NAT gateway reachable from the bare-metal hosts
+# (the default bootstrap assumes one at 10.0.0.1 over interface enp7s0).
+
+mode: bare-metal
+
+network:
+  type: public
+
+# Kubernetes Secret holding Hetzner credentials. In bare-metal mode this
+# secret must also carry `robot-user` and `robot-password` entries.
+cloudCredentialsSecretName: cloud-credentials
+
+sshKeyPair:
+  # Unused in pure bare-metal mode, but required to exist by the schema.
+  name: cluster-bootstrapper
+  # Kubernetes Secret containing Robot rescue SSH keys.
+  secretName: hetzner-ssh-keypair
+
+bareMetal:
+  wipeDisks: false
+  installImage:
+    imagePath: /root/.oldroot/nfs/images/Ubuntu-2404-noble-amd64-base.tar.gz
+    vg0:
+      size: 25
+      rootVolumeSize: 10
+  # vSwitch settings are only used in hybrid mode; kept here for
+  # completeness so the example exercises the full schema.
+  vSwitch:
+    vlanID: 4000
+
+controlPlane:
+  # Unused in pure bare-metal mode; documented here so the example
+  # covers both code paths.
+  regions:
+    - fsn1
+  endpoint:
+    host: ""
+  bareMetal:
+    # Floating IP bound to the control plane's primary NIC. Configure
+    # one in Hetzner Robot and paste it here.
+    endpoint:
+      host: "203.0.113.10"
+    raid:
+      level: 1
+    zfs:
+      size: 100
+    # Each entry maps to a HetznerBareMetalHost + Machine pair.
+    bareMetalHosts:
+      - serverID: 1000001
+        wwns:
+          - eui.0025385881b4d5ef
+          - eui.0025385881b4d5f0
+      - serverID: 1000002
+        wwns:
+          - eui.0025385881b4d5ff
+          - eui.0025385881b4d600
+      - serverID: 1000003
+        wwns:
+          - eui.0025385881b4d60a
+          - eui.0025385881b4d60b
+
+nodeGroups:
+  hcloud: []
+  bareMetal:
+    - name: worker-a
+      labels:
+        workload: general
+      raid:
+        level: 1
+      zfs:
+        size: 200
+      bareMetalHosts:
+        - serverID: 1000101
+          wwns:
+            - eui.0025385881b4d700
+            - eui.0025385881b4d701
+        - serverID: 1000102
+          wwns:
+            - eui.0025385881b4d702
+            - eui.0025385881b4d703
+    - name: worker-storage
+      labels:
+        workload: storage
+      raid:
+        level: 10
+      zfs:
+        size: 2000
+      bareMetalHosts:
+        - serverID: 1000201
+          wwns:
+            - eui.0025385881b4d800
+            - eui.0025385881b4d801
+            - eui.0025385881b4d802
+            - eui.0025385881b4d803
