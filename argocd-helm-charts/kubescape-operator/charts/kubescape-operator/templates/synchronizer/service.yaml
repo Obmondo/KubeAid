@@ -5,6 +5,11 @@ kind: Service
 metadata:
   name: {{ .Values.synchronizer.name }}
   namespace: {{ .Values.ksNamespace }}
+  {{- $annotations := merge (default dict .Values.additionalAnnotations) (default dict .Values.synchronizer.service.annotations) }}
+  {{- with $annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   labels:
     {{- include "kubescape-operator.labels" (dict "Chart" .Chart "Release" .Release "Values" .Values "app" .Values.synchronizer.name "tier" .Values.global.namespaceTier) | nindent 4 }}
 spec:

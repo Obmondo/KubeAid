@@ -1,8 +1,9 @@
 annotations:
-  artifacthub.io/changes: "- \"feat(deps): update traefik docker tag to v3.6.12 (v39.0)\"\n-
-    \"chore(release): \U0001F680 publish v39.0.7\"\n"
+  artifacthub.io/changes: "- \"feat(deps): update traefik docker tag to v3.6.13 (v39.0)\"\n-
+    \"chore: :bento: merge back #1679 into v39.0\"\n- \"chore(release): \U0001F680
+    publish v39.0.8\"\n"
 apiVersion: v2
-appVersion: v3.6.12
+appVersion: v3.6.13
 description: A Traefik based Kubernetes ingress controller
 home: https://traefik.io/
 icon: https://raw.githubusercontent.com/traefik/traefik/master/docs/content/assets/img/traefik.logo.png
@@ -22,4 +23,4 @@ sources:
 - https://github.com/traefik/traefik-helm-chart
 - https://github.com/traefik/traefik
 type: application
-version: 39.0.7
+version: 39.0.8

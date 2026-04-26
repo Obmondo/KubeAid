@@ -1,6 +1,6 @@
 dependencies:
 - name: kubescape-operator
   repository: https://kubescape.github.io/helm-charts/
-  version: 1.30.6
-digest: sha256:56f769a18fdca740bb5d810061811f5860a2dd954f02d79ebf3fb5e698f58256
-generated: "2026-04-09T10:59:24.297655116+05:30"
+  version: 1.30.7
+digest: sha256:52fcc6fbd3f9dd569bf882a562c64fe1d3af45be5384be113f448bccb3deab90
+generated: "2026-04-26T13:17:53.010076016+05:30"

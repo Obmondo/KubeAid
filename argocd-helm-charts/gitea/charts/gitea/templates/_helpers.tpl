@@ -97,8 +97,6 @@ Return the pod's hostUsers setting when OpenShift compatibility is enabled.
 {{- if eq (include "gitea.openshift.enabled" . | trim) "true" -}}
 {{- if kindIs "bool" .Values.openshift.hostUsers -}}
 {{ ternary "true" "false" .Values.openshift.hostUsers }}
-{{- else -}}
-false
 {{- end -}}
 {{- end -}}
 {{- end -}}
@@ -222,7 +220,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- else if (index .Values "valkey-cluster").enabled -}}
 {{- printf "redis+cluster://:%s@%s-valkey-cluster-headless.%s.svc.%s:%g/0?pool_size=100&idle_timeout=180s&" (index .Values "valkey-cluster").global.valkey.password .Release.Name .Release.Namespace .Values.clusterDomain (index .Values "valkey-cluster").service.ports.valkey -}}
 {{- else if (index .Values "valkey").enabled -}}
-{{- printf "redis://:%s@%s-valkey-headless.%s.svc.%s:%g/0?pool_size=100&idle_timeout=180s&" (index .Values "valkey").global.valkey.password .Release.Name .Release.Namespace .Values.clusterDomain (index .Values "valkey").master.service.ports.valkey -}}
+{{- printf "redis://:%s@%s-valkey-primary.%s.svc.%s:%g/0?pool_size=100&idle_timeout=180s&" (index .Values "valkey").global.valkey.password .Release.Name .Release.Namespace .Values.clusterDomain (index .Values "valkey").master.service.ports.valkey -}}
 {{- end -}}
 {{- end -}}
 
@@ -236,9 +234,9 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 
 {{- define "valkey.servicename" -}}
 {{- if (index .Values "valkey-cluster").enabled -}}
-{{- printf "%s-valkey-cluster-headless.%s.svc.%s" .Release.Name .Release.Namespace .Values.clusterDomain -}}
+{{- printf "%s-valkey-cluster-headless.%s.svc" .Release.Name .Release.Namespace -}}
 {{- else if (index .Values "valkey").enabled -}}
-{{- printf "%s-valkey-headless.%s.svc.%s" .Release.Name .Release.Namespace .Values.clusterDomain -}}
+{{- printf "%s-valkey-primary.%s.svc" .Release.Name .Release.Namespace -}}
 {{- end -}}
 {{- end -}}
 

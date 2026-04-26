@@ -2,11 +2,11 @@ image:
   baseRepo: mcr.microsoft.com
   azuredisk:
     repository: /oss/v2/kubernetes-csi/azuredisk-csi
-    tag: v1.34.2
+    tag: v1.34.3
     pullPolicy: IfNotPresent
   csiProvisioner:
     repository: /oss/v2/kubernetes-csi/csi-provisioner
-    tag: v6.1.1
+    tag: v6.2.0
     pullPolicy: IfNotPresent
   csiAttacher:
     repository: /oss/v2/kubernetes-csi/csi-attacher
@@ -24,6 +24,7 @@ image:
     repository: /oss/v2/kubernetes-csi/csi-node-driver-registrar
     tag: v2.16.0
     pullPolicy: IfNotPresent
+
 
 serviceAccount:
   create: true # When true, service accounts will be created for you. Set to false if you want to use your own.
@@ -45,7 +46,6 @@ controller:
   # featureGates:
   #   csiProvisioner: 
   #     - Topology=true                # Enables topology-aware volume provisioning
-  #     - HonorPVReclaimPolicy=true    # Honors the reclaim policy set on PersistentVolumes
   #     - VolumeAttributesClass=true   # Enables support for VolumeAttributesClass
   #   csiResizer:
   #     - RecoverVolumeExpansionFailure=true  # Enables recovery from volume expansion failures
@@ -53,7 +53,6 @@ controller:
   featureGates:
     csiProvisioner:
       - Topology=true
-      - HonorPVReclaimPolicy=true
       - VolumeAttributesClass=true
     csiResizer:
       - RecoverVolumeExpansionFailure=true
@@ -152,6 +151,14 @@ node:
   metricsPort: 29605
   livenessProbe:
     healthPort: 29603
+  nodeDriverRegistrar:
+    healthPort: 29607
+    livenessProbe:
+      enabled: true
+      initialDelaySeconds: 20
+      timeoutSeconds: 10
+      periodSeconds: 20
+      failureThreshold: 2
 
 snapshot:
   enabled: false

@@ -12,98 +12,8 @@ fullnameOverride: ""
 
 replicaCount: 1
 
-service:
-  type: ClusterIP
-  port: 80
-
-ingress:
-  enabled: false
-  annotations:
-    nginx.ingress.kubernetes.io/proxy-body-size: 500m
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-  host: chart-example.local
-  protocol: http
-
-  tls: []
-  #  - secretName: chart-example-tls
-  #    hosts:
-  #      - chart-example.local
-
-  ## Set the name of the IngressClass cluster resource (optional)
-  ## https://kubernetes.io/docs/reference/kubernetes-api/service-resources/ingress-v1/#IngressSpec
-  # className: can-be-anything
-
-postgresql:
-  ## If you already have a Postgresql service you'd like to use, set
-  ## this to false and adjust the host to use your existing service.
-  enabled: true
-
-  ## External Postgresql hostname or IP
-  # host: postgresql.example.com
-
-  auth:
-    ## Database user
-    username: funkwhale
-
-    ## Database password
-    password: funkwhale
-
-    ## Database password
-    database: funkwhale
-
-  ## Database port
-  service:
-    port: 5432
-
-  primary:
-    ## Database storage configuration
-    persistence:
-      enabled: true
-      # storageClass: ""
-      # size: 8Gi
-
-    pgHbaConfiguration: |
-      local all all trust
-      host all all localhost trust
-      host all all 0.0.0.0/0 md5
-      host all all ::/0 md5
-
-    initdb:
-      scripts:
-        enable_extensions.sh: |
-          #!/bin/sh
-
-          echo 'create extension unaccent;' | psql -U postgres $POSTGRESQL_DATABASE
-          echo 'create extension citext;' | psql -U postgres $POSTGRESQL_DATABASE
-
-redis:
-  ## If you already have a Redis service you'd like to use, set
-  ## this to false and adjust the host to use your existing service.
-  enabled: true
-
-  ## External Redis hostname or IP
-  # host: redis.example.com
-  ## The redis database ID that funkwhale should use, defaults to 0
-  # database: 0
-
-  auth:
-    enabled: true
-    password: funkwhale
-
-  architecture: standalone
-  master:
-    kind: Deployment
-    persistence:
-      enabled: false
-    service:
-      port: 6379
-  slave:
-    persistence:
-      enabled: false
-
 ## Django secret to use for encoding cookies/macaroons
-djangoSecret: ''
+djangoSecret:
 
 ## Additional environment variables to set
 extraEnv: {}
@@ -113,6 +23,21 @@ extraEnv: {}
   # LDAP_SERVER_URI: ldaps://ldap.example.com
   # LDAP_START_TLS: "True"
   # MEDIA_ROOT: /srv/funkwhale/data/media
+
+## Additional complex environment variables to set
+extraEnvVars: []
+# - name: LDAP_BIND_DN
+#   valueFrom:
+#     secretKeyRef:
+#       name: ldap-keys
+#       key: BIND_DN
+
+## Additional ConfigMap/Secret objects to ingress as environment variables
+extraEnvFrom: []
+# - configMapRef:
+#     name: configmap
+# - secretRef:
+#     name: secret
 
 ## Additional secret environment variables to set
 extraSecret: {}
@@ -138,12 +63,41 @@ s3:
   enabled: false
   proxy: true
 
-  accessKey: ''
-  secretKey: ''
+  accessKey:
+  secretKey:
+
+  ## Existing secret containing the S3 secret key
+  existingSecret:
+  existingSecretKey: s3-secret-key
+
   bucket: funkwhale
   # region: eu-west-2
   # location: /funkwhale
   # url: http://s3.example.com
+
+
+## Import music into Funkwhale
+## https://docs.funkwhale.audio/administrator/import.html
+import: []
+#  # Import data into a library with job/cronjob
+#  - library: 769a2bc3
+#    # cron: 0 * * * *
+#    volume:
+#      persistentVolumeClaim:
+#        claimName: music
+#    subPath: import-folder # Use a subPath mount
+#  # Import data into a library with a live watch
+#  - library: 769a2bc3
+#    watch: true
+#    # Use in-place import, requires the volume to be mounted in the api, front, and worker pods as well,
+#    # with the mount path "/srv/funkwhale/data/music/<name | library>"
+#    inPlace: true
+#    prune: true # Prune removed tracks from funkwhale library
+#    name: music-archive # directory name, will default to library ID if not specified
+#    volume:
+#      nfs:
+#        server: jukebox.internal
+#        path: /exports/music
 
 ## API server configuration
 api:
@@ -252,13 +206,15 @@ celery:
     # pullPolicy:
 
   beat:
-    resources:
-      limits:
-        cpu: 100m
-        memory: 128Mi
-      requests:
-        cpu: 10m
-        memory: 75Mi
+    logLevel: info
+
+    resources: {}
+    #  limits:
+    #    cpu: 150m
+    #    memory: 256Mi
+    #  requests:
+    #    cpu: 10m
+    #    memory: 75Mi
 
     nodeSelector: {}
 
@@ -267,7 +223,9 @@ celery:
     affinity: {}
 
   worker:
-    replicaCount: 2
+    replicaCount: 1
+
+    logLevel: info
 
     # Additional mounts to add to the worker pod
     extraVolumeMounts: []
@@ -302,3 +260,96 @@ celery:
       #       operator: In
       #       values:
       #       - app
+
+## Migration job
+migrate:
+  enable: true
+  image:
+    # registry:
+    image: api
+    # tag:
+    # pullPolicy:
+
+  ## Additional mounts to add to the API container
+  ## If using an external media mount it needs to be attached to both API and Front
+  extraVolumeMounts: []
+    # - name: extra-music-data
+    #   mountPath: /srv/funkwhale/data/music
+    #   readOnly: true
+
+  ## Additional volumes to add to the API container
+  extraVolumes: []
+    # - name: extra-music-data
+    #   persistentVolumeClaim:
+    #     claimName: volume-claim
+
+  resources: {}
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
+    # requests:
+    #   cpu: 100m
+    #   memory: 128Mi
+
+  nodeSelector: {}
+
+  tolerations: []
+
+  affinity: {}
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 500m
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  labels: {}
+    # app: funkwhale
+  host: chart-example.local
+  protocol: http
+
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+  ## Set the name of the IngressClass cluster resource (optional)
+  ## https://kubernetes.io/docs/reference/kubernetes-api/service-resources/ingress-v1/#IngressSpec
+  # className: can-be-anything
+
+postgresql:
+  ## External Postgresql hostname or IP
+  host:
+  # port: 5432
+
+  ## Database user
+  username: funkwhale
+
+  ## Database password
+  password: funkwhale
+
+  ## Database password
+  database: funkwhale
+
+  ## Existing secret for connection URI
+  ## Should be in the format postgres://username:password@host:port/database
+  # existingSecret:
+  # existingSecretKey: postgresql-url
+
+redis:
+  ## External Redis hostname or IP
+  host:
+
+  ## The redis database ID that funkwhale should use, defaults to 0
+  # database: 0
+  # port: 6379
+  password: funkwhale
+
+  ## Existing secret for connection URI
+  ## Should be in the format redis://:password@host:port/database
+  # existingSecret:
+  # existinVgSecretKey: redis-url

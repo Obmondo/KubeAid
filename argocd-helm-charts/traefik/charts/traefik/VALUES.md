@@ -1,6 +1,6 @@
 # traefik
 
-![Version: 39.0.7](https://img.shields.io/badge/Version-39.0.7-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v3.6.12](https://img.shields.io/badge/AppVersion-v3.6.12-informational?style=flat-square)
+![Version: 39.0.8](https://img.shields.io/badge/Version-39.0.8-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v3.6.13](https://img.shields.io/badge/AppVersion-v3.6.13-informational?style=flat-square)
 
 A Traefik based Kubernetes ingress controller
 
@@ -168,6 +168,7 @@ Kubernetes: `>=1.22.0-0`
 | hub.redis.username | string | `""` | The username to use when connecting to Redis endpoints. Default: "". |
 | hub.sendlogs | string | `nil` |  |
 | hub.token | string | `""` | Name of `Secret` with key 'token' set to a valid license token. It enables API Gateway. |
+| hub.tokenMountPath | string | `"/etc/secrets"` | Mount path for token secret. |
 | hub.tracing.additionalTraceHeaders.enabled | bool | See below | Tracing headers to duplicate. To configure the following, tracing.otlp.enabled needs to be set to true. |
 | hub.tracing.additionalTraceHeaders.traceContext.parentId | string | `""` | Name of the header that will contain the parent-id header copy. |
 | hub.tracing.additionalTraceHeaders.traceContext.traceId | string | `""` | Name of the header that will contain the trace-id copy. |

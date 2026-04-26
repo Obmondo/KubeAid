@@ -1,13 +1,9 @@
----
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ include "funkwhale.fullname" . }}
   labels:
-    app.kubernetes.io/name: {{ include "funkwhale.name" . }}
-    helm.sh/chart: {{ include "funkwhale.chart" . }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    {{- include "funkwhale.labels" . | nindent 4 }}
 data:
   FUNKWHALE_HOSTNAME: {{ .Values.ingress.host }}
   FUNKWHALE_PROTOCOL: {{ .Values.ingress.protocol }}
@@ -25,7 +21,6 @@ data:
 
 {{- if .Values.s3.enabled }}
   AWS_ACCESS_KEY_ID: {{ .Values.s3.accessKey }}
-  AWS_SECRET_ACCESS_KEY: {{ .Values.s3.secretKey }}
   AWS_STORAGE_BUCKET_NAME: {{ .Values.s3.bucket }}
   {{- if .Values.s3.region }}
   AWS_S3_REGION_NAME: {{ .Values.s3.region }}

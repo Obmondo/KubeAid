@@ -6,28 +6,6 @@ Expand the name of the chart.
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
-{{- define "funkwhale.postgresql.host" -}}
-{{- $name := .Values.postgresql.nameOverride | default "postgresql" -}}
-{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-
-{{- define "funkwhale.dbUrl" -}}
-{{- if (or .Values.postgresql.postgresqlUsername .Values.postgresql.postgresqlPassword .Values.postgresql.postgresqlDatabase) -}}
-{{ fail "You are using the old postgresql auth config keys - please update your values to the new postgresql.auth config keys" }}
-{{- end -}}
-{{- if .Values.database -}}
-{{ fail "You are using the old database config key - please update your values to the new postgresql config key" }}
-{{- else if and .Values.postgresql.enabled .Values.postgresql.host -}}
-{{ fail "Both postgresql.enabled and postgresql.host have been specified - you may want to set postgresql.enabled=false if you want to use an external database" }}
-{{- else if .Values.postgresql.enabled -}}
-postgres://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ template "funkwhale.postgresql.host" . }}:{{ .Values.postgresql.service.port }}/{{ .Values.postgresql.auth.database }}
-{{- else if .Values.postgresql.host -}}
-postgres://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ .Values.postgresql.host }}:{{ .Values.postgresql.service.port }}/{{ .Values.postgresql.auth.database }}
-{{- else -}}
-{{ fail "Either postgresql.enabled or postgresql.host are required!" }}
-{{- end -}}
-{{- end -}}
-
 {{/*
 Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
@@ -53,6 +31,17 @@ Create chart name and version as used by the chart label.
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
+{{- define "funkwhale.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "funkwhale.name" $ }}
+app.kubernetes.io/instance: {{ $.Release.Name }}
+{{- end -}}
+
+{{- define "funkwhale.labels" -}}
+{{ include "funkwhale.selectorLabels" . }}
+app.kubernetes.io/managed-by: {{ $.Release.Service }}
+helm.sh/chart: {{ include "funkwhale.chart" $ }}
+{{- end -}}
+
 {{/*
 Create the correct image tag name
 */}}
@@ -60,19 +49,55 @@ Create the correct image tag name
 {{- printf "%s/%s:%s" (.Scope.registry | default .Values.image.registry | default "docker.io/funkwhale") (.Scope.image | default .Values.image.image) (.Scope.tag | default .Values.tag | default .Chart.AppVersion) -}}
 {{- end -}}
 
-{{- define "funkwhale.redis.host" -}}
-{{- $name := .Values.redis.nameOverride | default "redis" -}}
-{{- printf "%s-%s-%s" .Release.Name $name "master" | trunc 63 | trimSuffix "-" -}}
+{{- define "funkwhale.dbUrl" -}}
+{{- if .Values.postgresql.enabled -}}
+{{ fail "Internal postgresql server is no longer available" }}
+{{- end -}}
+{{- if .Values.postgresql.host -}}
+postgres://{{ .Values.postgresql.username }}:{{ .Values.postgresql.password }}@{{ .Values.postgresql.host }}:{{ .Values.postgresql.port | default 5432 }}/{{ .Values.postgresql.database }}
+{{- else -}}
+{{ fail "You need to specify postgresql.host" }}
+{{- end -}}
 {{- end -}}
 
 {{- define "funkwhale.redisUrl" -}}
-{{- if and .Values.redis.enabled .Values.redis.host -}}
-{{ fail "Setting both redis.enabled and redis.host would deploy an internal Redis service and attempt to use an external one - please set only one of the two!" }}
-{{- else if .Values.redis.enabled -}}
-redis://:{{ .Values.redis.auth.password }}@{{ template "funkwhale.redis.host" . }}:{{ .Values.redis.master.service.port | default 6379 }}/0
-{{- else if .Values.redis.host -}}
-redis://:{{ .Values.redis.auth.password }}@{{ .Values.redis.host }}:{{ .Values.redis.master.service.port | default 6379 }}/{{ .Values.redis.database | default 0 }}
+{{- if .Values.redis.enabled -}}
+{{ fail "Internal postgresql server is no longer available" }}
+{{- end -}}
+{{- if .Values.redis.host -}}
+{{- if .Values.redis.password -}}
+redis://:{{ .Values.redis.password }}@{{ .Values.redis.host }}:{{ .Values.redis.port | default 6379 }}/{{ .Values.redis.database | default 0 }}
 {{- else -}}
-{{ fail "Either redis.enabled or redis.host are required!" }}
+redis://{{ .Values.redis.host }}:{{ .Values.redis.port | default 6379 }}/{{ .Values.redis.database | default 0 }}
+{{- end -}}
+{{- else -}}
+{{ fail "You must specify redis.host" }}
+{{- end -}}
+{{- end -}}
+
+{{- define "funkwhale.envVars" -}}
+{{- if .Values.postgresql.existingSecret }}
+- name: DATABASE_URL
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.postgresql.existingSecret }}
+      key: {{ .Values.postgresql.existingSecretKey | default "postgresql-url" }}
+{{- end -}}
+{{- if .Values.redis.existingSecret }}
+- name: CACHE_URL
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.redis.existingSecret }}
+      key: {{ .Values.redis.existingSecretKey | default "redis-url" }}
+{{- end -}}
+{{- if .Values.s3.existingSecret }}
+- name: AWS_SECRET_ACCESS_KEY 
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.s3.existingSecret }}
+      key: {{ .Values.s3.existingSecretKey | default "s3-secret-key" }}
+{{- end -}}
+{{- with .Values.extraEnvVars }}
+{{ toYaml . }}
 {{- end -}}
 {{- end -}}

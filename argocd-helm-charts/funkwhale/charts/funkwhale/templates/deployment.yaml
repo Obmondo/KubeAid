@@ -1,23 +1,15 @@
-{{- if .Values.api.readinessProbe.exec -}}
-{{ fail "Your values are still using the old readinessProbe values, this will no longer work as expected" }}
-{{- end -}}
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "funkwhale.fullname" . }}
   labels:
-    app.kubernetes.io/name: {{ include "funkwhale.name" . }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    {{- include "funkwhale.labels" . | nindent 4 }}
     audio.funkwhale/component: app
-    helm.sh/chart: {{ include "funkwhale.chart" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "funkwhale.name" . }}
-      app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- include "funkwhale.selectorLabels" . | nindent 6 }}
       audio.funkwhale/component: app
   template:
     metadata:
@@ -25,8 +17,7 @@ spec:
         checksum/configmap: {{ include (print .Template.BasePath "/configmap.yaml") . | sha256sum }}
         checksum/secret: {{ include (print .Template.BasePath "/secret.yaml") . | sha256sum }}
       labels:
-        app.kubernetes.io/name: {{ include "funkwhale.name" . }}
-        app.kubernetes.io/instance: {{ .Release.Name }}
+        {{- include "funkwhale.selectorLabels" . | nindent 8 }}
         audio.funkwhale/component: app
     spec:
       containers:
@@ -39,19 +30,28 @@ spec:
             {{ toYaml .Values.api.livenessProbe | nindent 12 }}
           startupProbe:
             {{ toYaml .Values.api.startupProbe | nindent 12 }}
+          env:
+            - name: FUNKWHALE_API_HOST
+              value: localhost
+            - name: FUNKWHALE_API_PORT
+              value: '5000'
+            {{ include "funkwhale.envVars" . | nindent 12 }}
           envFrom:
           - configMapRef:
               name: {{ include "funkwhale.fullname" . }}
           - secretRef:
               name: {{ include "funkwhale.fullname" . }}
+          {{- with .Values.extraEnvFrom }}
+            {{ . | toYaml | nindent 12 }}
+          {{- end }}
           volumeMounts:
             - name: static
               mountPath: /srv/funkwhale/data/static/
             - name: data
               mountPath: /srv/funkwhale/data
-{{- with .Values.api.extraVolumeMounts }}
+          {{- with .Values.api.extraVolumeMounts }}
             {{ toYaml . | nindent 12 }}
-{{- end }}
+          {{- end }}
           ports:
             - name: api
               containerPort: 5000
@@ -85,9 +85,9 @@ spec:
             - mountPath: /usr/share/nginx/html/staticfiles
               name: static
               readOnly: true
-{{- if .Values.front.extraVolumeMounts }}
-{{ toYaml .Values.front.extraVolumeMounts | indent 12 }}
-{{- end }}
+          {{- if .Values.front.extraVolumeMounts }}
+            {{ toYaml .Values.front.extraVolumeMounts | nindent 12 }}
+          {{- end }}
       {{- with .Values.api.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -104,12 +104,12 @@ spec:
         - name: static
           emptyDir: {}
         - name: data
-    {{- if .Values.persistence.enabled }}
+      {{- if .Values.persistence.enabled }}
           persistentVolumeClaim:
             claimName: {{ .Values.persistence.existingClaim | default (include "funkwhale.fullname" .) }}
-    {{- else }}
+      {{- else }}
           emptyDir: {}
-    {{- end }}
-{{- if .Values.api.extraVolumes }}
-{{ toYaml .Values.api.extraVolumes | indent 8 }}
-{{- end }}
+      {{- end }}
+      {{- if .Values.api.extraVolumes }}
+        {{ toYaml .Values.api.extraVolumes | nindent 8 }}
+      {{- end }}

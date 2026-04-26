@@ -210,6 +210,12 @@ data:
             "strategy": "patch"
           },
           {
+            "group": "cilium.io",
+            "version": "v2",
+            "resource": "ciliumclusterwidenetworkpolicies",
+            "strategy": "patch"
+          },
+          {
             "group": "projectcalico.org",
             "version": "v3",
             "resource": "networkpolicies",

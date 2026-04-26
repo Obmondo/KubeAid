@@ -291,8 +291,8 @@ openshift:
 
 When enabled, the chart applies `allowPrivilegeEscalation: false`, drops all
 Linux capabilities, sets `runAsNonRoot: true`, uses
-`seccompProfile.type: RuntimeDefault`, and sets `hostUsers: false` unless
-`openshift.hostUsers` is overridden.
+`seccompProfile.type: RuntimeDefault`, and leaves `hostUsers` unset unless
+`openshift.hostUsers` is explicitly overridden.
 
 The deployment keeps the existing vanilla Kubernetes behavior when OpenShift
 compatibility is disabled. Auto-detection relies on the
@@ -1009,7 +1009,7 @@ To comply with the Gitea helm chart definition of the digest parameter, a "custo
 | Name                       | Description                                                                                                                          | Value |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ----- |
 | `openshift.enabled`        | Enable OpenShift compatibility defaults for chart-managed pods. Defaults to auto-detect based on the SecurityContextConstraints API. | `nil` |
-| `openshift.hostUsers`      | Override the PodSpec hostUsers field for chart-managed pods. Defaults to `false` when OpenShift compatibility is enabled.            | `nil` |
+| `openshift.hostUsers`      | Override the PodSpec hostUsers field for chart-managed pods. When unset, the field is omitted so the platform default is used.       | `nil` |
 | `podSecurityContext`       | Pod security context. On non-OpenShift clusters the chart defaults `fsGroup` to `1000` when this map is empty.                       | `{}`  |
 | `containerSecurityContext` | Security context                                                                                                                     | `{}`  |
 | `securityContext`          | Run init and Gitea containers as a specific securityContext                                                                          | `{}`  |

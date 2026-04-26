@@ -1,0 +1,60 @@
+{{- if .Values.migrate.enable }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "funkwhale.fullname" . }}-migrate
+  labels:
+    {{- include "funkwhale.labels" . | nindent 4 }}
+    audio.funkwhale/component: migrate
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    "helm.sh/hook-weight": "-1"
+spec:
+  template:
+    metadata:
+      labels:
+        {{ include "funkwhale.selectorLabels" $ | nindent 8 }}
+        audio.funkwhale/component: migrate
+    spec:
+      containers:
+        - name: migrate
+          command:
+            - funkwhale-manage
+            - migrate
+          image: {{ include "funkwhale.imageUri" (dict "Scope" .Values.migrate.image "Values" .Values "Chart" .Chart) | quote }}
+          imagePullPolicy: {{ .Values.migrate.image.pullPolicy | default .Values.image.pullPolicy }}
+          env:
+            {{ include "funkwhale.envVars" . | nindent 12 }}
+          envFrom:
+          - configMapRef:
+              name: {{ include "funkwhale.fullname" . }}
+          - secretRef:
+              name: {{ include "funkwhale.fullname" . }}
+          {{- with .Values.extraEnvFrom }}
+            {{ . | toYaml | nindent 12 }}
+          {{- end }}
+        {{- with .Values.migrate.extraVolumeMounts }}
+          volumeMounts:
+            {{ toYaml . | nindent 12 }}
+        {{- end }}
+          resources:
+            {{- toYaml .Values.migrate.resources | nindent 12 }}
+      restartPolicy: OnFailure
+      {{- with .Values.migrate.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.migrate.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.migrate.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+{{- if .Values.migrate.extraVolumes }}
+      volumes:
+{{ toYaml .Values.migrate.extraVolumes | indent 8 }}
+{{- end }}
+{{- end }}

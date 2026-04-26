@@ -120,6 +120,9 @@ capabilities:
   manageWorkloads: disable
   syncSBOM: disable
 
+  # ====== Risk acceptance ======
+  riskAcceptance: disable
+
   # ====== Other capabilities ======
   #
   # This is an experimental capability with an elevated security risk. Read the
@@ -291,6 +294,7 @@ kubescape:
   service:
     type: ClusterIP
     port: 8080
+    annotations: {}
 
   # deploy a service monitor for prometheus (operator) integration
   serviceMonitor:
@@ -326,7 +330,7 @@ operator:
   image:
     # -- source code: https://github.com/kubescape/operator
     repository: quay.io/kubescape/operator
-    tag: v0.2.134
+    tag: v0.2.140
     pullPolicy: IfNotPresent
 
   nodeSelector:
@@ -338,6 +342,13 @@ operator:
     port: 4002
     targetPort: 4002
     protocol: TCP
+    annotations: {}
+
+  admissionService:
+    type: ClusterIP
+    port: 443
+    targetPort: 8443
+    annotations: {}
 
   podAnnotations: {}
   podLabels: {}
@@ -375,7 +386,7 @@ kubevuln:
   image:
     # -- source code: https://github.com/kubescape/kubevuln
     repository: quay.io/kubescape/kubevuln
-    tag: v0.3.119
+    tag: v0.3.132
     pullPolicy: IfNotPresent
 
   nodeSelector:
@@ -389,6 +400,7 @@ kubevuln:
     port: 8080
     targetPort: 8080
     protocol: TCP
+    annotations: {}
 
   podAnnotations: {}
   podLabels: {}
@@ -491,12 +503,15 @@ storage:
     enabled: true
     certificateValidityInDays: 730
   serverPort: 8443
+  service:
+    type: ClusterIP
+    annotations: {}
 
   # -- source code: https://github.com/kubescape/storage
   image:
     # -- source code: https://github.com/kubescape/storage
     repository: quay.io/kubescape/storage
-    tag: v0.0.265
+    tag: v0.0.272
     pullPolicy: IfNotPresent
 
   nodeSelector:
@@ -561,7 +576,7 @@ nodeAgent:
   image:
     # -- source code: https://github.com/kubescape/node-agent
     repository: quay.io/kubescape/node-agent
-    tag: v0.3.79
+    tag: v0.3.94
     pullPolicy: IfNotPresent
 
   config:
@@ -779,11 +794,16 @@ nodeAgent:
       - mountPath: /host
         name: host
         readOnly: true
+      # Syft's Java cataloger needs writable temp space to process JAR archives
+      - mountPath: /tmp
+        name: sbom-scanner-tmp
     volumes:
       - name: sbom-comm
         emptyDir:
           medium: Memory
           sizeLimit: 10Mi
+      - name: sbom-scanner-tmp
+        emptyDir: {}
 
 # +++++++++++++++++++++++++++++++ ClamAV ++++++++++++++++++++++++++++++++++++++++++++++++
 clamav:
@@ -846,7 +866,7 @@ synchronizer:
   image:
     # -- source code: https://github.com/kubescape/synchronizer
     repository: quay.io/kubescape/synchronizer
-    tag: v0.0.136
+    tag: v0.0.141
     pullPolicy: IfNotPresent
   nodeSelector:
     kubernetes.io/os: linux
@@ -865,6 +885,7 @@ synchronizer:
     port: 8089
     targetPort: 8089
     protocol: TCP
+    annotations: {}
 
 # -----------------------------------------------------------------------------------------
 # ------------------------ Microservice - helpers -----------------------------------------
@@ -942,7 +963,7 @@ serviceDiscovery:
     name: url-discovery
     image:
       repository: quay.io/kubescape/http-request
-      tag: v0.2.16
+      tag: v0.2.19
       pullPolicy: IfNotPresent
 
     # Skip SSL certificate verification
@@ -975,7 +996,7 @@ prometheusExporter:
   name: "prometheus-exporter"
   image:
     repository: quay.io/kubescape/prometheus-exporter
-    tag: v0.2.13
+    tag: v0.2.18
     pullPolicy: IfNotPresent
 
   nodeSelector:
@@ -1077,7 +1098,7 @@ kubescapeScheduler:
   image:
     # -- source code: https://github.com/kubescape/http-request (public repo)
     repository: quay.io/kubescape/http-request
-    tag: v0.2.16
+    tag: v0.2.19
     pullPolicy: IfNotPresent
 
   nodeSelector:
@@ -1125,7 +1146,7 @@ kubevulnScheduler:
   image:
     # source code - https://github.com/kubescape/http-request
     repository: quay.io/kubescape/http-request
-    tag: v0.2.16
+    tag: v0.2.19
     pullPolicy: IfNotPresent
 
   nodeSelector:
@@ -1175,7 +1196,7 @@ registryScanScheduler:
   image:
     # -- source code: https://github.com/kubescape/http-request (public repo)
     repository: quay.io/kubescape/http-request
-    tag: v0.2.16
+    tag: v0.2.19
     pullPolicy: IfNotPresent
 
   nodeSelector:

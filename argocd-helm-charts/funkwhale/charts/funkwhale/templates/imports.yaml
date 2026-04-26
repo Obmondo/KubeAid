@@ -1,0 +1,4 @@
+{{- range .Values.import }}
+---
+{{ include "funkwhale.import-library" (merge (dict "Import" .) $) }}
+{{- end -}}

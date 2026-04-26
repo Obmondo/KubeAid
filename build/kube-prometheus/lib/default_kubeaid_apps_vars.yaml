@@ -71,6 +71,7 @@ kubeaid_apps:
   - azure-workload-identity-webhook
   - sonarqube
   - reloader
+  - trivy-operator
   - opensearch-operator
   - sealed-secrets
   - crossplane-compositions

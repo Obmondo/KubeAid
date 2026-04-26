@@ -1,20 +1,15 @@
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "funkwhale.fullname" . }}-worker
   labels:
-    app.kubernetes.io/name: {{ include "funkwhale.name" . }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    {{- include "funkwhale.labels" . | nindent 4 }}
     audio.funkwhale/component: celery-worker
-    helm.sh/chart: {{ include "funkwhale.chart" . }}
 spec:
   replicas: {{ .Values.celery.worker.replicaCount }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "funkwhale.name" . }}
-      app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- include "funkwhale.selectorLabels" . | nindent 6 }}
       audio.funkwhale/component: celery-worker
   template:
     metadata:
@@ -22,8 +17,7 @@ spec:
         checksum/configmap: {{ include (print .Template.BasePath "/configmap.yaml") . | sha256sum }}
         checksum/secret: {{ include (print .Template.BasePath "/secret.yaml") . | sha256sum }}
       labels:
-        app.kubernetes.io/name: {{ include "funkwhale.name" . }}
-        app.kubernetes.io/instance: {{ .Release.Name }}
+        {{- include "funkwhale.selectorLabels" . | nindent 8 }}
         audio.funkwhale/component: celery-worker
     spec:
       containers:
@@ -31,24 +25,30 @@ spec:
           image: {{ include "funkwhale.imageUri" (dict "Scope" .Values.celery.image "Values" .Values "Chart" .Chart) | quote }}
           imagePullPolicy: {{ .Values.celery.image.pullPolicy | default .Values.image.pullPolicy }}
           command:
-            - sh
-            - -c
-            - |
-              celery -A funkwhale_api.taskapp worker -l INFO
+            - celery
+            - -A
+            - funkwhale_api.taskapp
+            - worker
+            - -l
+            - {{ .Values.celery.worker.logLevel | default "info" | upper }}
           env:
             - name: C_FORCE_ROOT
               value: "true"
+            {{ include "funkwhale.envVars" . | nindent 12 }}
           envFrom:
           - configMapRef:
               name: {{ include "funkwhale.fullname" . }}
           - secretRef:
               name: {{ include "funkwhale.fullname" . }}
+          {{- with .Values.extraEnvFrom }}
+            {{ . | toYaml | nindent 12 }}
+          {{- end }}
           volumeMounts:
             - mountPath: /srv/funkwhale/data
               name: data
-{{- if .Values.celery.worker.extraVolumeMounts }}
-{{ toYaml .Values.celery.worker.extraVolumeMounts | indent 12 }}
-{{- end }}
+          {{- if .Values.celery.worker.extraVolumeMounts }}
+            {{ toYaml .Values.celery.worker.extraVolumeMounts | nindent 12 }}
+          {{- end }}
           resources:
             {{- toYaml .Values.celery.worker.resources | nindent 12 }}
       {{- with .Values.celery.worker.nodeSelector }}
@@ -74,6 +74,6 @@ spec:
       {{- else }}
           emptyDir: {}
       {{- end }}
-{{- if .Values.celery.worker.extraVolumes }}
-{{ toYaml .Values.celery.worker.extraVolumes | indent 8 }}
-{{- end }}
+      {{- if .Values.celery.worker.extraVolumes }}
+        {{ toYaml .Values.celery.worker.extraVolumes | nindent 8 }}
+      {{- end }}

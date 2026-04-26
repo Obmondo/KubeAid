@@ -1,13 +1,9 @@
----
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "funkwhale.fullname" . }}
   labels:
-    app.kubernetes.io/name: {{ include "funkwhale.name" . }}
-    helm.sh/chart: {{ include "funkwhale.chart" . }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    {{- include "funkwhale.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
   ports:
@@ -16,6 +12,5 @@ spec:
       protocol: TCP
       name: http
   selector:
-    app.kubernetes.io/name: {{ include "funkwhale.name" . }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "funkwhale.selectorLabels" . | nindent 4 }}
     audio.funkwhale/component: app

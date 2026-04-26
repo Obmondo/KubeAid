@@ -15,4 +15,9 @@ rules:
   - apiGroups: ["spdx.softwarecomposition.kubescape.io"]
     resources: ["containerprofiles"]
     verbs: ["get", "watch", "list"]
+{{- if eq .Values.capabilities.riskAcceptance "enable" }}
+  - apiGroups: ["kubescape.io"]
+    resources: ["securityexceptions", "clustersecurityexceptions"]
+    verbs: ["get", "list", "watch"]
+{{- end }}
 {{- end }}

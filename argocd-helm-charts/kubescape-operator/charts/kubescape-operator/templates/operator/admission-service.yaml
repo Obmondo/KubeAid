@@ -8,14 +8,17 @@ metadata:
   namespace: {{ .Values.ksNamespace }}
   annotations:
     {{- include "kubescape-operator.annotations" (dict "Values" .Values) | nindent 4 }}
+    {{- with .Values.operator.admissionService.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   labels:
     {{- include "kubescape-operator.labels" (dict "Chart" .Chart "Release" .Release "Values" .Values "app" .Values.operator.name "tier" .Values.global.namespaceTier) | nindent 4 }}
 spec:
   ports:
-    - port: 443
-      targetPort: 8443
+    - port: {{ .Values.operator.admissionService.port }}
+      targetPort: {{ .Values.operator.admissionService.targetPort }}
   selector:
     {{- include "kubescape-operator.selectorLabels" (dict "Chart" .Chart "Release" .Release "Values" .Values "app" .Values.operator.name) | nindent 6 }}
-  type: ClusterIP  # Or use LoadBalancer or NodePort if needed
+  type: {{ .Values.operator.admissionService.type }}
 {{- end }}
 {{- end }}

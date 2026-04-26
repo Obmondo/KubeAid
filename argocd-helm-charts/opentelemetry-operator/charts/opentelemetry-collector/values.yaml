@@ -326,6 +326,8 @@ priorityClassName: ""
 # Also useful for the pod security admissions plugins that rely on runtimeClassName
 runtimeClassName: ""
 
+terminationGracePeriodSeconds: 30
+
 extraEnvs: []
 extraEnvsFrom: []
 # This also supports template content, which will eventually be converted to yaml.
@@ -627,7 +629,7 @@ serviceMonitor:
   relabelings: []
   metricRelabelings: []
 
-# PodDisruptionBudget is used only if deployment enabled
+# PodDisruptionBudget is used only if mode is "deployment" or "statefulset"
 podDisruptionBudget:
   enabled: false
 #   minAvailable: 2

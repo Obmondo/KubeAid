@@ -1,20 +1,15 @@
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "funkwhale.fullname" . }}-beat
   labels:
-    app.kubernetes.io/name: {{ include "funkwhale.name" . }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    {{- include "funkwhale.labels" . | nindent 4 }}
     audio.funkwhale/component: celery-beat
-    helm.sh/chart: {{ include "funkwhale.chart" . }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "funkwhale.name" . }}
-      app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- include "funkwhale.selectorLabels" . | nindent 6 }}
       audio.funkwhale/component: celery-beat
   template:
     metadata:
@@ -22,8 +17,7 @@ spec:
         checksum/configmap: {{ include (print .Template.BasePath "/configmap.yaml") . | sha256sum }}
         checksum/secret: {{ include (print .Template.BasePath "/secret.yaml") . | sha256sum }}
       labels:
-        app.kubernetes.io/name: {{ include "funkwhale.name" . }}
-        app.kubernetes.io/instance: {{ .Release.Name }}
+        {{- include "funkwhale.selectorLabels" . | nindent 8 }}
         audio.funkwhale/component: celery-beat
     spec:
       containers:
@@ -31,15 +25,22 @@ spec:
           image: {{ include "funkwhale.imageUri" (dict "Scope" .Values.celery.image "Values" .Values "Chart" .Chart) | quote }}
           imagePullPolicy: {{ .Values.celery.image.pullPolicy | default .Values.image.pullPolicy }}
           command:
-            - sh
-            - -c
-            - |
-              celery -A funkwhale_api.taskapp beat -l INFO
+            - celery
+            - -A
+            - funkwhale_api.taskapp
+            - beat
+            - -l
+            - {{ .Values.celery.beat.logLevel | default "info" | upper }}
+          env:
+            {{ include "funkwhale.envVars" . | nindent 12 }}
           envFrom:
           - configMapRef:
               name: {{ include "funkwhale.fullname" . }}
           - secretRef:
               name: {{ include "funkwhale.fullname" . }}
+          {{- with .Values.extraEnvFrom }}
+            {{ . | toYaml | nindent 12 }}
+          {{- end }}
           resources:
             {{- toYaml .Values.celery.beat.resources | nindent 12 }}
       {{- with .Values.celery.beat.nodeSelector }}

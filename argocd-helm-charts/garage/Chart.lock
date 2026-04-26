@@ -1,6 +1,6 @@
 dependencies:
 - name: garage
   repository: https://datahub-local.github.io/garage-helm
-  version: 0.4.2
-digest: sha256:2da1237a3f3ed8e84d36cfb64b2c19ffdad9674a2434ef9bc36491a26be38ecb
-generated: "2026-04-15T16:34:10.593356073+05:30"
+  version: 0.5.0
+digest: sha256:48ff231975a29106f7c37aff82d989c44dfe293703b549dde626fe7742671725
+generated: "2026-04-26T13:16:12.388996405+05:30"

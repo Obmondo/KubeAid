@@ -3,5 +3,5 @@ name: azuredisk-csi-driver
 version: 1.0.0
 dependencies:
   - name: azuredisk-csi-driver
-    version: 1.34.2
+    version: 1.34.3
     repository: https://raw.githubusercontent.com/kubernetes-sigs/azuredisk-csi-driver/master/charts

@@ -224,6 +224,22 @@ agent: true
 name: cilium
 # -- Roll out cilium agent pods automatically when configmap is updated.
 rollOutCiliumPods: false
+# -- Configuration for the ConfigMap drift detection feature.
+# When enabled, the agent continuously watches the cilium-config ConfigMap
+# and exposes a cilium_drift_checker_config_delta Prometheus metric reporting
+# the number of keys that differ between the ConfigMap and the agent's active
+# settings. A non-zero value indicates that the agent has not yet applied all
+# current ConfigMap changes and needs to be restarted.
+configDriftDetection:
+  # -- Enable watching of the cilium-config ConfigMap and reflecting its
+  # contents into the agent's internal DynamicConfig table.
+  enabled: true
+  # -- Enable the drift checker which compares the DynamicConfig table against
+  # the agent's active settings and publishes the
+  # cilium_drift_checker_config_delta metric.
+  driftChecker: true
+  # -- List of config-map keys to ignore when computing the drift delta.
+  ignoredKeys: []
 # -- Agent container image.
 image:
   # @schema
@@ -231,10 +247,10 @@ image:
   # @schema
   override: ~
   repository: "quay.io/cilium/cilium"
-  tag: "v1.19.2"
+  tag: "v1.19.3"
   pullPolicy: "IfNotPresent"
   # cilium-digest
-  digest: sha256:7bc7e0be845cae0a70241e622cd03c3b169001c9383dd84329c59ca86a8b1341
+  digest: sha256:2e61680593cddca8b6c055f6d4c849d87a26a1c91c7e3b8b56c7fb76ab7b7b10
   useDigest: true
 # -- Scheduling configurations for cilium pods
 scheduling:
@@ -1224,6 +1240,8 @@ encryption:
 endpointHealthChecking:
   # -- Enable connectivity health checking between virtual endpoints.
   enabled: true
+# -- Max duration to wait for envoy to respond to configuration changes. Default "10s".
+endpointPolicyUpdateTimeoutDuration: null
 endpointRoutes:
   # @schema
   # type: [boolean, string]
@@ -1687,9 +1705,9 @@ hubble:
       # @schema
       override: ~
       repository: "quay.io/cilium/hubble-relay"
-      tag: "v1.19.2"
+      tag: "v1.19.3"
       # hubble-relay-digest
-      digest: sha256:9987c73bad48c987fd065185535fd15a6717cbe8a8caf7fc7ef0413532cf490e
+      digest: sha256:5ee21d57b6ef2aa6db67e603a735fdceb162454b352b7335b651456e308f681b
       useDigest: true
       pullPolicy: "IfNotPresent"
     # -- Specifies the resources for the hubble-relay pods
@@ -2401,8 +2419,6 @@ enableMasqueradeRouteSource: false
 enableIPv4BIGTCP: false
 # -- Enables IPv6 BIG TCP support which increases maximum IPv6 GSO/GRO limits for nodes and pods
 enableIPv6BIGTCP: false
-# -- Enable BIG TCP in tunneling mode and increase maximum GRO/GSO limits for VXLAN/GENEVE tunnels
-enableTunnelBIGTCP: false
 nat:
   # -- Number of the top-k SNAT map connections to track in Cilium statedb.
   mapStatsEntries: 32
@@ -2713,9 +2729,9 @@ envoy:
     # @schema
     override: ~
     repository: "quay.io/cilium/cilium-envoy"
-    tag: "v1.35.9-1773656288-7b052e66eb2cfc5ac130ce0a5be66202a10d83be"
+    tag: "v1.36.6-1776000132-2437d2edeaf4d9b56ef279bd0d71127440c067aa"
     pullPolicy: "IfNotPresent"
-    digest: "sha256:60031f39669542b21aedf05a3317d14e8d3ea48255790af039b315a1c9637361"
+    digest: "sha256:ba0ab8adac082d50d525fd2c5ba096c8facea3a471561b7c61c7a5b9c2e0de0d"
     useDigest: true
   # -- Init containers added to the cilium Envoy DaemonSet.
   initContainers: []
@@ -3098,15 +3114,15 @@ operator:
     # @schema
     override: ~
     repository: "quay.io/cilium/operator"
-    tag: "v1.19.2"
+    tag: "v1.19.3"
     # operator-generic-digest
-    genericDigest: sha256:e363f4f634c2a66a36e01618734ea17e7b541b949b9a5632f9c180ab16de23f0
+    genericDigest: sha256:205b09b0ed6accbf9fe688d312a9f0fcfc6a316fc081c23fbffb472af5dd62cd
     # operator-azure-digest
-    azureDigest: sha256:9c040a57f4584782eda9a91f7cf3292ca5d0fb41d75f4aa41ece29d66e145293
+    azureDigest: sha256:699c1571a3df1a98882ee13610d47cffb7b34ee7e8d276096db798a5f6c7e4cb
     # operator-aws-digest
-    awsDigest: sha256:6eaa299ad267d7b8fcb4bb17ee1008b391052e2e35f690b21783b1b23b5c0bf2
+    awsDigest: sha256:a53dcbfb77282bf2ddd3abbe60f6d49762e7c1389a36cb35b71d504644a56640
     # operator-alibabacloud-digest
-    alibabacloudDigest: sha256:90bdedf6b0d3108245f8194f8c69262af2c8d839480f99d2396deed057899142
+    alibabacloudDigest: sha256:176321a65123373ff8c7823b25183102cbad98375e8d6c80b96d68b6e8491103
     useDigest: true
     pullPolicy: "IfNotPresent"
     suffix: ""
@@ -3433,9 +3449,9 @@ preflight:
     # @schema
     override: ~
     repository: "quay.io/cilium/cilium"
-    tag: "v1.19.2"
+    tag: "v1.19.3"
     # cilium-digest
-    digest: sha256:7bc7e0be845cae0a70241e622cd03c3b169001c9383dd84329c59ca86a8b1341
+    digest: sha256:2e61680593cddca8b6c055f6d4c849d87a26a1c91c7e3b8b56c7fb76ab7b7b10
     useDigest: true
     pullPolicy: "IfNotPresent"
   envoy:
@@ -3446,9 +3462,9 @@ preflight:
       # @schema
       override: ~
       repository: "quay.io/cilium/cilium-envoy"
-      tag: "v1.35.9-1773656288-7b052e66eb2cfc5ac130ce0a5be66202a10d83be"
+      tag: "v1.36.6-1776000132-2437d2edeaf4d9b56ef279bd0d71127440c067aa"
       pullPolicy: "IfNotPresent"
-      digest: "sha256:60031f39669542b21aedf05a3317d14e8d3ea48255790af039b315a1c9637361"
+      digest: "sha256:ba0ab8adac082d50d525fd2c5ba096c8facea3a471561b7c61c7a5b9c2e0de0d"
       useDigest: true
   # -- The priority class to use for the preflight pod.
   priorityClassName: ""
@@ -3692,9 +3708,9 @@ clustermesh:
       # @schema
       override: ~
       repository: "quay.io/cilium/clustermesh-apiserver"
-      tag: "v1.19.2"
+      tag: "v1.19.3"
       # clustermesh-apiserver-digest
-      digest: sha256:d1f44a78a0d0996ab1841f7564bc6fbd6e242d4ef673a2a8bfdd7385ef68018d
+      digest: sha256:a8136a7615d6c6041d3aa6f2674d17beaec238170d669507ccc05328a778e2b7
       useDigest: true
       pullPolicy: "IfNotPresent"
     # -- TCP port for the clustermesh-apiserver health API.
@@ -4229,7 +4245,7 @@ authentication:
           override: ~
           repository: "docker.io/library/busybox"
           tag: "1.37.0"
-          digest: "sha256:b3255e7dfbcd10cb367af0d409747d511aeb66dfac98cf30e97e87e4207dd76f"
+          digest: "sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e"
           useDigest: true
           pullPolicy: "IfNotPresent"
         # SPIRE agent configuration

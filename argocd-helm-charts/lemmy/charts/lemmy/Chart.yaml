@@ -1,5 +1,5 @@
 apiVersion: v2
-appVersion: 0.19.17
+appVersion: 0.19.18
 dependencies:
 - condition: postgresql.enabled
   name: postgresql
@@ -12,4 +12,4 @@ maintainers:
   name: Alexander Olofsson
 name: lemmy
 type: application
-version: 0.6.12
+version: 0.6.13

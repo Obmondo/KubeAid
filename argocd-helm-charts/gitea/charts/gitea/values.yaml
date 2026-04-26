@@ -63,7 +63,7 @@ imagePullSecrets: []
 ## @section Security
 # Security context is only usable with rootless image due to image design
 ## @param openshift.enabled Enable OpenShift compatibility defaults for chart-managed pods. Defaults to auto-detect based on the SecurityContextConstraints API.
-## @param openshift.hostUsers Override the PodSpec hostUsers field for chart-managed pods. Defaults to `false` when OpenShift compatibility is enabled.
+## @param openshift.hostUsers Override the PodSpec hostUsers field for chart-managed pods. When unset, the field is omitted so the platform default is used.
 openshift:
   enabled: null
   hostUsers: null

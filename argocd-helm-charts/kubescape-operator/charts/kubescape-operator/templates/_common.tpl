@@ -100,12 +100,24 @@ autoUpdater:
 {{- $ca := dict "Key" "mock-ca-key" "Cert" "mock-ca-cert" -}}
 {{- $cert := dict "Key" "mock-cert-key" "Cert" "mock-cert-cert" -}}
 {{- if not .Values.unittest }}
-  {{- $generatedCA := genCA (printf "*.%s.svc" .Values.ksNamespace) 1024 -}}
-  {{- $generatedCert := genSignedCert $svcName nil (list $svcName) 1024 $generatedCA -}}
-  {{- $_ := set $ca "Key" $generatedCA.Key -}}
-  {{- $_ := set $ca "Cert" $generatedCA.Cert -}}
-  {{- $_ := set $cert "Key" $generatedCert.Key -}}
-  {{- $_ := set $cert "Cert" $generatedCert.Cert -}}
+  {{- $existingCASecret := (lookup "v1" "Secret" .Values.ksNamespace "kubescape-admission-ca") -}}
+  {{- if and $existingCASecret $existingCASecret.data -}}
+    {{- $_ := set $ca "Key" (index $existingCASecret.data "tls.key" | b64dec) -}}
+    {{- $_ := set $ca "Cert" (index $existingCASecret.data "tls.crt" | b64dec) -}}
+    {{- $existingCA := buildCustomCert ($ca.Cert | b64enc) ($ca.Key | b64enc) -}}
+    {{/* Leaf cert validity: 10 years (3650 days). After expiry, delete the kubescape-admission-ca Secret and run helm upgrade to regenerate. */}}
+    {{- $generatedCert := genSignedCert $svcName nil (list $svcName) 3650 $existingCA -}}
+    {{- $_ := set $cert "Key" $generatedCert.Key -}}
+    {{- $_ := set $cert "Cert" $generatedCert.Cert -}}
+  {{- else -}}
+    {{/* CA and leaf cert validity: 10 years (3650 days). After expiry, delete the kubescape-admission-ca Secret and run helm upgrade to regenerate. */}}
+    {{- $generatedCA := genCA (printf "*.%s.svc" .Values.ksNamespace) 3650 -}}
+    {{- $generatedCert := genSignedCert $svcName nil (list $svcName) 3650 $generatedCA -}}
+    {{- $_ := set $ca "Key" $generatedCA.Key -}}
+    {{- $_ := set $ca "Cert" $generatedCA.Cert -}}
+    {{- $_ := set $cert "Key" $generatedCert.Key -}}
+    {{- $_ := set $cert "Cert" $generatedCert.Cert -}}
+  {{- end -}}
 {{- end -}}
 {{- $certData := dict "ca" $ca "cert" $cert -}}
 {{- toYaml $certData -}}

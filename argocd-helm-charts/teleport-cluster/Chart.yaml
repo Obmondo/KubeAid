@@ -7,6 +7,6 @@ keywords:
   - Teleport
 dependencies:
   - name: teleport-cluster
-    version: 18.7.4
+    version: 18.7.5
     repository: https://charts.releases.teleport.dev
     #repository: "oci://ghcr.io/Obmondo"

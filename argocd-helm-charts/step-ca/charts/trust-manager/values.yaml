@@ -145,7 +145,7 @@ defaultPackageImage:
 
   # WARNING: For internal use only, is overwritten before releasing the chart.
   # +docs:hidden
-  _defaultReference: :20230311-deb12u1.5
+  _defaultReference: :20230311-deb12u1.6
   # imagePullPolicy for the default package image.
   pullPolicy: IfNotPresent
 # Automounting API credentials for the trust-manager pod.

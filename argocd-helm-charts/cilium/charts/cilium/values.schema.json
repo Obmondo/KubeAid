@@ -1714,6 +1714,21 @@
         "object"
       ]
     },
+    "configDriftDetection": {
+      "properties": {
+        "driftChecker": {
+          "type": "boolean"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "ignoredKeys": {
+          "items": {},
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
     "connectivityProbeFrequencyRatio": {
       "type": [
         "null",
@@ -1896,9 +1911,6 @@
       "type": "boolean"
     },
     "enableNonDefaultDenyPolicies": {
-      "type": "boolean"
-    },
-    "enableTunnelBIGTCP": {
       "type": "boolean"
     },
     "enableXTSocketFallback": {
@@ -2176,6 +2188,9 @@
     },
     "endpointLockdownOnMapOverflow": {
       "type": "boolean"
+    },
+    "endpointPolicyUpdateTimeoutDuration": {
+      "type": "null"
     },
     "endpointRoutes": {
       "properties": {

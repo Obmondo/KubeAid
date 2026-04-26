@@ -1,3 +1,15 @@
+## v0.88.1 (2026-04-21)
+
+### New features
+
+- Update GitLab Runner version to v18.11.1
+
+## v0.88.0 (2026-04-16)
+
+### New features
+
+- Update GitLab Runner version to v18.11.0
+
 ## v0.87.1 (2026-04-06)
 
 ### New features

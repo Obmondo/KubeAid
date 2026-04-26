@@ -1,6 +1,9 @@
 dependencies:
 - name: mattermost-team-edition
   repository: https://helm.mattermost.com
-  version: 6.6.94
-digest: sha256:abc12cbef60b061c5baf41ddd0d1f55ad7856105500bab3ae6baefad0824fccb
-generated: "2026-03-23T12:20:29.652411985+05:30"
+  version: 6.6.96
+- name: kubeaid-addons
+  repository: file://../kubeaid-addons
+  version: 0.1.0
+digest: sha256:717c15959cfb480c01ce142ea9371a741a6f7327d31525ef3c73c4e5d230a65e
+generated: "2026-04-26T13:19:06.261404947+05:30"

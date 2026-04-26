@@ -48,7 +48,7 @@ rules:
   resources: ["networkpolicies", "Ingress"]
   verbs: ["get", "watch", "list"]
 - apiGroups: ["cilium.io"]
-  resources: ["ciliumnetworkpolicies"]
+  resources: ["ciliumnetworkpolicies", "ciliumclusterwidenetworkpolicies"]
   verbs: ["get", "list", "watch"]
 - apiGroups: ["projectcalico.org"]
   resources: ["networkpolicies"]

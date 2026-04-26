@@ -34,7 +34,7 @@ rules:
     resources: ["knownservers"]
     verbs: ["get", "watch", "list", "create", "update", "patch", "delete"]
   - apiGroups: ["cilium.io"]
-    resources: ["ciliumnetworkpolicies"]
+    resources: ["ciliumnetworkpolicies", "ciliumclusterwidenetworkpolicies"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["projectcalico.org"]
     resources: ["networkpolicies"]
