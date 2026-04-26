@@ -271,7 +271,17 @@ local kp =
                 values: scrape_namespaces,
               }],
           },
-        } + if std.objectHas(vars.prometheus, 'remoteWrite') then (
+        } + (
+          // Opt-in remote-write receiver + wider TSDB out-of-order window
+          // for backdated samples (migrations, backfills). Off by default.
+          local rwr = std.get(vars.prometheus, 'remoteWriteReceiver', {});
+          if std.get(rwr, 'enabled', false) then {
+            enableRemoteWriteReceiver: true,
+            tsdb+: {
+              outOfOrderTimeWindow: std.get(rwr, 'outOfOrderTimeWindow', '7d'),
+            },
+          } else {}
+        ) + if std.objectHas(vars.prometheus, 'remoteWrite') then (
           {
             remoteWrite+: [
               local defaults = {
@@ -637,6 +647,28 @@ local kp =
                   },
                 },
               }],
+              ports: [{
+                port: 9093,
+                protocol: 'TCP',
+              }],
+            },
+            {
+              // Allow the kubeaid-agent in the obmondo namespace to poll
+              // Alertmanager for active alerts.
+              from: [
+                {
+                  namespaceSelector: {
+                    matchLabels: {
+                      'kubernetes.io/metadata.name': 'obmondo',
+                    },
+                  },
+                  podSelector: {
+                    matchLabels: {
+                      'app.kubernetes.io/name': 'kubeaid-agent',
+                    },
+                  },
+                },
+              ],
               ports: [{
                 port: 9093,
                 protocol: 'TCP',
