@@ -2,6 +2,81 @@
 
 All releases and the changes included in them (pulled from git commits added since last release) will be detailed in this file.
 
+## KubeAid Release Version 27.0.0
+
+### Major Version Upgrades
+
+- 3fcea9a78 Updated funkwhale from version 2.0.6 to 3.0.0
+
+### Minor Version Upgrades
+
+- 3fcea9a78 Updated aws-ebs-csi-driver from version 2.58.0 to 2.59.0
+- 3fcea9a78 Updated cluster-autoscaler from version 9.56.0 to 9.57.0
+- 3fcea9a78 Updated garage from version 0.4.2 to 0.5.0
+- 3fcea9a78 Updated gitlab-runner from version 0.87.1 to 0.88.1
+- 3fcea9a78 Updated opentelemetry-operator from version 0.109.2 to 0.110.0
+- 3fcea9a78 Updated opentelemetry-collector from version 0.150.0 to 0.152.0
+- 3fcea9a78 Updated seaweedfs from version 4.20.0 to 4.21.0
+
+### Patch Version Upgrades
+
+- 3fcea9a78 Updated argo-cd from version 9.5.0 to 9.5.4
+- 3fcea9a78 Updated aws-efs-csi-driver from version 4.0.0 to 4.0.1
+- 3fcea9a78 Updated azuredisk-csi-driver from version 1.34.2 to 1.34.3
+- 3fcea9a78 Updated cilium from version 1.19.2 to 1.19.3
+- 3fcea9a78 Updated crossplane from version 2.2.0 to 2.2.1
+- 3fcea9a78 Updated erpnext from version 8.0.43 to 8.0.45
+- 3fcea9a78 Updated fluent-bit from version 0.57.2 to 0.57.3
+- 3fcea9a78 Updated gitea from version 12.5.1 to 12.5.3
+- 3fcea9a78 Updated hcloud-csi from version 2.20.1 to 2.20.2
+- 3fcea9a78 Updated keycloakx from version 7.1.9 to 7.1.11
+- 3fcea9a78 Updated kubescape-operator from version 1.30.6 to 1.30.7
+- 3fcea9a78 Updated kyverno from version 3.7.1 to 3.7.2
+- 3fcea9a78 Updated lemmy from version 0.6.12 to 0.6.13
+- 3fcea9a78 Updated mattermost-team-edition from version 6.6.94 to 6.6.96
+- 3fcea9a78 Updated opencost from version 2.5.12 to 2.5.14
+- 3fcea9a78 Updated trust-manager from version v0.22.0 to v0.22.1
+- 3fcea9a78 Updated teleport-cluster from version 18.7.4 to 18.7.5
+- 3fcea9a78 Updated teleport-kube-agent from version 18.7.4 to 18.7.5
+- 3fcea9a78 Updated traefik from version 39.0.7 to 39.0.8
+
+### Features
+
+- b2270f52a feat(kube-prometheus): opt-in remote-write receiver
+- 5620517d6 feat(prometheus-linuxaid): add OS security-support alert
+- 137236bce feat(kube-prometheus): honor pinned kubeaid version from ArgoCD app
+- 1354a8537 feat(capi-cluster/hetzner): schema, deployment modes, examples and unit tests (#1449)
+- 3e10a17e6 feat(capi-cluster/hetzner): add values schema, example, and hybrid-mode tests
+
+### Bug Fixes
+
+- 53e2987b3 fix(kube-prometheus): allow kubeaid-agent to reach alertmanager
+- 6b7762d16 fix(kube-prometheus): allow kubeaid-agent to reach prometheus
+- 84bc1660d fix: add eno+ in the cilium extra args
+- 4ae0c7983 fix(postgresql): add default instanceName and fix PodMonitor template
+- 4844dfaad fix: added a default authTokenSecretName for kubeaid-agent, if the cluster is setup by kubeaid-cli
+- ace1bac25 fix: changed the secret name for the kubeaid-agent to match up against the kube-promtheues
+
+### Configuration Changes
+
+- e898741e8 chore: removed kuberentes-dashoard, since its deprecated
+- 104df639c chore: import ceph-mixin from our fork, Upstream URL: https://github.com/obmondo/ceph (751699c)
+
+### Other Changes
+
+- 6ccfec7db add alert for constant node name for bare metal hosts , as node name changes from CAPI restarts break PVC (PersistentVolumeClaim) attachments, causing data access issues
+- f1c9d5e24 increase firstRecoverabilityPointMaxAgeSeconds value to 30days as per our compliance and fix a bug in oncall helm
+- 25e1aaad1 abort helm update if tgz download failed
+- 6c8eb3c3d kubeaid-addons rollout to more apps
+- 17f1a46f2 Updated CNPG to use latest plugin-based method for barman backups and updated few applications helm chart
+- d2860edc5 Update graylog readme
+- 44b8ea4b1 replace randInt with configurable hour for daily backup schedule, as it causes the schedule to change on every ArgoCD sync which led to persistent diff
+- 438437a66 Fix markdownlint flags release-notes with errors
+- 26647d731 Add DeepWiki URL to README
+- 5e527ca49 Create  doc for resizing opensearch volume
+- b185a9265 Add HostNotReporting alert for silent edge Prometheus agents
+- c409356a3 Extend harbor proxy-cache mutation for Docker hub, ghcr and registry.k8s.io
+
 ## KubeAid Release Version 26.1.0\n
 ### Minor Version Upgrades
 - 038393263 Updated plugin-barman-cloud from version 0.5.0 to 0.6.0
