@@ -1,0 +1,83 @@
+{{- if and ((.Values.global).netpol).enabled ((.Values.global).prometheusLinuxaid).netpol }}
+{{- range $ns, $config := .Values.global.prometheusLinuxaid.namespaces }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: prometheus-linuxaid-grafana
+  namespace: {{ $ns }}
+  labels:
+    app.kubernetes.io/component: cilium-networkpolicy
+spec:
+  # Selects the Grafana Deployment pods created by the Grafana Operator.
+  # The grafana-operator sets app=grafana (short form), not app.kubernetes.io/name.
+  endpointSelector:
+    matchLabels:
+      app: grafana
+
+# =========
+# INGRESS
+# =========
+
+  ingress:
+    # Traefik → Grafana port 3000.
+    # Users access the Grafana dashboard UI through the Ingress domain (e.g. enableit.graphs.obmondo.com).
+    # JWT middleware (configured in middleware.jwt) validates the token before reaching Grafana.
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ $.Values.global.netpol.traefik.namespace }}
+            {{- range $key, $value := $.Values.global.netpol.traefik.labels }}
+            {{ $key }}: {{ $value }}
+            {{- end }}
+      toPorts:
+        - ports:
+            - port: "3000"
+              protocol: TCP
+
+    # Prometheus → Grafana port 3000.
+    # Prometheus scrapes Grafana's own /metrics endpoint (via a ServiceMonitor or PodMonitor
+    # in the same namespace) to monitor Grafana health and performance.
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ $ns }}
+            app.kubernetes.io/name: prometheus
+      toPorts:
+        - ports:
+            - port: "3000"
+              protocol: TCP
+
+# =========
+# EGRESS
+# =========
+
+  egress:
+    # kube-dns — Grafana uses DNS to resolve the Prometheus service name
+    # when initialising the datasource (e.g. http://prometheus-main:9090).
+    # Cilium's DNS proxy intercepts these queries to build FQDN-to-IP cache
+    # so the toEndpoints rule below can match by IP.
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: ANY
+          rules:
+            dns:
+              - matchPattern: "*"
+
+    # Prometheus datasource — Grafana queries Prometheus on port 9090
+    # to render dashboards for all 6 GrafanaDashboard CRs defined in the chart
+    # (system, haproxy, docker, postgres, mysql, computenodes).
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ $ns }}
+            app.kubernetes.io/name: prometheus
+      toPorts:
+        - ports:
+            - port: "9090"
+              protocol: TCP
+
+{{- end }}
+{{- end }}

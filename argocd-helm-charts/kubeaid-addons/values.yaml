@@ -174,6 +174,55 @@ global:
     # -- Enable CiliumNetworkPolicy for whoami (allows ingress from Traefik on port 80)
     netpol: false
 
+  # prometheusLinuxaid
+  # Per-namespace CiliumNetworkPolicies for prometheus-linuxaid deployments
+  # (charts/network-policies/templates/networkpolicy-prometheus-linuxaid.yaml).
+  # Requires global.netpol.enabled: true.
+  # Each entry in `namespaces` renders three policies: prometheus, grafana, alertmanager.
+  prometheusLinuxaid:
+    # -- Enable CiliumNetworkPolicies for all configured prometheus-linuxaid namespaces.
+    netpol: false
+
+    # -- Map of namespace names to per-namespace config.
+    # Each key is the namespace where a prometheus-linuxaid release is deployed.
+    namespaces: {}
+    # Example:
+    #   monitoring-enableit:
+    #     alertmanager:
+    #       webhookFQDN: alerts.obmondo.com   # egress target for Obmondo alerting webhook
+    #     prometheus:
+    #       additionalScrapeNamespaces: []    # extra namespaces beyond the hardcoded puppetserver
+    #     externalExporters:
+    #       # Master switch. Set false to suppress all toCIDRSet rules for this namespace.
+    #       enabled: true
+    #       # Each exporter key maps to a list of CIDRs (IPs or subnets) where that exporter
+    #       # process is running. Use /32 for a single host, a subnet for a group.
+    #       # Only exporters with a non-empty cidrs list produce a rule — omitting a key is safe.
+    #       node:           # node-exporter  port 9100
+    #         cidrs:
+    #           - 10.10.1.0/24
+    #           - 10.10.2.15/32
+    #       postgres:       # postgres-exporter port 9187
+    #         cidrs:
+    #           - 10.20.0.0/24
+    #       mysql:          # mysqld-exporter  port 9104
+    #         cidrs:
+    #           - 10.30.0.0/24
+    #       haproxy:        # haproxy-exporter port 9102
+    #         cidrs:
+    #           - 10.40.0.10/32
+    #       docker:         # docker metrics   port 9323
+    #         cidrs:
+    #           - 10.50.0.0/24
+    #   monitoring-ebillet:
+    #     alertmanager:
+    #       webhookFQDN: alerts.obmondo.com
+    #     externalExporters:
+    #       enabled: true
+    #       node:
+    #         cidrs:
+    #           - 10.11.0.0/24    # ebillet has its own set of VMs
+
   # argocd
   # Baseline CiliumNetworkPolicy for Argo CD (charts/network-policies/templates/networkpolicy-argocd.yaml).
   # Requires global.netpol.enabled: true. Uses global.netpol.traefik / global.netpol.prometheus like other netpols.
