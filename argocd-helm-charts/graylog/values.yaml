@@ -29,6 +29,7 @@ graylog:
       allowLeadingWildcardSearches: true
 
     mongodb:
+      # This follows the pattern <cluster-db-user>
       uriSecretName: "mongodb-replica-set-graylog-graylog-user"
       uriSecretKey: "connectionString.standard"
 
@@ -43,21 +44,43 @@ graylog:
       serviceMonitor:
         enabled: true
 
+  # Disable Opensearch getting installed as a dependency of graylog chart
   opensearch:
     enabled: false
 
-# This installs MongoDB Community Edition from the MongoDB operator for Kubernetes.
-# https://github.com/mongodb/mongodb-kubernetes-operator
-# Please ensure that MongoDB operator is installed in your cluster
-# and it is set to watch the graylog namespace before enabling this setting.
-mongodb:
-  installMongodb: true
-  # Set the MongoDB database version, if unset it defaults to 4.4.1
-  # version: 5.0.0
-  size: 2G
-  resources:
-    requests:
-      cpu: "100m"
-      memory: "1Gi"
-    limits:
-      memory: "2Gi"
+  # Disable MongoDB getting installed as a dependency of graylog chart
+  mongodb:
+    community:
+      install: false
+
+global:
+  mongodb:
+    enabled: true
+    clusterName: mongodb-replica-set
+    replicas: 2
+    # Set the MongoDB database version, if unset it defaults to 7.0.28
+    version: "7.0.28"
+    dataVolume:
+      size: "10Gi"
+    logsVolume:
+      size: "2Gi"
+    users:
+      - db: graylog
+        name: graylog-user
+        passwordSecretRef:
+          name: graylog-user-password
+        roles:
+          - db: graylog
+            name: readWrite
+        scramCredentialsSecretName: mongodb-replica-set
+
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "1Gi"
+      limits:
+        memory: "2Gi"
+
+    logicalBackup:
+      enabled: true
+      schedule: "0 0 * * *"

@@ -1,23 +1,27 @@
-{{ if (.Values.logicalbackup).enabled  }}
+{{ if and .Values.global.mongodb.enabled .Values.global.mongodb.logicalBackup.enabled }}
+{{- $backup := .Values.global.mongodb.logicalBackup }}
+---
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: mongodb-backup
+  name: {{ printf "%s-backup" .Values.global.mongodb.clusterName }}
 spec:
   concurrencyPolicy: Forbid
   failedJobsHistoryLimit: 1
-  schedule: {{ (.Values.logicalbackup).schedule | default "45 03 * * *" }}
+  schedule: {{ $backup.schedule | default "45 03 * * *" }}
   successfulJobsHistoryLimit: 3
   jobTemplate:
     spec:
       template:
         metadata:
-        {{- if .Values.logicalbackup.annotations }}
+        {{- if $backup.annotations }}
           annotations:
-            {{- toYaml .Values.logicalbackup.annotations | nindent 12 }}
+            {{- toYaml $backup.annotations | nindent 12 }}
         {{- end }}
+        {{- if $backup.labels }}
           labels:
-            app: mongodb-backup
+            {{- toYaml $backup.labels | nindent 12 }}
+        {{- end }}
         spec:
           containers:
             - name: mongodb-backup
@@ -40,17 +44,17 @@ spec:
                       name: mongodbbackup
                       key: MONGO_COMPLETE
                 - name: BACKUP_PROVIDER
-                  value: {{ (.Values.logicalbackup).provider | default "az" }}
-              {{- if eq .Values.logicalbackup.provider "s3" }}
+                  value: {{ $backup.provider | default "az" }}
+              {{- if eq $backup.provider "s3" }}
                 - name: S3_BUCKET
-                  value: {{ (.Values.logicalbackup).s3bucket }}
+                  value: {{ $backup.s3bucket }}
                 - name: S3_PATH
-                  value: {{ (.Values.logicalbackup).s3backuppath }}
-              {{- if not .Values.logicalbackup.useiamrole }}
+                  value: {{ $backup.s3backuppath }}
+              {{- if not $backup.useiamrole }}
                 - name: BACKUP_S3_REGION
-                  value: {{ (.Values.logicalbackup).s3region | default "us-east-1" }}
+                  value: {{ $backup.s3region | default "us-east-1" }}
                 - name: BACKUP_S3_ENDPOINT
-                  value: {{ (.Values.logicalbackup).s3endpoint }}
+                  value: {{ $backup.s3endpoint }}
                 - name: AWS_ACCESS_KEY_ID
                   valueFrom:
                     secretKeyRef:
@@ -62,9 +66,9 @@ spec:
                       name: mongodbbackup
                       key: AWS_SECRET_ACCESS_KEY
               {{- end }}
-              {{- else if eq .Values.logicalbackup.provider "az" }}
+              {{- else if eq $backup.provider "az" }}
                 - name: AZ_BACKUP_PATH
-                  value:  {{ (.Values.logicalbackup).azbackuppath | default "mongodb-backup/graylog-mongodb" }}
+                  value:  {{ $backup.azbackuppath | default "mongodb-backup/graylog-mongodb" }}
                 - name: AZURE_STORAGE_ACCOUNT_NAME
                   valueFrom:
                     secretKeyRef:
@@ -83,7 +87,6 @@ spec:
                       name: mongodbbackup
                       key: AZURE_STORAGE_CONTAINER
               {{- end }}
-
               resources:
                 limits:
                   cpu: 100m
@@ -99,5 +102,5 @@ spec:
           dnsPolicy: ClusterFirst
           restartPolicy: Never
           terminationGracePeriodSeconds: 300
-
+---
 {{ end }}

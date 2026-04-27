@@ -1,0 +1,65 @@
+{{ if .Values.global.mongodb.enabled }}
+{{- $mongodb := .Values.global.mongodb }}
+---
+apiVersion: mongodbcommunity.mongodb.com/v1
+kind: MongoDBCommunity
+metadata:
+  name: {{ $mongodb.clusterName }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  members: {{ $mongodb.replicas | default 2 }}
+  type: ReplicaSet
+  version: {{ $mongodb.version | default "7.0.28" }}
+  security:
+    authentication:
+      modes: ["SCRAM"]
+  statefulSet:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: mongod
+              {{- if $mongodb.resources }}
+              resources:
+                  {{- toYaml $mongodb.resources | nindent 16 }}
+              {{- end }}
+      volumeClaimTemplates:
+        - metadata:
+            name: data-volume
+            labels:
+              velero.io/exclude-from-backup: "true"
+            spec:
+              accessModes:
+                - ReadWriteOnce
+              resources:
+                requests:
+                  storage: {{ $mongodb.dataVolume.size}}
+        - metadata:
+            name: logs-volume
+            labels:
+              velero.io/exclude-from-backup: "true"
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: {{ $mongodb.logsVolume.size}}
+  {{- if $mongodb.users }}
+  users:
+    {{- range $mongodb.users }}
+    - db: {{ .db }}
+      name: {{ .name }}
+      passwordSecretRef:
+        name: {{ .passwordSecretRef.name }}
+      roles:
+        {{- range .roles }}
+        - db: {{ .db }}
+          name: {{ .name }}
+        {{- end }}
+      scramCredentialsSecretName: {{ .scramCredentialsSecretName }}
+    {{- end }}
+  {{- end }}
+  agent:
+    logLevel: INFO
+---
+{{ end }}

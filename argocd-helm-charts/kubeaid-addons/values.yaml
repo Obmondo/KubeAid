@@ -201,3 +201,5 @@ global:
 
     # -- Git hosts allowed for Argo CD repo access over HTTPS/SSH (egress toFQDNs).
     gitFQDNs: []
+  mongodb:
+    enabled: false

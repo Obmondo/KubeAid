@@ -1,0 +1,17 @@
+{{ if .Values.global.mongodb.enabled }}
+{{- $mongodb := .Values.global.mongodb }}
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ $mongodb.clusterName }}
+  namespace: {{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $mongodb.clusterName }}
+roleRef:
+  kind: Role
+  name: {{ $mongodb.clusterName }}
+  apiGroup: rbac.authorization.k8s.io
+---
+{{ end }}
