@@ -1,0 +1,22 @@
+groups:
+- name: orphan-pvc
+  rules:
+  - alert: KubeDetectOrphanPvc
+    annotations:
+      description: |
+        One or more PVCs on cluster {{ $labels.cluster }} have been Bound but not mounted by any Pod for at least 1 hour. They may be orphaned volumes consuming storage unnecessarily.
+
+        Orphaned PVCs by namespace:
+        {{ $ns := "" }}{{ $pvcs := "" }}{{ range query (printf "group by (cluster, namespace, persistentvolumeclaim) (kube_persistentvolumeclaim_status_phase{phase=\"Bound\",cluster=\"%s\"} == 1 unless on(persistentvolumeclaim, namespace) kube_pod_spec_volumes_persistentvolumeclaims_info)" $labels.cluster) }}{{ if ne .Labels.namespace $ns }}{{ if ne $ns "" }} {namespace: {{ $ns }}, pvc: {{ $pvcs }}} {{ end }}{{ $ns = .Labels.namespace }}{{ $pvcs = .Labels.persistentvolumeclaim }}{{ else }}{{ $pvcs = printf "%s, %s" $pvcs .Labels.persistentvolumeclaim }}{{ end }}{{ end }}{{ if ne $ns "" }} {namespace: {{ $ns }}, pvc: {{ $pvcs }}} {{ end }}
+      summary: PersistentVolumeClaims are bound but not used by any Pod.
+    expr: |
+      count by (cluster) (
+        group by (cluster, namespace, persistentvolumeclaim) (
+          kube_persistentvolumeclaim_status_phase{phase="Bound"} == 1
+          unless on(persistentvolumeclaim, namespace)
+          kube_pod_spec_volumes_persistentvolumeclaims_info
+        )
+      ) > 0
+    for: 1h
+    labels:
+      severity: warning
