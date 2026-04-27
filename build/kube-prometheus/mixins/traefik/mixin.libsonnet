@@ -11,11 +11,16 @@
           {
             alert: 'TraefikImmediateFailure',
             expr: |||
-              sum by (service, code) (rate(traefik_service_requests_total{code=~"400|401|403"}[5m]))
-              / ignoring(code) group_left
-              sum by (service) (rate(traefik_service_requests_total[5m])) * 100 > 5
+              (
+                sum by (service, code) (rate(traefik_service_requests_total{code=~"400|403"}[5m]))
+                / ignoring(code) group_left
+                sum by (service) (rate(traefik_service_requests_total[5m])) * 100 > 5
+              )
+              and ignoring(code) (
+                sum by (service) (rate(traefik_service_requests_total[5m])) * 60 > 20
+              )
             ||| % $._config,
-            'for': '2m',
+            'for': '5m',
             labels: {
               severity: 'warning',
             },
@@ -27,9 +32,14 @@
           {
             alert: 'TraefikHigh4xxErrorRate',
             expr: |||
-              sum by (service, code) (rate(traefik_service_requests_total{code=~"4..", code!~"400|401|403"}[5m]))
-              / ignoring(code) group_left
-              sum by (service) (rate(traefik_service_requests_total[5m])) * 100 > 5
+              (
+                sum by (service, code) (rate(traefik_service_requests_total{code=~"4..", code!~"400|401|403"}[5m]))
+                / ignoring(code) group_left
+                sum by (service) (rate(traefik_service_requests_total[5m])) * 100 > 5
+              )
+              and ignoring(code) (
+                sum by (service) (rate(traefik_service_requests_total[5m])) * 60 > 20
+              )
             ||| % $._config,
             'for': '5m',
             labels: {

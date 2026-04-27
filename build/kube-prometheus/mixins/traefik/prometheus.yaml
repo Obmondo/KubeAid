@@ -6,10 +6,15 @@ groups:
       description: Service '{{ $labels.service }}' is rejecting requests with a {{ $labels.code }} status code (currently >5% of traffic). Investigate missing headers, bad auth, or WAF rules.
       summary: HTTP rejection spike detected.
     expr: |
-      sum by (service, code) (rate(traefik_service_requests_total{code=~"400|401|403"}[5m]))
-      / ignoring(code) group_left
-      sum by (service) (rate(traefik_service_requests_total[5m])) * 100 > 5
-    for: 2m
+      (
+        sum by (service, code) (rate(traefik_service_requests_total{code=~"400|403"}[5m]))
+        / ignoring(code) group_left
+        sum by (service) (rate(traefik_service_requests_total[5m])) * 100 > 5
+      )
+      and ignoring(code) (
+        sum by (service) (rate(traefik_service_requests_total[5m])) * 60 > 20
+      )
+    for: 5m
     labels:
       severity: warning
   - alert: TraefikHigh4xxErrorRate
@@ -17,9 +22,14 @@ groups:
       description: Service '{{ $labels.service }}' is experiencing a high rate (>5%) of {{ $labels.code }} errors. Investigate routing or client behavior.
       summary: High HTTP client error rate (4XX) detected.
     expr: |
-      sum by (service, code) (rate(traefik_service_requests_total{code=~"4..", code!~"400|401|403"}[5m]))
-      / ignoring(code) group_left
-      sum by (service) (rate(traefik_service_requests_total[5m])) * 100 > 5
+      (
+        sum by (service, code) (rate(traefik_service_requests_total{code=~"4..", code!~"400|401|403"}[5m]))
+        / ignoring(code) group_left
+        sum by (service) (rate(traefik_service_requests_total[5m])) * 100 > 5
+      )
+      and ignoring(code) (
+        sum by (service) (rate(traefik_service_requests_total[5m])) * 60 > 20
+      )
     for: 5m
     labels:
       severity: warning
