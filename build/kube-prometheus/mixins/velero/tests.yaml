@@ -3,15 +3,17 @@ rule_files:
 
 tests:
   # ───────────────────────────────────────────────
-  # (1) Velero pod is UP but no successful backups.
+  # (1) Velero pod is UP, >25h old, metric is 0.
   #     -> Alert should fire.
   # ───────────────────────────────────────────────
   - interval: 5m
     input_series:
       - series: 'up{pod="velero"}'
-        values: '1+0x4'  # Velero pod active
-      - series: 'velero_backup_success_total{schedule="daily"}'
-        values: '0+0x4'  # No successful backups yet
+        values: '1+0x4'  # Pod active (samples at 0m, 5m, 10m, 15m, 20m)
+      - series: 'process_start_time_seconds{pod="velero"}'
+        values: '-91000+0x4'  # Pod started 91000s ago (> 25 hours)
+      - series: 'velero_backup_last_successful_timestamp{schedule="daily"}'
+        values: '0+0x4'  # Timestamp is 0
     alert_rule_test:
       - eval_time: 15m
         alertname: VeleroNoFirstSuccessfulBackup
@@ -29,43 +31,69 @@ tests:
   - interval: 5m
     input_series:
       - series: 'up{pod="velero"}'
-        values: '0+0x4'  # Velero pod down
-      - series: 'velero_backup_success_total{schedule="daily"}'
+        values: '0+0x4'  # Pod down
+      - series: 'process_start_time_seconds{pod="velero"}'
+        values: '-91000+0x4'
+      - series: 'velero_backup_last_successful_timestamp{schedule="daily"}'
         values: '0+0x4'
     alert_rule_test:
       - eval_time: 15m
         alertname: VeleroNoFirstSuccessfulBackup
-        exp_alerts: []   # No alerts expected when pod is down
+        exp_alerts: []
 
   # ───────────────────────────────────────────────
-  # (3) Velero pod UP and first successful backup done.
+  # (3) Velero pod UP, >25h old, backup completes.
   #     -> Alert should clear.
   # ───────────────────────────────────────────────
   - interval: 5m
     input_series:
       - series: 'up{pod="velero"}'
         values: '1+0x4'
-      - series: 'velero_backup_success_total{schedule="daily"}'
-        values: '0+0x2 1+0x2'  # Backup success after 10 minutes
+      - series: 'process_start_time_seconds{pod="velero"}'
+        values: '-91000+0x4'
+      - series: 'velero_backup_last_successful_timestamp{schedule="daily"}'
+        # Starts at 0 for first two intervals (0m, 5m), then gets a valid unix timestamp at 10m, 15m, 20m
+        values: '0 0 1777334592 1777334592 1777334592'
     alert_rule_test:
       - eval_time: 20m
         alertname: VeleroNoFirstSuccessfulBackup
-        exp_alerts: []   # Alert clears once success recorded
+        exp_alerts: []
 
   # ───────────────────────────────────────────────
-  # (4) Velero pod UP but backup metric missing (metric drop case or metric not initialized case)
-  #     -> Alert should fire since no success metric found.
+  # (4) Velero pod UP, >25h old, metric completely MISSING.
+  #     -> Alert should fire via the `absent()` condition.
   # ───────────────────────────────────────────────
   - interval: 5m
     input_series:
       - series: 'up{pod="velero"}'
         values: '1+0x4'
+      - series: 'process_start_time_seconds{pod="velero"}'
+        values: '-91000+0x4'
+        # Notice: velero_backup_last_successful_timestamp series is intentionally omitted here
     alert_rule_test:
       - eval_time: 15m
         alertname: VeleroNoFirstSuccessfulBackup
         exp_alerts:
           - exp_labels:
               severity: critical
+              # Note: `absent()` does not output the `schedule` label, which perfectly tests your `{{ else }}` annotation logic
             exp_annotations:
               summary: "Velero backup has not completed once successfully for any schedule."
               description: "Velero backup metrics are missing while the Velero pod is running. This may indicate that the backup metric is not being emitted or there is a configuration/permission issue."
+
+  # ───────────────────────────────────────────────
+  # (5) Velero pod UP, metric is 0, BUT pod is NEW (< 25h).
+  #     -> Alert should NOT fire (verifying the grace period).
+  # ───────────────────────────────────────────────
+  - interval: 5m
+    input_series:
+      - series: 'up{pod="velero"}'
+        values: '1+0x4'
+      - series: 'process_start_time_seconds{pod="velero"}'
+        values: '-3600+0x4'  # Pod started only 1 hour ago (3600s), which is less than 25h (90000s)
+      - series: 'velero_backup_last_successful_timestamp{schedule="daily"}'
+        values: '0+0x4'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: VeleroNoFirstSuccessfulBackup
+        exp_alerts: []
