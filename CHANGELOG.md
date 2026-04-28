@@ -2,6 +2,26 @@
 
 All releases and the changes included in them (pulled from git commits added since last release) will be detailed in this file.
 
+## KubeAid Release Version 27.0.1
+
+### Features
+
+- 1b3a9a694 feat:add cilium network policy for argocd
+
+### Bug Fixes
+
+- 9f7fefab3 fix(kubeaid-agent): split RBAC per file, add cluster-view + secret-reader, drop argocd-reader
+- 61c40fc4b fix: correct 6hrly backup staleness alert expression
+- 12084cb8c fix(traefik-alerts): tighten immediate 4xx alerts and add promtool tests
+
+### Other Changes
+
+- c8ae784ee docs: add installation video link to READMEs
+- d052268c0 docs: rewrite README with value-prop lead and cleaner structure
+- 9d93b794e docs: add value-prop intro and navigation to docs landing page
+- f4f2ebe57 docs: rewrite why-kubeaid.md with clear narrative and diagrams
+- 3c4dc1c7e Remove redundant nginx annotations
+
 ## KubeAid Release Version 27.0.0
 
 ### Major Version Upgrades
