@@ -102,6 +102,8 @@ customisations. The [Getting Started Guide](./docs/getting-started/README.md) ex
 
 ## Installation
 
+> 🎬 **[Watch the Installation Video](https://drive.google.com/file/d/1d9EdghntjDoJRkCHj-DeRiEMfQ4xjBbw/view?usp=sharing)** - a step-by-step walkthrough of setting up KubeAid via KubeAid-cli.
+
 For complete installation instructions, see the **[Getting Started Guide](./docs/getting-started/README.md)** which
 includes:
 
