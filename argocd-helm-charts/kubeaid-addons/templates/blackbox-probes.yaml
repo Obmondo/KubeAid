@@ -1,0 +1,26 @@
+{{- if .Values.global.blackbox.enabled }}
+{{- if empty .Values.global.blackbox.url }}
+{{- fail "global.blackbox.url must not be empty when global.blackbox.enabled is true" }}
+{{- end }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: blackbox-probe-{{ .Release.Name }}
+  labels:
+    app.kubernetes.io/managed-by: kubeaid-addons
+spec:
+  interval: {{ .Values.global.blackbox.interval | default "60s" }}
+  scrapeTimeout: {{ .Values.global.blackbox.scrapeTimeout | default "30s" }}
+  module: {{ .Values.global.blackbox.module | default "http_2xx" }}
+  prober:
+    url: {{ .Values.global.blackbox.exporter | default "blackbox-exporter.monitoring.svc.cluster.local:19115" }}
+  tlsConfig:
+    insecureSkipVerify: {{ .Values.global.blackbox.insecureSkipVerify | default true }}
+  targets:
+    staticConfig:
+      static:
+        {{- range .Values.global.blackbox.url }}
+        - {{ . }}
+        {{- end }}
+{{- end }}

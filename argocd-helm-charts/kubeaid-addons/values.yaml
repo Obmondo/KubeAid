@@ -203,3 +203,12 @@ global:
     gitFQDNs: []
   mongodb:
     enabled: false
+
+  # blackbox
+  blackbox:
+    # -- Master switch. Set to true to render a Probe resource.
+    enabled: false
+
+    # -- List of URLs to probe.
+    url: []
+    # - https://myapp.example.com

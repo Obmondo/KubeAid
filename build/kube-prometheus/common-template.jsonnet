@@ -9,6 +9,29 @@ local remove_nulls = (
 
 local ext_vars = std.extVar('vars');
 
+local blackboxProbe = function(probe) {
+  apiVersion: 'monitoring.coreos.com/v1',
+  kind: 'Probe',
+  metadata: {
+    name: 'blackbox-probe-' + probe.name,
+    namespace: 'monitoring',
+    labels: { 'app.kubernetes.io/managed-by': 'kubeaid' },
+  },
+  spec: {
+    interval: std.get(probe, 'interval', '60s'),
+    [if std.objectHas(probe, 'scrapeTimeout') then 'scrapeTimeout']: probe.scrapeTimeout,
+    module: std.get(probe, 'module', 'http_2xx'),
+    prober: { url: 'blackbox-exporter.monitoring.svc.cluster.local:19115' },
+    [if std.objectHas(probe, 'tlsConfig') then 'tlsConfig']: probe.tlsConfig,
+    targets: {
+      staticConfig: {
+        [if std.objectHas(probe, 'labels') then 'labels']: probe.labels,
+        static: ['https://' + probe.host],
+      },
+    },
+  },
+};
+
 local default_vars = import 'lib/default_vars.libsonnet';
 local default_kubeaid_apps_vars = std.parseYaml(importstr 'lib/default_kubeaid_apps_vars.yaml');
 
@@ -883,4 +906,13 @@ local kp =
 (if std.objectHas(vars, 'grafana_ingress_host') then { [name + '-ingress']: kp.ingress[name] for name in std.objectFields(kp.ingress) } else {}) +
 (if std.objectHas(vars, 'prometheus_ingress_host') then { [name + '-ingress']: kp.ingress[name] for name in std.objectFields(kp.ingress) } else {}) +
 // Rendering prometheusRules object. This is an object compatible with prometheus-operator CRD definition for prometheusRule
-{ [o._config.name + '-prometheus-rules']: o.prometheusRules for o in std.filter((function(o) o.prometheusRules != null), mixins) }
+{ [o._config.name + '-prometheus-rules']: o.prometheusRules for o in std.filter((function(o) o.prometheusRules != null), mixins) } +
+(if std.objectHas(vars, 'prometheus_ingress_host') then {
+   'blackbox-probe-prometheus': blackboxProbe({ name: 'prometheus', host: vars.prometheus_ingress_host }),
+ } else {}) +
+(if std.objectHas(vars, 'grafana_ingress_host') then {
+   'blackbox-probe-grafana': blackboxProbe({ name: 'grafana', host: vars.grafana_ingress_host }),
+ } else {}) +
+(if std.objectHas(vars, 'alertmanager_ingress_host') then {
+   'blackbox-probe-alertmanager': blackboxProbe({ name: 'alertmanager', host: vars.alertmanager_ingress_host }),
+ } else {})
