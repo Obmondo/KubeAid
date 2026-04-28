@@ -1,6 +1,12 @@
 # Harbor
 
-Harbor needs to have a storage-class defined in its values - that gives it a PV with ReadWriteMany support - to ensure High Availability, scaling, failover and drainage of k8s nodes (for regular maintenance) works.
+Harbor needs to have a storage-class defined in its values - that gives it a PV with ReadWriteMany support.
+This ensures High Availability, scaling, failover and drainage of k8s nodes (for regular maintenance) works.
+
+## Accessing Harbor via CLI
+
+The harbor team have introduced [harbor-cli](https://github.com/goharbor/harbor-cli), which is parity to their WebUI.
+This will make it easier for us to troubleshoot any issues, without relying on their web interface.
 
 ## Extra configurations for complete Harbor setup
 
