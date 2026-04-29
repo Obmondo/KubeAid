@@ -41,7 +41,13 @@
             alert: 'VeleroNoFirstSuccessfulBackup',
             expr: |||
               (
-                (absent(velero_backup_success_total{schedule=~".*(daily|6hrly|weekly).*"} ) or (velero_backup_success_total{schedule=~".*(daily|6hrly|weekly).*", schedule!=""} == 0)) and on() (up{pod=~".*velero.*"} == 1)
+                (
+                  absent(velero_backup_last_successful_timestamp{schedule=~".*(daily|6hrly|weekly).*"})
+                  or
+                  velero_backup_last_successful_timestamp{schedule=~".*(daily|6hrly|weekly).*"} == 0
+                )
+                and on() (up{pod=~".*velero.*"} == 1)
+                and on() ((time() - process_start_time_seconds{pod=~".*velero.*"}) > (60 * 60 * 25))
               )
             ||| % $._config,
             'for': '15m',
