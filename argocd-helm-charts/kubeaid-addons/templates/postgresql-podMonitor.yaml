@@ -7,7 +7,7 @@ metadata:
   {{- if not $instanceName }}
   {{- fail "global.postgresql.instanceName is required and cannot be empty" }}
   {{- end }}
-  {{- if .Values.global.postgresql.recover }}
+  {{- if .Values.global.postgresql.recover.enabled }}
   name: {{ $instanceName }}-recover
   {{- else }}
   name: {{ $instanceName }}

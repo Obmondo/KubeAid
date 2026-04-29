@@ -59,9 +59,5 @@ spec:
   {{- end }}
 
   monitoring:
-    enablePodMonitor: {{ if hasKey (default dict $postgresql.monitoring) "enablePodMonitor" }}{{ $postgresql.monitoring.enablePodMonitor }}{{ else }}{{ $postgresql.backups.enabled }}{{ end }}
-    {{- $monitoringExtra := omit (default dict $postgresql.monitoring) "enablePodMonitor" }}
-    {{- if $monitoringExtra }}
-    {{- $monitoringExtra | toYaml | nindent 4 }}
-    {{- end }}
+    enablePodMonitor: false
 {{- end }}
