@@ -98,6 +98,7 @@
     mdraid: true,
     opencost: false,
     'kubelet-cert-expiry': false,
+    'orphan-pvc': true,
   },
   mixin_configs: {
     // Example:

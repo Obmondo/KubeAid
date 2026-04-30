@@ -127,6 +127,11 @@ local mixins = remove_nulls([
     (import 'mixins/blackbox-exporter/mixin.libsonnet'),
     vars,
   ),
+  addMixin(
+    'orphan-pvc',
+    (import 'mixins/orphan-pvc/mixin.libsonnet'),
+    vars,
+  ),
 ]);
 
 local scrape_namespaces = std.uniq(std.sort(std.flattenArrays(
