@@ -87,11 +87,6 @@ local mixins = remove_nulls([
     (import 'mixins/argo-cd/mixin.libsonnet'),
     vars,
   ),
-  addMixin(
-    'traefik',
-    (import 'mixins/traefik/mixin.libsonnet'),
-    vars,
-  ),
   (
     if std.objectHas(vars, 'kube_prometheus_version') && std.member(['v0.13.0', 'v0.14.0'], vars.kube_prometheus_version) then
       addMixin(

@@ -83,7 +83,6 @@
     etcd: true,
     velero: false,
     zfs: false,
-    traefik: true,
     opensearch: false,
     'cert-manager': true,
     'hpa-maxed-out': true,
