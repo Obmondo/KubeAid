@@ -23,7 +23,7 @@ groups:
     annotations:
       description: Multiple application under {{ .Labels.project }} is out of sync with the sync status {{ .Labels.sync_status }} for the past 15m
       summary: ArgoCD Application is Out Of Sync.
-    expr: count by (project, sync_status) ((sum by (name, job, dest_server, project, sync_status) (argocd_app_info{job=~".*",sync_status!="Synced"}) >= 1) + on (name) group_left kubeaidManagedApps)
+    expr: count by (project, sync_status) ((sum by (name, job, dest_server, project, sync_status) (argocd_app_info{job=~".*",sync_status!="Synced"}) >= 1) + on (name, project) group_left kubeaidManagedApps)
     for: 2h
     labels:
       severity: warning
@@ -31,7 +31,7 @@ groups:
     annotations:
       description: Multiple application under {{ .Labels.project }} is not healthy with the health status {{ .Labels.health_status }} for the past 15m
       summary: ArgoCD Application is not healthy.
-    expr: count by (health_status,project) ((sum by (name, job, dest_server, project, health_status) (argocd_app_info{health_status!~"Healthy|Progressing"}) >= 1) + on (name) group_left kubeaidManagedApps)
+    expr: count by (health_status,project) ((sum by (name, job, dest_server, project, health_status) (argocd_app_info{health_status!~"Healthy|Progressing"}) >= 1) + on (name, project) group_left kubeaidManagedApps)
     for: 2h
     labels:
       severity: warning
