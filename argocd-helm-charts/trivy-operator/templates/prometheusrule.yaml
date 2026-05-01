@@ -47,7 +47,7 @@ spec:
           labels:
             severity: critical
           annotations:
-            summary: "{{ "{{ $labels.image }}:{{ $labels.current_version }}" }} has fixable CVEs AND newer tag {{ "{{ $labels.latest_version }}" }} available"
+            summary: "{{ "{{ $labels.image }}:{{ $labels.current_version }}" }} has CVEs AND newer tag {{ "{{ $labels.latest_version }}" }} available"
             description: "Image {{ "{{ $labels.image }}:{{ $labels.current_version }}" }} (ns {{ "{{ $labels.namespace }}" }}) has {{ "{{ $value }}" }} {{ "{{ $labels.severity }}" }} CVE(s) reported. Newer tag {{ "{{ $labels.latest_version }}" }} exists in registry. Please update the image"
 
         - alert: TrivyOperatorScannerStuck

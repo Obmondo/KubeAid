@@ -32,8 +32,9 @@ trivy-operator:
 kubeaid:
   prometheusRule:
     enabled: true
-    productionNamespaceRegex: "^(production|prod|prd)$"
 ```
+
+> **Note:** `ImageOutdatedAndVulnerable` requires `version_checker_is_latest_version` metric. Deploy the [`version-checker`](../version-checker) chart alongside this one.
 
 ## Configuration
 
@@ -54,15 +55,14 @@ Forwarded to the [aquasecurity/trivy-operator](https://artifacthub.io/packages/h
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `kubeaid.prometheusRule.enabled` | Generate PrometheusRule with default alerts | `true` |
-| `kubeaid.prometheusRule.productionNamespaceRegex` | Namespace regex considered "production" for critical alert | `"^(production|prod|prd)$"` |
-| `kubeaid.prometheusRule.for` | Duration a critical CVE must persist before alerting | `"30m"` |
-| `kubeaid.prometheusRule.severity` | Alert label severity | `critical` |
+| `kubeaid.prometheusRule.enabled` | Generate PrometheusRule (recording rule + `ImageOutdatedAndVulnerable` + `TrivyOperatorScannerStuck`) | `true` |
+| `kubeaid.prometheusRule.additionalLabels` | Extra labels added to the PrometheusRule object (for Prometheus selector matching) | `{}` |
+| `kubeaid.prometheusRule.additionalAnnotations` | Extra annotations added to the PrometheusRule object | `{}` |
 
 ## Alerts shipped
 
-- `TrivyCriticalCVEInProduction` — critical CVE in a workload running in a namespace matching `productionNamespaceRegex`.
-- `TrivyOperatorScannerStuck` — last scan older than 24h (operator or trivy-server unhealthy).
+- `ImageOutdatedAndVulnerable` — fires when a running image has `Critical`/`High` CVEs **and** a newer tag is available in the source registry. Built by joining the `record::trivy::vulnerability_count::by_image` recording rule (reshaped from `trivy_vulnerability_id`) with `version_checker_is_latest_version == 0` on `(image, current_version)`. **Requires the [`version-checker`](../version-checker) chart deployed in the cluster** — without it the join produces no series and the alert never fires. Persists for 6h before firing to absorb registry/scanner flaps.
+- `TrivyOperatorScannerStuck` — last successful scan older than 24h (operator or trivy-server unhealthy).
 
 ## Useful commands
 

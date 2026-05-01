@@ -1,0 +1,22 @@
+version-checker:
+  # Scan every container by default. Set to false + add per-pod annotation
+  # `enable.version-checker.io/<container>=true` to opt-in selectively.
+  defaultTestAll: true
+
+  # How long to cache registry tag lookups. Lower = fresher, more registry traffic.
+  imageCacheTimeout: 30m
+
+  logLevel: info
+
+  serviceMonitor:
+    enabled: true
+    interval: 60s
+    additionalLabels: {}
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi

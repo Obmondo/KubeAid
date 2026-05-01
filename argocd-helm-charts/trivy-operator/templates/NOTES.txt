@@ -11,8 +11,11 @@ Prometheus metrics (assuming ServiceMonitor is picked up):
   trivy_image_vulnerabilities_id{cve_id="CVE-..."}
 
 Default alert rules shipped with this chart:
-  - TrivyCriticalCVEInProduction
-  - TrivyOperatorScannerStuck
+  - ImageOutdatedAndVulnerable — fires when a running image has
+    Critical/High CVEs AND a newer tag is available in the source registry
+    (joins trivy_vulnerability_id with version_checker_is_latest_version).
+    Requires the `version-checker` chart to also be deployed.
+  - TrivyOperatorScannerStuck — last successful scan older than 24h.
 
 Disable alert rules: set kubeaid.prometheusRule.enabled=false
 Tune scope:           set trivy-operator.excludeNamespaces / targetNamespaces
