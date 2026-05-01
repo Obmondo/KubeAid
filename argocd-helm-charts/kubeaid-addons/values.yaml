@@ -212,3 +212,8 @@ global:
     # -- List of URLs to probe.
     url: []
     # - https://myapp.example.com
+
+  # harbor
+  harbor:
+    # Enable Harbor network policies
+    netpol: false

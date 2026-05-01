@@ -1,4 +1,4 @@
-{{- if and .Values.global.netpol.enabled .Values.global.keycloakx.netpol }}
+{{- if and ((.Values.global).netpol).enabled ((.Values.global).keycloakx).netpol }}
 ---
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy

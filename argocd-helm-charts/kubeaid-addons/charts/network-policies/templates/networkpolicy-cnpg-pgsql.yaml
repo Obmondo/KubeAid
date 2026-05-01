@@ -3,7 +3,7 @@
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
-  name: {{ .Values.global.postgresql.instanceName | default "postgresql" }}-networkpolicy
+  name: {{ .Values.global.postgresql.instanceName | default "postgresql" }}-cnpg-networkpolicy
   namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/component: cilium-networkpolicy

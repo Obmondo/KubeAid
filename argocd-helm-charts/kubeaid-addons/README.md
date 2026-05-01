@@ -14,6 +14,7 @@ here rather than being scattered across individual application charts.
 | CNPG PostgreSQL cluster + scheduled backup | `Cluster`, `ScheduledBackup` | `global.postgresql.enabled` |
 | RabbitMQ cluster (via Cluster Operator) | `RabbitmqCluster` | `global.rabbitmq.enabled` |
 | Argo CD baseline policy | `CiliumNetworkPolicy` | `global.netpol.enabled` + `global.argocd.netpol` |
+| Harbor network policies | `CiliumNetworkPolicy` | `global.netpol.enabled` + `global.harbor.netpol` |
 
 Everything is **nil-safe** - if a key is missing from values, the template renders nothing rather
 than panicking. New operator types (MariaDB, MongoDB, etc.) can be added by dropping a new
@@ -165,6 +166,8 @@ global:
     netpol: true
   argocd:
     netpol: true
+  harbor:
+    netpol: true  
 ```
 
 Argo CD baseline policy is configured under **`global.argocd`** plus shared **`global.netpol.traefik`** / **`global.netpol.prometheus`** (same pattern as whoami/oncall). Render it via a parent chart (for example `argo-cd`) that includes `kubeaid-addons` as a dependency; Helm only passes `global` into subcharts.

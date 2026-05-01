@@ -1,4 +1,4 @@
-{{- if and .Values.global.postgresql.enabled .Values.global.postgresql.monitoring.enablePodMonitor }}
+{{- if and ((.Values.global).postgresql).enabled ((.Values.global.postgresql).monitoring).enablePodMonitor }}
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
