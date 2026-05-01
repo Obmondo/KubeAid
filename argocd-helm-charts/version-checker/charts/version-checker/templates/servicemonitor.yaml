@@ -1,0 +1,18 @@
+{{- if and .Values.serviceMonitor.enabled (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1/ServiceMonitor") }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "version-checker.name" . }}
+  labels:
+    app: {{ include "version-checker.name" . }}
+    {{- if .Values.serviceMonitor.additionalLabels }}
+{{- .Values.serviceMonitor.additionalLabels | toYaml | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ include "version-checker.name" . }}
+  endpoints:
+  - port: web
+    path: /metrics
+{{- end }}

@@ -1,0 +1,8 @@
+apiVersion: v2
+appVersion: v0.10.0
+description: A Helm chart for version-checker
+home: https://github.com/jetstack/version-checker
+maintainers:
+- name: davidcollom
+name: version-checker
+version: v0.10.0

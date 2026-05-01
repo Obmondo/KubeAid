@@ -1,0 +1,7 @@
+apiVersion: v2
+name: version-checker
+version: 1.0.0
+dependencies:
+  - name: version-checker
+    version: v0.10.0
+    repository: https://charts.jetstack.io
