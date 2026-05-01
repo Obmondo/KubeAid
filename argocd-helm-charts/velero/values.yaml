@@ -5,6 +5,8 @@ schedule:
   sixhourly: false
   dailyTTL: 720h
   weeklyTTL: 2160h
+  excludedResources:
+    - workloadconfigurationscansummaries.spdx.softwarecomposition.kubescape.io
 velero:
   revisionHistoryLimit: "0"
   configuration:

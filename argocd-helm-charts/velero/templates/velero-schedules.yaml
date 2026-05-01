@@ -17,6 +17,10 @@ spec:
     {{- else }}
       - "*"
     {{- end }}
+    {{- if .Values.schedule.excludedResources }}
+    excludedResources:
+    {{- toYaml .Values.schedule.excludedResources | nindent 6 }}
+    {{- end }}
     ttl: {{ .Values.schedule.dailyTTL | default "720h0m0s" }}
     metadata:
       labels:
@@ -40,6 +44,10 @@ spec:
     {{- toYaml .Values.schedule.includedNamespaces | nindent 6 }}
     {{- else }}
       - "*"
+    {{- end }}
+    {{- if .Values.schedule.excludedResources }}
+    excludedResources:
+    {{- toYaml .Values.schedule.excludedResources | nindent 6 }}
     {{- end }}
     ttl: {{ .Values.schedule.weeklyTTL | default "2160h0m0s" }} 
     metadata:
@@ -65,6 +73,10 @@ spec:
     {{- toYaml .Values.schedule.includedNamespaces | nindent 6 }}
     {{- else }}
       - "*"
+    {{- end }}
+    {{- if .Values.schedule.excludedResources }}
+    excludedResources:
+    {{- toYaml .Values.schedule.excludedResources | nindent 6 }}
     {{- end }}
     ttl: 336h0m0s
     metadata:
