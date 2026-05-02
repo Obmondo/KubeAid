@@ -32,6 +32,12 @@ appConfig:
       - obmondo_system
     runKubeAidPuppetSync: false
 
+  kubeaidUpdate:
+    # -- Cadence at which the agent polls Obmondo API for an active KubeAid update
+    # service window. Short enough to react inside a window's granularity, long
+    # enough not to thrash the API when no window is open.
+    checkInterval: 15m
+
 # -- Kubernetes Secret name containing the TLS certificate key-pair, used to communicate with
 # Obmondo API.
 obmondoAPITLSSecretName: obmondo-clientcert
