@@ -37,7 +37,7 @@
           // Inspiration from here https://github.com/adinhodovic/argo-cd-mixin/blob/main/alerts/alerts.libsonnet
           {
             alert: 'ArgoCdAppOutOfSync',
-            expr: 'count by (project, sync_status) ((sum by (name, job, dest_server, project, sync_status) (argocd_app_info{job=~".*",sync_status!="Synced"}) >= 1) + on (name) group_left kubeaidManagedApps)',
+            expr: 'count by (project, sync_status) ((sum by (name, job, dest_server, project, sync_status) (argocd_app_info{job=~".*",sync_status!="Synced"}) >= 1) + on (name, project) group_left kubeaidManagedApps)',
             labels: {
               severity: 'warning',
             },
@@ -49,7 +49,7 @@
           },
           {
             alert: 'ArgoCdAppUnhealthy',
-            expr: 'count by (health_status,project) ((sum by (name, job, dest_server, project, health_status) (argocd_app_info{health_status!~"Healthy|Progressing"}) >= 1) + on (name) group_left kubeaidManagedApps)',
+            expr: 'count by (health_status,project) ((sum by (name, job, dest_server, project, health_status) (argocd_app_info{health_status!~"Healthy|Progressing"}) >= 1) + on (name, project) group_left kubeaidManagedApps)',
             labels: {
               severity: 'warning',
             },
