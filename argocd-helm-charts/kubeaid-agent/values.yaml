@@ -13,25 +13,6 @@ appConfig:
   server:
     port: 4000
 
-  kubeaidConfig:
-    clusterName:
-    repo:
-      insecureSkipTLS: true
-      auth:
-        # Optional: Username/Password authentication (for HTTPS Git URLs).
-        # If not configured, SSH auth is auto-discovered from ArgoCD secrets in the cluster.
-        basic:
-          # username: "your-git-username"
-          # password: "your-password-or-token"
-          #
-          # For production, use Kubernetes Secrets instead of hardcoding credentials:
-          usernameSecretRef:
-            secretName: ""
-            key: ""
-          passwordSecretRef:
-            secretName: ""
-            key: ""
-
   obmondoAPI:
     url: https://api.obmondo.com/api
     tls:
