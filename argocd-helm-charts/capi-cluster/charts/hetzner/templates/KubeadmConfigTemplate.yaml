@@ -1,4 +1,7 @@
 {{/* Handling node-groups in HCloud. */}}
+{{- $controlPlaneValues := $.Values.controlPlane | default dict -}}
+{{- $bootstrapHostsEntry := get $controlPlaneValues "bootstrapHostsEntry" | default "" -}}
+{{- $privateHostsEntry := get $controlPlaneValues "privateHostsEntry" | default "" -}}
 {{- if or (eq .Values.mode "hcloud") (eq .Values.mode "hybrid") }}
 {{- range $nodeGroupIndex, $nodeGroup := $.Values.nodeGroups.hcloud }}
 ---
@@ -121,6 +124,10 @@ spec:
       preKubeadmCommands:
       - set -x
 
+      {{- if $bootstrapHostsEntry }}
+      - echo '{{ $bootstrapHostsEntry }}' >> /etc/hosts
+      {{- end }}
+
       {{- if or (eq $.Values.mode "hybrid") (eq $.Values.network.type "private") }}
       - chmod +x /connect-nat-gateway.sh && /connect-nat-gateway.sh
       {{- end }}
@@ -167,6 +174,15 @@ spec:
       - echo 'source <(kubectl completion bash)' >>/root/.bashrc
       - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>/root/.bashrc
       - apt-get -y autoremove && apt-get -y clean all
+      {{- if and $bootstrapHostsEntry $privateHostsEntry }}
+      postKubeadmCommands:
+      - |
+        tmp_hosts=$(mktemp)
+        grep -vxF '{{ $bootstrapHostsEntry }}' /etc/hosts | grep -vxF '{{ $privateHostsEntry }}' > "$tmp_hosts" || true
+        cat "$tmp_hosts" > /etc/hosts
+        rm -f "$tmp_hosts"
+        echo '{{ $privateHostsEntry }}' >> /etc/hosts
+      {{- end }}
       {{- if (gt (len $.Values.global.additionalUsers) 0) }}
       users:
         {{- range $index, $additionalUser := $.Values.global.additionalUsers }}

@@ -127,6 +127,17 @@ controlPlane:
     host: null
 
   # @schema
+  # type: [string, "null"]
+  # description: Internal /etc/hosts entry rendered by kubeaid-cli during temporary public-LB bootstrap.
+  # @schema
+  bootstrapHostsEntry: null
+  # @schema
+  # type: [string, "null"]
+  # description: Internal /etc/hosts entry rendered by kubeaid-cli for private-LB access after kubeadm bootstrap.
+  # @schema
+  privateHostsEntry: null
+
+  # @schema
   # type: array
   # items: { type: string, minLength: 1 }
   # minItems: 1
@@ -163,6 +174,11 @@ controlPlane:
       # description: HCloud region the load-balancer is placed in. Only meaningful when enabled=true.
       # @schema
       region: hel1
+      # @schema
+      # type: [string, "null"]
+      # description: Existing or desired HCloud load-balancer name. When set, CAPH adopts/reconciles this LB.
+      # @schema
+      name: null
 
   # @schema
   # type: [object, "null"]

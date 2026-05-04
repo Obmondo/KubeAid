@@ -18,6 +18,9 @@ spec:
   {{- if (.Values.controlPlane.hcloud.loadBalancer).enabled }}
   controlPlaneLoadBalancer:
     enabled: true
+    {{- if (.Values.controlPlane.hcloud.loadBalancer).name }}
+    name: {{ .Values.controlPlane.hcloud.loadBalancer.name }}
+    {{- end }}
     region: {{ .Values.controlPlane.hcloud.loadBalancer.region }}
   {{- end }}
 

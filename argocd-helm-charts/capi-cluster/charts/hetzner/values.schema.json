@@ -107,6 +107,24 @@
           "title": "endpoint",
           "type": "object"
         },
+        "bootstrapHostsEntry": {
+          "description": "Internal /etc/hosts entry rendered by kubeaid-cli during temporary public-LB bootstrap.",
+          "required": [],
+          "title": "bootstrapHostsEntry",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "privateHostsEntry": {
+          "description": "Internal /etc/hosts entry rendered by kubeaid-cli for private-LB access after kubeadm bootstrap.",
+          "required": [],
+          "title": "privateHostsEntry",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "hcloud": {
           "additionalProperties": false,
           "properties": {
@@ -124,6 +142,15 @@
                   "description": "HCloud region the load-balancer is placed in. Only meaningful when enabled=true.",
                   "title": "region",
                   "type": "string"
+                },
+                "name": {
+                  "default": "null",
+                  "description": "Existing or desired HCloud load-balancer name. When set, CAPH adopts/reconciles this LB.",
+                  "title": "name",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 }
               },
               "required": [],

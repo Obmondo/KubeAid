@@ -1,3 +1,6 @@
+{{- $controlPlaneValues := .Values.controlPlane | default dict -}}
+{{- $bootstrapHostsEntry := get $controlPlaneValues "bootstrapHostsEntry" | default "" -}}
+{{- $privateHostsEntry := get $controlPlaneValues "privateHostsEntry" | default "" -}}
 apiVersion: controlplane.cluster.x-k8s.io/v1beta1
 kind: KubeadmControlPlane
 metadata:
@@ -263,6 +266,10 @@ spec:
     preKubeadmCommands:
       - set -x
 
+      {{- if $bootstrapHostsEntry }}
+      - echo '{{ $bootstrapHostsEntry }}' >> /etc/hosts
+      {{- end }}
+
       {{- if or (eq .Values.mode "hybrid") (eq .Values.network.type "private") }}
       - chmod +x /connect-nat-gateway.sh && /connect-nat-gateway.sh
       {{- end }}
@@ -372,6 +379,15 @@ spec:
       {{- end }}
 
     postKubeadmCommands:
+      {{- if and $bootstrapHostsEntry $privateHostsEntry }}
+      - |
+        tmp_hosts=$(mktemp)
+        grep -vxF '{{ $bootstrapHostsEntry }}' /etc/hosts | grep -vxF '{{ $privateHostsEntry }}' > "$tmp_hosts" || true
+        cat "$tmp_hosts" > /etc/hosts
+        rm -f "$tmp_hosts"
+        echo '{{ $privateHostsEntry }}' >> /etc/hosts
+      {{- end }}
+
       {{/* On the second or remaining master nodes, after 'kubeadm join' execution,
            we create and apply the netplan config. */}}
       {{- if eq .Values.mode "bare-metal" }}

@@ -1,4 +1,7 @@
 {{/* Handling node-groups in Hetzner Bare Metal. */}}
+{{- $controlPlaneValues := $.Values.controlPlane | default dict -}}
+{{- $bootstrapHostsEntry := get $controlPlaneValues "bootstrapHostsEntry" | default "" -}}
+{{- $privateHostsEntry := get $controlPlaneValues "privateHostsEntry" | default "" -}}
 {{- if or (eq .Values.mode "bare-metal") (eq .Values.mode "hybrid") }}
 {{- range $nodeGroupIndex, $nodeGroup := $.Values.nodeGroups.bareMetal }}
 {{- range $hostIndex, $host := $nodeGroup.bareMetalHosts }}
@@ -105,6 +108,10 @@ spec:
   preKubeadmCommands:
     - set -x
 
+    {{- if $bootstrapHostsEntry }}
+    - echo '{{ $bootstrapHostsEntry }}' >> /etc/hosts
+    {{- end }}
+
     {{/* Give highest priority to the Network Card / Connection entry in the boot order.
           Otherwise, we cannot boot the servers into rescue mode, and need to reach out to the
           Hetzner support team. */}}
@@ -207,6 +214,15 @@ spec:
     - echo 'source <(kubectl completion bash)' >>/root/.bashrc
     - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>/root/.bashrc
     - apt-get -y autoremove && apt-get -y clean all
+    {{- if and $bootstrapHostsEntry $privateHostsEntry }}
+  postKubeadmCommands:
+    - |
+      tmp_hosts=$(mktemp)
+      grep -vxF '{{ $bootstrapHostsEntry }}' /etc/hosts | grep -vxF '{{ $privateHostsEntry }}' > "$tmp_hosts" || true
+      cat "$tmp_hosts" > /etc/hosts
+      rm -f "$tmp_hosts"
+      echo '{{ $privateHostsEntry }}' >> /etc/hosts
+    {{- end }}
     {{- if (gt (len $.Values.global.additionalUsers) 0) }}
     users:
       {{- range $index, $additionalUser := $.Values.global.additionalUsers }}
