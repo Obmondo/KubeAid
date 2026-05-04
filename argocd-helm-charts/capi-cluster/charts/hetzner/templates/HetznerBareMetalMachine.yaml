@@ -10,6 +10,7 @@ spec:
   hostSelector:
     matchLabels:
       role: {{ printf "%s-%s" $.Values.global.clusterName $nodeGroup.name }}
+      host: {{ $host.serverID | quote }}
   installImage:
     image:
       path: {{ $.Values.bareMetal.installImage.imagePath }}

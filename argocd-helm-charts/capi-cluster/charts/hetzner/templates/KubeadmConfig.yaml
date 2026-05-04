@@ -120,31 +120,33 @@ spec:
     - export NETWORK_INTERFACE=$(ip route get 8.8.8.8 | awk '{print $5; exit}')
 
     {{- if (eq $.Values.mode "hybrid") -}}
-    {{/* Attach the Hetzner Bare Metal server to the Hetzner Network using VSwitch. */}}
+    {{/* Attach the Hetzner Bare Metal server to the Hetzner Network using VSwitch.
+         And, route egress traffic to the internet, to the NAT gateway. */}}
     - |
-      ip link add link $NETWORK_INTERFACE name $NETWORK_INTERFACE.4000 type vlan id {{ $.Values.bareMetal.vSwitch.vlanID }}
-      ip link set $NETWORK_INTERFACE.4000 mtu 1400
-      ip link set dev $NETWORK_INTERFACE.4000 up
-
-      ip addr add {{ $host.privateIP }}/24 dev $NETWORK_INTERFACE.4000
-      ip route add 10.0.0.0/16 via 10.0.1.1
-
-    {{/* We can't disable the public IP, since CAPH periodically tries to SSH into the node using
-         its public IP. If it's not able to SSH, it'll think that the node is down, and will keep
-         restarting it. */}}
-    {{/*
-    - |
-      export PUBLIC_IP=$(ip addr show $NETWORK_INTERFACE | awk '/inet / {print $2; exit}')
-      ip addr del $PUBLIC_IP dev $NETWORK_INTERFACE
-    
-      export PUBLIC_IPV6=$(ip addr show $NETWORK_INTERFACE | awk '/inet6 / && /global/ {print $2; exit}')
-      ip addr del $PUBLIC_IPV6 dev $NETWORK_INTERFACE
-    */}}
-
-    {{/* Route egress traffic to the internet, to the NAT gateway. */}}
-    - |
-      ip route add default via 10.0.1.1
-      resolvectl dns $NETWORK_INTERFACE.4000 1.1.1.1
+      cat <<'EOF' > /etc/netplan/60-vlan.yaml
+      network:
+        version: 2
+        renderer: networkd
+        vlans:
+          ${NETWORK_INTERFACE}.{{ $.Values.bareMetal.vSwitch.vlanID }}:
+            id: {{ $.Values.bareMetal.vSwitch.vlanID }}
+            link: ${NETWORK_INTERFACE}
+            mtu: 1400
+            addresses:
+              - {{ $host.privateIP }}/24
+            routes:
+              - to: 10.0.0.0/16
+                via: 10.0.1.1
+              - to: 0.0.0.0/0
+                via: 10.0.1.1
+                metric: 200
+            nameservers:
+              addresses:
+                - 185.12.64.1
+                - 185.12.64.2
+      EOF
+      chmod 0600 /etc/netplan/60-vlan.yaml
+      netplan apply
     {{- end -}}
 
     {{/*

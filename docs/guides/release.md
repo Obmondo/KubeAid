@@ -26,7 +26,7 @@ and automatically switch you to a new branch for your Pull Request.
 
 Example output:
 
-```logs
+```log
 Branch 'Helm_Update_20260119_MjA5NDkK' set up to track remote branch 'master' from 'origin'.
 Switched to a new branch 'Helm_Update_20260119_MjA5NDkK'
 Current KubeAid version: 23.0.0
@@ -110,7 +110,7 @@ Once the PR is merged and `VERSION` is updated, generate the release notes and t
 
 Example output:
 
-```logs
+```log
 Generating release notes since 22.0.0..23.0.0
 Release notes generated: CHANGELOG.md
 [master 22bed5336] chore(release): update CHANGELOG and Release Notes for Kubeaid 23.0.0
@@ -128,5 +128,5 @@ The script will:
 6. Create an annotated git tag from the `VERSION` file
 7. Push the commit and tag to both **Gitea** (`origin`) and **GitHub** (`github`)
 
-After the tag is pushed,
-GoReleaser CI workflows run automatically on both Gitea and GitHub to publish the release using the generated `.release-notes.md`.
+After the tag is pushed, GoReleaser CI workflows run automatically on both Gitea and GitHub to
+publish the release using the generated `.release-notes.md`.

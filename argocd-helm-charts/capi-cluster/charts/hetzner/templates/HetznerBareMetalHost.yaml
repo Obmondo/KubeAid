@@ -36,6 +36,7 @@ metadata:
   name: {{ $bareMetalHost.serverID | quote }}
   labels:
     role: {{ printf "%s-%s" $.Values.global.clusterName $nodeGroup.name }}
+    host: {{ $bareMetalHost.serverID | quote }}
   {{- if $.Values.bareMetal.wipeDisks }}
   annotations:
     capi.syself.com/wipe-disk: all
