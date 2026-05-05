@@ -66,6 +66,8 @@ oncall:
     usernameKey: username
   ingress:
     enabled: true
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt"
   uwsgi: null
 
 global:
