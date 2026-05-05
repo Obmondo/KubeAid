@@ -33,16 +33,23 @@ Parameters:
   - testingMode: boolean - for MULTIPLY env var
 */}}
 {{- define "node-agent.env" -}}
+{{- if .autoscalerMode }}
 - name: GOMEMLIMIT
-  valueFrom:
-    resourceFieldRef:
-      resource: limits.memory
-      divisor: '1'
-- name: GOMAXPROCS
-  valueFrom:
-    resourceFieldRef:
-      resource: limits.cpu
-      divisor: '1'
+  value: "{{`{{ .GoMemLimit }}`}}"
+{{- else }}
+{{- $memory := .Values.nodeAgent.resources.limits.memory -}}
+{{- if .resources -}}
+{{- if .resources.limits -}}
+{{- if .resources.limits.memory -}}
+{{- $memory = .resources.limits.memory -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- if $memory }}
+- name: GOMEMLIMIT
+  value: {{ include "kubescape-operator.gomemlimit" (dict "memory" $memory "percentage" .Values.nodeAgent.gomemlimitPercentage) | quote }}
+{{- end }}
+{{- end }}
 - name: HOST_ROOT
   value: "/host"
 - name: KS_LOGGER_LEVEL
@@ -61,7 +68,7 @@ Parameters:
 - name: CLAMAV_SOCKET
   value: "/clamav/clamd.sock"
 {{- end }}
-{{- if and .components.sbomScanner.enabled (not .autoscalerMode) }}
+{{- if .components.sbomScanner.enabled }}
 - name: SBOM_SCANNER_SOCKET
   value: "/sbom-comm/scanner.sock"
 - name: SCANNER_MEMORY_LIMIT
@@ -212,7 +219,7 @@ Parameters:
   resources:
     {{- include "node-agent.resources" (dict "autoscalerMode" .autoscalerMode "resources" .resources) | nindent 4 }}
   env:
-    {{- include "node-agent.env" (dict "Values" .Values "components" .components "no_proxy_envar_list" .no_proxy_envar_list "autoscalerMode" .autoscalerMode "testingMode" .testingMode) | nindent 4 }}
+    {{- include "node-agent.env" (dict "Values" .Values "components" .components "no_proxy_envar_list" .no_proxy_envar_list "autoscalerMode" .autoscalerMode "testingMode" .testingMode "resources" .resources) | nindent 4 }}
   securityContext:
     runAsUser: 0
     privileged: {{ .Values.nodeAgent.privileged }}
@@ -278,11 +285,10 @@ Parameters:
   resources:
 {{ toYaml .Values.nodeAgent.sbomScanner.resources | indent 4 }}
   env:
+    {{- if .Values.nodeAgent.sbomScanner.resources.limits.memory }}
     - name: GOMEMLIMIT
-      valueFrom:
-        resourceFieldRef:
-          resource: limits.memory
-          divisor: '1'
+      value: {{ include "kubescape-operator.gomemlimit" (dict "memory" .Values.nodeAgent.sbomScanner.resources.limits.memory "percentage" .Values.nodeAgent.gomemlimitPercentage) | quote }}
+    {{- end }}
     - name: SOCKET_PATH
       value: "/sbom-comm/scanner.sock"
     - name: HOST_ROOT

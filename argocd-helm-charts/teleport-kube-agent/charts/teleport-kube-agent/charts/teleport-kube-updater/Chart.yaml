@@ -1,5 +1,5 @@
 apiVersion: v2
-appVersion: 19.0.0-dev
+appVersion: 18.7.6
 description: 'Library chart containing all the templates to deploy a Teleport updater.
   IMPORTANT: this chart is not meant for public consumption, stability and versioning
   guarantees do not apply here. '
@@ -10,4 +10,4 @@ keywords:
 - library
 name: teleport-kube-updater
 type: library
-version: 19.0.0-dev
+version: 18.7.6

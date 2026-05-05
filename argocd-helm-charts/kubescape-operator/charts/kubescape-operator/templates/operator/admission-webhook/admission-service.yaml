@@ -1,0 +1,25 @@
+{{- $components := fromYaml (include "components" .) }}
+{{- if and $components.operator.enabled (eq .Values.capabilities.admissionController "enable") }}
+{{- /* operator.admissionService.* is deprecated; coalesce with the new operator.admissionWebhooks.service.* path so legacy overrides win. */ -}}
+{{- $legacy := .Values.operator.admissionService | default dict -}}
+{{- $svc := .Values.operator.admissionWebhooks.service -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kubescape-admission.name" . }}
+  namespace: {{ .Values.ksNamespace }}
+  annotations:
+    {{- include "kubescape-operator.annotations" (dict "Values" .Values) | nindent 4 }}
+    {{- with (coalesce $legacy.annotations $svc.annotations) }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  labels:
+    {{- include "kubescape-operator.labels" (dict "Chart" .Chart "Release" .Release "Values" .Values "app" .Values.operator.name "tier" .Values.global.namespaceTier) | nindent 4 }}
+spec:
+  ports:
+    - port: {{ coalesce $legacy.port $svc.port }}
+      targetPort: {{ coalesce $legacy.targetPort $svc.targetPort }}
+  selector:
+    {{- include "kubescape-operator.selectorLabels" (dict "Chart" .Chart "Release" .Release "Values" .Values "app" .Values.operator.name) | nindent 6 }}
+  type: {{ coalesce $legacy.type $svc.type }}
+{{- end }}

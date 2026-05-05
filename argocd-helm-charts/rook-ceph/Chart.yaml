@@ -3,10 +3,10 @@ name: rook-ceph
 version: 1.0.0
 dependencies:
   - name: rook-ceph
-    version: "v1.19.4"
+    version: "v1.19.5"
     repository: https://charts.rook.io/release
     #repository: "oci://ghcr.io/Obmondo"
   - name: rook-ceph-cluster
-    version: "v1.19.4"
+    version: "v1.19.5"
     repository: https://charts.rook.io/release
     #repository: "oci://ghcr.io/Obmondo"

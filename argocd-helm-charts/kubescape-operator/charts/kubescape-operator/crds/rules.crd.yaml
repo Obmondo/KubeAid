@@ -75,6 +75,10 @@ spec:
                         type: integer
                         enum: [0, 1, 2]
                         description: "Profile dependency level (0=Required, 1=Optional, 2=NotRequired)"
+                      profileDataRequired:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                        description: "Per-rule profile fields required for rule-aware projection."
                       severity:
                         type: integer
                         description: "Severity level of the rule"

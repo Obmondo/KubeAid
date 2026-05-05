@@ -51,27 +51,19 @@ Create the correct image tag name
 
 {{- define "funkwhale.dbUrl" -}}
 {{- if .Values.postgresql.enabled -}}
-{{ fail "Internal postgresql server is no longer available" }}
+{{- fail "Internal postgresql server is no longer available" -}}
 {{- end -}}
-{{- if .Values.postgresql.host -}}
-postgres://{{ .Values.postgresql.username }}:{{ .Values.postgresql.password }}@{{ .Values.postgresql.host }}:{{ .Values.postgresql.port | default 5432 }}/{{ .Values.postgresql.database }}
-{{- else -}}
-{{ fail "You need to specify postgresql.host" }}
-{{- end -}}
+postgres://{{ .Values.postgresql.username }}:{{ .Values.postgresql.password }}@{{ required "You need to specify postgresql.host" .Values.postgresql.host }}:{{ .Values.postgresql.port | default 5432 }}/{{ .Values.postgresql.database }}
 {{- end -}}
 
 {{- define "funkwhale.redisUrl" -}}
 {{- if .Values.redis.enabled -}}
-{{ fail "Internal postgresql server is no longer available" }}
+{{- fail "Internal postgresql server is no longer available" -}}
 {{- end -}}
-{{- if .Values.redis.host -}}
 {{- if .Values.redis.password -}}
-redis://:{{ .Values.redis.password }}@{{ .Values.redis.host }}:{{ .Values.redis.port | default 6379 }}/{{ .Values.redis.database | default 0 }}
+redis://:{{ .Values.redis.password }}@{{ required "You must specify redis.host" .Values.redis.host }}:{{ .Values.redis.port | default 6379 }}/{{ .Values.redis.database | default 0 }}
 {{- else -}}
-redis://{{ .Values.redis.host }}:{{ .Values.redis.port | default 6379 }}/{{ .Values.redis.database | default 0 }}
-{{- end -}}
-{{- else -}}
-{{ fail "You must specify redis.host" }}
+redis://{{ required "You must specify redis.host" .Values.redis.host }}:{{ .Values.redis.port | default 6379 }}/{{ .Values.redis.database | default 0 }}
 {{- end -}}
 {{- end -}}
 

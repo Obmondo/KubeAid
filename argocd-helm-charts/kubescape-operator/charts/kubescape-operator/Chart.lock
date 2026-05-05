@@ -6,4 +6,4 @@ dependencies:
   repository: file://../dependency_chart/namespaced-crds
   version: 0.0.2
 digest: sha256:f7304bea37c3c89deab57f54fdd31bad67929137b2d782efe1dbfa29c5d163f4
-generated: "2026-04-21T07:29:09.203555086Z"
+generated: "2026-05-04T16:53:50.707464431Z"

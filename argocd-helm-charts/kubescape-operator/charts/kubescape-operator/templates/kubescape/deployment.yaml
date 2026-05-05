@@ -29,7 +29,6 @@ spec:
       annotations:
         {{- include "kubescape-operator.annotations" (dict "Values" .Values) | nindent 8 }}
         {{- with .Values.kubescape.podAnnotations }}{{- toYaml . | nindent 8 }}{{- end }}
-        checksum/host-scanner-configmap: {{ $checksums.hostScannerConfig }}
         checksum/cloud-secret: {{ $checksums.cloudSecret }}
         checksum/cloud-config: {{ $checksums.cloudConfig }}
       {{- if ne .Values.global.proxySecretFile "" }}
@@ -129,19 +128,12 @@ spec:
             resourceFieldRef:
               resource: limits.memory
               divisor: '1'
-        - name: GOMAXPROCS
-          valueFrom:
-            resourceFieldRef:
-              resource: limits.cpu
-              divisor: '1'
         - name: KS_LOGGER_LEVEL
           value: "{{ .Values.logger.level }}"
         - name: KS_LOGGER_NAME
           value: "{{ .Values.logger.name }}"
         - name: KS_DOWNLOAD_ARTIFACTS  # When set to true the artifacts will be downloaded every scan execution
           value: "{{ .Values.kubescape.downloadArtifacts }}"
-        - name: RULE_PROCESSING_GOMAXPROCS
-          value: "{{ .Values.kubescape.ruleProcessingConcurrency }}"
         - name: KS_DEFAULT_CONFIGMAP_NAME
           value: "{{ .Values.kubescape.name }}-config"
         - name: KS_DEFAULT_CONFIGMAP_NAMESPACE
@@ -153,7 +145,7 @@ spec:
         - name: KS_DEFAULT_CLOUD_CONFIGMAP_NAME
           value: {{ .Values.global.cloudConfig }}
         - name: KS_ENABLE_HOST_SCANNER
-          value: "{{ $components.hostScanner.enabled }}"
+          value: "{{ .Values.nodeAgent.config.hostSensor.enabled }}"
         - name: KS_SKIP_UPDATE_CHECK
           value: "{{ .Values.kubescape.skipUpdateCheck }}"
         - name: KS_HOST_SCAN_YAML

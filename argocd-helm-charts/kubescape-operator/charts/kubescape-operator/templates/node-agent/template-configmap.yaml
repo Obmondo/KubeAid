@@ -40,6 +40,6 @@ data:
         "resources" nil
         "nodeSelector" nil
         "includeClamAV" false
-        "includeSbomScanner" false
+        "includeSbomScanner" $components.sbomScanner.enabled
       ) | nindent 6 }}
 {{- end }}

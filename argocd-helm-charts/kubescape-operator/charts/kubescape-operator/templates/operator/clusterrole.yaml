@@ -41,9 +41,9 @@ rules:
   - apiGroups: ["kubescape.io"]
     resources: ["operatorcommands/status"]
     verbs: ["get", "watch", "list", "update", "patch"]
-{{- if eq .Values.capabilities.riskAcceptance "enable" }}
+  {{- if eq .Values.capabilities.riskAcceptance "enable" }}
   - apiGroups: ["kubescape.io"]
     resources: ["securityexceptions", "clustersecurityexceptions"]
     verbs: ["get", "list", "watch"]
-{{- end }}
   {{- end }}
+{{- end }}

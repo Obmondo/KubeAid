@@ -43,3 +43,14 @@ To enable scanning of private images, either:
 - Enable cluster-wide secret access: Set global.enableClusterWideSecretAccess: true
 {{- end }}
 
+{{- $legacyAdmissionSvc := .Values.operator.admissionService | default dict }}
+{{- if or $legacyAdmissionSvc.type $legacyAdmissionSvc.port $legacyAdmissionSvc.targetPort $legacyAdmissionSvc.annotations }}
+
+WARNING: operator.admissionService.* is deprecated and will be removed in a future release.
+Please migrate any overrides to operator.admissionWebhooks.service.*:
+  - operator.admissionService.type        -> operator.admissionWebhooks.service.type
+  - operator.admissionService.port        -> operator.admissionWebhooks.service.port
+  - operator.admissionService.targetPort  -> operator.admissionWebhooks.service.targetPort
+  - operator.admissionService.annotations -> operator.admissionWebhooks.service.annotations
+{{- end }}
+

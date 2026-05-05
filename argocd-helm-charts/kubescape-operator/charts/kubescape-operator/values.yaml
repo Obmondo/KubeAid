@@ -22,6 +22,11 @@ ksLabel: kubescape
 additionalAnnotations: {}
 additionalLabels: {}
 
+# Certificate handling for the admission webhook and storage mTLS endpoints.
+# Use `template` for the fastest Helm installs, and `hook` for ArgoCD/GitOps-safe runtime cert generation.
+certificates:
+  strategy: template
+
 # global logger name and level
 # the logger level and name are mapped to environment variables in each component
 logger:
@@ -52,10 +57,12 @@ customScheduling:
     # Set tolerations for nodes here
   priorityClassName: ""
 
-# -- set the image pull secrets for private registry support
+# -- reference to an exsiting image pull secret for private registry support.
+# -- can be used in conjunction with `imagePullSecret` below to generate a secret with provided credentials
 imagePullSecrets: ""
 
 # -- (optional) generate image pull secret with the provided credentials. Secret name must be provided in the imagePullSecrets field
+# -- must pass in server, username, and password for the secret to be generated
 imagePullSecret:
   server: ""
   username: ""
@@ -268,7 +275,7 @@ kubescape:
   image:
     # -- source code: https://github.com/kubescape/kubescape/tree/master/httphandler (public repo)
     repository: quay.io/kubescape/kubescape
-    tag: v3.0.48
+    tag: v4.0.6
     pullPolicy: IfNotPresent
 
   nodeSelector:
@@ -330,7 +337,7 @@ operator:
   image:
     # -- source code: https://github.com/kubescape/operator
     repository: quay.io/kubescape/operator
-    tag: v0.2.140
+    tag: v0.2.141
     pullPolicy: IfNotPresent
 
   nodeSelector:
@@ -344,11 +351,39 @@ operator:
     protocol: TCP
     annotations: {}
 
-  admissionService:
-    type: ClusterIP
-    port: 443
-    targetPort: 8443
-    annotations: {}
+  # DEPRECATED: use operator.admissionWebhooks.service.* instead.
+  # If any key under admissionService is set, it takes precedence over the matching
+  # key under admissionWebhooks.service for backward compatibility.
+  # This block will be removed in a future release.
+  admissionService: {}
+  #   type: ClusterIP
+  #   port: 443
+  #   targetPort: 8443
+  #   annotations: {}
+
+  admissionWebhooks:
+    service:
+      type: ClusterIP
+      port: 443
+      targetPort: 8443
+      annotations: {}
+    patch:
+      image:
+        registry: ghcr.io
+        repository: jkroepke/kube-webhook-certgen
+        tag: 1.8.1
+        sha: ""
+        pullPolicy: IfNotPresent
+      resources: {}
+      priorityClassName: ""
+      ttlSecondsAfterFinished: 60
+      annotations: {}
+      #   argocd.argoproj.io/hook: PreSync
+      #   argocd.argoproj.io/hook-delete-policy: HookSucceeded
+      podAnnotations: {}
+      nodeSelector: {}
+      affinity: {}
+      tolerations: []
 
   podAnnotations: {}
   podLabels: {}
@@ -383,10 +418,15 @@ kubevuln:
   # kubevuln Deployment name
   name: kubevuln
 
+  # GOMEMLIMIT as a fraction of resources.limits.memory. 0.8 = 80%.
+  # Lower values give the runtime more headroom; raise toward 1.0 only if
+  # GC is not aggressive enough.
+  gomemlimitPercentage: 0.8
+
   image:
     # -- source code: https://github.com/kubescape/kubevuln
     repository: quay.io/kubescape/kubevuln
-    tag: v0.3.132
+    tag: v0.3.136
     pullPolicy: IfNotPresent
 
   nodeSelector:
@@ -455,43 +495,6 @@ kubevuln:
         cpu: 1000m
         memory: 5Gi
 
-# +++++++++++++++++++++++++++++++ Host-scanner ++++++++++++++++++++++++++++++++++++++++++++++++
-
-hostScanner:
-  name: host-scanner
-  image:
-    # -- source code: https://github.com/kubescape/host-scanner (public repo)
-    repository: quay.io/kubescape/host-scanner
-    tag: v1.0.78
-    pullPolicy: IfNotPresent
-
-  nodeSelector:
-    kubernetes.io/os: linux
-
-  # Additional volumes to be mounted on the Kubescape host scanner
-  volumes: []
-
-  # Additional volumeMounts to be mounted on the Kubescape host scanner
-  volumeMounts: []
-
-  tolerations:
-    # this toleration is to have the DaemonDet runnable on master nodes
-    # remove it if your masters can't run pods
-    - key: node-role.kubernetes.io/control-plane
-      operator: Exists
-      effect: NoSchedule
-    - key: node-role.kubernetes.io/master
-      operator: Exists
-      effect: NoSchedule
-
-  resources:
-    limits:
-      cpu: 0.4m
-      memory: 400Mi
-    requests:
-      cpu: 0.1m
-      memory: 200Mi
-
 # +++++++++++++++++++++++++++++++ Storage ++++++++++++++++++++++++++++++++++++++++++++++++
 
 # Values for the Kubescape Storage service that Kubescape uses for its internal
@@ -501,7 +504,22 @@ storage:
   name: "storage"
   mtls:
     enabled: true
-    certificateValidityInDays: 730
+    certificateValidityInDays: 730 # NOTE: only in effect when certificates.strategy is "template"
+    certgen:
+      image:
+        registry: ghcr.io
+        repository: jkroepke/kube-webhook-certgen
+        tag: 1.8.1
+        sha: ""
+        pullPolicy: IfNotPresent
+      resources: {}
+      priorityClassName: ""
+      ttlSecondsAfterFinished: 60
+      annotations: {}
+      podAnnotations: {}
+      nodeSelector: {}
+      affinity: {}
+      tolerations: []
   serverPort: 8443
   service:
     type: ClusterIP
@@ -511,7 +529,7 @@ storage:
   image:
     # -- source code: https://github.com/kubescape/storage
     repository: quay.io/kubescape/storage
-    tag: v0.0.272
+    tag: v0.0.274
     pullPolicy: IfNotPresent
 
   nodeSelector:
@@ -573,10 +591,14 @@ storage:
 
 nodeAgent:
   name: node-agent
+  # GOMEMLIMIT as a fraction of resources.limits.memory. 0.8 = 80%.
+  # Lower values give the runtime more headroom; raise toward 1.0 only if
+  # GC is not aggressive enough.
+  gomemlimitPercentage: 0.8
   image:
     # -- source code: https://github.com/kubescape/node-agent
     repository: quay.io/kubescape/node-agent
-    tag: v0.3.94
+    tag: v0.3.111
     pullPolicy: IfNotPresent
 
   config:
@@ -602,6 +624,10 @@ nodeAgent:
       ruleCooldownAfterCount: 1
       ruleCooldownOnProfileFailure: true
       ruleCooldownMaxSize: 20000
+    # Host sensor configuration
+    hostSensor:
+      enabled: true
+      interval: 5m # duration string
 
   # GKE Autopilot allowlist
   gke:
@@ -676,7 +702,6 @@ nodeAgent:
     - mountPath: /clamav
       name: clamrun
       # readOnly: false # EmptyDir volume
-
   volumes:
     - hostPath:
         path: /
@@ -709,6 +734,10 @@ nodeAgent:
       name: data
     - emptyDir:
       name: profiles
+    - hostPath:
+        path: /
+        type: Directory
+      name: host-filesystem
 
   affinity:
     nodeAffinity:

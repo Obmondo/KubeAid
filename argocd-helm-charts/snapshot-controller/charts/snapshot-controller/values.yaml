@@ -104,8 +104,7 @@ webhook:
     tlsPrivateKeyFile: /etc/webhook/tls.key
 
   image:
-    # Currently not exposed upstream, so we host it ourselves.
-    repository: ghcr.io/piraeusdatastore/snapshot-conversion-webhook
+    repository: registry.k8s.io/sig-storage/snapshot-conversion-webhook
     pullPolicy: IfNotPresent
     # Overrides the image tag whose default is the chart appVersion.
     tag: ""

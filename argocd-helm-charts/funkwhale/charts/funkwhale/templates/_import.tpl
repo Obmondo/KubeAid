@@ -1,3 +1,71 @@
+{{- define "funkwhale.import-library.pod" -}}
+metadata:
+  labels:
+    {{- include "funkwhale.selectorLabels" . | nindent 4 }}
+    audio.funkwhale/component: importer
+    audio.funkwhale/import-library: {{ .Import.library }}
+spec:
+  containers:
+    - name: importer
+      image: {{ include "funkwhale.imageUri" (merge (dict "Scope" (.Import.image | default .Values.api.image)) .) | quote }}
+      imagePullPolicy: {{ (.Import.image | default (dict)).pullPolicy | default .Values.api.image.pullPolicy | default .Values.image.pullPolicy }}
+      command:
+        - funkwhale-manage
+        - import_files
+        - {{ required "A library ID must be specified" .Import.library | quote }}
+        - "/srv/funkwhale/data/music/{{ .Import.name | default .Import.library }}"
+        - --noinput
+        - --recursive
+      {{- if .Import.watch }}
+        - --watch
+      {{- end }}
+      {{- if .Import.inPlace }}
+        - --in-place
+      {{- end }}
+      {{- if .Import.prune }}
+        - --prune
+      {{- end }}
+      {{- if .Import.replace }}
+        - --replace
+      {{- end }}
+      env:
+        {{ include "funkwhale.envVars" . | nindent 8 }}
+      envFrom:
+      - configMapRef:
+          name: {{ include "funkwhale.fullname" . }}
+      - secretRef:
+          name: {{ include "funkwhale.fullname" . }}
+      {{- with .Values.extraEnvFrom }}
+        {{ . | toYaml | nindent 8 }}
+      {{- end }}
+      volumeMounts:
+        - name: data
+          mountPath: "/srv/funkwhale/data/music/{{ .Import.name | default .Import.library }}"
+        {{- with .Import.subPath }}
+          subPath: {{ . | quote }}
+        {{- end }}
+      resources:
+        {{- toYaml (.Import.resources | default .Values.api.resources) | nindent 8 }}
+{{- if not .Import.watch }}
+  restartPolicy: OnFailure
+{{- end }}
+{{- with (.Import.nodeSelector | default .Values.api.nodeSelector) }}
+  nodeSelector:
+    {{- toYaml . | nindent 4 }}
+{{- end }}
+{{- with (.Import.affinity | default .Values.api.affinity) }}
+  affinity:
+    {{- toYaml . | nindent 4 }}
+{{- end }}
+{{- with (.Import.tolerations | default .Values.api.tolerations) }}
+  tolerations:
+    {{- toYaml . | nindent 4 }}
+{{- end }}
+  volumes:
+    - name: data
+      {{- toYaml (required "A volume definition must be specified" .Import.volume) | nindent 6 }}
+{{- end -}}
+
 {{- define "funkwhale.import-library" -}}
 {{- $name := (.Import.name | default .Import.library) -}}
 {{- if .Import.watch }}
@@ -17,6 +85,19 @@ metadata:
     audio.funkwhale/component: importer
     audio.funkwhale/import-library: {{ .Import.library }}
 spec:
+{{- if .Import.cron }}
+  concurrencyPolicy: Forbid
+  schedule: {{ .Import.cron | quote }}
+  jobTemplate:
+    metadata:
+      labels:
+        {{- include "funkwhale.labels" . | nindent 8 }}
+        audio.funkwhale/component: importer
+        audio.funkwhale/import-library: {{ .Import.library }}
+    spec:
+      template:
+        {{- include "funkwhale.import-library.pod" . | nindent 8 }}
+{{- else }}
 {{- if .Import.watch }}
   replicas: 1
   strategy:
@@ -27,77 +108,10 @@ spec:
       audio.funkwhale/component: importer
       audio.funkwhale/import-library: {{ .Import.library }}
   template:
-{{- else if .Import.cron }}
-  concurrencyPolicy: Forbid
-  schedule: {{ .Import.cron }}
-  jobTemplate:
 {{- else }}
   completions: 1
   template:
 {{- end }}
-    metadata:
-      labels:
-        {{- include "funkwhale.selectorLabels" . | nindent 8 }}
-        audio.funkwhale/component: importer
-        audio.funkwhale/import-library: {{ .Import.library }}
-    spec:
-      containers:
-        - name: importer
-          image: {{ include "funkwhale.imageUri" (merge (dict "Scope" (.Import.image | default .Values.api.image)) .) | quote }}
-          imagePullPolicy: {{ (.Import.image | default (dict)).pullPolicy | default .Values.api.image.pullPolicy | default .Values.image.pullPolicy }}
-          command:
-            - funkwhale-manage
-            - import_files
-            - {{ required "A library ID must be specified" .Import.library | quote }}
-            - "/srv/funkwhale/data/music/{{ .Import.name | default .Import.library }}"
-            - --noinput
-            - --recursive
-          {{- if .Import.watch }}
-            - --watch
-          {{- end }}
-          {{- if .Import.inPlace }}
-            - --in-place
-          {{- end }}
-          {{- if .Import.prune }}
-            - --prune
-          {{- end }}
-          {{- if .Import.replace }}
-            - --replace
-          {{- end }}
-          env:
-            {{ include "funkwhale.envVars" . | nindent 12 }}
-          envFrom:
-          - configMapRef:
-              name: {{ include "funkwhale.fullname" . }}
-          - secretRef:
-              name: {{ include "funkwhale.fullname" . }}
-          {{- with .Values.extraEnvFrom }}
-            {{ . | toYaml | nindent 12 }}
-          {{- end }}
-          volumeMounts:
-            - name: data
-              mountPath: "/srv/funkwhale/data/music/{{ .Import.name | default .Import.library }}"
-            {{- with .Import.subPath }}
-              subPath: {{ . | quote }}
-            {{- end }}
-          resources:
-            {{- toYaml (.Import.resources | default .Values.api.resources) | nindent 12 }}
-    {{- if not .Import.watch }}
-      restartPolicy: OnFailure
-    {{- end }}
-    {{- with (.Import.nodeSelector | default .Values.api.nodeSelector) }}
-      nodeSelector:
-        {{- toYaml . | nindent 8 }}
-    {{- end }}
-    {{- with (.Import.affinity | default .Values.api.affinity) }}
-      affinity:
-        {{- toYaml . | nindent 8 }}
-    {{- end }}
-    {{- with (.Import.tolerations | default .Values.api.tolerations) }}
-      tolerations:
-        {{- toYaml . | nindent 8 }}
-    {{- end }}
-      volumes:
-        - name: data
-          {{- toYaml (required "A volume definition must be specified" .Import.volume) | nindent 10 }}
+    {{- include "funkwhale.import-library.pod" . | nindent 4 }}
+{{- end }}
 {{- end -}}

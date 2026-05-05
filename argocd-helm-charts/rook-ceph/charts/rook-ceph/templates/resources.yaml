@@ -1753,7 +1753,7 @@ spec:
                     pgHealthyRegex:
                       description: |-
                         PgHealthyRegex is the regular expression that is used to determine which PG states should be considered healthy.
-                        The default is `^(active\+clean|active\+clean\+scrubbing|active\+clean\+scrubbing\+deep)$`
+                        The default is `^active(\+(clean|deep|scrubbing|snaptrim|snaptrim_wait))+$`
                       type: string
                   type: object
                 external:
@@ -9342,6 +9342,16 @@ spec:
                   type: string
                   x-kubernetes-validations:
                     - message: ClusterID is immutable
+                      rule: self == oldSelf
+                csiMetadataRadosNamespace:
+                  description: |-
+                    The RADOS namespace ceph-csi uses for additional metadata it stores in the metadata pool of the CephFS.
+                    If not specified the default of the ceph-csi driver is used.
+                  maxLength: 1024
+                  minLength: 1
+                  type: string
+                  x-kubernetes-validations:
+                    - message: CSIMetadataRadosNamespace is immutable
                       rule: self == oldSelf
                 dataPoolName:
                   description: The data pool name for the Ceph Filesystem subvolume group layout, if the default CephFS pool is not desired.

@@ -5,5 +5,5 @@ version: 0.1.0
 # see latest chart (and appversion) here: https://github.com/strimzi/strimzi-kafka-operator
 dependencies:
   - name: strimzi-kafka-operator
-    version: 0.51.0
+    version: 1.0.0
     repository: https://strimzi.io/charts/

@@ -7,7 +7,6 @@
 capabilitiesConfig: {{ include (printf "%s/%s/%s" $.Template.BasePath $.Values.global.configMapsDirectory "components-configmap.yaml") . | replace .Chart.AppVersion "" | sha256sum }}
 cloudConfig: {{ include (printf "%s/%s/%s" $.Template.BasePath $.Values.global.configMapsDirectory "cloudapi-configmap.yaml") . | replace .Chart.AppVersion "" | sha256sum }}
 cloudSecret: {{ include (printf "%s/%s/%s" $.Template.BasePath $.Values.global.configMapsDirectory "cloud-secret.yaml" ) . | replace .Chart.AppVersion "" | sha256sum }}
-hostScannerConfig: {{ include (printf "%s/kubescape/host-scanner-definition-configmap.yaml" $.Template.BasePath ) . | replace .Chart.AppVersion "" | sha256sum }}
 matchingRulesConfig: {{ include (printf "%s/%s/%s" $.Template.BasePath $.Values.global.configMapsDirectory "matchingRules-configmap.yaml") . | replace .Chart.AppVersion "" | sha256sum }}
 nodeAgentConfig: {{ include (printf "%s/node-agent/configmap.yaml" $.Template.BasePath) . | replace .Chart.AppVersion "" | sha256sum }}
 operatorConfig: {{ include (printf "%s/operator/configmap.yaml" $.Template.BasePath) . | replace .Chart.AppVersion "" | sha256sum }}
@@ -50,8 +49,6 @@ submit: {{ $submit }}
 {{- $nodeScanEnabled := and (eq .Values.capabilities.nodeScan "enable") (not $configurations.backendStorageEnabled) }}
 {{- $configurationScanEnabled := and (eq .Values.capabilities.configurationScan "enable") (not $configurations.backendStorageEnabled) }}
 {{- $vulnerabilityScanEnabled := and (eq .Values.capabilities.vulnerabilityScan "enable") (not $configurations.backendStorageEnabled) }}
-hostScanner:
-  enabled: {{ $nodeScanEnabled }}
 kubescape:
   enabled: {{ $configurationScanEnabled }}
 kubescapeScheduler:
@@ -95,30 +92,10 @@ autoUpdater:
   enabled: {{ eq .Values.capabilities.autoUpgrading "enable" }}
 {{- end -}}
 
-{{- define "admission-certificates" -}}
-{{- $svcName := (printf "kubescape-admission-webhook.%s.svc" .Values.ksNamespace) -}}
-{{- $ca := dict "Key" "mock-ca-key" "Cert" "mock-ca-cert" -}}
-{{- $cert := dict "Key" "mock-cert-key" "Cert" "mock-cert-cert" -}}
-{{- if not .Values.unittest }}
-  {{- $existingCASecret := (lookup "v1" "Secret" .Values.ksNamespace "kubescape-admission-ca") -}}
-  {{- if and $existingCASecret $existingCASecret.data -}}
-    {{- $_ := set $ca "Key" (index $existingCASecret.data "tls.key" | b64dec) -}}
-    {{- $_ := set $ca "Cert" (index $existingCASecret.data "tls.crt" | b64dec) -}}
-    {{- $existingCA := buildCustomCert ($ca.Cert | b64enc) ($ca.Key | b64enc) -}}
-    {{/* Leaf cert validity: 10 years (3650 days). After expiry, delete the kubescape-admission-ca Secret and run helm upgrade to regenerate. */}}
-    {{- $generatedCert := genSignedCert $svcName nil (list $svcName) 3650 $existingCA -}}
-    {{- $_ := set $cert "Key" $generatedCert.Key -}}
-    {{- $_ := set $cert "Cert" $generatedCert.Cert -}}
-  {{- else -}}
-    {{/* CA and leaf cert validity: 10 years (3650 days). After expiry, delete the kubescape-admission-ca Secret and run helm upgrade to regenerate. */}}
-    {{- $generatedCA := genCA (printf "*.%s.svc" .Values.ksNamespace) 3650 -}}
-    {{- $generatedCert := genSignedCert $svcName nil (list $svcName) 3650 $generatedCA -}}
-    {{- $_ := set $ca "Key" $generatedCA.Key -}}
-    {{- $_ := set $ca "Cert" $generatedCA.Cert -}}
-    {{- $_ := set $cert "Key" $generatedCert.Key -}}
-    {{- $_ := set $cert "Cert" $generatedCert.Cert -}}
-  {{- end -}}
+{{- define "kubescape.certificates.strategy" -}}
+{{- $strategy := default "template" .Values.certificates.strategy -}}
+{{- if not (has $strategy (list "template" "hook")) -}}
+{{- fail (printf "certificates.strategy must be one of [template, hook], got %q" $strategy) -}}
 {{- end -}}
-{{- $certData := dict "ca" $ca "cert" $cert -}}
-{{- toYaml $certData -}}
-{{- end -}}
+{{- $strategy -}}
+{{- end }}

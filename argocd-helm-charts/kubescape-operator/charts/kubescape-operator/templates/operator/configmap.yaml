@@ -41,7 +41,7 @@ data:
         },
         "minResources": {
           "cpu": "{{ .Values.nodeAgent.autoscaler.minResources.cpu }}",
-          "memory": {{ if and .Values.capabilities.nodeSbomGeneration (eq .Values.nodeAgent.autoscaler.minResources.memory "180Mi") }}"600Mi"{{ else }}"{{ .Values.nodeAgent.autoscaler.minResources.memory }}"{{ end }}
+          "memory": {{ if and (eq .Values.capabilities.nodeSbomGeneration "enable") (not $components.sbomScanner.enabled) (eq .Values.nodeAgent.autoscaler.minResources.memory "180Mi") }}"600Mi"{{ else }}"{{ .Values.nodeAgent.autoscaler.minResources.memory }}"{{ end }}
         },
         "maxResources": {
           "cpu": "{{ .Values.nodeAgent.autoscaler.maxResources.cpu }}",
@@ -49,7 +49,8 @@ data:
         },
         "reconcileInterval": "{{ .Values.nodeAgent.autoscaler.reconcileInterval }}",
         "templatePath": "/etc/templates/daemonset-template.yaml",
-        "operatorDeploymentName": "{{ .Values.operator.name }}"
+        "operatorDeploymentName": "{{ .Values.operator.name }}",
+        "goMemLimitPercentage": {{ .Values.nodeAgent.gomemlimitPercentage }}
       }
         {{- if and .Values.imageScanning.privateRegistries.credentials (gt (len .Values.imageScanning.privateRegistries.credentials) 0) }}
         {{- $cred := index .Values.imageScanning.privateRegistries.credentials 0 }}

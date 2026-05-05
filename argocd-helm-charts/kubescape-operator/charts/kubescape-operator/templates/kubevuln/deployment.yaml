@@ -113,16 +113,10 @@ spec:
           resources:
 {{ toYaml .Values.kubevuln.resources | indent 12 }}
           env:
+            {{- if .Values.kubevuln.resources.limits.memory }}
             - name: GOMEMLIMIT
-              valueFrom:
-                resourceFieldRef:
-                  resource: limits.memory
-                  divisor: '1'
-            - name: GOMAXPROCS
-              valueFrom:
-                resourceFieldRef:
-                  resource: limits.cpu
-                  divisor: '1'
+              value: {{ include "kubescape-operator.gomemlimit" (dict "memory" .Values.kubevuln.resources.limits.memory "percentage" .Values.kubevuln.gomemlimitPercentage) | quote }}
+            {{- end }}
             - name: KS_LOGGER_LEVEL
               value: "{{ .Values.logger.level }}"
             - name: KS_LOGGER_NAME
@@ -222,12 +216,10 @@ spec:
           resources:
 {{ toYaml .Values.kubevuln.sbomScanner.resources | indent 12 }}
           env:
+            {{- if .Values.kubevuln.sbomScanner.resources.limits.memory }}
             - name: GOMEMLIMIT
-              valueFrom:
-                resourceFieldRef:
-                  resource: limits.memory
-                  containerName: sbom-scanner
-                  divisor: '1'
+              value: {{ include "kubescape-operator.gomemlimit" (dict "memory" .Values.kubevuln.sbomScanner.resources.limits.memory "percentage" .Values.kubevuln.gomemlimitPercentage) | quote }}
+            {{- end }}
             - name: SOCKET_PATH
               value: "/sbom-comm/scanner.sock"
             - name: KS_LOGGER_LEVEL

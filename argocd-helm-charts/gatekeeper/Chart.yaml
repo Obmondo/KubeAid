@@ -3,5 +3,5 @@ name: gatekeeper
 version: 3.11.0
 dependencies:
   - name: gatekeeper
-    version: 3.22.0
+    version: 3.22.2
     repository: https://open-policy-agent.github.io/gatekeeper/charts

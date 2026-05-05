@@ -29,6 +29,8 @@ data:
         "malwareDetectionEnabled": {{ eq .Values.capabilities.malwareDetection "enable" }},
         "hostMalwareSensorEnabled": {{ eq .Values.nodeAgent.config.hostMalwareSensor "enable" }},
         "hostNetworkSensorEnabled": {{ eq .Values.nodeAgent.config.hostNetworkSensor "enable" }},
+        "hostSensorEnabled": {{ .Values.nodeAgent.config.hostSensor.enabled }},
+        "hostSensorInterval": "{{ .Values.nodeAgent.config.hostSensor.interval }}",
         "nodeProfileServiceEnabled": {{ and $components.synchronizer.enabled (eq .Values.capabilities.nodeProfileService "enable") }},
         "networkStreamingEnabled": {{ and $configurations.submit (eq .Values.capabilities.networkEventsStreaming "enable") }},
         "maxImageSize": {{ .Values.kubevuln.config.maxImageSize }},

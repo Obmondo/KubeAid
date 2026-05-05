@@ -1,0 +1,17 @@
+{{- $components := fromYaml (include "components" .) }}
+{{- if and $components.storage.enabled .Values.storage.mtls.enabled (eq (include "kubescape.certificates.strategy" .) "hook") }}
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ include "storage.certgen.clusterScopedName" . }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade,post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- include "kubescape-operator.annotations" (dict "Values" .Values) | nindent 4 }}
+  labels:
+    {{- include "kubescape-operator.labels" (dict "Chart" .Chart "Release" .Release "Values" .Values "app" (include "storage.certgen.name" .) "tier" .Values.global.namespaceTier) | nindent 4 }}
+rules:
+  - apiGroups: ["apiregistration.k8s.io"]
+    resources: ["apiservices"]
+    verbs: ["get", "update", "patch"]
+{{- end }}

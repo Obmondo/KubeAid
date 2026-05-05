@@ -82,11 +82,6 @@ spec:
             resourceFieldRef:
               resource: limits.memory
               divisor: '1'
-        - name: GOMAXPROCS
-          valueFrom:
-            resourceFieldRef:
-              resource: limits.cpu
-              divisor: '1'
         - name: GOGC
           value: "80"
         {{- if ne .Values.global.httpsProxy "" }}

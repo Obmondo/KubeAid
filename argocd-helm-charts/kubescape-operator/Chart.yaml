@@ -3,5 +3,5 @@ name: kubescape-operator
 version: 1.0.0
 dependencies:
   - name: kubescape-operator
-    version: 1.30.7
+    version: 1.40.0
     repository: https://kubescape.github.io/helm-charts/

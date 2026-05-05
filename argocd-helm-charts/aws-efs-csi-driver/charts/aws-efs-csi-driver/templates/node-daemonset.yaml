@@ -93,6 +93,8 @@ spec:
             - --force-unmount-after-timeout={{ hasKey .Values.node "forceUnmountAfterTimeout" | ternary .Values.node.forceUnmountAfterTimeout false }}
             - --unmount-timeout={{ hasKey .Values.node "unmountTimeout" | ternary .Values.node.unmountTimeout "30s" }}
             - --debug-logs={{ .Values.debugLogs }}
+            - --efs-cloudwatch-log-enabled={{ hasKey .Values.node "efsCloudWatchLogEnabled" | ternary .Values.node.efsCloudWatchLogEnabled false }}
+            - --s3files-cloudwatch-log-enabled={{ hasKey .Values.node "s3filesCloudWatchLogEnabled" | ternary .Values.node.s3filesCloudWatchLogEnabled true }}
           env:
             - name: CSI_ENDPOINT
               value: unix:/csi/csi.sock

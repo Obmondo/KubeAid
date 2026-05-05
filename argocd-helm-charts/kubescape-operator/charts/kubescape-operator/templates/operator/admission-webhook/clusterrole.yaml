@@ -1,0 +1,17 @@
+{{- $components := fromYaml (include "components" .) }}
+{{- if and $components.operator.enabled (eq .Values.capabilities.admissionController "enable") (eq (include "kubescape.certificates.strategy" .) "hook") }}
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ include "kubescape-admission.clusterScopedName" . }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade,post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- include "kubescape-operator.annotations" (dict "Values" .Values) | nindent 4 }}
+  labels:
+    {{- include "kubescape-operator.labels" (dict "Chart" .Chart "Release" .Release "Values" .Values "app" (include "kubescape-admission.name" .) "tier" .Values.global.namespaceTier) | nindent 4 }}
+rules:
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["validatingwebhookconfigurations"]
+    verbs: ["get", "update", "patch"]
+{{- end }}

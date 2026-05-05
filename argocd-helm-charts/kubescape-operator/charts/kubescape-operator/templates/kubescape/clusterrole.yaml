@@ -86,4 +86,20 @@ rules:
 - apiGroups: ["kubescape.io"]
   resources: ["servicesscanresults"]
   verbs: ["get", "watch", "list"]
+{{- if .Values.nodeAgent.config.hostSensor.enabled }}
+- apiGroups: ["hostdata.kubescape.cloud"]
+  resources:
+    - osreleasefiles
+    - kernelversions
+    - linuxsecurityhardeningstatuses
+    - openportslists
+    - linuxkernelvariables
+    - kubeletinfos
+    - kubeproxyinfos
+    - controlplaneinfos
+    - cloudproviderinfos
+    - cniinfos
+  verbs: ["get", "list", "watch"]
+{{- end }}
+
 {{ end }}

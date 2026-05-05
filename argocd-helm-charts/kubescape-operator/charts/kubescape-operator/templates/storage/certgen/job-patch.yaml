@@ -1,0 +1,87 @@
+{{- $components := fromYaml (include "components" .) }}
+{{- if and $components.storage.enabled .Values.storage.mtls.enabled (eq (include "kubescape.certificates.strategy" .) "hook") }}
+{{- $registry := .Values.storage.mtls.certgen.image.registry }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name:  {{ include "storage.certgen.name" . }}-patch
+  namespace: {{ .Values.ksNamespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- include "kubescape-operator.annotations" (dict "Values" .Values) | nindent 4 }}
+    {{- with .Values.storage.mtls.certgen.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  labels:
+    {{- include "kubescape-operator.labels" (dict "Chart" .Chart "Release" .Release "Values" .Values "app" (include "storage.certgen.name" .) "tier" .Values.global.namespaceTier) | nindent 4 }}
+spec:
+  ttlSecondsAfterFinished: {{ .Values.storage.mtls.certgen.ttlSecondsAfterFinished }}
+  template:
+    metadata:
+      name:  {{ include "storage.certgen.name" . }}-patch
+{{- with .Values.storage.mtls.certgen.podAnnotations }}
+      annotations:
+{{ toYaml .  | indent 8 }}
+{{- end }}
+      labels:
+        {{- include "kubescape-operator.labels" (dict "Chart" .Chart "Release" .Release "Values" .Values "app" (printf "%s-patch" (include "storage.certgen.name" .)) "tier" .Values.global.namespaceTier) | nindent 8 }}
+    spec:
+      {{- if .Values.storage.mtls.certgen.priorityClassName }}
+      priorityClassName: {{ .Values.storage.mtls.certgen.priorityClassName }}
+      {{- end }}
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+      {{- if kindIs "string" .Values.imagePullSecrets }}
+      - name: {{ .Values.imagePullSecrets }}
+      {{- else }}
+      {{- range .Values.imagePullSecrets }}
+      - name: {{ . }}
+      {{- end }}
+      {{- end }}
+      {{- end }}
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+        runAsUser: 65532
+        fsGroup: 65532
+      containers:
+        - name: storage-certgen-patch
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+          {{- if .Values.storage.mtls.certgen.image.sha }}
+          image: {{ $registry }}/{{ .Values.storage.mtls.certgen.image.repository }}:{{ .Values.storage.mtls.certgen.image.tag }}@sha256:{{ .Values.storage.mtls.certgen.image.sha }}
+          {{- else }}
+          image: {{ $registry }}/{{ .Values.storage.mtls.certgen.image.repository }}:{{ .Values.storage.mtls.certgen.image.tag }}
+          {{- end }}
+          imagePullPolicy: {{ .Values.storage.mtls.certgen.image.pullPolicy }}
+          args:
+            - patch
+            - --apiservice-name={{ include "storage.apiServiceName" . }}
+            - --namespace={{ .Values.ksNamespace }}
+            - --secret-name={{ include "storage.certgen.secretName" . }}
+            - --ca-name=ca.crt
+            - --patch-validating=false
+            - --patch-mutating=false
+          resources:
+{{ toYaml .Values.storage.mtls.certgen.resources | indent 12 }}
+      restartPolicy: OnFailure
+      serviceAccountName: {{ include "storage.certgen.name" . }}
+      {{- with .Values.storage.mtls.certgen.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+      {{- end }}
+      {{- with .Values.storage.mtls.certgen.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+      {{- end }}
+      {{- with .Values.storage.mtls.certgen.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+      {{- end }}
+{{- end }}
