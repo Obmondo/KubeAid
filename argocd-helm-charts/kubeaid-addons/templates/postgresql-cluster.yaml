@@ -13,9 +13,6 @@ metadata:
 spec:
   instances: {{ $postgresql.instances }}
 
-
-  imageName: ghcr.io/cloudnative-pg/postgresql:18.1-system-trixie
-
   inheritedMetadata:
     labels:
       velero.io/exclude-from-backup: "true"
@@ -60,6 +57,8 @@ spec:
           serverName: "revision-{{ $postgresql.recover.revision }}"
   {{- end }}
 
+  # Latest Official CNPG docs recommends disabling below setting within kind: Cluster resource and using a Kind: PodMonitor resource separately
+  # Ref - https://cloudnative-pg.io/docs/1.29/monitoring/#deprecation-of-automatic-podmonitor-creation
   monitoring:
     enablePodMonitor: false
 {{- end }}
