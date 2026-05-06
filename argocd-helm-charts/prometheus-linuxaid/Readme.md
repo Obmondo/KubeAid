@@ -31,9 +31,18 @@ mysql: https://github.com/percona/grafana-dashboards/blob/main/dashboards/MySQL/
   # cat /tmp/posgres.json | gzip | base64 -w0 | xclip -selection clipboard -i
   ```
 
+## Alert Validation Requirement
+
+If you want to connect this Prometheus instance to `Opsmondo`, set `connect_obmondo: true` and configure `customerid` in `values.yaml`:
+
+```yaml
+prometheus:
+  connect_obmondo: true
+  customerid: <your-customer-id> # e.g., "cust123"
+```
+
 ## TODO
 
-* fail if no customer-id is given
 * validate dashboard maybe ?
 * allow customer to add their own dashboard (this is should be top prio)
 * promtool rule validate

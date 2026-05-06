@@ -18,6 +18,8 @@ prometheus:
     requests:
       cpu: 600m
       memory: 2Gi
+  customerid: ""
+  connect_obmondo: false
   # in prometheus pods that takes some recovery time due to large number of WALs we need to increase the probe time.
   # ref. - https://github.com/prometheus-operator/prometheus-operator/blob/378d36df448366414de53a66a64020cd053002b7/pkg/prometheus/statefulset.go#L641-L643
   startupProbe:
