@@ -107,6 +107,34 @@
           "title": "endpoint",
           "type": "object"
         },
+        "extraCertSANs": {
+          "description": "Extra DNS names included in the apiserver TLS cert SAN list, alongside controlPlane.endpoint.host. Used for in-mesh hostnames clients reach the apiserver under (e.g. NetBird-form names).",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "extraCertSANs",
+          "type": "array"
+        },
+        "loadBalancer": {
+          "additionalProperties": false,
+          "description": "Runtime info about the control-plane LB, populated by kubeaid-cli after pre-provisioning. Distinct from controlPlane.hcloud.loadBalancer (chart-time config knobs).",
+          "properties": {
+            "privateIP": {
+              "description": "Private (Hetzner Network) IP of the control-plane LB. Used by the postKubeadmCommand that patches kube-system/coredns to resolve controlPlane.endpoint.host.",
+              "title": "privateIP",
+              "type": "string"
+            },
+            "bootstrapPublicIP": {
+              "description": "Public IP the LB carries during the bootstrap window only (removed once NetBird is up). Optional; included in the CoreDNS hosts entry while present so clients off the mesh can reach apiserver during bootstrap.",
+              "title": "bootstrapPublicIP",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "loadBalancer",
+          "type": "object"
+        },
         "hcloud": {
           "additionalProperties": false,
           "properties": {

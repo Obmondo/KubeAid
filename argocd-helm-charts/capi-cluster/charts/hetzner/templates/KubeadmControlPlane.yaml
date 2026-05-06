@@ -31,6 +31,17 @@ spec:
           tls-cert-file: /etc/kubernetes/pki/apiserver.crt
           tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
           tls-private-key-file: /etc/kubernetes/pki/apiserver.key
+        {{/* certSANs lets clients reach kube-apiserver under names other
+             than controlPlaneEndpoint.host without tripping x509 errors.
+             Includes the LB endpoint hostname plus any operator-supplied
+             extras (e.g. the NetBird-mesh form like "netbird.k8s-api"). */}}
+        {{- if (.Values.controlPlane.endpoint).host }}
+        certSANs:
+          - {{ .Values.controlPlane.endpoint.host }}
+          {{- range .Values.controlPlane.extraCertSANs }}
+          - {{ . }}
+          {{- end }}
+        {{- end }}
       controllerManager:
         extraArgs:
           allocate-node-cidrs: "true"
