@@ -9,6 +9,87 @@ This document outlines the steps to customize the Helm installation for Coturn a
 Refer the example [values.yaml](./examples/values.yaml) for additional configurations.
 You can simply copy-paste the values file in your kubeaid-config, and replace the necessary values to get Netbird working.
 
+### Keycloak realm prerequisites
+
+NetBird Mgmt and the cluster's `kube-apiserver` both authenticate users against
+the same Keycloak realm via OIDC. The realm needs a specific set of clients,
+one client scope, an audience mapper, and one service-account role grant
+before NetBird Mgmt and `kubelogin` will work.
+
+When `kubeaid-cli` is run with `cluster.keycloak.mode: managed`, it creates
+all of this automatically through the Keycloak admin API. **In `mode: external`
+(or when not using `kubeaid-cli` at all) the realm has to be configured by
+hand** — replicate the resources below in your existing Keycloak.
+
+NetBird's own [Keycloak IdP guide](https://docs.netbird.io/selfhosted/identity-providers#keycloak)
+covers the upstream UI flow; the list here is the kubeaid-specific overlay
+(audience scope, kubelogin redirect URIs, `view-users` grant) that NetBird's
+docs don't include.
+
+#### Clients
+
+| Client ID | Access Type | Standard flow | Service Accounts | Used for |
+|---|---|---|---|---|
+| `netbird-client`              | public (PKCE)              | enabled  | — | NetBird Mgmt UI browser SSO |
+| `netbird-backend`             | confidential (with secret) | disabled | enabled | NetBird Mgmt → Keycloak admin API for user lookup |
+| `kubernetes-<cluster-name>`   | public (PKCE)              | enabled  | — | `kubelogin` (kube-apiserver `--oidc-client-id`) |
+
+For `netbird-client`:
+
+- **Valid Redirect URIs**: `https://<netbird-mgmt-host>/*` (e.g. `https://vpn.example.com/*`)
+- **Web Origins**: `https://<netbird-mgmt-host>`
+
+For `netbird-backend`:
+
+- **Standard Flow Enabled**: off
+- **Direct Access Grants Enabled**: off
+- **Service Accounts Enabled**: on (required — its auto-created
+  service-account user is what gets the `view-users` role below)
+- Copy the generated **Client Secret** into the NetBird Mgmt values
+  (`netbird.management.idpManagerConfig.clientSecret`).
+
+For `kubernetes-<cluster-name>`:
+
+- **Valid Redirect URIs**: `http://localhost:8000`, `http://localhost:18000`
+  (kubelogin's default callback ports). Add more if your operators use
+  different `--listen-port` values.
+
+#### Client scope: `api`
+
+Create a single client scope shared by all three clients above:
+
+- **Name**: `api`
+- **Protocol**: `openid-connect`
+- **Description**: `NetBird Management API audience`
+
+Attach it as a **Default Client Scope** to `netbird-client`,
+`netbird-backend`, and `kubernetes-<cluster-name>`.
+
+#### Protocol mapper on the `api` scope
+
+On the `api` client scope, add one mapper:
+
+- **Name**: `Audience for NetBird Management API`
+- **Mapper Type**: `Audience`
+- **Included Custom Audience**: `https://<netbird-mgmt-host>` (matches the
+  `netbird-client` Web Origins entry)
+- **Add to ID token**: on
+- **Add to access token**: on
+
+This is what asserts the `aud` claim on tokens NetBird Mgmt receives.
+
+#### Service-account role grant
+
+`netbird-backend` needs `view-users` on the realm-management client so it
+can resolve user identities through Keycloak's admin API:
+
+1. Open the `netbird-backend` client → **Service Account Roles** tab.
+2. Set **Client Roles** to `realm-management`.
+3. Add the `view-users` role from **Available Roles** to **Assigned Roles**.
+
+Without this grant NetBird Mgmt logs `unable to get keycloak token,
+statusCode 401` (see Troubleshooting below).
+
 ### Set Up Ingress for Netbird Services
 
 This will use gRPC protocol.
