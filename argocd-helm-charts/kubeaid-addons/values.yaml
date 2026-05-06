@@ -159,17 +159,6 @@ global:
     # -- Secret containing the application user password.
     passwordSecretName: ""
 
-    # -- PVC size for the MongoDB logs volume.
-    size: 2Gi
-
-    # -- Resource requests and limits for the mongod container.
-    resources:
-      requests:
-        cpu: 100m
-        memory: 1Gi
-      limits:
-        memory: 2Gi
-
     # -- Additional labels added to MongoDB pods. Built-in labels are also added.
     podLabels: {}
 
@@ -188,14 +177,6 @@ global:
     # -- Optional MongoDB operator pod selector if you need explicit operator-to-db traffic.
     operator:
       selectorLabels: {}
-
-    # -- Logical backup configuration that uses ghcr.io/obmondo/mongodb-backup.
-    logicalbackup:
-      enabled: false
-      schedule: "45 03 * * *"
-      secretName: mongodbbackup
-      provider: az
-      awsAccessKeyIdSecretName: awsaccesskeyid
 
   # rabbitmq
   # Provisions a RabbitmqCluster resource.
@@ -273,33 +254,7 @@ global:
 
   graylog:
     # -- Enable CiliumNetworkPolicy for Graylog.
-    # Egress to MongoDB and OpenSearch uses hardcoded labels.
-    # kube-apiserver egress is always allowed.
     netpol: false
-    releaseName: "graylog"
-    # -- Graylog replicas. If >1, allow Graylog-to-Graylog cluster communication.
-    replicas: 1
-
-    # -- Optional list of additional input ports to allow for ingestion.
-    # Each entry is { port: <number>, protocol: TCP|UDP }. Protocol is required.
-    inputPorts: []
-
-    # -- Allowed ingestion clients. Each entry is
-    # { namespace: "<ns>" (optional), labels: { ... } }.
-    # If empty, no ingestion rules are rendered.
-    ingestors: []
-
-    # -- Metrics scraping allowlist for Prometheus.
-    metrics:
-      enabled: false
-      namespace: monitoring
-      labels: {}
-
-    # -- Optional SMTP egress (if Graylog email alerts are enabled).
-    smtp:
-      enabled: false
-      fqdns: []
-      port: 587
 
   mongodb:
     enabled: false

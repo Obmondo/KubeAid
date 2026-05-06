@@ -16,12 +16,11 @@ spec:
     spec:
       template:
         metadata:
-          labels:
             app.kubernetes.io/name: mongodb
             app.kubernetes.io/instance: {{ .Values.global.mongodb.instanceName }}
             app.kubernetes.io/component: database
-            {{- with .Values.global.mongodb.podLabels }}
-            {{- toYaml . | nindent 12 }}
+            {{- range $key, $val := .Values.global.mongodb.podLabels }}
+            {{ $key }}: {{ $val }}
             {{- end }}
         spec:
           serviceAccountName: {{ .Values.global.mongodb.serviceAccountName }}
