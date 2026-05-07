@@ -33,13 +33,15 @@ mysql: https://github.com/percona/grafana-dashboards/blob/main/dashboards/MySQL/
 
 ## Alert Validation Requirement
 
-If you want to connect this Prometheus instance to `Opsmondo`, set `connect_obmondo: true` and configure `customerid` in `values.yaml`:
+If you want to connect this Prometheus instance to `Opsmondo`, set `connect_obmondo: true` and configure the subscribed `subscribed-certname` (the full certname) and `customerid` in `values.yaml`:
 
 ```yaml
 prometheus:
   connect_obmondo: true
-  customerid: <your-customer-id> # e.g., "cust123"
+  subscribed-certname: <your-subscribed-certname> # e.g., "puppetserver-gn.7e..."
+  customerid: <your-customer-id> # e.g., "7e..."
 ```
+
 
 ## TODO
 
