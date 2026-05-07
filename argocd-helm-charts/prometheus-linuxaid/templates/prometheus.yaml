@@ -65,4 +65,14 @@ spec:
     readinessProbe:
       failureThreshold: {{ .Values.prometheus.readinessProbe.failureThreshold }}
   version: {{ .Values.prometheus.version }}
+  {{- if .Values.prometheus.connect_obmondo }}
+  {{- if not .Values.prometheus.customerid }}
+  {{- fail "prometheus.customerid must be set when connect_obmondo is true" }}
+  {{- end }}
+  {{- end }}
+  externalLabels:
+    product: linuxaid
+    {{- if .Values.prometheus.connect_obmondo }}
+    certname: obmondomon.{{ .Values.prometheus.customerid }}
+    {{- end }}
   enableRemoteWriteReceiver: true
