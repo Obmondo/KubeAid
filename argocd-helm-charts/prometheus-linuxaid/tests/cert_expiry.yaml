@@ -1,5 +1,5 @@
 ---
-evaluation_interval: 12h
+evaluation_interval: 1d
 
 rule_files:
   - ../rules/cert_expiry.yaml

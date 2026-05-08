@@ -23,7 +23,7 @@ groups:
     annotations:
       description: The Kubernetes version on the cluster **{{ .Labels.certname }}** (that is version **{{ .Labels.current_version }}**) is **{{ .Value }}** days away from its end of life date which is **{{ .Labels.end_of_life_date }}**. You really should upgrade soon. Please visit https://kubernetes.io/releases/patch-releases/ for more version related information.
       summary: Kubernetes version is close to end of life.
-    expr: count by (certname, current_version, end_of_life_date) (kubernetes_version_info_eol <= 60 and kubernetes_version_info_eol > 0)
+    expr: max by (certname, current_version, end_of_life_date) ( kubernetes_version_info_eol) <= 60
     for: 15m
     labels:
       alert_id: KubernetesVersionInfoEol
