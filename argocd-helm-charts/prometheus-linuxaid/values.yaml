@@ -18,6 +18,7 @@ prometheus:
     requests:
       cpu: 600m
       memory: 2Gi
+  subscribed-certname: "" # Subscribed certname
   customerid: ""
   connect_obmondo: false
   # in prometheus pods that takes some recovery time due to large number of WALs we need to increase the probe time.
