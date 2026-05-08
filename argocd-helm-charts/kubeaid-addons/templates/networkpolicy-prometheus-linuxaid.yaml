@@ -1,5 +1,5 @@
 {{- if and ((.Values.global).netpol).enabled ((.Values.global).prometheusLinuxaid).netpol }}
-{{- range $ns, $config := .Values.global.prometheusLinuxaid.namespaces }}
+{{- $ns := .Values.global.prometheusLinuxaid.namespace }}
 ---
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
@@ -21,14 +21,10 @@ spec:
 
   ingress:
     # Traefik → Prometheus port 9090.
-    # Covers two traffic paths:
-    #   1. Humans accessing the Prometheus web UI via the Ingress domain.
-    #   2. Linux VM Prometheus agents remote-writing metrics (they push to the Ingress URL,
-    #      Traefik forwards the /api/v1/write request here — enabled by enableRemoteWriteReceiver: true).
     - fromEndpoints:
         - matchLabels:
-            k8s:io.kubernetes.pod.namespace: {{ $.Values.global.netpol.traefik.namespace }}
-            {{- range $key, $value := $.Values.global.netpol.traefik.labels }}
+            k8s:io.kubernetes.pod.namespace: {{ .Values.global.netpol.traefik.namespace }}
+            {{- range $key, $value := .Values.global.netpol.traefik.labels }}
             {{ $key }}: {{ $value }}
             {{- end }}
       toPorts:
@@ -78,7 +74,6 @@ spec:
               protocol: TCP
 
     # AlertManager — Prometheus sends fired alerts to AlertManager on port 9093.
-    # (Separate from scraping AlertManager metrics, which is covered by the broad same-ns rule below.)
     - toEndpoints:
         - matchLabels:
             k8s:io.kubernetes.pod.namespace: {{ $ns }}
@@ -101,7 +96,7 @@ spec:
         - matchLabels:
             k8s:io.kubernetes.pod.namespace: puppetserver
 
-    {{- range (($config.prometheus | default dict).additionalScrapeNamespaces | default list) }}
+    {{- range ((.Values.global.prometheusLinuxaid.prometheus | default dict).additionalScrapeNamespaces | default list) }}
     {{- $scrapeNs := . }}
     {{- $scrapePorts := list }}
     {{- if kindIs "map" . }}
@@ -122,86 +117,4 @@ spec:
     {{- end }}
     {{- end }}
 
-    # -----------------------------------------------------------------------
-    # EXTERNAL EXPORTERS — toCIDRSet rules for non-Kubernetes scrape targets
-    #
-    # These hosts run OUTSIDE Kubernetes. Kubernetes NetworkPolicy does not
-    # extend to them (they are not pods/endpoints), so Cilium cannot use
-    # toEndpoints here. Instead, toCIDRSet matches by IP address or CIDR,
-    # giving us least-privilege egress: exact IPs, exact ports, TCP only.
-    #
-    # Each exporter type is a separate rule so that node-exporter CIDRs
-    # cannot accidentally reach postgres-exporter ports and vice-versa.
-    # -----------------------------------------------------------------------
-    {{- $ext := ($config.externalExporters | default dict) }}
-    {{- if $ext.enabled }}
-
-    {{- with ($ext.node | default dict).cidrs }}
-    # node-exporter (port 9100) — runs on every monitored Linux VM.
-    # Reports CPU, memory, disk, network, NTP, and all other OS-level metrics.
-    - toCIDRSet:
-        {{- range . }}
-        - cidr: {{ . }}
-        {{- end }}
-      toPorts:
-        - ports:
-            - port: "9100"
-              protocol: TCP
-    {{- end }}
-
-    {{- with ($ext.postgres | default dict).cidrs }}
-    # postgres-exporter (port 9187) — runs on PostgreSQL database hosts.
-    # Reports query latency, connection counts, replication lag, table bloat.
-    - toCIDRSet:
-        {{- range . }}
-        - cidr: {{ . }}
-        {{- end }}
-      toPorts:
-        - ports:
-            - port: "9187"
-              protocol: TCP
-    {{- end }}
-
-    {{- with ($ext.mysql | default dict).cidrs }}
-    # mysqld-exporter (port 9104) — runs on MySQL / MariaDB hosts.
-    # Reports query rate, slow queries, InnoDB buffer pool, replication status.
-    - toCIDRSet:
-        {{- range . }}
-        - cidr: {{ . }}
-        {{- end }}
-      toPorts:
-        - ports:
-            - port: "9104"
-              protocol: TCP
-    {{- end }}
-
-    {{- with ($ext.haproxy | default dict).cidrs }}
-    # haproxy-exporter (port 9102) — runs on HAProxy load balancer hosts.
-    # Reports backend health, session counts, queue depth, error rates.
-    - toCIDRSet:
-        {{- range . }}
-        - cidr: {{ . }}
-        {{- end }}
-      toPorts:
-        - ports:
-            - port: "9102"
-              protocol: TCP
-    {{- end }}
-
-    {{- with ($ext.docker | default dict).cidrs }}
-    # Docker metrics endpoint (port 9323) — enabled in Docker daemon config.
-    # Reports container CPU/memory/network/disk, image counts, build times.
-    - toCIDRSet:
-        {{- range . }}
-        - cidr: {{ . }}
-        {{- end }}
-      toPorts:
-        - ports:
-            - port: "9323"
-              protocol: TCP
-    {{- end }}
-
-    {{- end }}{{/* end if ext.enabled */}}
-
-{{- end }}
 {{- end }}

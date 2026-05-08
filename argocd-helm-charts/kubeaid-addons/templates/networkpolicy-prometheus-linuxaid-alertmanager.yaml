@@ -1,5 +1,5 @@
 {{- if and ((.Values.global).netpol).enabled ((.Values.global).prometheusLinuxaid).netpol }}
-{{- range $ns, $config := .Values.global.prometheusLinuxaid.namespaces }}
+{{- $ns := .Values.global.prometheusLinuxaid.namespace }}
 ---
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
@@ -21,10 +21,6 @@ spec:
 
   ingress:
     # Prometheus → AlertManager ports 9093 and 8080.
-    # Two distinct usages:
-    #   port 9093 — Prometheus fires alerts here (Alertmanager API /api/v2/alerts).
-    #               Also Prometheus scrapes AlertManager's own /metrics on this port.
-    #   port 8080 — config-reloader sidecar (reloader-web), Prometheus scrapes its metrics here too.
     - fromEndpoints:
         - matchLabels:
             k8s:io.kubernetes.pod.namespace: {{ $ns }}
@@ -37,12 +33,10 @@ spec:
               protocol: TCP
 
     # Traefik → AlertManager port 9093.
-    # Allows operators to reach the AlertManager web UI through the Ingress domain
-    # (if alertmanager.ingress.enabled: true is set in values).
     - fromEndpoints:
         - matchLabels:
-            k8s:io.kubernetes.pod.namespace: {{ $.Values.global.netpol.traefik.namespace }}
-            {{- range $key, $value := $.Values.global.netpol.traefik.labels }}
+            k8s:io.kubernetes.pod.namespace: {{ .Values.global.netpol.traefik.namespace }}
+            {{- range $key, $value := .Values.global.netpol.traefik.labels }}
             {{ $key }}: {{ $value }}
             {{- end }}
       toPorts:
@@ -56,8 +50,6 @@ spec:
 
   egress:
     # kube-dns — AlertManager uses DNS to resolve the webhook FQDN (alerts.obmondo.com).
-    # Cilium's DNS proxy must intercept the query first so it knows which IPs to allow
-    # in the toFQDNs rule below.
     - toEndpoints:
         - matchLabels:
             k8s:io.kubernetes.pod.namespace: kube-system
@@ -70,12 +62,9 @@ spec:
             dns:
               - matchPattern: "*"
 
-    {{- $amCfg := ($config.alertmanager | default dict) }}
+    {{- $amCfg := ((.Values.global.prometheusLinuxaid).alertmanager | default dict) }}
     {{- if $amCfg.webhookFQDN }}
     # Obmondo alerts webhook — AlertManager POSTs fired alerts to this FQDN over HTTPS (port 443).
-    # The connection uses mutual TLS: the puppet-agent-tls-auth Kubernetes Secret (mounted into
-    # the AlertManager pod via alertmanager.secrets in values) provides the client cert+key.
-    # Set per namespace in values-kubeaid-addons.yaml → global.prometheusLinuxaid.namespaces.<ns>.alertmanager.webhookFQDN
     - toFQDNs:
         - matchName: {{ $amCfg.webhookFQDN | quote }}
       toPorts:
@@ -84,5 +73,4 @@ spec:
               protocol: TCP
     {{- end }}
 
-{{- end }}
 {{- end }}
