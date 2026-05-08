@@ -256,9 +256,6 @@ global:
     # -- Enable CiliumNetworkPolicy for Graylog.
     netpol: false
 
-  mongodb:
-    enabled: false
-
   # blackbox
   blackbox:
     # -- Master switch. Set to true to render Probe resources.
