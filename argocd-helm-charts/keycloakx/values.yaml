@@ -93,7 +93,7 @@ global:
     storageClass: default
     logicalbackup:
       enabled: false
-      schedule: "0 0 0 * * *"
+      schedule: "0 0 * * *"
       provider: s3
       retention: "30d"
 
@@ -104,7 +104,7 @@ global:
     backups:
       enabled: false
 
-      schedule: "0 0 0 * * *"
+      schedule: "0 0 * * *"
       retentionPolicy: 30d
 
       # Currently, we support : AWS and Azure.
