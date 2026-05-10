@@ -14,7 +14,7 @@ spec:
     {{- if $backups.destinationPath }}
     destinationPath: {{ required ".postgresql.backups.destinationPath must be provided" $backups.destinationPath }}
     {{- end }}
-    {{- if eq $backups.provider "aws" }}
+    {{- if or (eq ($backups.cloud | default "") "aws") (eq ($backups.provider | default "") "aws") }}
     s3Credentials:
       {{- if $backups.aws.enableKube2IAMIntegration }}
       inheritFromIAMRole: true
