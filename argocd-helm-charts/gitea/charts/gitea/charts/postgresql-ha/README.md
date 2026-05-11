@@ -1,40 +1,22 @@
 <!--- app-name: PostgreSQL HA -->
 
-# Bitnami package for PostgreSQL HA
+# SolDevelo PostgreSQL HA Helm chart
 
 This PostgreSQL cluster solution includes the PostgreSQL replication manager, an open-source tool for managing replication and failover on PostgreSQL clusters.
 
 [Overview of PostgreSQL HA](https://www.postgresql.org/)
 
-Trademarks: This software listing is packaged by Bitnami. The respective trademarks mentioned in the offering are owned by the respective companies, and use of them does not imply any affiliation or endorsement.
+This chart is a fork of the Bitnami PostgreSQL HA chart, maintained by SolDevelo and configured to use SolDevelo container images.
 
 ## TL;DR
 
 ```console
-helm install my-release oci://registry-1.docker.io/bitnamicharts/postgresql-ha
+helm install my-release oci://registry-1.docker.io/soldevelo/postgresql-ha-chart
 ```
-
-Looking to use PostgreSQL HA in production? Try [VMware Tanzu Application Catalog](https://bitnami.com/enterprise), the commercial edition of the Bitnami catalog.
-
-## ⚠️ Important Notice: Upcoming changes to the Bitnami Catalog
-
-Beginning August 28th, 2025, Bitnami will evolve its public catalog to offer a curated set of hardened, security-focused images under the new [Bitnami Secure Images initiative](https://news.broadcom.com/app-dev/broadcom-introduces-bitnami-secure-images-for-production-ready-containerized-applications). As part of this transition:
-
-- Granting community users access for the first time to security-optimized versions of popular container images.
-- Bitnami will begin deprecating support for non-hardened, Debian-based software images in its free tier and will gradually remove non-latest tags from the public catalog. As a result, community users will have access to a reduced number of hardened images. These images are published only under the “latest” tag and are intended for development purposes
-- Starting August 28th, over two weeks, all existing container images, including older or versioned tags (e.g., 2.50.0, 10.6), will be migrated from the public catalog (docker.io/bitnami) to the “Bitnami Legacy” repository (docker.io/bitnamilegacy), where they will no longer receive updates.
-- For production workloads and long-term support, users are encouraged to adopt Bitnami Secure Images, which include hardened containers, smaller attack surfaces, CVE transparency (via VEX/KEV), SBOMs, and enterprise support.
-
-These changes aim to improve the security posture of all Bitnami users by promoting best practices for software supply chain integrity and up-to-date deployments. For more details, visit the [Bitnami Secure Images announcement](https://github.com/bitnami/containers/issues/83267).
 
 ## Introduction
 
-This [Helm](https://github.com/kubernetes/helm) chart installs [PostgreSQL](https://www.postgresql.org/) with HA architecture in a Kubernetes cluster. Welcome to [contribute](https://github.com/bitnami/charts/blob/main/CONTRIBUTING.md) to Helm Chart for PostgreSQL HA.
-
-This Helm chart has been developed based on [bitnami/postgresql](https://github.com/bitnami/charts/tree/main/bitnami/postgresql) chart but including some changes to guarantee high availability such as:
-
-- A new deployment, service have been added to deploy [Pgpool-II](https://pgpool.net/mediawiki/index.php/Main_Page) to act as proxy for PostgreSQL backend. It helps to reduce connection overhead, acts as a load balancer for PostgreSQL, and ensures database node failover.
-- Replacing `bitnami/postgresql` with `bitnami/postgresql-repmgr` which includes and configures [repmgr](https://repmgr.org/). Repmgr ensures standby nodes assume the primary role when the primary node is unhealthy.
+This [Helm](https://github.com/kubernetes/helm) chart installs [PostgreSQL](https://www.postgresql.org/) with HA architecture in a Kubernetes cluster. Welcome to [contribute](https://github.com/soldevelo/charts/blob/main/CONTRIBUTING.md) to Helm Chart for PostgreSQL HA.
 
 ## Differences between the PostgreSQL-HA and PostgreSQL Helm charts
 
@@ -45,7 +27,7 @@ There are two different ways to deploy a PostgreSQL cluster, using the PostgreSQ
 - The PostgreSQL HA Helm chart uses Pgpool-II to handle the connection to the nodes. Pgpool-II is responsible to spread the queries among nodes.
 - The PostgreSQL HA Helm chart includes a Repmgr module that ensures high-availability thanks to automatic membership control. If the primary is down, any of the replica nodes will be promoted as primary to avoid data loss.
 
-The following diagram shows you the options you have for using Bitnami's PostgreSQL solutions in your deployments:
+The following diagram shows you the options you have for using PostgreSQL solutions in your deployments:
 
 ![A diagram comparing a PostgreSQL solution versus a PostgreSQL HA with Pgpool-II and Repmgr](img/postgresql-ha-topology.png)
 
@@ -59,10 +41,10 @@ The following diagram shows you the options you have for using Bitnami's Postgre
 To install the chart with the release name `my-release`:
 
 ```console
-helm install my-release oci://REGISTRY_NAME/REPOSITORY_NAME/postgresql-ha
+helm install my-release oci://REGISTRY_NAME/REPOSITORY_NAME/postgresql-ha-chart
 ```
 
-> Note: You need to substitute the placeholders `REGISTRY_NAME` and `REPOSITORY_NAME` with a reference to your Helm chart registry and repository. For example, in the case of Bitnami, you need to use `REGISTRY_NAME=registry-1.docker.io` and `REPOSITORY_NAME=bitnamicharts`.
+> Note: You need to substitute the placeholders `REGISTRY_NAME` and `REPOSITORY_NAME` with a reference to your Helm chart registry and repository. For example, for SolDevelo use `REGISTRY_NAME=registry-1.docker.io` and `REPOSITORY_NAME=soldevelo`.
 
 ## Configuration and installation details
 
@@ -1107,7 +1089,7 @@ This major version changes the default PostgreSQL image from 14.x to 15.x. Follo
 
 ### To 9.0.0
 
-This chart major version updates the PostgreSQL image's version to the latest major, `v14`, as well as standarizes the templates and values. These changes can be sumarised in the following:
+This chart major version updates the PostgreSQL image's version to the latest major, `v14`, as well as standardizes the templates and values. These changes can be summarised in the following:
 
 - Image parameters that used `imageNameImage` are now under `imageName.image`
 - `containerPort` parameters are now found by `containerPorts.xxxx`
@@ -1318,18 +1300,17 @@ In this version, the chart will use PostgreSQL-Repmgr container images with the 
 - proj
 - gdal
 
-## Bitnami Kubernetes Documentation
+## SolDevelo Charts Documentation
 
-Bitnami Kubernetes documentation is available at [https://docs.bitnami.com/](https://docs.bitnami.com/). You can find there the following resources:
+SolDevelo charts documentation and source is available at [https://github.com/soldevelo/charts](https://github.com/soldevelo/charts). You can find there the following resources:
 
-- [Documentation for PostgreSQL HA Helm chart](https://github.com/bitnami/charts/tree/main/bitnami/postgresql-ha)
-- [Get Started with Kubernetes guides](https://docs.bitnami.com/kubernetes/)
-- [Kubernetes FAQs](https://docs.bitnami.com/kubernetes/faq/)
-- [Kubernetes Developer guides](https://techdocs.broadcom.com/us/en/vmware-tanzu/application-catalog/tanzu-application-catalog/services/tac-doc/apps-tutorials-index.html)
+- [Documentation for PostgreSQL HA Helm chart](https://github.com/soldevelo/charts/tree/main/soldevelo/postgresql-ha)
+- [Upstream Bitnami PostgreSQL HA chart](https://github.com/bitnami/charts/tree/main/bitnami/postgresql-ha)
 
 ## License
 
-Copyright &copy; 2025 Broadcom. The term "Broadcom" refers to Broadcom Inc. and/or its subsidiaries.
+Copyright 2026 SolDevelo
+Based on Bitnami Charts (https://github.com/bitnami/charts) © Broadcom, Inc. (licensed under Apache-2.0)
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

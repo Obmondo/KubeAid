@@ -1,0 +1,9 @@
+# Copyright 2026 SolDevelo
+# Based on Bitnami Common Helm Chart © Broadcom, Inc. (Apache-2.0)
+# SPDX-License-Identifier: Apache-2.0
+
+## soldevelo/common
+## It is required by CI/CD tools and processes.
+## @skip exampleValue
+##
+exampleValue: common-chart
