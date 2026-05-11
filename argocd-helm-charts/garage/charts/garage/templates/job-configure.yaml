@@ -2,15 +2,20 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "garage.fullname" . }}-configure
+  name: {{ include "garage.fullname" . }}-configure{{- if not .Values.clusterConfig.helmSync.asHook }}-{{ .Release.Revision }}{{- end }}
   labels:
     {{- include "garage.labels" . | nindent 4 }}
   annotations:
+    {{- if .Values.clusterConfig.helmSync.asHook }}
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- end }}
     "argocd.argoproj.io/hook": Sync
     "argocd.argoproj.io/hook-delete-policy": BeforeHookCreation,HookSucceeded
 spec:
+  {{- if not .Values.clusterConfig.helmSync.asHook }}
+  ttlSecondsAfterFinished: {{ .Values.clusterConfig.helmSync.ttlSecondsAfterFinished | default 300 }}
+  {{- end }}
   template:
     metadata:
       labels:

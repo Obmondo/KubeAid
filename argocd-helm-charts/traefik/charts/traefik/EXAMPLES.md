@@ -7,6 +7,12 @@ Default install is using a `Deployment` but it's possible to use `DaemonSet`
 ```yaml
 deployment:
   kind: DaemonSet
+
+# The update strategy needs to be changed accordingly
+# See https://kubernetes.io/docs/tasks/manage-daemon/update-daemon-set/ for details
+updateStrategy:
+  rollingUpdate:
+    maxUnavailable: 1
 ```
 
 ## Configure Traefik Pod parameters
@@ -156,6 +162,9 @@ It's possible to redirect all incoming requests on an entrypoint to another entr
 ```yaml
 ports:
   web:
+    # -- If you are handling ACME HTTP challenges with another service (e.g. cert-manager),
+    #    you may enable this option to prevent redirects on ACME challenge routes for this port.
+    # allowACMEByPass: true
     http:
       redirections:
         entryPoint:
@@ -201,6 +210,29 @@ extraObjects:
     spec:
       basicAuth:
         secret: traefik-dashboard-auth-secret
+```
+
+## Use Go template expressions in IngressRoute annotations and labels
+
+The `annotations` and `labels` fields on IngressRoute resources support Go template expressions,
+consistent with how `podAnnotations` and `podLabels` are handled elsewhere in the chart.
+This is useful for tools discovering services via annotations.
+
+```yaml
+ingressRoute:
+  dashboard:
+    enabled: true
+    matchRule: Host(`traefik-dashboard.example.com`)
+    entryPoints: ["websecure"]
+    # Annotations support Go template expressions evaluated at render time
+    annotations:
+      gethomepage.dev/enabled: "true"
+      gethomepage.dev/name: "Traefik"
+      gethomepage.dev/group: "Infrastructure"
+      gethomepage.dev/widget.url: "http://{{ .Release.Name }}.{{ .Release.Namespace }}:{{ .Values.ports.traefik.port }}"
+    # Labels support Go template expressions as well
+    labels:
+      app.kubernetes.io/instance: "{{ .Release.Name }}"
 ```
 
 ## Publish and protect the Traefik Dashboard with an Ingress
@@ -341,7 +373,8 @@ Or a [global IP on Ingress](https://cloud.google.com/kubernetes-engine/docs/tuto
 
 ```yaml
 service:
-  type: NodePort
+  spec:
+    type: NodePort
 extraObjects:
   - apiVersion: networking.k8s.io/v1
     kind: Ingress
@@ -364,7 +397,8 @@ ports:
   websecure:
     appProtocol: HTTPS # Hint for Google L7 load balancer
 service:
-  type: ClusterIP
+  spec:
+    type: ClusterIP
 extraObjects:
 - apiVersion: gateway.networking.k8s.io/v1beta1
   kind: Gateway
@@ -481,6 +515,65 @@ extraObjects:
       client-secret: "{{ azure_dns_challenge_application_secret }}"
 ```
 
+## Install on Azure behind an Application Gateway (AGIC)
+
+When using the [Application Gateway Ingress Controller (AGIC)](https://learn.microsoft.com/en-us/azure/application-gateway/ingress-controller-overview),
+health probes need to reach Traefik's `/ping` endpoint.
+Enable the built-in healthcheck IngressRoute so that `/ping` is served on the `web` entrypoint,
+and create an Ingress with the AGIC health probe annotations:
+
+```yaml
+ingressRoute:
+  healthcheck:
+    enabled: true
+    entryPoints:
+      - web
+
+extraObjects:
+  - apiVersion: networking.k8s.io/v1
+    kind: Ingress
+    metadata:
+      name: traefik
+      annotations:
+        appgw.ingress.kubernetes.io/health-probe-path: "/ping"
+        appgw.ingress.kubernetes.io/health-probe-port: "8000"
+        appgw.ingress.kubernetes.io/backend-protocol: "http"
+    spec:
+      ingressClassName: azure-application-gateway
+      rules:
+        - http:
+            paths:
+              - path: /
+                pathType: Prefix
+                backend:
+                  service:
+                    name: '{{ template "traefik.fullname" . }}'
+                    port:
+                      number: 80
+```
+
+## Install on Azure with Load Balancer health probes
+
+When using the Azure Load Balancer directly (without AGIC), configure the health probes to use Traefik's `/ping` endpoint. Enable the built-in healthcheck IngressRoute so that `/ping` is served on the `web` entrypoint (port 80) — this avoids exposing the management port (8080) on the Load Balancer:
+
+```yaml
+ingressRoute:
+  healthcheck:
+    enabled: true
+    entryPoints:
+      - web
+
+service:
+  single: true
+  spec:
+    externalTrafficPolicy: Local
+  annotations:
+    service.beta.kubernetes.io/port_80_health-probe_protocol: "http"
+    service.beta.kubernetes.io/port_80_health-probe_request-path: "/ping"
+    service.beta.kubernetes.io/port_443_health-probe_protocol: "http"
+    service.beta.kubernetes.io/port_443_health-probe_request-path: "/ping"
+```
+
 ## Use ServiceMonitor on AKS (Azure Monitor / managed Prometheus)
 
 Enable the optional ServiceMonitor so managed Prometheus can scrape Traefik metrics on AKS. You may override the CRD apiVersion if your environment requires it.
@@ -552,13 +645,13 @@ PROXY protocol is a protocol for sending client connection information, such as 
 ```yaml
 service:
   enabled: true
-  type: LoadBalancer
   annotations:
     # This will tell DigitalOcean to enable the proxy protocol.
     # Note that only REGIONAL type loadbalancers are supported.
     # service.beta.kubernetes.io/do-loadbalancer-type: "REGIONAL"
     service.beta.kubernetes.io/do-loadbalancer-enable-proxy-protocol: "true"
   spec:
+    type: LoadBalancer
     # This is the default and should stay as cluster to keep the DO health checks working.
     externalTrafficPolicy: Cluster
 
@@ -1099,6 +1192,55 @@ spec:
   maxReplicas: 3
 ```
 
+## Use this Chart with FluxCD
+
+This chart is published to an OCI registry at `oci://ghcr.io/traefik/helm`.
+Here is how to deploy it with [FluxCD](https://fluxcd.io/).
+
+Create a `HelmRepository` resource pointing to the OCI registry:
+
+```yaml
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: traefik
+  namespace: flux-system
+spec:
+  type: oci
+  interval: 5m
+  url: oci://ghcr.io/traefik/helm
+```
+
+Then create a `HelmRelease` referencing it:
+
+```yaml
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: traefik
+  namespace: traefik
+spec:
+  interval: 10m
+  chart:
+    spec:
+      chart: traefik
+      version: "39.0.7"
+      sourceRef:
+        kind: HelmRepository
+        name: traefik
+        namespace: flux-system
+  values:
+    # Your Traefik values here
+    image:
+      tag: v3.6.12
+```
+
+> [!NOTE]
+> The `url` in `HelmRepository` should be `oci://ghcr.io/traefik/helm` (the registry path **without** the chart name). The chart name is specified in `HelmRelease.spec.chart.spec.chart`.
+
+> [!TIP]
+> Pin the chart `version` to avoid unexpected upgrades. FluxCD supports [semver ranges](https://fluxcd.io/flux/components/source/helmrepositories/#semver-example) like `">=39.0.0 <40.0.0"`.
+
 ## Configure TLS
 
 The [TLS options](https://doc.traefik.io/traefik/https/tls/#tls-options) allow one to configure some parameters of the TLS connection.
@@ -1359,7 +1501,7 @@ Starting with Traefik Proxy v3.6.2, one can use the Kubernetes Ingress NGINX pro
 
 ```yaml
 providers:
-  kubernetesIngressNginx:
+  kubernetesIngressNGINX:
     enabled: true
 ```
 
@@ -1457,14 +1599,14 @@ You should see the whoami response with your request details.
 ```bash
 helm upgrade --install traefik traefik/traefik \
   --namespace traefik --create-namespace \
-  --set providers.kubernetesIngressNginx.enabled=true
+  --set providers.kubernetesIngressNGINX.enabled=true
 ```
 
 Or using a values file:
 
 ```yaml
 providers:
-  kubernetesIngressNginx:
+  kubernetesIngressNGINX:
     enabled: true
 ```
 
@@ -1751,7 +1893,8 @@ gatewayClass:
 service:
   additionalServices:
     external:
-      type: LoadBalancer
+      spec:
+        type: LoadBalancer
 
 providers:
   kubernetesGateway:
@@ -1789,3 +1932,183 @@ spec:
     #         kind: Secret
     #         name: some-tls-cert
 ```
+
+## Set externalTrafficPolicy Local for Traefik Service
+
+```yaml
+service:
+  spec:
+    externalTrafficPolicy: Local
+```
+
+## Use Multi-Cluster Provider
+
+This example shows how to configure multi-cluster traffic with a parent cluster and a child cluster.
+
+> [!WARNING]
+> This feature is experimental and requires Traefik Hub with a specific subscription.
+
+### Child cluster
+
+Enable the Multi-Cluster provider on the child, create an uplink entryPoint, and advertise a workload (_this example uses the file provider for simplicity_):
+
+```yaml
+ports:
+  multicluster:
+    port: 9443
+    asDefault: true
+    uplink: true # <== This entrypoint becomes an uplink
+    expose:
+      default: true
+    http:
+      tls:
+        enabled: true
+
+hub:
+  token: hub-token
+  providers:
+    multicluster:
+      enabled: true
+
+providers:
+  file:
+    enabled: true
+    content: |
+      http:
+        uplinks:
+          whoami:
+            entryPoints:
+              - multicluster
+
+        routers:
+          backend:
+            rule: PathPrefix(`/`)
+            service: backend
+            uplinks:
+              - whoami
+
+        services:
+          backend:
+            loadBalancer:
+              servers:
+                - url: http://whoami.example.svc.cluster.local:80
+```
+
+### Parent cluster
+
+Configure the parent multi-cluster provider with the child's uplink entryPoint address:
+
+```yaml
+hub:
+  token: hub-token
+  providers:
+    multicluster:
+      enabled: true
+      children:
+        child1:
+          address: "http://child1.example.svc.cluster.local:9443"
+          serversTransport:
+            insecureSkipVerify: true
+```
+
+For an uplink named `whoami`, the parent exposes:
+
+- `whoami@multicluster` (weighted across all children)
+- `whoami-child1@multicluster` (direct to a specific child)
+
+## Bind to privileged ports (80 and 443)
+
+By default, Traefik listens on high ports (8000/8443) because binding to ports below 1024 requires extra privileges. To bind directly to ports 80 and 443, add the `NET_BIND_SERVICE` capability and configure the port numbers:
+
+```yaml
+ports:
+  web:
+    port: 80
+    containerPort: 80
+  websecure:
+    port: 443
+    containerPort: 443
+
+securityContext:
+  capabilities:
+    drop: [ALL]
+    add: [NET_BIND_SERVICE]
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+```
+
+This keeps the container running as a non-root user while allowing it to bind to privileged ports. No changes to `podSecurityContext` are needed.
+
+If you also want the host to listen on ports 80 and 443 directly (bypassing the Service), combine with `hostPort`:
+
+```yaml
+ports:
+  web:
+    port: 80
+    containerPort: 80
+    hostPort: 80
+  websecure:
+    port: 443
+    containerPort: 443
+    hostPort: 443
+```
+
+> [!NOTE]
+> When using `hostPort`, you typically want to deploy Traefik as a `DaemonSet` (see the DaemonSet example above) so that each node binds the ports.
+
+<details>
+<summary>Running on privileged ports with host network</summary>
+
+If you need to run Traefik on host network and on privileged ports you'll need extra capabilities set on the `traefik` binary itself (cf. https://github.com/traefik/traefik/pull/12902#issuecomment-4160942102). Here's an init container approach that helps you achieve this:
+
+```yaml
+podSecurityContext:
+  runAsGroup: 65532
+  runAsNonRoot: false
+  runAsUser: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  allowPrivilegeEscalation: true
+  capabilities:
+    drop: [ALL]
+    add: [NET_BIND_SERVICE]
+
+hostNetwork: true
+
+service:
+  enabled: false
+
+deployment:
+  initContainers:
+    - name: copy-binary
+      image: traefik:v3.6.12
+      command: ["cp", "/usr/local/bin/traefik", "/shared/traefik"]
+      volumeMounts:
+        - name: traefik-bin
+          mountPath: /shared
+    - name: setcap
+      image: alpine:3.21
+      command:
+        - sh
+        - -c
+        - apk add --no-cache libcap && setcap cap_net_bind_service=+ep /shared/traefik
+      securityContext:
+        runAsUser: 0
+        runAsNonRoot: false
+      volumeMounts:
+        - name: traefik-bin
+          mountPath: /shared
+  additionalVolumes:
+    - name: traefik-bin
+      emptyDir: {}
+
+additionalVolumeMounts:
+  - name: traefik-bin
+    mountPath: /usr/local/bin
+```
+
+</details>

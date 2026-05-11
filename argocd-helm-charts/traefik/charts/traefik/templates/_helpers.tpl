@@ -30,6 +30,8 @@ Create the chart image name.
  {{- else -}}
 {{- printf "%s/%s:%s" .Values.global.azure.images.proxy.registry .Values.global.azure.images.proxy.image .Values.global.azure.images.proxy.tag }}
  {{- end -}}
+{{- else if .Values.image.digest -}}
+{{- printf "%s/%s@%s" .Values.image.registry .Values.image.repository .Values.image.digest }}
 {{- else -}}
 {{- printf "%s/%s:%s" .Values.image.registry .Values.image.repository (.Values.image.tag | default .Chart.AppVersion) }}
 {{- end -}}
@@ -145,9 +147,9 @@ Users can provide an override for an explicit service they want bound via `.Valu
 {{- print $servicePath | trimSuffix "-" -}}
 {{- end -}}
 
-{{- define "providers.kubernetesIngressNginx.publishServicePath" -}}
+{{- define "providers.kubernetesIngressNGINX.publishServicePath" -}}
 {{- $defServiceName := printf "%s/%s" (include "traefik.namespace" .) (include "traefik.fullname" .) -}}
-{{- $servicePath := default $defServiceName .Values.providers.kubernetesIngressNginx.publishService.pathOverride }}
+{{- $servicePath := default $defServiceName .Values.providers.kubernetesIngressNGINX.publishService.pathOverride }}
 {{- print $servicePath | trimSuffix "-" -}}
 {{- end -}}
 
@@ -163,8 +165,8 @@ Construct a comma-separated list of whitelisted namespaces
 {{- define "providers.kubernetesIngress.namespaces" -}}
 {{- default (include "traefik.namespace" .) (join "," .Values.providers.kubernetesIngress.namespaces) }}
 {{- end -}}
-{{- define "providers.kubernetesIngressNginx.namespaces" -}}
-{{- default (include "traefik.namespace" .) (join "," .Values.providers.kubernetesIngressNginx.watchNamespace) }}
+{{- define "providers.kubernetesIngressNGINX.namespaces" -}}
+{{- default (include "traefik.namespace" .) (join "," .Values.providers.kubernetesIngressNGINX.watchNamespace) }}
 {{- end -}}
 {{- define "providers.knative.namespaces" -}}
 {{- default (include "traefik.namespace" .) (join "," .Values.providers.knative.namespaces) }}
@@ -189,10 +191,14 @@ It requires a dict with "Version" and "Hub".
 {{- define "traefik.proxyVersionFromHub" -}}
  {{- $version := .Version -}}
  {{- if .Hub -}}
-   {{- $hubProxyVersion := "v3.6.7" }}
+   {{- $hubProxyVersion := "v3.7.0" }}
    {{- if regexMatch "v[0-9]+.[0-9]+.[0-9]+" (default "" $version) }}
      {{- if semverCompare "<v3.19.0-0" $version }}
         {{- $hubProxyVersion = "v3.6.3" }}
+     {{- else if semverCompare "<v3.20.0-ea.7" $version }}
+        {{- $hubProxyVersion = "v3.6.7" }}
+     {{- else if semverCompare "<v3.20.0-0" $version }}
+        {{- $hubProxyVersion = "v3.7.0-rc.1" }}
      {{- end -}}
    {{- end -}}
    {{- $hubProxyVersion }}
@@ -201,6 +207,18 @@ It requires a dict with "Version" and "Hub".
  {{- end -}}
 {{- end -}}
 
+
+{{/*
+Returns "true" if the given version is a stable release (vX.Y.Z or X.Y.Z), "false" otherwise.
+Non-standard versions include experimental, ea, rc, alpha, beta builds.
+*/}}
+{{- define "traefik.isStableVersion" -}}
+  {{- if regexMatch "^v?[0-9]+\\.[0-9]+\\.[0-9]+$" . -}}
+    true
+  {{- else -}}
+    false
+  {{- end -}}
+{{- end -}}
 
 {{/*
 The version can comes many sources: appVersion, image.tag, override, marketplace.
@@ -257,8 +275,10 @@ Hash: {{ sha1sum ($cert.Cert | b64enc) }}
           {{- include "traefik.yaml2CommandLineArgsRec" (dict "path" (printf "%s.%s" $path $key) "content" $value) -}}
         {{- else if and (kindIs "bool" $value) (ne $value nil) }}
 --{{ join "." (list $path $key)}}={{ $value }}
+        {{- else if or (kindIs "int" $value) (kindIs "int64" $value) }}
+--{{ join "." (list $path $key)}}={{ $value }}
         {{- else if not (empty $value) }}
---{{ join "." (list $path $key)}}={{ if kindIs "slice" $value }}{{ join "," $value }}{{ else }}{{ $value }}{{ end }}
+--{{ join "." (list $path $key)}}={{ if kindIs "slice" $value }}{{ join "," $value }}{{ else if kindIs "float64" $value }}{{ printf "%.0f" $value }}{{ else }}{{ $value }}{{ end }}
         {{- end -}}
     {{- end -}}
 {{- end -}}

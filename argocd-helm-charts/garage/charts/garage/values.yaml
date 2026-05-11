@@ -403,6 +403,14 @@ clusterConfig:
   # -- Pod annotations
   podAnnotations: {}
 
+  # Change sync behaviour with helm (helm install or helm upgrade)
+  helmSync:
+    # -- If true, the configure job runs as a post-install/post-upgrade hook (waits for all resources to be ready first).
+    # Set to false to run the job as a regular resource alongside other pods. Recommended when startup of other pods depends on readiness of the garage container.
+    asHook: true
+    # -- Time in seconds to keep the completed job before automatic cleanup (only applies when asHook is false)
+    ttlSecondsAfterFinished: 300
+
   # -- Pod security context
   podSecurityContext:
     runAsUser: 1000

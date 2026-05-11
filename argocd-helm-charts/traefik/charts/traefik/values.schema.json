@@ -32,6 +32,13 @@
                     "description": "Enable the dashboard",
                     "type": "boolean"
                 },
+                "dashboardName": {
+                    "description": "Custom name for the dashboard (v3.7+).",
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
                 "debug": {
                     "description": "Enable the debug API",
                     "type": [
@@ -99,7 +106,7 @@
             "additionalProperties": false
         },
         "certificatesResolvers": {
-            "description": "Certificates resolvers configuration. Ref: https://doc.traefik.io/traefik/https/acme/#certificate-resolvers See EXAMPLES.md for more details.",
+            "description": "Certificates resolvers configuration. Ref: https://doc.traefik.io/traefik/reference/install-configuration/tls/certificate-resolvers/acme/ See EXAMPLES.md for more details.",
             "type": "object"
         },
         "commonLabels": {
@@ -144,7 +151,7 @@
                     "type": "boolean"
                 },
                 "goMemLimitPercentage": {
-                    "description": "Percentage of memory limit to set for GOMEMLIMIT",
+                    "description": "Percentage of memory limit to set for GOMEMLIMIT, set as decimal (0.9 = 90%, 0.95 = 95% etc). Only takes effect when resources.limits.memory is set. Set to 0 to disable (e.g. when using VPA or setting it via env)",
                     "type": "number"
                 },
                 "healthchecksHost": {
@@ -172,6 +179,13 @@
                 "hostAliases": {
                     "description": "Custom [host aliases](https://kubernetes.io/docs/tasks/network/customize-hosts-file-for-pods/)",
                     "type": "array"
+                },
+                "hostUsers": {
+                    "description": "Whether to use the host user namespace. Setting this to false enables user namespaces, which can improve security by isolating the pod's users from the host. See https://kubernetes.io/docs/concepts/workloads/pods/user-namespaces/",
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
                 },
                 "imagePullSecrets": {
                     "description": "Pull secret for fetching traefik container image",
@@ -436,6 +450,10 @@
                 "checkNewVersion": {
                     "type": "boolean"
                 },
+                "notAppendXForwardedFor": {
+                    "description": "Disable appending RemoteAddr to X-Forwarded-For header globally (v3.7+).",
+                    "type": "boolean"
+                },
                 "sendAnonymousUsage": {
                     "description": "Please take time to consider whether or not you wish to share anonymous data with us See https://doc.traefik.io/traefik/contributing/data-collection/",
                     "type": "boolean"
@@ -595,7 +613,10 @@
                                         },
                                         "endpointWaitTime": {
                                             "description": "WaitTime limits how long a Watch will block. If not provided, the agent default",
-                                            "type": "integer"
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
                                         },
                                         "httpauth": {
                                             "type": "object",
@@ -745,6 +766,234 @@
                                     }
                                 }
                             }
+                        },
+                        "multicluster": {
+                            "type": "object",
+                            "properties": {
+                                "children": {
+                                    "description": "Child cluster configurations, keyed by a unique name.",
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "object",
+                                        "properties": {
+                                            "address": {
+                                                "description": "URL of the child cluster's uplink entrypoint.",
+                                                "type": "string"
+                                            },
+                                            "serversTransport": {
+                                                "description": "TLS and transport configuration for connecting to this child.",
+                                                "type": "object",
+                                                "properties": {
+                                                    "certificates": {
+                                                        "type": "array"
+                                                    },
+                                                    "cipherSuites": {
+                                                        "description": "List of supported cipher suites for TLS versions up to 1.2.",
+                                                        "type": "array"
+                                                    },
+                                                    "disableHTTP2": {
+                                                        "description": "Disable HTTP/2 for connections to this child.",
+                                                        "type": [
+                                                            "boolean",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "forwardingTimeouts": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "dialTimeout": {
+                                                                "description": "Timeout for establishing connections.",
+                                                                "type": [
+                                                                    "string",
+                                                                    "integer",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "idleConnTimeout": {
+                                                                "description": "Timeout for idle connections.",
+                                                                "type": [
+                                                                    "string",
+                                                                    "integer",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "pingTimeout": {
+                                                                "description": "Timeout for HTTP/2 server ping frames.",
+                                                                "type": [
+                                                                    "string",
+                                                                    "integer",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "readIdleTimeout": {
+                                                                "description": "Timeout for HTTP/2 connection idle reads.",
+                                                                "type": [
+                                                                    "string",
+                                                                    "integer",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "readTimeout": {
+                                                                "description": "Timeout for reading the request body.",
+                                                                "type": [
+                                                                    "string",
+                                                                    "integer",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "responseHeaderTimeout": {
+                                                                "description": "Timeout for reading response headers.",
+                                                                "type": [
+                                                                    "string",
+                                                                    "integer",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "writeTimeout": {
+                                                                "description": "Timeout for writing the response.",
+                                                                "type": [
+                                                                    "string",
+                                                                    "integer",
+                                                                    "null"
+                                                                ]
+                                                            }
+                                                        }
+                                                    },
+                                                    "insecureSkipVerify": {
+                                                        "description": "Disable TLS certificate verification. **Not recommended for production.**",
+                                                        "type": [
+                                                            "boolean",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "maxIdleConnsPerHost": {
+                                                        "description": "Maximum idle connections per host.",
+                                                        "type": [
+                                                            "integer",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "maxVersion": {
+                                                        "description": "Maximum TLS version (e.g. `VersionTLS12`, `VersionTLS13`).",
+                                                        "type": "string"
+                                                    },
+                                                    "minVersion": {
+                                                        "description": "Minimum TLS version (e.g. `VersionTLS12`, `VersionTLS13`).",
+                                                        "type": "string"
+                                                    },
+                                                    "peerCertURI": {
+                                                        "description": "URI used to match against SAN URIs during the server's certificate verification.",
+                                                        "type": "string"
+                                                    },
+                                                    "rootCAs": {
+                                                        "type": "array"
+                                                    },
+                                                    "serverName": {
+                                                        "description": "Server name used for SNI and certificate verification.",
+                                                        "type": "string"
+                                                    },
+                                                    "spiffe": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "ids": {
+                                                                "type": "array"
+                                                            },
+                                                            "trustDomain": {
+                                                                "description": "SPIFFE trust domain.",
+                                                                "type": [
+                                                                    "string",
+                                                                    "integer",
+                                                                    "null"
+                                                                ]
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        "additionalProperties": false
+                                    }
+                                },
+                                "enabled": {
+                                    "description": "Enable Multi-cluster provider.",
+                                    "type": "boolean"
+                                },
+                                "pollInterval": {
+                                    "description": "Polling interval for Multi-cluster.",
+                                    "type": "integer"
+                                },
+                                "pollTimeout": {
+                                    "description": "Polling timeout for Multi-cluster.",
+                                    "type": "integer"
+                                }
+                            }
+                        },
+                        "nutanixPrismCentral": {
+                            "type": "object",
+                            "properties": {
+                                "allowedVpcs": {
+                                    "description": "Filter VMs by VPCs. List of `{ uuid: \"\u003cvpc-uuid\u003e\" }` entries.",
+                                    "type": "array"
+                                },
+                                "apiKey": {
+                                    "description": "Prism Central API key.",
+                                    "type": "string"
+                                },
+                                "enabled": {
+                                    "description": "Enable Nutanix Prism Central provider.",
+                                    "type": "boolean"
+                                },
+                                "endpoint": {
+                                    "description": "Prism Central endpoint.",
+                                    "type": "string"
+                                },
+                                "filename": {
+                                    "description": "Base configuration file path.",
+                                    "type": "string"
+                                },
+                                "password": {
+                                    "description": "Prism Central password.",
+                                    "type": "string"
+                                },
+                                "pollInterval": {
+                                    "description": "Polling interval for Nutanix Prism Central API.",
+                                    "type": "integer"
+                                },
+                                "pollTimeout": {
+                                    "description": "Polling timeout for Nutanix Prism Central API.",
+                                    "type": "integer"
+                                },
+                                "serviceNameCategoryKey": {
+                                    "description": "Category key used to derive the service name.",
+                                    "type": "string"
+                                },
+                                "tls": {
+                                    "type": "object",
+                                    "properties": {
+                                        "ca": {
+                                            "description": "TLS CA",
+                                            "type": "string"
+                                        },
+                                        "cert": {
+                                            "description": "TLS cert",
+                                            "type": "string"
+                                        },
+                                        "insecureSkipVerify": {
+                                            "description": "TLS insecure skip verify",
+                                            "type": "boolean"
+                                        },
+                                        "key": {
+                                            "description": "TLS key",
+                                            "type": "string"
+                                        }
+                                    }
+                                },
+                                "username": {
+                                    "description": "Prism Central username.",
+                                    "type": "string"
+                                }
+                            },
+                            "additionalProperties": false
                         }
                     }
                 },
@@ -870,11 +1119,20 @@
                         }
                     }
                 }
-            }
+            },
+            "additionalProperties": false
         },
         "image": {
             "type": "object",
             "properties": {
+                "digest": {
+                    "description": "Traefik image digest (e.g. `sha256:abc...`). When set, takes precedence over `tag`. Set `versionOverride` alongside it so the chart's version-checking logic knows the version (it cannot be derived from the digest).",
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                },
                 "pullPolicy": {
                     "description": "Traefik image pull policy",
                     "type": "string"
@@ -888,7 +1146,7 @@
                     "type": "string"
                 },
                 "tag": {
-                    "description": "defaults to appVersion. It's used for version checking, even prefixed with experimental- or latest-. When a digest is required, `versionOverride` can be used to set the version.",
+                    "description": "defaults to appVersion. It's used for version checking, even prefixed with experimental- or latest-. To pin by digest, prefer `image.digest`. A `\u003cversion\u003e@\u003cdigest\u003e` combo is also accepted here; in that case the digest is what Kubernetes verifies and the version is informational (and can drift from the underlying image).",
                     "type": [
                         "string",
                         "null"
@@ -1062,11 +1320,15 @@
                             "type": "boolean"
                         },
                         "bufferingSize": {
-                            "description": "Set [bufferingSize](https://doc.traefik.io/traefik/observability/access-logs/#bufferingsize)",
+                            "description": "Set [bufferingSize](https://doc.traefik.io/traefik/reference/install-configuration/observability/logs-and-accesslogs/#opt-accesslog-bufferingSize)",
                             "type": [
                                 "integer",
                                 "null"
                             ]
+                        },
+                        "dualOutput": {
+                            "description": "Enables access log output alongside OTLP (v3.7+).",
+                            "type": "boolean"
                         },
                         "enabled": {
                             "description": "To enable access logs",
@@ -1098,7 +1360,7 @@
                                     "type": "object",
                                     "properties": {
                                         "defaultmode": {
-                                            "description": "[Limit logged fields or headers](https://doc.traefik.io/traefik/observability/access-logs/#limiting-the-fieldsincluding-headers)",
+                                            "description": "[Limit logged fields or headers](https://doc.traefik.io/traefik/observe/logs-and-access-logs/#log-fields-customization)",
                                             "default": "drop",
                                             "type": "string",
                                             "enum": [
@@ -1115,7 +1377,7 @@
                             }
                         },
                         "filters": {
-                            "description": "Set [filtering](https://docs.traefik.io/observability/access-logs/#filtering)",
+                            "description": "Set [filtering](https://doc.traefik.io/traefik/observe/logs-and-access-logs/#access-log-filters)",
                             "type": "object",
                             "properties": {
                                 "minduration": {
@@ -1134,7 +1396,7 @@
                             "additionalProperties": false
                         },
                         "format": {
-                            "description": "Set [access log format](https://doc.traefik.io/traefik/observability/access-logs/#format)",
+                            "description": "Set [access log format](https://doc.traefik.io/traefik/reference/install-configuration/observability/logs-and-accesslogs/#opt-accesslog-format)",
                             "default": "common",
                             "type": [
                                 "string",
@@ -1250,7 +1512,7 @@
                             }
                         },
                         "timezone": {
-                            "description": "Set [timezone](https://doc.traefik.io/traefik/observability/access-logs/#time-zones)",
+                            "description": "Set [timezone](https://doc.traefik.io/traefik/reference/install-configuration/observability/logs-and-accesslogs/#time-zones)",
                             "type": "string"
                         }
                     }
@@ -1263,7 +1525,7 @@
                             "type": "string"
                         },
                         "format": {
-                            "description": "Set [logs format](https://doc.traefik.io/traefik/observability/logs/#format)",
+                            "description": "Set [logs format](https://doc.traefik.io/traefik/reference/install-configuration/observability/logs-and-accesslogs/#opt-log-format)",
                             "default": "common",
                             "type": [
                                 "string",
@@ -1729,7 +1991,7 @@
             "type": "object",
             "properties": {
                 "enabled": {
-                    "description": "Enable OCSP stapling support. See https://doc.traefik.io/traefik/https/ocsp/#overview",
+                    "description": "Enable OCSP stapling support. See https://doc.traefik.io/traefik/reference/install-configuration/tls/ocsp/",
                     "type": "boolean"
                 },
                 "responderOverrides": {
@@ -1834,22 +2096,13 @@
                 }
             }
         },
-        "podSecurityPolicy": {
-            "description": "Enable to create a PodSecurityPolicy and assign it to the Service Account via RoleBinding or ClusterRoleBinding",
-            "type": "object",
-            "properties": {
-                "enabled": {
-                    "type": "boolean"
-                }
-            }
-        },
         "ports": {
             "type": "object",
             "additionalProperties": {
                 "type": "object",
                 "properties": {
                     "allowACMEByPass": {
-                        "description": "See [upstream documentation](https://doc.traefik.io/traefik/routing/entrypoints/#allowacmebypass)",
+                        "description": "See [upstream documentation](https://doc.traefik.io/traefik/reference/install-configuration/entrypoints/#allowacmebypass)",
                         "type": "boolean"
                     },
                     "appProtocol": {
@@ -1889,6 +2142,10 @@
                         "type": "object",
                         "properties": {
                             "insecure": {
+                                "type": "boolean"
+                            },
+                            "notAppendXForwardedFor": {
+                                "description": "Disable appending RemoteAddr to X-Forwarded-For header (v3.7+).",
                                 "type": "boolean"
                             },
                             "trustedIPs": {
@@ -2110,7 +2367,7 @@
                         "minimum": 0
                     },
                     "transport": {
-                        "description": "See [upstream documentation](https://doc.traefik.io/traefik/routing/entrypoints/#transport)",
+                        "description": "Set transport settings for the entrypoint",
                         "type": "object",
                         "properties": {
                             "keepAliveMaxRequests": {
@@ -2173,6 +2430,13 @@
                                 }
                             }
                         }
+                    },
+                    "uplink": {
+                        "description": "Enable this port as an uplink for multi cluster. ⚠️ This feature is experimental and requires Traefik Hub with a specific subscription.",
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
                     }
                 },
                 "additionalProperties": false
@@ -2189,7 +2453,7 @@
                     "type": "object",
                     "properties": {
                         "content": {
-                            "description": "File content (YAML format, go template supported) (see https://doc.traefik.io/traefik/providers/file/)",
+                            "description": "File content (YAML format, go template supported) (see https://doc.traefik.io/traefik/reference/install-configuration/providers/others/file/)",
                             "type": "string"
                         },
                         "enabled": {
@@ -2275,7 +2539,7 @@
                             "type": "string"
                         },
                         "namespaces": {
-                            "description": "Array of namespaces to watch. If left empty, Traefik watches all namespaces. . When using `rbac.namespaced`, it will watch helm release namespace and namespaces listed in this array.",
+                            "description": "Array of namespaces to watch. If left empty, Traefik watches all namespaces. kubernetesGateway provider requires ClusterRole and as a consequence `rbac.namespaced` is not supported.",
                             "type": "array"
                         },
                         "nativeLBByDefault": {
@@ -2339,6 +2603,26 @@
                                 "null"
                             ]
                         },
+                        "ingressEndpoint": {
+                            "type": "object",
+                            "properties": {
+                                "hostname": {
+                                    "description": "Hostname used for Kubernetes Ingress endpoints",
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ]
+                                },
+                                "ip": {
+                                    "description": "IP used for Kubernetes Ingress endpoints",
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ]
+                                }
+                            },
+                            "additionalProperties": false
+                        },
                         "labelSelector": {
                             "type": [
                                 "string",
@@ -2357,7 +2641,7 @@
                             "type": "object",
                             "properties": {
                                 "enabled": {
-                                    "description": "Enable [publishedService](https://doc.traefik.io/traefik/providers/kubernetes-ingress/#publishedservice), usually with the Service provided by this Chart. It's possible to use it with an external Service using pathOverride.",
+                                    "description": "Enable [publishedService](https://doc.traefik.io/traefik/reference/install-configuration/providers/kubernetes/kubernetes-ingress/#ingressendpointpublishedservice), usually with the Service provided by this Chart. It's possible to use it with an external Service using pathOverride.",
                                     "type": "boolean"
                                 },
                                 "pathOverride": {
@@ -2373,16 +2657,41 @@
                     },
                     "additionalProperties": false
                 },
-                "kubernetesIngressNginx": {
+                "kubernetesIngressNGINX": {
                     "type": "object",
                     "properties": {
+                        "allowCrossNamespaceResources": {
+                            "description": "Allow Ingress to reference resources (e.g. ConfigMaps, Secrets) in different namespaces (default: false)",
+                            "type": [
+                                "boolean",
+                                "null"
+                            ]
+                        },
+                        "allowSnippetAnnotations": {
+                            "description": "Enables parsing and adding -snippet annotations/directives (default: false)",
+                            "type": [
+                                "boolean",
+                                "null"
+                            ]
+                        },
                         "certAuthFilePath": {
                             "description": "Kubernetes certificate authority file path (not needed for in-cluster client)",
                             "type": "string"
                         },
+                        "clientBodyBufferSize": {
+                            "description": "Default buffer size for reading client request body in bytes (default: 16384)",
+                            "type": [
+                                "integer",
+                                "null"
+                            ]
+                        },
                         "controllerClass": {
                             "description": "Ingress Class Controller value this controller satisfies",
                             "type": "string"
+                        },
+                        "customHTTPErrors": {
+                            "description": "Defines which HTTP status codes should result in calling the default backend to return an error page",
+                            "type": "array"
                         },
                         "defaultBackendService": {
                             "description": "Service used to serve HTTP requests not matching any known server name (catch-all). Takes the form 'namespace/name'",
@@ -2393,11 +2702,27 @@
                             "type": "boolean"
                         },
                         "enabled": {
-                            "description": "Enable Kubernetes Ingress NGINX provider (experimental)",
+                            "description": "Enable Kubernetes Ingress NGINX provider",
                             "type": "boolean"
                         },
                         "endpoint": {
                             "description": "Kubernetes server endpoint (required for external cluster client)",
+                            "type": "string"
+                        },
+                        "globalAllowedResponseHeaders": {
+                            "description": "List of allowed response headers inside the custom headers annotations",
+                            "type": "array"
+                        },
+                        "globalAuthUrl": {
+                            "description": "URL to the service that provides authentication for all the locations. Per ingress auth-url annotation has precedence over this option.",
+                            "type": "string"
+                        },
+                        "httpEntryPoint": {
+                            "description": "Defines the EntryPoint to use for HTTP requests",
+                            "type": "string"
+                        },
+                        "httpsEntryPoint": {
+                            "description": "Defines the EntryPoint to use for HTTPS requests",
                             "type": "string"
                         },
                         "ingressClass": {
@@ -2407,6 +2732,116 @@
                         "ingressClassByName": {
                             "description": "Define if Ingress Controller should watch for Ingress Class by Name together with Controller Class",
                             "type": "boolean"
+                        },
+                        "ipAllowListStrategy": {
+                            "description": "When set, the strategy is applied to every generated IPAllowList middleware.",
+                            "type": "object",
+                            "properties": {
+                                "depth": {
+                                    "description": "Number of trusted proxy hops to skip when extracting the client IP from the X-Forwarded-For header. 0 disables depth-based extraction. (default: 0)",
+                                    "type": "integer"
+                                },
+                                "excludedIPS": {
+                                    "description": "List of IPs to exclude when scanning the X-Forwarded-For header to find the client IP.",
+                                    "type": "array"
+                                },
+                                "ipv6Subnet": {
+                                    "description": "IPv6 subnet size used to group IPv6 addresses when checking the allow list. 0 disables subnet grouping.",
+                                    "type": "integer"
+                                }
+                            }
+                        },
+                        "modsec": {
+                            "type": "object",
+                            "properties": {
+                                "enabled": {
+                                    "description": "Enable ModSec engine. Requires Traefik Hub \u003e= v3.20.0-ea.8.",
+                                    "type": "boolean"
+                                },
+                                "owaspCoreRules": {
+                                    "description": "Enable OWASP Core Rules.",
+                                    "type": "boolean"
+                                },
+                                "snippet": {
+                                    "description": "Custom ModSec rules snippet.",
+                                    "type": "string"
+                                }
+                            },
+                            "additionalProperties": false
+                        },
+                        "proxyBodySize": {
+                            "description": "Default maximum size of a client request body in bytes (default: 1048576)",
+                            "type": [
+                                "integer",
+                                "null"
+                            ]
+                        },
+                        "proxyBufferSize": {
+                            "description": "Default buffer size for reading the response body in bytes (default: 8192)",
+                            "type": [
+                                "integer",
+                                "null"
+                            ]
+                        },
+                        "proxyBuffering": {
+                            "description": "Defines whether to enable response buffering (default: false)",
+                            "type": [
+                                "boolean",
+                                "null"
+                            ]
+                        },
+                        "proxyBuffersNumber": {
+                            "description": "Default number of buffers for reading a response (default: 4)",
+                            "type": [
+                                "integer",
+                                "null"
+                            ]
+                        },
+                        "proxyConnectTimeout": {
+                            "description": "Amount of time to wait until a connection to a server can be established. Unitless, in seconds (default: 60)",
+                            "type": [
+                                "integer",
+                                "null"
+                            ]
+                        },
+                        "proxyNextUpstream": {
+                            "description": "Defines in which cases a request should be retried (default: \"error timeout\")",
+                            "type": "string"
+                        },
+                        "proxyNextUpstreamTimeout": {
+                            "description": "Limits the total elapsed time to retry the request. Unitless, in seconds (default: 0)",
+                            "type": [
+                                "integer",
+                                "null"
+                            ]
+                        },
+                        "proxyNextUpstreamTries": {
+                            "description": "Limits the number of possible tries if the backend server does not reply (default: 3)",
+                            "type": [
+                                "integer",
+                                "null"
+                            ]
+                        },
+                        "proxyReadTimeout": {
+                            "description": "Amount of time between two successive read operations. Unitless, in seconds (default: 60)",
+                            "type": [
+                                "integer",
+                                "null"
+                            ]
+                        },
+                        "proxyRequestBuffering": {
+                            "description": "Defines whether to enable request buffering (default: false)",
+                            "type": [
+                                "boolean",
+                                "null"
+                            ]
+                        },
+                        "proxySendTimeout": {
+                            "description": "Amount of time between two successive write operations. Unitless, in seconds (default: 60)",
+                            "type": [
+                                "integer",
+                                "null"
+                            ]
                         },
                         "publishService": {
                             "type": "object",
@@ -2424,6 +2859,13 @@
                             "description": "Customized address (or addresses, separated by comma) to set as the load-balancer status of Ingress objects this controller satisfies",
                             "type": "string"
                         },
+                        "strictValidatePathType": {
+                            "description": "Defines whether to reject the entire ingress when any path contains regex characters and pathType is Prefix or Exact (default: true)",
+                            "type": [
+                                "boolean",
+                                "null"
+                            ]
+                        },
                         "throttleDuration": {
                             "description": "Ingress refresh throttle duration",
                             "type": "string"
@@ -2432,12 +2874,19 @@
                             "description": "Kubernetes bearer token (not needed for in-cluster client). It accepts either a token value or a file path to the token",
                             "type": "string"
                         },
+                        "upstreamKeepaliveTimeout": {
+                            "description": "Defines the idle timeout for keep-alive connections to upstream servers. Unitless, in seconds (default: 60)",
+                            "type": [
+                                "integer",
+                                "null"
+                            ]
+                        },
                         "watchIngressWithoutClass": {
                             "description": "Define if Ingress Controller should also watch for Ingresses without an IngressClass or the annotation specified",
                             "type": "boolean"
                         },
                         "watchNamespace": {
-                            "description": "Namespace the controller watches for updates to Kubernetes objects. Mutually exclusive with watchNamespaceSelector.",
+                            "description": "Single namespace the controller watches for updates to Kubernetes objects. Mutually exclusive with watchNamespaceSelector.",
                             "type": "string"
                         },
                         "watchNamespaceSelector": {
@@ -2446,6 +2895,10 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "precedence": {
+                    "description": "Defines the routing precedence between providers. See [upstream documentation](https://doc.traefik.io/traefik/reference/install-configuration/providers/overview/#routing-precedence) for the default order.",
+                    "type": "array"
                 }
             },
             "additionalProperties": false
@@ -2454,6 +2907,7 @@
             "type": "object",
             "properties": {
                 "aggregateTo": {
+                    "description": "Enable user-facing roles https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles",
                     "type": "array"
                 },
                 "enabled": {
@@ -2461,6 +2915,7 @@
                     "type": "boolean"
                 },
                 "namespaced": {
+                    "description": "When set to true: \u003cbr /\u003e 1. It switches respectively the use of `ClusterRole` and `ClusterRoleBinding` to `Role` and `RoleBinding`.\u003cbr /\u003e 2. It adds `disableClusterScopeResources` on Ingress and CRD (Kubernetes) providers\u003cbr /\u003e **NOTE**: `IngressClass`, `NodePortLB` and **Gateway** provider cannot be used with namespaced RBAC. \u003cbr /\u003e See [upstream documentation](https://doc.traefik.io/traefik/reference/install-configuration/providers/kubernetes/kubernetes-ingress/#opt-providers-kubernetesIngress-disableClusterScopeResources) for more details.",
                     "type": "boolean"
                 }
             },
@@ -2523,6 +2978,7 @@
             "type": "object",
             "properties": {
                 "additionalServices": {
+                    "description": "Can be used to create multiple Service. See EXAMPLES.md for more details.",
                     "type": "object"
                 },
                 "annotations": {
@@ -2540,25 +2996,28 @@
                 "enabled": {
                     "type": "boolean"
                 },
-                "externalIPs": {
-                    "type": "array"
-                },
                 "labels": {
                     "description": "Additional service labels (e.g. for filtering Service by custom labels)",
                     "type": "object"
                 },
-                "loadBalancerSourceRanges": {
-                    "type": "array"
+                "nameOverride": {
+                    "description": "Override the default Service name. Useful for adopting an existing Service (e.g., during migration from another ingress controller).",
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "single": {
                     "type": "boolean"
                 },
                 "spec": {
-                    "description": "Additional entries here will be added to the service spec.",
-                    "type": "object"
-                },
-                "type": {
-                    "type": "string"
+                    "description": "Additional entries here will be added to the Service [spec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#servicespec-v1-core). Cannot contain selector or ports entries.",
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string"
+                        }
+                    }
                 }
             }
         },
@@ -2581,11 +3040,11 @@
             "type": "object"
         },
         "tlsOptions": {
-            "description": "TLS Options are created as [TLSOption CRDs](https://doc.traefik.io/traefik/https/tls/#tls-options) When using `labelSelector`, you'll need to set labels on tlsOption accordingly. See EXAMPLE.md for details.",
+            "description": "TLS Options are created as [TLSOption CRDs](https://doc.traefik.io/traefik/reference/routing-configuration/kubernetes/crd/tls/tlsoption/) When using `labelSelector`, you'll need to set labels on tlsOption accordingly. See EXAMPLE.md for details.",
             "type": "object"
         },
         "tlsStore": {
-            "description": "TLS Store are created as [TLSStore CRDs](https://doc.traefik.io/traefik/https/tls/#default-certificate). This is useful if you want to set a default certificate. See EXAMPLE.md for details.",
+            "description": "TLS Store are created as [TLSStore CRDs](https://doc.traefik.io/traefik/reference/routing-configuration/kubernetes/crd/tls/tlsstore/). This is useful if you want to set a default certificate. See EXAMPLE.md for details.",
             "type": "object"
         },
         "tolerations": {
@@ -2597,7 +3056,7 @@
             "type": "array"
         },
         "tracing": {
-            "description": "https://doc.traefik.io/traefik/observability/tracing/overview/",
+            "description": "https://doc.traefik.io/traefik/reference/install-configuration/observability/tracing/",
             "type": "object",
             "properties": {
                 "addInternals": {
@@ -2616,7 +3075,7 @@
                     "type": "object",
                     "properties": {
                         "enabled": {
-                            "description": "See https://doc.traefik.io/traefik/v3.0/observability/tracing/opentelemetry/",
+                            "description": "See https://doc.traefik.io/traefik/reference/install-configuration/observability/tracing/#configuration-options",
                             "type": "boolean"
                         },
                         "grpc": {
@@ -2760,7 +3219,7 @@
             "additionalProperties": false
         },
         "versionOverride": {
-            "description": "This field overrides the default version extracted from image.tag",
+            "description": "This field overrides the default version extracted from image.tag. Required when pinning by `image.digest`, since the version cannot be derived from a digest.",
             "type": "string"
         },
         "volumes": {

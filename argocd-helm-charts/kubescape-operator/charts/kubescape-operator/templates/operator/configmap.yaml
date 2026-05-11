@@ -29,7 +29,9 @@ data:
         "Namespace": "{{ .Values.ksNamespace }}"
       },
         {{- end }}
+      {{- if $components.synchronizer.enabled }}
       "httpExporterConfig": {{- .Values.nodeAgent.config.httpExporterConfig | toJson }},
+      {{- end }}
       "nodeAgentAutoscaler": {
         "enabled": {{ .Values.nodeAgent.autoscaler.enabled }},
         "nodeGroupLabel": "{{ .Values.nodeAgent.autoscaler.nodeGroupLabel }}",

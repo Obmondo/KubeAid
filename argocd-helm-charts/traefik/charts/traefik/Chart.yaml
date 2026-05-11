@@ -1,9 +1,12 @@
 annotations:
-  artifacthub.io/changes: "- \"fix(deps): bump traefik.io CRDs to release v3.6.14\"\n-
-    \"feat(deps): update traefik docker tag to v3.6.15 (v39.0)\"\n- \"chore(release):
-    \U0001F680 publish traefik 39.0.9 and crds 1.14.1\"\n"
+  artifacthub.io/changes: "- \"feat(hub): :rocket: support traefik hub v3.20.1\"\n-
+    \"chore(release): \U0001F680 publish 40.0.1\"\n"
+  traefik.io/hub-max-version: v3.20.1
+  traefik.io/hub-min-version: v3.19.3
+  traefik.io/proxy-max-version: v3.7.0
+  traefik.io/proxy-min-version: v3.6.0
 apiVersion: v2
-appVersion: v3.6.15
+appVersion: v3.7.0
 description: A Traefik based Kubernetes ingress controller
 home: https://traefik.io/
 icon: https://raw.githubusercontent.com/traefik/traefik/master/docs/content/assets/img/traefik.logo.png
@@ -11,7 +14,7 @@ keywords:
 - traefik
 - ingress
 - networking
-kubeVersion: '>=1.22.0-0'
+kubeVersion: '>=1.25.0-0'
 maintainers:
 - email: michel.loiseleur@traefik.io
   name: mloiseleur
@@ -23,4 +26,4 @@ sources:
 - https://github.com/traefik/traefik-helm-chart
 - https://github.com/traefik/traefik
 type: application
-version: 39.0.9
+version: 40.0.1

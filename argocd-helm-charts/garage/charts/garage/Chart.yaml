@@ -14,4 +14,4 @@ sources:
 - https://git.deuxfleurs.fr/Deuxfleurs/garage.git
 - https://github.com/datahub-local/garage-helm/garage
 type: application
-version: 0.5.0
+version: 0.6.0

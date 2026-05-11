@@ -1,5 +1,5 @@
 apiVersion: v2
-appVersion: v16.16.0
+appVersion: v16.17.0
 dependencies:
 - alias: mariadb-subchart
   condition: mariadb.enabled,mariadb-subchart.enabled
@@ -45,4 +45,4 @@ description: Kubernetes Helm Chart for the latest stable ERPNext branch
 icon: https://raw.githubusercontent.com/frappe/erpnext/develop/erpnext/public/images/erpnext-logo.png
 name: erpnext
 type: application
-version: 8.0.46
+version: 8.0.47

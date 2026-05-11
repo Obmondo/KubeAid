@@ -41,5 +41,6 @@ data:
 {{- if .Values.grypeOfflineDB.enabled }}
       "listingURL": "http://{{ .Values.grypeOfflineDB.name }}:80/databases",
 {{- end }}
-      "relevantImageVulnerabilitiesConfiguration": "{{ .Values.capabilities.relevancy }}"
+      "relevantImageVulnerabilitiesConfiguration": "{{ .Values.capabilities.relevancy }}",
+      "riskAcceptance": {{ eq .Values.capabilities.riskAcceptance "enable" }}
     }

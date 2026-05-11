@@ -19,7 +19,7 @@ tests:
           value: RELEASE-NAME-garage-configure
 
   # Helm hook annotations
-  - it: should have helm hook annotations
+  - it: should have helm hook annotations when asHook is true (default)
     set:
       clusterConfig.enabled: true
     asserts:
@@ -30,10 +30,32 @@ tests:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
           value: before-hook-creation,hook-succeeded
 
-  # ArgoCD hook annotations
-  - it: should have ArgoCD hook annotations
+  - it: should not have helm hook annotations when asHook is false
     set:
       clusterConfig.enabled: true
+      clusterConfig.helmSync.asHook: false
+    asserts:
+      - isNull:
+          path: metadata.annotations["helm.sh/hook"]
+      - isNull:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+
+  # ArgoCD hook annotations
+  - it: should always have ArgoCD hook annotations
+    set:
+      clusterConfig.enabled: true
+    asserts:
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/hook"]
+          value: Sync
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/hook-delete-policy"]
+          value: BeforeHookCreation,HookSucceeded
+
+  - it: should have ArgoCD hook annotations even when asHook is false
+    set:
+      clusterConfig.enabled: true
+      clusterConfig.helmSync.asHook: false
     asserts:
       - equal:
           path: metadata.annotations["argocd.argoproj.io/hook"]
@@ -304,6 +326,50 @@ tests:
           path: metadata.labels
           content:
             team: platform
+
+  # helmSync tests
+  - it: should not set ttlSecondsAfterFinished when asHook is true (default)
+    set:
+      clusterConfig.enabled: true
+    asserts:
+      - isNull:
+          path: spec.ttlSecondsAfterFinished
+
+  - it: should set ttlSecondsAfterFinished with default value when asHook is false
+    set:
+      clusterConfig.enabled: true
+      clusterConfig.helmSync.asHook: false
+    asserts:
+      - equal:
+          path: spec.ttlSecondsAfterFinished
+          value: 300
+
+  - it: should set custom ttlSecondsAfterFinished when asHook is false
+    set:
+      clusterConfig.enabled: true
+      clusterConfig.helmSync.asHook: false
+      clusterConfig.helmSync.ttlSecondsAfterFinished: 600
+    asserts:
+      - equal:
+          path: spec.ttlSecondsAfterFinished
+          value: 600
+
+  - it: should append release revision to name when asHook is false
+    set:
+      clusterConfig.enabled: true
+      clusterConfig.helmSync.asHook: false
+    asserts:
+      - matchRegex:
+          path: metadata.name
+          pattern: "RELEASE-NAME-garage-configure-\\d+"
+
+  - it: should not append release revision to name when asHook is true (default)
+    set:
+      clusterConfig.enabled: true
+    asserts:
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-garage-configure
 
   # Name override tests
   - it: should use fullname override

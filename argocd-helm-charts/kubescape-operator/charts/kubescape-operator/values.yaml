@@ -426,7 +426,7 @@ kubevuln:
   image:
     # -- source code: https://github.com/kubescape/kubevuln
     repository: quay.io/kubescape/kubevuln
-    tag: v0.3.136
+    tag: v0.3.137
     pullPolicy: IfNotPresent
 
   nodeSelector:

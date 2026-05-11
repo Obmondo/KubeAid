@@ -1,7 +1,7 @@
 {{- define "traefik.service-name" -}}
 {{- $fullname := printf "%s-%s" (include "traefik.fullname" .root) .name -}}
 {{- if eq .name "default" -}}
-{{- $fullname = include "traefik.fullname" .root -}}
+{{- $fullname = default (include "traefik.fullname" .root) .root.Values.service.nameOverride -}}
 {{- end -}}
 
 {{- if ge (len $fullname) 60 -}} # 64 - 4 (udp-postfix) = 60
@@ -15,38 +15,16 @@
   labels:
   {{- include "traefik.labels" .root | nindent 4 -}}
   {{- with .service.labels }}
-  {{- toYaml . | nindent 4 }}
+    {{- toYaml . | nindent 4 }}
   {{- end }}
 {{- end }}
 
 {{- define "traefik.service-spec" -}}
-  {{- $type := default "LoadBalancer" .service.type }}
-  type: {{ $type }}
-  {{- with .service.loadBalancerClass }}
-  loadBalancerClass: {{ . }}
-  {{- end}}
   {{- with .service.spec }}
-  {{- toYaml . | nindent 2 }}
+    {{- toYaml . | nindent 2 }}
   {{- end }}
   selector:
     {{- include "traefik.labelselector" .root | nindent 4 }}
-  {{- if eq $type "LoadBalancer" }}
-  {{- with .service.loadBalancerSourceRanges }}
-  loadBalancerSourceRanges:
-  {{- toYaml . | nindent 2 }}
-  {{- end -}}
-  {{- end -}}
-  {{- with .service.externalIPs }}
-  externalIPs:
-  {{- toYaml . | nindent 2 }}
-  {{- end -}}
-  {{- with .service.ipFamilyPolicy }}
-  ipFamilyPolicy: {{ . }}
-  {{- end }}
-  {{- with .service.ipFamilies }}
-  ipFamilies:
-  {{- toYaml . | nindent 2 }}
-  {{- end -}}
 {{- end }}
 
 {{- define "traefik.service-ports" }}
