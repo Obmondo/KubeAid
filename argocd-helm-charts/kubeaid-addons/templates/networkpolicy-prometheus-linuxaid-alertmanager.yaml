@@ -1,16 +1,13 @@
 {{- if and ((.Values.global).netpol).enabled ((.Values.global).prometheusLinuxaid).netpol }}
-{{- $ns := .Values.global.prometheusLinuxaid.namespace }}
 ---
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
   name: prometheus-linuxaid-alertmanager
-  namespace: {{ $ns }}
+  namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/component: cilium-networkpolicy
 spec:
-  # Selects the AlertManager StatefulSet pods created by the Prometheus Operator
-  # for the Alertmanager CR named "alertmanager" in prometheus-linuxaid/templates/alertmanager.yaml.
   endpointSelector:
     matchLabels:
       app.kubernetes.io/name: alertmanager
@@ -21,9 +18,11 @@ spec:
 
   ingress:
     # Prometheus → AlertManager ports 9093 and 8080.
+    # port 9093 — Prometheus fires alerts (Alertmanager API /api/v2/alerts) and scrapes /metrics.
+    # port 8080 — config-reloader sidecar metrics.
     - fromEndpoints:
         - matchLabels:
-            k8s:io.kubernetes.pod.namespace: {{ $ns }}
+            k8s:io.kubernetes.pod.namespace: {{ .Release.Namespace }}
             app.kubernetes.io/name: prometheus
       toPorts:
         - ports:
@@ -32,7 +31,7 @@ spec:
             - port: "8080"
               protocol: TCP
 
-    # Traefik → AlertManager port 9093.
+    # Traefik → AlertManager port 9093 (AlertManager web UI via Ingress).
     - fromEndpoints:
         - matchLabels:
             k8s:io.kubernetes.pod.namespace: {{ .Values.global.netpol.traefik.namespace }}
@@ -49,7 +48,9 @@ spec:
 # =========
 
   egress:
-    # kube-dns — AlertManager uses DNS to resolve the webhook FQDN (alerts.obmondo.com).
+    # kube-dns — AlertManager resolves the webhook FQDN via DNS.
+    # Cilium's DNS proxy intercepts the query to learn which IPs map to that FQDN
+    # so the toFQDNs rule below can enforce egress by name, not by IP.
     - toEndpoints:
         - matchLabels:
             k8s:io.kubernetes.pod.namespace: kube-system
@@ -62,11 +63,10 @@ spec:
             dns:
               - matchPattern: "*"
 
-    {{- $amCfg := ((.Values.global.prometheusLinuxaid).alertmanager | default dict) }}
-    {{- if $amCfg.webhookFQDN }}
-    # Obmondo alerts webhook — AlertManager POSTs fired alerts to this FQDN over HTTPS (port 443).
+    {{- if .Values.global.prometheusLinuxaid.alertmanager.webhookFQDN }}
+    # Obmondo alerts webhook — AlertManager POSTs fired alerts over HTTPS (port 443).
     - toFQDNs:
-        - matchName: {{ $amCfg.webhookFQDN | quote }}
+        - matchName: {{ .Values.global.prometheusLinuxaid.alertmanager.webhookFQDN | quote }}
       toPorts:
         - ports:
             - port: "443"

@@ -183,9 +183,6 @@ global:
     # -- Enable CiliumNetworkPolicies for the configured prometheus-linuxaid namespace.
     netpol: false
 
-    # -- The single namespace where this ArgoCD app's prometheus-linuxaid is deployed.
-    namespace: ""
-
     alertmanager:
       # -- FQDN for the Obmondo alerting webhook (egress on port 443).
       webhookFQDN: ""  # e.g. alerts.obmondo.com

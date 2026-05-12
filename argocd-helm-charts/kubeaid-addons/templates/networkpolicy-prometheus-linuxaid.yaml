@@ -1,16 +1,13 @@
 {{- if and ((.Values.global).netpol).enabled ((.Values.global).prometheusLinuxaid).netpol }}
-{{- $ns := .Values.global.prometheusLinuxaid.namespace }}
 ---
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
   name: prometheus-linuxaid-prometheus
-  namespace: {{ $ns }}
+  namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/component: cilium-networkpolicy
 spec:
-  # Selects the Prometheus StatefulSet pods created by the Prometheus Operator.
-  # The operator sets app.kubernetes.io/instance to the CR name and ignores podMetadata overrides.
   endpointSelector:
     matchLabels:
       app.kubernetes.io/name: prometheus
@@ -21,6 +18,8 @@ spec:
 
   ingress:
     # Traefik → Prometheus port 9090.
+    # 1. Humans accessing the Prometheus web UI via the Ingress domain.
+    # 2. Linux VM Prometheus agents remote-writing metrics (Traefik forwards /api/v1/write).
     - fromEndpoints:
         - matchLabels:
             k8s:io.kubernetes.pod.namespace: {{ .Values.global.netpol.traefik.namespace }}
@@ -32,11 +31,10 @@ spec:
             - port: "9090"
               protocol: TCP
 
-    # Grafana → Prometheus port 9090.
-    # Grafana queries Prometheus as a datasource to render dashboards.
+    # Grafana → Prometheus port 9090 (Prometheus datasource queries).
     - fromEndpoints:
         - matchLabels:
-            k8s:io.kubernetes.pod.namespace: {{ $ns }}
+            k8s:io.kubernetes.pod.namespace: {{ .Release.Namespace }}
             app: grafana
       toPorts:
         - ports:
@@ -48,8 +46,7 @@ spec:
 # =========
 
   egress:
-    # kube-dns — needed so Prometheus can resolve Kubernetes service names
-    # and FQDNs during service discovery and alertmanager address lookup.
+    # kube-dns — Prometheus resolves service names during Kubernetes SD and AlertManager lookup.
     - toEndpoints:
         - matchLabels:
             k8s:io.kubernetes.pod.namespace: kube-system
@@ -62,8 +59,8 @@ spec:
             dns:
               - matchPattern: "*"
 
-    # kube-apiserver — Prometheus Operator configures Prometheus with a Kubernetes SD config.
-    # Prometheus reads pods, services, and endpoints from the API to discover scrape targets.
+    # kube-apiserver — Prometheus Operator uses Kubernetes SD to discover scrape targets
+    # (reads pods, services, and endpoints from the API).
     - toEntities:
         - kube-apiserver
       toPorts:
@@ -76,44 +73,38 @@ spec:
     # AlertManager — Prometheus sends fired alerts to AlertManager on port 9093.
     - toEndpoints:
         - matchLabels:
-            k8s:io.kubernetes.pod.namespace: {{ $ns }}
+            k8s:io.kubernetes.pod.namespace: {{ .Release.Namespace }}
             app.kubernetes.io/name: alertmanager
       toPorts:
         - ports:
             - port: "9093"
               protocol: TCP
 
-    # All pods in the same namespace — Prometheus scrapes metrics from every pod it discovers
-    # in its own namespace (AlertManager /metrics on 9093, Grafana /metrics on 3000, etc.).
-    # This is intentionally broad: the exact ports depend on what ServiceMonitors are configured.
+    # All pods in the release namespace — covers scraping of AlertManager, Grafana, and any other
+    # components co-deployed in this prometheus-linuxaid namespace. Intentionally scoped to one
+    # namespace: each prometheus-linuxaid instance is deployed per-tenant with its own namespace,
+    # and cross-tenant scraping is handled via additionalScrapeNamespaces below.
     - toEndpoints:
         - matchLabels:
-            k8s:io.kubernetes.pod.namespace: {{ $ns }}
-
-    # puppetserver namespace — serviceMonitorNamespaceSelector in prometheus.yaml hardcodes this
-    # namespace so Prometheus can pick up ServiceMonitors defined there and scrape puppetserver pods.
-    - toEndpoints:
-        - matchLabels:
-            k8s:io.kubernetes.pod.namespace: puppetserver
+            k8s:io.kubernetes.pod.namespace: {{ .Release.Namespace }}
 
     {{- range ((.Values.global.prometheusLinuxaid.prometheus | default dict).additionalScrapeNamespaces | default list) }}
-    {{- $scrapeNs := . }}
-    {{- $scrapePorts := list }}
     {{- if kindIs "map" . }}
-    {{- $scrapeNs = .namespace }}
-    {{- $scrapePorts = (.ports | default list) }}
-    {{- end }}
-    # Extra scrape namespace configured per prometheus-linuxaid deployment.
     - toEndpoints:
         - matchLabels:
-            k8s:io.kubernetes.pod.namespace: {{ $scrapeNs }}
-    {{- if $scrapePorts }}
+            k8s:io.kubernetes.pod.namespace: {{ .namespace }}
+    {{- with .ports }}
       toPorts:
         - ports:
-          {{- range $scrapePorts }}
+          {{- range . }}
             - port: {{ . | quote }}
               protocol: TCP
           {{- end }}
+    {{- end }}
+    {{- else }}
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ . }}
     {{- end }}
     {{- end }}
 

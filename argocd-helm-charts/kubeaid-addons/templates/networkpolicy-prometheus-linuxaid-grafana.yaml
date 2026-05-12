@@ -1,16 +1,13 @@
 {{- if and ((.Values.global).netpol).enabled ((.Values.global).prometheusLinuxaid).netpol }}
-{{- $ns := .Values.global.prometheusLinuxaid.namespace }}
 ---
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
   name: prometheus-linuxaid-grafana
-  namespace: {{ $ns }}
+  namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/component: cilium-networkpolicy
 spec:
-  # Selects the Grafana Deployment pods created by the Grafana Operator.
-  # The grafana-operator sets app=grafana (short form), not app.kubernetes.io/name.
   endpointSelector:
     matchLabels:
       app: grafana
@@ -20,8 +17,7 @@ spec:
 # =========
 
   ingress:
-    # Traefik → Grafana port 3000.
-    # Users access the Grafana dashboard UI through the Ingress domain (e.g. enableit.graphs.obmondo.com).
+    # Traefik → Grafana port 3000 (Grafana UI via Ingress).
     - fromEndpoints:
         - matchLabels:
             k8s:io.kubernetes.pod.namespace: {{ .Values.global.netpol.traefik.namespace }}
@@ -33,11 +29,10 @@ spec:
             - port: "3000"
               protocol: TCP
 
-    # Prometheus → Grafana port 3000.
-    # Prometheus scrapes Grafana's own /metrics endpoint (via a ServiceMonitor or PodMonitor in the same namespace) to monitor Grafana health and performance.
+    # Prometheus → Grafana port 3000 (scrapes Grafana's own /metrics endpoint).
     - fromEndpoints:
         - matchLabels:
-            k8s:io.kubernetes.pod.namespace: {{ $ns }}
+            k8s:io.kubernetes.pod.namespace: {{ .Release.Namespace }}
             app.kubernetes.io/name: prometheus
       toPorts:
         - ports:
@@ -49,7 +44,9 @@ spec:
 # =========
 
   egress:
-    # kube-dns — Grafana uses DNS to resolve the Prometheus service name
+    # kube-dns — Grafana resolves the Prometheus service name (e.g. prometheus-operated) via DNS
+    # to get a ClusterIP before opening the TCP connection. Even though Cilium's toEndpoints rule
+    # below matches by pod identity (not IP), the application-level DNS lookup must succeed first.
     - toEndpoints:
         - matchLabels:
             k8s:io.kubernetes.pod.namespace: kube-system
@@ -62,10 +59,10 @@ spec:
             dns:
               - matchPattern: "*"
 
-    # Prometheus datasource — Grafana queries Prometheus on port 9090
+    # Prometheus datasource — Grafana queries Prometheus on port 9090 to render dashboards.
     - toEndpoints:
         - matchLabels:
-            k8s:io.kubernetes.pod.namespace: {{ $ns }}
+            k8s:io.kubernetes.pod.namespace: {{ .Release.Namespace }}
             app.kubernetes.io/name: prometheus
       toPorts:
         - ports:
