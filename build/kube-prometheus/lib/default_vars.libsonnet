@@ -50,6 +50,10 @@
     limits: { memory: '40Mi' },
     requests: { cpu: '1m', memory: '40Mi' },
   },
+  blackbox_exporter_resources: {
+    limits: { memory: '40Mi' },
+    requests: { cpu: '10m', memory: '20Mi' },
+  },
 
   grafana_keycloak_enable: false,
   grafana_root_url: '',

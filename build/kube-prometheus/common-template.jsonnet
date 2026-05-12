@@ -521,6 +521,9 @@ local kp =
           rules+: vars.prometheus_adapter_additional_rules,
         },
       },
+      blackboxExporter+: {
+        resources: vars.blackbox_exporter_resources,
+      },
       // This is ONLY supported in release-0.11+ and main
       kubeStateMetrics+: {
         kubeRbacProxyMain+: {
