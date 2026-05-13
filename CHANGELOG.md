@@ -2,6 +2,12 @@
 
 All releases and the changes included in them (pulled from git commits added since last release) will be detailed in this file.
 
+## KubeAid Release Version 29.0.6
+
+### Bug Fixes
+
+- b33284f76 fix(capi-cluster/hetzner): add kubeadm-required fields to KCP KubeletConfiguration
+
 ## KubeAid Release Version 29.0.5
 
 ### Features
