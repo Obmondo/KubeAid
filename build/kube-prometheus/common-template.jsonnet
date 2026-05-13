@@ -523,6 +523,7 @@ local kp =
       },
       blackboxExporter+: {
         resources: vars.blackbox_exporter_resources,
+        modules+: vars.blackbox_exporter_modules,
       },
       // This is ONLY supported in release-0.11+ and main
       kubeStateMetrics+: {
