@@ -226,6 +226,20 @@
           "title": "imageName",
           "type": "string"
         },
+        "natGatewayIP": {
+          "default": "10.0.0.1",
+          "description": "IP of the NAT gateway nodes route through for egress when they have no public IP. Default matches the first usable host in the default cidrBlock (10.0.0.0/16 → 10.0.0.1). Override when running on a custom private network.\n",
+          "pattern": "^[0-9.]+$",
+          "title": "natGatewayIP",
+          "type": "string"
+        },
+        "dnsServer": {
+          "default": "1.1.1.1",
+          "description": "Public DNS resolver written to /etc/resolv.conf on private-only nodes during cloud-init. Defaults to Cloudflare 1.1.1.1; override for sovereignty / internal-DNS setups.\n",
+          "pattern": "^[0-9.]+$",
+          "title": "dnsServer",
+          "type": "string"
+        },
         "subnetCidrBlock": {
           "default": "10.0.0.0/24",
           "description": "CIDR block for the HCloud subnet servers attach to.",
