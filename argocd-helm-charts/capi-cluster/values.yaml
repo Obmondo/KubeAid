@@ -13,6 +13,13 @@ global:
     version: v1.21.1
   kubeaid:
     repo: https://github.com/Obmondo/KubeAid.git
+    # KubeAid git ref the postKubeadmCommands `git clone` checks out
+    # on every control-plane node. Set to a release tag (e.g. "29.0.4")
+    # to pin the in-node clone to the same version kubeaid-cli rendered
+    # this chart against — otherwise the in-node clone takes master HEAD
+    # and the manifests Cilium / CCM are installed from can drift from
+    # the rendered chart. Empty leaves the clone unpinned (master).
+    version: ""
   # kubeaid-storagectl is fetched at cloud-init by the Hetzner bare-metal
   # KubeadmConfig / KubeadmControlPlane templates. The binary is published
   # as a standalone release asset by kubeaid-cli's goreleaser config.

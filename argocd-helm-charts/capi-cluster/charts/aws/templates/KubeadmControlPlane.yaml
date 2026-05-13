@@ -42,8 +42,13 @@ spec:
     postKubeadmCommands:
       # Install Helm.
       - curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-      # Clone KubeAid.
-      - git clone https://github.com/Obmondo/kubeaid.git
+      # Clone KubeAid. Target dir forced to `kubeaid` (lowercase) so the
+      # path references below survive case-sensitive repo URLs (Obmondo's
+      # canonical URL ends in `KubeAid.git`). Pinned to
+      # global.kubeaid.version when set — keeps the in-node clone on the
+      # same release the chart was rendered from. Empty version leaves
+      # the clone on master.
+      - git clone --depth 1{{ if .Values.global.kubeaid.version }} --branch {{ .Values.global.kubeaid.version }}{{ end }} {{ .Values.global.kubeaid.repo }} kubeaid
       # Copy kubeconfig to ~/.kube/config
       - mkdir -p $HOME/.kube
       - sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
