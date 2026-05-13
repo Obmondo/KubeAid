@@ -2,6 +2,12 @@
 
 All releases and the changes included in them (pulled from git commits added since last release) will be detailed in this file.
 
+## KubeAid Release Version 29.0.5
+
+### Features
+
+- b502c65d5 feat(capi-cluster): pin postKubeadm `git clone kubeaid` to global.kubeaid.version
+
 ## KubeAid Release Version 29.0.4
 
 ### Features
