@@ -1,13 +1,13 @@
 cluster-api-operator:
   core:
     cluster-api:
-      version: v1.9.3
+      version: v1.11.10
       createNamespace: false
   bootstrap:
     kubeadm:
-      version: v1.9.3
+      version: v1.11.10
       createNamespace: false
   controlPlane:
     kubeadm:
-      version: v1.9.3
+      version: v1.11.10
       createNamespace: false

@@ -8,7 +8,7 @@ global:
     version: v2.9.2
     enableMachinePools: false
   caph:
-    version: v1.0.7
+    version: v1.1.3
   capz:
     version: v1.21.1
   kubeaid:
