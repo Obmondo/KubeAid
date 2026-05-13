@@ -2,6 +2,35 @@
 
 All releases and the changes included in them (pulled from git commits added since last release) will be detailed in this file.
 
+## KubeAid Release Version 29.0.0
+
+### Major Version Upgrades
+
+- 8df704667 Updated traefik from version 39.0.9 to 40.0.1
+
+### Minor Version Upgrades
+
+- 8df704667 Updated hcloud-cloud-controller-manager from version 1.30.1 to 1.31.0
+- 8df704667 Updated garage from version 0.5.0 to 0.6.0
+- 8df704667 Updated harbor from version 1.18.3 to 1.19.0
+- 8df704667 Updated opentelemetry-operator from version 0.111.0 to 0.112.1
+
+### Patch Version Upgrades
+
+- 8df704667 Updated argo-cd from version 9.5.11 to 9.5.13
+- 8df704667 Updated erpnext from version 8.0.46 to 8.0.47
+- 8df704667 Updated graylog from version 3.0.18 to 3.0.19
+- 8df704667 Updated kubescape-operator from version 1.40.0 to 1.40.1
+
+### Features
+
+- 6ececd117 feat: add blackbox resource
+
+### Bug Fixes
+
+- 95db79d7c fix(postgresql-object-store): accept both cloud and provider field for S3 credentials
+- 22fc45492 fix(netpol): use endpointURL hostname for S3 FQDN egress in cnpg netpol
+
 ## KubeAid Release Version 28.1.0
 
 ### Features
