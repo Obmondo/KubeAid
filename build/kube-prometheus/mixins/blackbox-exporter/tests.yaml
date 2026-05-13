@@ -175,21 +175,3 @@ tests:
             exp_annotations:
               summary: Slow DNS resolution
               description: '**obmondo.com** DNS lookup is slow (~2 seconds).'
-  # =========================
-  # IP FLAPPING (MULTIPLE CHANGES)
-  # =========================
-  - interval: 1m
-    input_series:
-      - series: 'probe_ip_addr_hash{instance="obmondo.com"}'
-        values: '100 200 100 200 100 200 100 200 100 200 100'
-    alert_rule_test:
-      - eval_time: 10m
-        alertname: BlackboxIpFlapping
-        exp_alerts:
-          - exp_labels:
-              instance: obmondo.com
-              severity: critical
-              alert_id: blackbox_ip_flapping
-            exp_annotations:
-              summary: IP address flapping detected
-              description: Resolved IP for **obmondo.com** is changing frequently (DNS instability).

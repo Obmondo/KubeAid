@@ -4,7 +4,7 @@ groups:
   - alert: BlackboxHttpEndpointDown
     annotations:
       description: Probe to **{{ .Labels.instance }}** is failing.
-      summary: HTTP endpoint is down
+      summary: HTTP endpoint is down.
     expr: probe_success == 0
     for: 5m
     labels:
@@ -13,7 +13,7 @@ groups:
   - alert: BlackboxHttp5xxErrors
     annotations:
       description: '**{{ .Labels.instance }}** is returning server errors with HTTP status code: {{ .Value }}'
-      summary: HTTP 5xx responses detected
+      summary: HTTP 5xx responses detected.
     expr: probe_http_status_code >= 500
     for: 10m
     labels:
@@ -22,7 +22,7 @@ groups:
   - alert: BlackboxTlsCertificateExpiring
     annotations:
       description: TLS cert for **{{ .Labels.instance }}** expires in less than 15 days.
-      summary: TLS certificate nearing expiry
+      summary: TLS certificate nearing expiry.
     expr: probe_ssl_earliest_cert_expiry - time() < 15 * 24 * 3600
     for: 10m
     labels:
@@ -31,7 +31,7 @@ groups:
   - alert: BlackboxTlsCertificateExpiringSoon
     annotations:
       description: TLS cert for **{{ .Labels.instance }}** expires in less than 7 days.
-      summary: TLS certificate expiring soon
+      summary: TLS certificate expiring soon.
     expr: probe_ssl_earliest_cert_expiry - time() < 7 * 24 * 3600
     for: 10m
     labels:
@@ -40,7 +40,7 @@ groups:
   - alert: BlackboxHighLatency
     annotations:
       description: '**{{ .Labels.instance }}** is responding slowly (~{{ .Value }} seconds).'
-      summary: High response latency detected
+      summary: High response latency detected.
     expr: probe_duration_seconds > 2
     for: 10m
     labels:
@@ -49,7 +49,7 @@ groups:
   - alert: BlackboxVeryHighLatency
     annotations:
       description: '**{{ .Labels.instance }}** latency is critically high (~{{ .Value}} seconds).'
-      summary: Very high latency detected
+      summary: Very high latency detected.
     expr: probe_duration_seconds > 5
     for: 5m
     labels:
@@ -58,7 +58,7 @@ groups:
   - alert: BlackboxTooManyRedirects
     annotations:
       description: '**{{ .Labels.instance }}** may have a redirect loop.'
-      summary: Too many HTTP redirects
+      summary: Too many HTTP redirects.
     expr: probe_http_redirects > 5
     for: 10m
     labels:
@@ -67,7 +67,7 @@ groups:
   - alert: BlackboxDnsResolutionFailure
     annotations:
       description: DNS lookup failed for **{{ .Labels.instance }}**.
-      summary: DNS resolution failed
+      summary: DNS resolution failed.
     expr: probe_dns_lookup_time_seconds == 0 and probe_success == 0
     for: 5m
     labels:
@@ -76,18 +76,9 @@ groups:
   - alert: BlackboxSlowDnsResolution
     annotations:
       description: '**{{ .Labels.instance }}** DNS lookup is slow (~{{ .Value }} seconds).'
-      summary: Slow DNS resolution
+      summary: Slow DNS resolution.
     expr: probe_dns_lookup_time_seconds > 1
     for: 10m
     labels:
       alert_id: blackbox_dns_slow
       severity: warning
-  - alert: BlackboxIpFlapping
-    annotations:
-      description: Resolved IP for **{{ .Labels.instance }}** is changing frequently (DNS instability).
-      summary: IP address flapping detected
-    expr: changes(probe_ip_addr_hash[5m]) > 3
-    for: 5m
-    labels:
-      alert_id: blackbox_ip_flapping
-      severity: critical
