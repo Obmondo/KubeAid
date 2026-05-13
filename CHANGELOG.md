@@ -2,6 +2,16 @@
 
 All releases and the changes included in them (pulled from git commits added since last release) will be detailed in this file.
 
+## KubeAid Release Version 29.0.3
+
+### Bug Fixes
+
+- cf82ad495 fix(capi-cluster): bump cross-provider API groups to v1beta2
+
+### Other Changes
+
+- 581083ec7 add support for blackbox exporter modules
+
 ## KubeAid Release Version 29.0.2
 
 ### Bug Fixes
