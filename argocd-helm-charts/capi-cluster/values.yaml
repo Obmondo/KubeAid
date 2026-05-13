@@ -13,6 +13,13 @@ global:
     version: v1.21.1
   kubeaid:
     repo: https://github.com/Obmondo/KubeAid.git
+  # kubeaid-storagectl is fetched at cloud-init by the Hetzner bare-metal
+  # KubeadmConfig / KubeadmControlPlane templates. The binary is published
+  # as a standalone release asset by kubeaid-cli's goreleaser config.
+  # Set version to a release tag (e.g. "v0.22.5") to pin; leave empty to
+  # use the "latest release" redirect.
+  kubeaidStoragectl:
+    version: ""
   pods:
     cidrBlock: 10.244.0.0/16
   # -- Extra OS users to create on every node during bootstrap.

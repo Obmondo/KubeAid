@@ -161,7 +161,9 @@ spec:
             allocating it to Rook Ceph.
     */}}
     - |
-        wget https://github.com/Archisman-Mridha/KubeAid/releases/download/kubeaid-storagectl/kubeaid-storagectl
+        STORAGECTL_ARCH="$(uname -m)"
+        case "$STORAGECTL_ARCH" in aarch64) STORAGECTL_ARCH=arm64 ;; esac
+        wget -O kubeaid-storagectl https://github.com/Obmondo/kubeaid-cli/releases/{{ if $.Values.global.kubeaidStoragectl.version }}download/{{ $.Values.global.kubeaidStoragectl.version }}{{ else }}latest/download{{ end }}/kubeaid-storagectl_Linux_${STORAGECTL_ARCH}
         chmod +x ./kubeaid-storagectl
         ./kubeaid-storagectl plan execute --os-size {{ $.Values.bareMetal.installImage.vg0.size }} --zfs-pool-size {{ $nodeGroup.zfs.size }}
 

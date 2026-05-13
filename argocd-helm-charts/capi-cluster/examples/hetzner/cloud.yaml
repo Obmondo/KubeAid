@@ -3,9 +3,9 @@ global:
   kubernetes:
     version: v1.31.0
   kubeaid:
-    repo: https://github.com/Archisman-Mridha/kubeaid
+    repo: https://github.com/Obmondo/kubeaid.git
   kubeaidConfig:
-    repo: https://github.com/Archisman-Mridha/kubeaid-config
+    repo: https://github.com/Obmondo/kubeaid-config.git
 provider:
   hetzner: true
 
