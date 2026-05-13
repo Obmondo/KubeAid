@@ -11,9 +11,6 @@
 {{- end }}
 
 {{- $image := printf "ghcr.io/syself/caph:%s" .Values.global.caph.version }}
-{{- if (.Values.hetzner).multipleSubnets }}
-{{- $image = "ghcr.io/obmondo/caph:multiple-subnets-support-fixed-new" }}
-{{- end }}
 
 apiVersion: operator.cluster.x-k8s.io/v1alpha2
 kind: InfrastructureProvider
