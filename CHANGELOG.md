@@ -2,6 +2,13 @@
 
 All releases and the changes included in them (pulled from git commits added since last release) will be detailed in this file.
 
+## KubeAid Release Version 29.0.2
+
+### Bug Fixes
+
+- f441e94e3 fix(capi-cluster): wget kubeaid-storagectl from Obmondo releases, not personal fork
+- ac7186b65 fix(capi-cluster): drop Obmondo CAPH fork image for multi-subnet support
+
 ## KubeAid Release Version 29.0.1
 
 ### Bug Fixes
