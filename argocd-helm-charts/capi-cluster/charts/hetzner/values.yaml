@@ -66,6 +66,25 @@ hcloud:
   # @schema
   subnetCidrBlock: 10.0.0.0/24
   # @schema
+  # type: string
+  # pattern: ^[0-9.]+$
+  # description: |
+  #   IP of the NAT gateway nodes route through for egress when they have no
+  #   public IP. Default matches the first usable host in the default
+  #   cidrBlock (10.0.0.0/16 → 10.0.0.1). Override when running on a custom
+  #   private network.
+  # @schema
+  natGatewayIP: 10.0.0.1
+  # @schema
+  # type: string
+  # pattern: ^[0-9.]+$
+  # description: |
+  #   Public DNS resolver written to /etc/resolv.conf on private-only nodes
+  #   during cloud-init. Defaults to Cloudflare 1.1.1.1; override for
+  #   sovereignty / internal-DNS setups.
+  # @schema
+  dnsServer: 1.1.1.1
+  # @schema
   # type: boolean
   # description: Attach an HCloud vSwitch (for connecting bare-metal servers to the HCloud private network).
   # @schema

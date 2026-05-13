@@ -9,6 +9,41 @@ metadata:
   name: {{ printf "%s-%s-%s" $.Values.global.clusterName $nodeGroup.name $host.serverID }}
 spec:
   files:
+    {{/* Hardened kubelet config delivered as a typed KubeletConfiguration
+         file rather than dozens of map-style kubeletExtraArgs. Same
+         security profile upstream CAPH ships in its md-0
+         KubeadmConfigTemplate (anonymous=false, webhook auth/authz,
+         eventRecordQPS=5, readOnlyPort=0, serverTLSBootstrap=true,
+         explicit cipher-suite allow-list). maxPods=220 because these
+         are worker nodes. kubelet is pointed at this file via --config
+         in kubeletExtraArgs below. */}}
+    - path: /etc/kubernetes/kubelet/config.yaml
+      owner: "root:root"
+      permissions: "0644"
+      content: |
+        apiVersion: kubelet.config.k8s.io/v1beta1
+        kind: KubeletConfiguration
+        authentication:
+          anonymous:
+            enabled: false
+          webhook:
+            enabled: true
+        authorization:
+          mode: Webhook
+        eventRecordQPS: 5
+        maxPods: 220
+        readOnlyPort: 0
+        resolvConf: /etc/kubernetes/resolv.conf
+        serverTLSBootstrap: true
+        tlsCipherSuites:
+          - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+          - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+          - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+          - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+          - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+          - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+          - TLS_RSA_WITH_AES_256_GCM_SHA384
+          - TLS_RSA_WITH_AES_128_GCM_SHA256
     - content: |
         net.ipv4.conf.lxc*.rp_filter = 0
       owner: root:root
@@ -91,17 +126,10 @@ spec:
   joinConfiguration:
     nodeRegistration:
       kubeletExtraArgs:
-        anonymous-auth: "false"
-        authentication-token-webhook: "true"
-        authorization-mode: Webhook
-        cloud-provider: external
-        event-qps: "5"
-        kubeconfig: /etc/kubernetes/kubelet.conf
-        max-pods: "220"
-        read-only-port: "0"
-        resolv-conf: /etc/kubernetes/resolv.conf
-        rotate-server-certificates: "true"
-        tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+        - name: cloud-provider
+          value: external
+        - name: config
+          value: /etc/kubernetes/kubelet/config.yaml
   preKubeadmCommands:
     - set -x
 
@@ -168,8 +196,8 @@ spec:
         ./kubeaid-storagectl plan execute --os-size {{ $.Values.bareMetal.installImage.vg0.size }} --zfs-pool-size {{ $nodeGroup.zfs.size }}
 
     - grep VERSION= /etc/os-release; uname -a
-    - export CONTAINERD=1.7.25
-    - export RUNC=1.2.3
+    - export CONTAINERD=2.2.3
+    - export RUNC=1.2.5
     - export KUBERNETES_VERSION=$(echo {{ $.Values.global.kubernetes.version }} | sed 's/^v//')
     - export TRIMMED_KUBERNETES_VERSION=$(echo {{ $.Values.global.kubernetes.version }} | sed 's/^v//'
       | awk -F . '{print $1 "." $2}')

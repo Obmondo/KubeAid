@@ -6,18 +6,45 @@ apiVersion: cluster.x-k8s.io/v1beta2
 kind: MachineDeployment
 metadata:
   name: {{ printf "%s-%s" $.Values.global.clusterName $nodeGroup.name }}
+  # nodepool label is the upstream convention for filtering Machines
+  # and Nodes by which MachineDeployment owns them, e.g.
+  # `kubectl get machines -l nodepool=<cluster>-<nodegroup>`.
+  # Same value appears on spec.template.metadata.labels below so the
+  # CAPI webhook derives selector.matchLabels from it.
+  labels:
+    nodepool: {{ printf "%s-%s" $.Values.global.clusterName $nodeGroup.name }}
+  # Two families of annotations consumed by cluster-autoscaler:
+  #   cluster.x-k8s.io/cluster-api-autoscaler-node-group-{min,max}-size
+  #     — the bounds CA will scale this MachineDeployment between.
+  #   capacity.cluster-autoscaler.kubernetes.io/*
+  #     — capacity hints CA uses to predict whether a pending pod
+  #       fits *before* a node from this group exists. Critical for
+  #       scale-from-zero: without these, CA can't reason about
+  #       cpu/memory/maxPods/labels/taints of nodes that don't exist
+  #       yet, and refuses to scale up.
   annotations:
     cluster.x-k8s.io/cluster-api-autoscaler-node-group-min-size: {{ $nodeGroup.minSize | quote }}
     cluster.x-k8s.io/cluster-api-autoscaler-node-group-max-size: {{ $nodeGroup.maxSize | quote }}
-    capacity.cluster-autoscaler.kubernetes.io/memory: "{{ $nodeGroup.memory }}G"
-    capacity.cluster-autoscaler.kubernetes.io/cpu: "{{ $nodeGroup.cpu }}"
+    capacity.cluster-autoscaler.kubernetes.io/cpu: {{ $nodeGroup.cpu | quote }}
+    capacity.cluster-autoscaler.kubernetes.io/memory: "{{ $nodeGroup.memory }}Gi"
     capacity.cluster-autoscaler.kubernetes.io/ephemeral-disk: "{{ $nodeGroup.rootVolumeSize }}Gi"
-    capacity.cluster-autoscaler.kubernetes.io/maxPods: "500"
-    capacity.cluster-autoscaler.kubernetes.io/labels: "{{- $labels := list }}{{- range $key, $value := $nodeGroup.labels }}{{- $labels = append $labels (printf "%s=%s" $key $value) }}{{- end }}{{- join "," $labels }}"
-    capacity.cluster-autoscaler.kubernetes.io/taints: "{{- $taints := list }}{{- range $taint := $nodeGroup.taints }}{{- $taints = append $taints (printf "%s=%s:%s" $taint.key $taint.value $taint.effect) }}{{- end }}{{- join "," $taints }}"
+    # Must match the KubeletConfiguration's maxPods (kubelet config.yaml
+    # path: argocd-helm-charts/capi-cluster/charts/hetzner/templates/KubeadmConfigTemplate.yaml)
+    # — otherwise CA's pod-fit prediction over- or under-counts and
+    # scale-up decisions drift from what kubelet will actually accept.
+    capacity.cluster-autoscaler.kubernetes.io/maxPods: "220"
+    capacity.cluster-autoscaler.kubernetes.io/labels: {{ include "hetzner.clusterAutoscalerLabels" $nodeGroup | quote }}
+    capacity.cluster-autoscaler.kubernetes.io/taints: {{ include "hetzner.clusterAutoscalerTaints" $nodeGroup | quote }}
 spec:
   clusterName: {{ $.Values.global.clusterName }}
   replicas: {{ $nodeGroup.replicas }}
+  # CAPI's MD webhook fills selector.matchLabels from
+  # template.metadata.labels when it's null — matches upstream's
+  # cluster-template behaviour. Explicit `null` is what upstream
+  # ships; leaving it out works too but the explicit form makes
+  # the intent (defer to webhook defaulting) readable.
+  selector:
+    matchLabels: null
   template:
     metadata:
       # Label should meet one of the following criterias to propagate to Node :
@@ -29,19 +56,29 @@ spec:
       # REFER : https://cluster-api.sigs.k8s.io/developer/architecture/controllers/metadata-propagation#machine
       labels:
         node.cluster.x-k8s.io/cloud-provider: hcloud
+        # Mirrored from metadata.labels.nodepool above — webhook uses
+        # template labels to derive selector.matchLabels.
+        nodepool: {{ printf "%s-%s" $.Values.global.clusterName $nodeGroup.name }}
         {{- if $nodeGroup.labels }}
         {{- toYaml $nodeGroup.labels | nindent 8 }}
         {{- end }}
     spec:
       clusterName: {{ $.Values.global.clusterName }}
       version: {{ $.Values.global.kubernetes.version }}
+      {{- if $nodeGroup.failureDomain }}
+      {{/* Pin every Machine produced by this MD to a single HCloud region;
+           matches upstream's `failureDomain: ${HCLOUD_REGION}` placeholder.
+           Omitted when the operator doesn't supply one, in which case CAPI
+           picks a domain from the HetznerCluster's available set. */}}
+      failureDomain: {{ $nodeGroup.failureDomain }}
+      {{- end }}
       bootstrap:
         configRef:
-          apiVersion: bootstrap.cluster.x-k8s.io/v1beta2
+          apiGroup: bootstrap.cluster.x-k8s.io
           kind: KubeadmConfigTemplate
           name: {{ printf "%s-%s" $.Values.global.clusterName $nodeGroup.name }}
       infrastructureRef:
-        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        apiGroup: infrastructure.cluster.x-k8s.io
         kind: HCloudMachineTemplate
         name: {{ printf "%s-%s" $.Values.global.clusterName $nodeGroup.name }}
 {{- end }}

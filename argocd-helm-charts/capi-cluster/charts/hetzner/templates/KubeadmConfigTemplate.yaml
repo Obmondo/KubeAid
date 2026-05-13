@@ -10,16 +10,69 @@ spec:
   template:
     spec:
       files:
+        {{/* Hardened kubelet config delivered as a typed KubeletConfiguration
+             file rather than dozens of map-style kubeletExtraArgs. Same
+             security profile upstream CAPH ships in its md-0
+             KubeadmConfigTemplate (anonymous=false, webhook auth/authz,
+             eventRecordQPS=5, readOnlyPort=0, serverTLSBootstrap=true,
+             explicit cipher-suite allow-list). maxPods=220 because these
+             are worker nodes. kubelet is pointed at this file via
+             --config in kubeletExtraArgs below. */}}
+        - path: /etc/kubernetes/kubelet/config.yaml
+          owner: "root:root"
+          permissions: "0644"
+          content: |
+            apiVersion: kubelet.config.k8s.io/v1beta1
+            kind: KubeletConfiguration
+            authentication:
+              anonymous:
+                enabled: false
+              webhook:
+                enabled: true
+            authorization:
+              mode: Webhook
+            eventRecordQPS: 5
+            maxPods: 220
+            readOnlyPort: 0
+            resolvConf: /etc/kubernetes/resolv.conf
+            serverTLSBootstrap: true
+            tlsCipherSuites:
+              - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+              - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+              - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+              - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+              - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+              - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+              - TLS_RSA_WITH_AES_256_GCM_SHA384
+              - TLS_RSA_WITH_AES_128_GCM_SHA256
+
         {{- if or (eq $.Values.mode "hybrid") (eq $.Values.network.type "private") }}
-        {{/* NAT gateway script is only needed when nodes run on a private network. */}}
+        {{/* NAT gateway script is only needed when nodes run on a private network.
+             Gateway IP + DNS resolver come from values so non-default private
+             networks work; the interface name is discovered at runtime so the
+             script also works on bare-metal hosts (eno1, enp3s0, …) and isn't
+             pinned to HCloud's enp7s0. */}}
         - content: |
-            for i in {1..30}; do
-              ip route add default via 10.0.0.1 && break
+            set -eu
+            NAT_GATEWAY_IP="{{ $.Values.hcloud.natGatewayIP }}"
+            DNS_SERVER="{{ $.Values.hcloud.dnsServer }}"
+
+            ROUTE_ADDED=0
+            for i in $(seq 1 30); do
+              if ip route add default via "$NAT_GATEWAY_IP" 2>/dev/null; then
+                ROUTE_ADDED=1
+                break
+              fi
               sleep 10
             done
+            if [ "$ROUTE_ADDED" -ne 1 ]; then
+              echo "FATAL: could not add default route via $NAT_GATEWAY_IP after 30 retries" >&2
+              exit 1
+            fi
 
-            echo "nameserver 1.1.1.1" | tee -a /etc/resolv.conf
-            resolvectl dns enp7s0 1.1.1.1
+            IFACE=$(ip -o -4 route show default | awk '{print $5; exit}')
+            echo "nameserver $DNS_SERVER" | tee -a /etc/resolv.conf
+            resolvectl dns "$IFACE" "$DNS_SERVER"
           owner: "root:root"
           path: /connect-nat-gateway.sh
           permissions: "0744"
@@ -107,17 +160,10 @@ spec:
       joinConfiguration:
         nodeRegistration:
           kubeletExtraArgs:
-            anonymous-auth: "false"
-            authentication-token-webhook: "true"
-            authorization-mode: Webhook
-            cloud-provider: external
-            event-qps: "5"
-            kubeconfig: /etc/kubernetes/kubelet.conf
-            max-pods: "220"
-            read-only-port: "0"
-            resolv-conf: /etc/kubernetes/resolv.conf
-            rotate-server-certificates: "true"
-            tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+            - name: cloud-provider
+              value: external
+            - name: config
+              value: /etc/kubernetes/kubelet/config.yaml
       preKubeadmCommands:
       - set -x
 
@@ -126,8 +172,8 @@ spec:
       {{- end }}
 
       - grep VERSION= /etc/os-release; uname -a
-      - export CONTAINERD=1.7.25
-      - export RUNC=1.2.3
+      - export CONTAINERD=2.2.3
+      - export RUNC=1.2.5
       - export KUBERNETES_VERSION=$(echo {{ $.Values.global.kubernetes.version }} | sed 's/^v//')
       - export TRIMMED_KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//'
         | awk -F . '{print $1 "." $2}')
