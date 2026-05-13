@@ -534,17 +534,19 @@ spec:
     {{- end }}
   {{- if eq .Values.mode "bare-metal" }}
   machineTemplate:
-    infrastructureRef:
-      apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-      kind: HetznerBareMetalMachineTemplate
-      name: {{ .Values.global.clusterName }}-control-plane
+    spec:
+      infrastructureRef:
+        apiGroup: infrastructure.cluster.x-k8s.io
+        kind: HetznerBareMetalMachineTemplate
+        name: {{ .Values.global.clusterName }}-control-plane
   replicas: {{ len .Values.controlPlane.bareMetal.bareMetalHosts }}
   {{- else }}
   machineTemplate:
-    infrastructureRef:
-      apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-      kind: HCloudMachineTemplate
-      name: {{ .Values.global.clusterName }}-control-plane
+    spec:
+      infrastructureRef:
+        apiGroup: infrastructure.cluster.x-k8s.io
+        kind: HCloudMachineTemplate
+        name: {{ .Values.global.clusterName }}-control-plane
   replicas: {{ .Values.controlPlane.hcloud.replicas }}
   {{- end }}
   version: {{ .Values.global.kubernetes.version }}
