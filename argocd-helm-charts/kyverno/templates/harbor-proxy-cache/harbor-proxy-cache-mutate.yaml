@@ -1,12 +1,12 @@
-{{- $registry := .Values.harborProxyCache.registry }}
+{{- if (.Values.harborProxyCache).enabled }}
+
+{{- $registry := .Values.harborProxyCache.registry | required "harborProxyCache.registry is required when enabled" }}
 {{- $dockerHubProj := .Values.harborProxyCache.dockerHubProject | default (.Values.harborProxyCache.project | default "docker-hub-proxy-cache") }}
 {{- $ghcrProj := .Values.harborProxyCache.ghcrProject | default "" }}
 {{- $k8sProj := .Values.harborProxyCache.k8sProject | default "" }}
 {{- $secretName := .Values.harborProxyCache.imagePullSecretName | default "harbor-proxy-cache" }}
 {{- $ghcrSecretName := .Values.harborProxyCache.ghcrImagePullSecretName | default "harbor-ghcr-proxy-cache" }}
 {{- $k8sSecretName := .Values.harborProxyCache.k8sImagePullSecretName | default "harbor-registry-k8s-proxy-cache" }}
-
-{{- if (.Values.harborProxyCache).enabled }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
