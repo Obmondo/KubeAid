@@ -40,14 +40,22 @@ spec:
         local:
           dataDir: /var/lib/etcd
     files:
-    {{/* Hardened kubelet config delivered as a typed KubeletConfiguration
-         file rather than dozens of map-style kubeletExtraArgs. Same
-         security profile as upstream CAPH's md-0 KubeadmConfigTemplate
-         (anonymous=false, webhook auth/authz, eventRecordQPS=5,
-         readOnlyPort=0, serverTLSBootstrap=true, explicit cipher-suite
-         allow-list) — but with maxPods=120 because control-plane nodes
-         are sized smaller and only run system pods. kubelet is pointed
-         at this file via --config in kubeletExtraArgs below. */}}
+    {{/* Full kubelet config — security overlay PLUS the kubeadm-required
+         fields that kubelet otherwise gets from kubeadm's auto-generated
+         /var/lib/kubelet/config.yaml. When kubeletExtraArgs sets --config
+         to our file below, kubelet reads ONLY our file and kubeadm's
+         auto-config is ignored end-to-end, so any field we forget defaults
+         to kubelet's CLI-flag default (NOT kubeadm's). The previous shape
+         silently dropped cgroupDriver → kubelet defaulted to "cgroupfs"
+         while containerd uses "systemd" → no containers started → kubelet
+         hung in a 1-min bootstrap loop.
+
+         The cluster-wide values (clusterDNS at the service-CIDR's .10,
+         clusterDomain=cluster.local, the containerd unix socket path) are
+         kubeadm-defaults that don't vary per-cluster in this chart; safe
+         to hardcode. Same security profile as upstream CAPH's md-0
+         KubeadmConfigTemplate, with maxPods=120 because control-plane
+         nodes only run system pods. */}}
     - path: /etc/kubernetes/kubelet/config.yaml
       owner: "root:root"
       permissions: "0644"
@@ -59,13 +67,22 @@ spec:
             enabled: false
           webhook:
             enabled: true
+          x509:
+            clientCAFile: /etc/kubernetes/pki/ca.crt
         authorization:
           mode: Webhook
+        cgroupDriver: systemd
+        clusterDNS:
+          - 10.96.0.10
+        clusterDomain: cluster.local
+        containerRuntimeEndpoint: unix:///var/run/containerd/containerd.sock
         eventRecordQPS: 5
         maxPods: 120
         readOnlyPort: 0
         resolvConf: /etc/kubernetes/resolv.conf
+        rotateCertificates: true
         serverTLSBootstrap: true
+        staticPodPath: /etc/kubernetes/manifests
         tlsCipherSuites:
           - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
           - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
