@@ -6,18 +6,27 @@ metadata:
   name: {{ .Values.global.clusterName }}-control-plane-unhealthy-5m
 spec:
   clusterName: {{ .Values.global.clusterName }}
-  maxUnhealthy: 100%
-  nodeStartupTimeout: 20m0s
+  {{/* CAPI v1beta2 restructured MachineHealthCheck.spec:
+         - unhealthyConditions  → checks.unhealthyNodeConditions
+         - nodeStartupTimeout   → checks.nodeStartupTimeoutSeconds  (duration → int seconds)
+         - timeout              → timeoutSeconds                    (duration → int seconds)
+         - maxUnhealthy         → remediation.triggerIf.unhealthyLessThanOrEqualTo
+       Same values as before, just moved/renamed. */}}
+  checks:
+    nodeStartupTimeoutSeconds: 1200
+    unhealthyNodeConditions:
+    - status: Unknown
+      timeoutSeconds: 180
+      type: Ready
+    - status: "False"
+      timeoutSeconds: 180
+      type: Ready
+  remediation:
+    triggerIf:
+      unhealthyLessThanOrEqualTo: 100%
   selector:
     matchLabels:
       cluster.x-k8s.io/control-plane: ""
-  unhealthyConditions:
-  - status: Unknown
-    timeout: 3m0s
-    type: Ready
-  - status: "False"
-    timeout: 3m0s
-    type: Ready
 {{- end }}
 
 {{/* Handling control-plane in Hetzner bare-metal. */}}
@@ -28,21 +37,24 @@ metadata:
   name: {{ .Values.global.clusterName }}-control-plane-unhealthy-5m
 spec:
   clusterName: {{ .Values.global.clusterName }}
-  maxUnhealthy: 100%
-  {{/*
-    Node startup takes about 30 minutes in Hetzner Bare Metal.
-    A major amount of time is eaten up by socat and mtr installation. We need them to be able to do
-    'kubectl port-forward'.
-  */}}
-  nodeStartupTimeout: 1h0m0s
+  checks:
+    {{/*
+      Node startup takes about 30 minutes in Hetzner Bare Metal.
+      A major amount of time is eaten up by socat and mtr installation. We need them to be able to do
+      'kubectl port-forward'. nodeStartupTimeoutSeconds: 3600 = 1h, was nodeStartupTimeout: 1h0m0s.
+    */}}
+    nodeStartupTimeoutSeconds: 3600
+    unhealthyNodeConditions:
+    - status: Unknown
+      timeoutSeconds: 180
+      type: Ready
+    - status: "False"
+      timeoutSeconds: 180
+      type: Ready
+  remediation:
+    triggerIf:
+      unhealthyLessThanOrEqualTo: 100%
   selector:
     matchLabels:
       cluster.x-k8s.io/control-plane: ""
-  unhealthyConditions:
-  - status: Unknown
-    timeout: 3m0s
-    type: Ready
-  - status: "False"
-    timeout: 3m0s
-    type: Ready
 {{- end }}
