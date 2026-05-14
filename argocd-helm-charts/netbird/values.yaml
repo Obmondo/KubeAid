@@ -8,7 +8,9 @@ global:
     monitoring:
       enablePodMonitor: true
     backups:
-      enabled: true
+      # Off by default — backups need an operator-supplied destinationPath
+      # + schedule; enabling without them renders an invalid ObjectStore.
+      enabled: false
       # cloud: aws
       # destinationPath: ""
       # endpointURL: ""
