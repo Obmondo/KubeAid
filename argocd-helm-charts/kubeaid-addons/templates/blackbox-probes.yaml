@@ -1,26 +1,28 @@
 {{- if .Values.global.blackbox.enabled }}
-{{- if empty .Values.global.blackbox.url }}
-{{- fail "global.blackbox.url must not be empty when global.blackbox.enabled is true" }}
+{{- range $probe := .Values.global.blackbox.probes }}
+{{- if empty $probe.urls }}
+{{- fail (printf "blackbox probe module '%s' must have at least one url" $probe.module) }}
 {{- end }}
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: Probe
 metadata:
-  name: blackbox-probe-{{ .Release.Name }}
+  name: blackbox-probe-{{ $.Release.Name }}-{{ $probe.module | replace "_" "-" }}
   labels:
     app.kubernetes.io/managed-by: kubeaid-addons
 spec:
-  interval: {{ .Values.global.blackbox.interval | default "60s" }}
-  scrapeTimeout: {{ .Values.global.blackbox.scrapeTimeout | default "30s" }}
-  module: {{ .Values.global.blackbox.module | default "http_2xx" }}
+  interval: {{ $probe.interval | default "60s" }}
+  scrapeTimeout: {{ $probe.scrapeTimeout | default "30s" }}
+  module: {{ $probe.module }}
   prober:
-    url: {{ .Values.global.blackbox.exporter | default "blackbox-exporter.monitoring.svc.cluster.local:19115" }}
+    url: {{ $probe.exporter | default "blackbox-exporter.monitoring.svc.cluster.local:19115" }}
   tlsConfig:
-    insecureSkipVerify: {{ .Values.global.blackbox.insecureSkipVerify | default true }}
+    insecureSkipVerify: {{ $probe.insecureSkipVerify | default false }}
   targets:
     staticConfig:
       static:
-        {{- range .Values.global.blackbox.url }}
+        {{- range $probe.urls }}
         - {{ . }}
         {{- end }}
+{{- end }}
 {{- end }}

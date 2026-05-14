@@ -206,12 +206,17 @@ global:
 
   # blackbox
   blackbox:
-    # -- Master switch. Set to true to render a Probe resource.
+    # -- Master switch. Set to true to render Probe resources.
     enabled: false
 
-    # -- List of URLs to probe.
-    url: []
-    # - https://myapp.example.com
+    # -- List of probe groups, one Probe resource per module.
+    probes: []
+    # - module: http_2xx
+    #   urls:
+    #     - https://myapp.example.com
+    # - module: http_4xx
+    #   urls:
+    #     - https://auth.example.com
 
   # harbor
   harbor:
