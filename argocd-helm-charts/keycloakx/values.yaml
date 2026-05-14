@@ -90,19 +90,9 @@ global:
         memory: 800Mi
 
     size: 4Gi
-    # storageClass intentionally unset — postgresql-cluster.yaml's
-    # `{{- if $postgresql.storageClass }}` omits the field from the
-    # CNPG Cluster spec, letting cnpg fall back to the cluster's
-    # default StorageClass (hcloud-volumes on Hetzner, ebs-csi on
-    # AWS, etc.). Operators who want to pin a specific class can
-    # override via their values-keycloakx.yaml. The previous value
-    # of "default" literally referenced a StorageClass named
-    # "default" — which doesn't exist on any modern provisioner —
-    # so the PVC stayed Pending forever with
-    # `storageclass.storage.k8s.io "default" not found`.
     logicalbackup:
-      enabled: false
-      schedule: "0 0 * * *"
+      enabled: true
+      schedule: "13 02 * * *"
       provider: s3
       retention: "30d"
 

@@ -15,6 +15,9 @@ global:
       # secretName: ""
     logicalbackup:
       enabled: true
+      schedule: "48 02 * * *"
+      provider: s3
+      retention: "30d"
 
 externalDatabases:
   netbird:
