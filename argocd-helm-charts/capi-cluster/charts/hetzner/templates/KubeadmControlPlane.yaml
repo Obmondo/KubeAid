@@ -428,31 +428,53 @@ spec:
       - sudo chown $(id -u):$(id -g) $HOME/.kube/config
 
       # Install Cilium.
-      # `helm install --create-namespace` handles the cilium namespace —
-      # no separate `kubectl create ns` step needed. `--atomic` rolls back
-      # the release if any resource fails to apply or fails to become
-      # Ready within --timeout, so a half-installed Cilium doesn't get
-      # left behind for the next step (CCM install) to choke on.
+      #
+      # Pattern: `helm template ... | kubectl apply -f -` rather than
+      # `helm install`. Two reasons:
+      #   - ArgoCD adopts the resources cleanly afterwards. Using `helm
+      #     install` here would leave a Helm release secret in
+      #     kube-system that ArgoCD would either fight or have to
+      #     explicitly ignore on subsequent syncs.
+      #   - Keeps the cilium chart's defaults intact — we don't have to
+      #     pass `--set hubble.X.enabled=false` to get past
+      #     `--wait`/`--rollback-on-failure` semantics where hubble
+      #     Deployments stay Pending behind the kubeadm
+      #     control-plane:NoSchedule taint (taint gets removed later by
+      #     kubeaid-cli's RemoveNoScheduleTaintsFromMasterNodes for
+      #     workerless clusters; ArgoCD reconciles hubble pods then).
+      #
+      # `kubectl rollout status daemonset/cilium` only waits for the
+      # cilium agent DS — that's all postKubeadm needs running before
+      # CCM install (DS tolerates everything, so it lands fast). Other
+      # cilium resources (operator Deployment, hubble) can still be
+      # rolling — ArgoCD takes over after this script.
+      - kubectl create namespace cilium --dry-run=client -o yaml | kubectl apply -f -
       - API_SERVER_URL=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')
       - API_SERVER_HOST=$(echo "$API_SERVER_URL" | awk -F[/:] '{print $4}')
       - API_SERVER_PORT=$(echo "$API_SERVER_URL" | awk -F[/:] '{print $5}')
 
       - |
-        helm install cilium kubeaid/argocd-helm-charts/cilium \
-          --namespace cilium --create-namespace \
-          --atomic --wait --timeout 5m \
+        helm template cilium kubeaid/argocd-helm-charts/cilium \
+          --namespace cilium \
           --values kubeaid/argocd-helm-charts/cilium/values.yaml \
           --set cilium.kubeProxyReplacement=true \
           --set cilium.k8sServiceHost=${API_SERVER_HOST} \
           --set cilium.k8sServicePort=${API_SERVER_PORT} \
-          --set-string cilium.extraArgs[0]="--devices=eth0\,enp+\,eno+"
+          --set-string cilium.extraArgs[0]="--devices=eth0\,enp+\,eno+" \
+          | kubectl apply -f -
+
+      - kubectl -n cilium rollout status daemonset/cilium --timeout=5m
 
       {{- if or (eq .Values.mode "hcloud") (eq .Values.mode "hybrid") }}
-      # Install HCloud Cloud Controller Manager.
+      # Install HCloud Cloud Controller Manager. Same `helm template |
+      # kubectl apply` pattern as cilium — ArgoCD adopts cleanly.
+      # No rollout wait here: CCM Ready isn't on postKubeadm's critical
+      # path; kubeaid-cli's downstream WaitForMainClusterToBeProvisioned
+      # waits for the Cluster's overall Provisioned+Ready condition, by
+      # which time CCM is up.
       - |
-        helm install ccm-hcloud kubeaid/argocd-helm-charts/ccm-hcloud \
+        helm template ccm-hcloud kubeaid/argocd-helm-charts/ccm-hcloud \
           --namespace kube-system \
-          --atomic --wait --timeout 5m \
           --values kubeaid/argocd-helm-charts/ccm-hcloud/values.yaml \
           --set hcloud-cloud-controller-manager.additionalTolerations[0].key=node.kubernetes.io/not-ready \
           --set hcloud-cloud-controller-manager.additionalTolerations[0].operator=Exists \
@@ -460,19 +482,21 @@ spec:
           --set hcloud-cloud-controller-manager.env.HCLOUD_LOAD_BALANCERS_NETWORK_ZONE.value={{ .Values.hcloud.zone }} \
           --set hcloud-cloud-controller-manager.networking.enabled=true \
           --set hcloud-cloud-controller-manager.networking.network.valueFrom.secretKeyRef.name=cloud-credentials \
-          --set hcloud-cloud-controller-manager.networking.network.valueFrom.secretKeyRef.key=network
+          --set hcloud-cloud-controller-manager.networking.network.valueFrom.secretKeyRef.key=network \
+          | kubectl apply -f -
       {{- end }}
 
       {{- if or (eq .Values.mode "bare-metal") (eq .Values.mode "hybrid") }}
-      # Install Hetzner Bare Metal Cloud Controller Manager.
+      # Install Hetzner Bare Metal Cloud Controller Manager. Same
+      # `helm template | kubectl apply` pattern.
       - |
-        helm install ccm-hetzner kubeaid/argocd-helm-charts/ccm-hetzner \
+        helm template ccm-hetzner kubeaid/argocd-helm-charts/ccm-hetzner \
           --namespace kube-system \
-          --atomic --wait --timeout 5m \
           --values kubeaid/argocd-helm-charts/ccm-hetzner/values.yaml \
           {{- if (eq .Values.mode "hybrid") }}
           --set ccm-hetzner.privateNetwork.enabled=true \
           {{- end }}
+          | kubectl apply -f -
       {{- end }}
 
       - apt-get -y install socat mtr
