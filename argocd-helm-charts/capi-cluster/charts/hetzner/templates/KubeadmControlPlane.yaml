@@ -427,6 +427,17 @@ spec:
       - sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
       - sudo chown $(id -u):$(id -g) $HOME/.kube/config
 
+      {{- if and (eq (len $.Values.nodeGroups.hcloud) 0) (eq (len $.Values.nodeGroups.bareMetal) 0) }}
+      # Worker-less cluster: the control-plane node is the only node, so it
+      # must be eligible as a cloud LoadBalancer backend. kubeadm tags
+      # control-plane nodes with
+      # node.kubernetes.io/exclude-from-external-load-balancers, which keeps
+      # every type=LoadBalancer Service (Traefik etc.) at zero targets; drop
+      # it so the CCM can register the node. `|| true` keeps it idempotent
+      # across multi-control-plane postKubeadm re-runs.
+      - kubectl label nodes --all node.kubernetes.io/exclude-from-external-load-balancers- || true
+      {{- end }}
+
       # Install Cilium.
       #
       # Pattern: `helm template ... | kubectl apply -f -` rather than
