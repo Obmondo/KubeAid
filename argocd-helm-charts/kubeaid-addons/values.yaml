@@ -222,3 +222,8 @@ global:
   harbor:
     # Enable Harbor network policies
     netpol: false
+
+  # sonarqube
+  sonarqube:
+    # -- Enable SonarQube network policies
+    netpol: false

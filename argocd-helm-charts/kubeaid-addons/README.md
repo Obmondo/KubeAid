@@ -15,6 +15,7 @@ here rather than being scattered across individual application charts.
 | RabbitMQ cluster (via Cluster Operator) | `RabbitmqCluster` | `global.rabbitmq.enabled` |
 | Argo CD baseline policy | `CiliumNetworkPolicy` | `global.netpol.enabled` + `global.argocd.netpol` |
 | Harbor network policies | `CiliumNetworkPolicy` | `global.netpol.enabled` + `global.harbor.netpol` |
+| SonarQube network policy | `CiliumNetworkPolicy` | `global.netpol.enabled` + `global.sonarqube.netpol` |
 
 Everything is **nil-safe** - if a key is missing from values, the template renders nothing rather
 than panicking. New operator types (MariaDB, MongoDB, etc.) can be added by dropping a new
@@ -167,6 +168,8 @@ global:
   argocd:
     netpol: true
   harbor:
+    netpol: true  
+  sonarqube:
     netpol: true  
 ```
 

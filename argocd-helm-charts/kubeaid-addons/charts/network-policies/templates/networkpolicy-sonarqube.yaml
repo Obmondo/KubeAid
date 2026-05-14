@@ -1,0 +1,103 @@
+{{- if and ((.Values.global).netpol).enabled ((.Values.global).sonarqube).netpol }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{ .Values.global.netpol.releaseName | default .Release.Name }}-networkpolicy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/component: cilium-networkpolicy
+spec:
+  endpointSelector:
+    matchLabels:
+{{- with .Values.global.sonarqube.endpointSelectorLabels }}
+{{- range $key, $value := . }}
+      {{ $key }}: {{ $value | quote }}
+{{- end }}
+{{- end }}
+  ingress:
+    # Allow same namespace traffic
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Release.Namespace | quote }}
+    # Traefik -> SonarQube
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.global.netpol.traefik.namespace | quote }}
+{{- with .Values.global.netpol.traefik.labels }}
+{{- range $key, $value := . }}
+            {{ $key }}: {{ $value | quote }}
+{{- end }}
+{{- end }}
+      toPorts:
+        - ports:
+            - port: {{ .Values.global.sonarqube.servicePort | default "9000" | quote }}
+              protocol: TCP
+    # Sonar <-> Sonar
+    - fromEndpoints:
+        - matchLabels:
+{{- with .Values.global.sonarqube.endpointSelectorLabels }}
+{{- range $key, $value := . }}
+            {{ $key }}: {{ $value | quote }}
+{{- end }}
+{{- end }}
+  egress:
+    # Sonar <-> Sonar
+    - toEndpoints:
+        - matchLabels:
+{{- with .Values.global.sonarqube.endpointSelectorLabels }}
+{{- range $key, $value := . }}
+            {{ $key }}: {{ $value | quote }}
+{{- end }}
+{{- end }}
+    # Sonar -> PostgreSQL
+    - toEndpoints:
+        - matchLabels:
+{{- with ((.Values.global.sonarqube).postgresql).labelSelector }}
+{{- range $key, $value := . }}
+            {{ $key }}: {{ $value | quote }}
+{{- end }}
+{{- end }}
+      toPorts:
+        - ports:
+            - port: {{ ((.Values.global.sonarqube).postgresql).port | default "5432" | quote }}
+              protocol: TCP
+    # Sonar -> kube-apiserver
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "6443"
+              protocol: TCP
+    # Sonar -> DNS
+{{- if .Values.global.sonarqube.dns }}
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.global.sonarqube.dns.namespace | quote }}
+{{- with .Values.global.sonarqube.dns.labels }}
+{{- range $key, $value := . }}
+            k8s:{{ $key }}: {{ $value | quote }}
+{{- end }}
+{{- end }}
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: ANY
+          rules:
+            dns:
+              - matchPattern: "*"
+{{- end }}
+    # Sonar -> External FQDNs
+{{- if .Values.global.sonarqube.egressFQDNs }}
+    - toFQDNs:
+{{- range .Values.global.sonarqube.egressFQDNs }}
+        - matchName: {{ . | quote }}
+{{- end }}
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+{{- end }}
+{{- end }}
