@@ -5,5 +5,8 @@ dependencies:
 - name: coturn
   repository: https://small-hack.github.io/coturn-chart/
   version: 9.4.0
-digest: sha256:4c65cff20a65f4263d6d46ffcedb59f48ba9d8c0749059c4119669eb5b789d60
-generated: "2026-02-11T05:55:09.865438048Z"
+- name: kubeaid-addons
+  repository: file://../kubeaid-addons
+  version: 0.1.0
+digest: sha256:a4c3a5fd861035bbd175f5a2448e6cf6d6751b6747b652c0cf9bc02b038b151c
+generated: "2026-05-14T10:20:34.793181582+05:30"
