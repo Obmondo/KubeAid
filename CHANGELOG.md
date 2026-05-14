@@ -2,6 +2,24 @@
 
 All releases and the changes included in them (pulled from git commits added since last release) will be detailed in this file.
 
+## KubeAid Release Version 29.0.7
+
+### Features
+
+- 8a4a63ddc feat(blackbox): group blackbox probes by module
+
+### Bug Fixes
+
+- 09407b6a9 fix(capi-cluster): drop LB-exclusion label on worker-less clusters
+- 385b3e823 fix: enabled logical backup for keycloak and netbird and fixed nil pointer error during logical backup template compilation
+- e3a068f21 fix(keycloakx): drop hardcoded `storageClass: default` from cnpg postgres spec
+- 16995a5c3 fix(capi-cluster/hetzner): postKubeadm cilium + CCM via helm template, not helm install
+
+### Configuration Changes
+
+- 2e3476bf7 chore(fix): typo in kubeaid-agent tag
+- b80c9011d chore(fix): bumped kubeaid agent version
+
 ## KubeAid Release Version 29.0.6
 
 ### Bug Fixes
