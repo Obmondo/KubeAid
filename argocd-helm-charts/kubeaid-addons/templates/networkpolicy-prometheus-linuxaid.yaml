@@ -1,0 +1,111 @@
+{{- if and ((.Values.global).netpol).enabled ((.Values.global).prometheusLinuxaid).netpol }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: prometheus-linuxaid-prometheus
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/component: cilium-networkpolicy
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus
+
+# =========
+# INGRESS
+# =========
+
+  ingress:
+    # Traefik → Prometheus port 9090.
+    # 1. Humans accessing the Prometheus web UI via the Ingress domain.
+    # 2. Linux VM Prometheus agents remote-writing metrics (Traefik forwards /api/v1/write).
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.global.netpol.traefik.namespace }}
+            {{- range $key, $value := .Values.global.netpol.traefik.labels }}
+            {{ $key }}: {{ $value }}
+            {{- end }}
+      toPorts:
+        - ports:
+            - port: "9090"
+              protocol: TCP
+
+    # Grafana → Prometheus port 9090 (Prometheus datasource queries).
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Release.Namespace }}
+            app: grafana
+      toPorts:
+        - ports:
+            - port: "9090"
+              protocol: TCP
+
+# =========
+# EGRESS
+# =========
+
+  egress:
+    # kube-dns — Prometheus resolves service names during Kubernetes SD and AlertManager lookup.
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: ANY
+          rules:
+            dns:
+              - matchPattern: "*"
+
+    # kube-apiserver — Prometheus Operator uses Kubernetes SD to discover scrape targets
+    # (reads pods, services, and endpoints from the API).
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "6443"
+              protocol: TCP
+
+    # AlertManager — Prometheus sends fired alerts to AlertManager on port 9093.
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Release.Namespace }}
+            app.kubernetes.io/name: alertmanager
+      toPorts:
+        - ports:
+            - port: "9093"
+              protocol: TCP
+
+    # All pods in the release namespace — covers scraping of AlertManager, Grafana, and any other
+    # components co-deployed in this prometheus-linuxaid namespace. Intentionally scoped to one
+    # namespace: each prometheus-linuxaid instance is deployed per-tenant with its own namespace,
+    # and cross-tenant scraping is handled via additionalScrapeNamespaces below.
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Release.Namespace }}
+
+    {{- range ((.Values.global.prometheusLinuxaid.prometheus | default dict).additionalScrapeNamespaces | default list) }}
+    {{- if kindIs "map" . }}
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .namespace }}
+    {{- with .ports }}
+      toPorts:
+        - ports:
+          {{- range . }}
+            - port: {{ . | quote }}
+              protocol: TCP
+          {{- end }}
+    {{- end }}
+    {{- else }}
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ . }}
+    {{- end }}
+    {{- end }}
+
+{{- end }}

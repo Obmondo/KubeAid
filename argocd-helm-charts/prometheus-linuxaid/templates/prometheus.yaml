@@ -11,7 +11,6 @@ spec:
       port: web
   podMetadata:
     labels:
-      app.kubernetes.io/instance: k8s
       app.kubernetes.io/name: prometheus
   podMonitorNamespaceSelector: null
   podMonitorSelector: {}

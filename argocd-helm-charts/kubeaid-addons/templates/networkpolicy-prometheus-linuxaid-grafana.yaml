@@ -1,0 +1,72 @@
+{{- if and ((.Values.global).netpol).enabled ((.Values.global).prometheusLinuxaid).netpol }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: prometheus-linuxaid-grafana
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/component: cilium-networkpolicy
+spec:
+  endpointSelector:
+    matchLabels:
+      app: grafana
+
+# =========
+# INGRESS
+# =========
+
+  ingress:
+    # Traefik → Grafana port 3000 (Grafana UI via Ingress).
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.global.netpol.traefik.namespace }}
+            {{- range $key, $value := .Values.global.netpol.traefik.labels }}
+            {{ $key }}: {{ $value }}
+            {{- end }}
+      toPorts:
+        - ports:
+            - port: "3000"
+              protocol: TCP
+
+    # Prometheus → Grafana port 3000 (scrapes Grafana's own /metrics endpoint).
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Release.Namespace }}
+            app.kubernetes.io/name: prometheus
+      toPorts:
+        - ports:
+            - port: "3000"
+              protocol: TCP
+
+# =========
+# EGRESS
+# =========
+
+  egress:
+    # kube-dns — Grafana resolves the Prometheus service name (e.g. prometheus-operated) via DNS
+    # to get a ClusterIP before opening the TCP connection. Even though Cilium's toEndpoints rule
+    # below matches by pod identity (not IP), the application-level DNS lookup must succeed first.
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: ANY
+          rules:
+            dns:
+              - matchPattern: "*"
+
+    # Prometheus datasource — Grafana queries Prometheus on port 9090 to render dashboards.
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Release.Namespace }}
+            app.kubernetes.io/name: prometheus
+      toPorts:
+        - ports:
+            - port: "9090"
+              protocol: TCP
+
+{{- end }}

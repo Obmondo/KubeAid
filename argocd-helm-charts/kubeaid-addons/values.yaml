@@ -224,6 +224,29 @@ global:
     # -- Enable CiliumNetworkPolicy for whoami (allows ingress from Traefik on port 80)
     netpol: false
 
+  # prometheusLinuxaid
+  # CiliumNetworkPolicies for a single prometheus-linuxaid deployment.
+  # Requires global.netpol.enabled: true.
+  # Each ArgoCD app instance manages exactly one namespace — set namespace below.
+  # Renders three policies: prometheus, grafana, alertmanager.
+  prometheusLinuxaid:
+    # -- Enable CiliumNetworkPolicies for the configured prometheus-linuxaid namespace.
+    netpol: false
+
+    alertmanager:
+      # -- FQDN for the Obmondo alerting webhook (egress on port 443).
+      webhookFQDN: ""  # e.g. alerts.obmondo.com
+
+    prometheus:
+      # -- Extra namespaces Prometheus should scrape beyond the hardcoded puppetserver namespace.
+      # Each entry is either a plain string (namespace name) or a map with `namespace` and `ports`.
+      additionalScrapeNamespaces: []
+      # Example:
+      #   - my-app-namespace
+      #   - namespace: another-ns
+      #     ports:
+      #       - "8080"
+
   # argocd
   # Baseline CiliumNetworkPolicy for Argo CD (charts/network-policies/templates/networkpolicy-argocd.yaml).
   # Requires global.netpol.enabled: true. Uses global.netpol.traefik / global.netpol.prometheus like other netpols.
