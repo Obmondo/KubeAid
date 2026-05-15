@@ -1,0 +1,5 @@
+harborProxyCache:
+  enabled: false
+
+pullThroughCache:
+  enabled: false
