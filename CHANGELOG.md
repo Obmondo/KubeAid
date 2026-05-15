@@ -2,6 +2,33 @@
 
 All releases and the changes included in them (pulled from git commits added since last release) will be detailed in this file.
 
+## KubeAid Release Version 29.0.8
+
+### Features
+
+- 926f96be4 feat(graylog): implement and refine Cilium network policies
+
+### Bug Fixes
+
+- 70288407d fix(ci): fix yamllint errors and mongodb.yaml labels key
+- 14ee80b01 fix the suggested changes
+- 69e3ede15 fix the suggested changes
+- cc9fa9b61 fix(blackbox-exporter): remove ip flapping alert
+- 8a696aa63 fix(capi-cluster): prepend InternalIP to kubelet-preferred-address-types
+- 0a2956d5a fix(capi-cluster): raise inotify limits on kubeadm nodes
+- 5156063bb fix(netbird): disable postgresql backups by default
+- 25db4793c fix helm template error in kyverno
+
+### Other Changes
+
+- b555a1766 (chore): fix requested issues in network policies for Graylog and MongoDB
+- 948aa6c81 Add Cilium network policies for prometheus-linuxaid stack
+- bb84f39ec changes in cilium policy sonarqube
+- 3a918982a Improve Keycloak readme to set custom authentication flow for clients
+- ac927ce9e update image tag to v0.4.2 for kubeaid-agent
+- 587159939 add cilium netpol for sonarqube using kubeaid-addons
+- 4a342027d Added functionality to disable servicemonitors incase of test instances
+
 ## KubeAid Release Version 29.0.7
 
 ### Features
