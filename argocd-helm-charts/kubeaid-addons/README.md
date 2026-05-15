@@ -12,6 +12,7 @@ here rather than being scattered across individual application charts.
 | Namespace-wide default-deny network policy | `CiliumNetworkPolicy` | `defaultDeny.enabled` |
 | Per-component Cilium network policies | `CiliumNetworkPolicy` | `global.netpol.enabled` + component flag |
 | CNPG PostgreSQL cluster + scheduled backup | `Cluster`, `ScheduledBackup` | `global.postgresql.enabled` |
+| MongoDB replica set + logical backup | `MongoDBCommunity`, `CronJob` | `global.mongodb.enabled` |
 | RabbitMQ cluster (via Cluster Operator) | `RabbitmqCluster` | `global.rabbitmq.enabled` |
 | Argo CD baseline policy | `CiliumNetworkPolicy` | `global.netpol.enabled` + `global.argocd.netpol` |
 | Harbor network policies | `CiliumNetworkPolicy` | `global.netpol.enabled` + `global.harbor.netpol` |
@@ -129,6 +130,11 @@ global:
       - labels:
           app.kubernetes.io/instance: my-app
           app.kubernetes.io/component: backend
+
+  mongodb:
+    enabled: false
+    instanceName: my-app-mongodb
+    passwordSecretName: my-app-mongodb-user-password
 ```
 
 ## Enabling network policies

@@ -1,0 +1,59 @@
+{{- if and ((.Values.global).netpol).enabled ((.Values.global).mongodb.logicalbackup).enabled }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{ .Values.global.mongodb.instanceName }}-backup-networkpolicy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/component: cilium-networkpolicy
+spec:
+  endpointSelector:
+    matchLabels:
+      app: {{ .Values.global.mongodb.instanceName }}-backup
+
+  egress:
+    # MongoDB (mongodump)
+    # NOTE: `app: <instanceName>-svc` is the pod label assigned by the MongoDB Community Operator.
+    # Cilium enforces at the pod level via eBPF — `toEndpoints` matches pod identity, not Kubernetes Services.
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Release.Namespace }}
+            app: {{ .Values.global.mongodb.instanceName }}-svc
+      toPorts:
+        - ports:
+            - port: "27017"
+              protocol: TCP
+
+    {{- if eq .Values.global.mongodb.logicalbackup.provider "az" }}
+    # Azure Blob Storage
+    - toFQDNs:
+        - matchPattern: "*.blob.core.windows.net"
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+    {{- else if eq .Values.global.mongodb.logicalbackup.provider "s3" }}
+    # S3 object storage
+    {{- if .Values.global.mongodb.logicalbackup.s3endpoint }}
+    - toFQDNs:
+        - matchName: {{ .Values.global.mongodb.logicalbackup.s3endpoint | trimPrefix "https://" | trimPrefix "http://" | quote }}
+        - matchPattern: "*.amazonaws.com"
+        - matchPattern: "*.s3.amazonaws.com"
+        - matchPattern: "*.s3.*.amazonaws.com"
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+    {{- else }}
+    - toFQDNs:
+        - matchPattern: "*.amazonaws.com"
+        - matchPattern: "*.s3.amazonaws.com"
+        - matchPattern: "*.s3.*.amazonaws.com"
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+    {{- end }}
+    {{- end }}
+{{- end }}

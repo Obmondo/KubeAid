@@ -1,90 +1,84 @@
-{{ if and .Values.global.mongodb.enabled .Values.global.mongodb.logicalBackup.enabled }}
-{{- $backup := .Values.global.mongodb.logicalBackup }}
+{{- if and .Values.global.mongodb.enabled .Values.global.mongodb.logicalbackup.enabled }}
 ---
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: {{ printf "%s-backup" .Values.global.mongodb.clusterName }}
+  name: {{ printf "%s-backup" .Values.global.mongodb.instanceName }}
 spec:
   concurrencyPolicy: Forbid
   failedJobsHistoryLimit: 1
-  schedule: {{ $backup.schedule | default "45 03 * * *" }}
+  schedule: {{ .Values.global.mongodb.logicalbackup.schedule | default "45 03 * * *" | quote }}
   successfulJobsHistoryLimit: 3
   jobTemplate:
     spec:
       template:
         metadata:
-        {{- if $backup.annotations }}
+          {{- if .Values.global.mongodb.logicalbackup.annotations }}
           annotations:
-            {{- toYaml $backup.annotations | nindent 12 }}
-        {{- end }}
-        {{- if $backup.labels }}
+            {{- toYaml .Values.global.mongodb.logicalbackup.annotations | nindent 12 }}
+          {{- end }}
           labels:
-            {{- toYaml $backup.labels | nindent 12 }}
-        {{- end }}
+            app: {{ printf "%s-backup" .Values.global.mongodb.instanceName }}
         spec:
           containers:
             - name: mongodb-backup
               image: ghcr.io/obmondo/mongodb-backup:latest
               imagePullPolicy: IfNotPresent
               env:
-                # The MongoDB URI to access the database.
-                # E.g.
-                # Standalone instance   "mongodb://user:pass@host:port/dbname"
-                # ReplicaSet            "mongodb://user:pass@mongo-rs0.svc:27017?replicaSet=mongo-rs&ssl=false"
                 - name: MONGO_URI
                   valueFrom:
                     secretKeyRef:
-                      name: mongodbbackup
+                      name: {{ .Values.global.mongodb.logicalbackup.secretName }}
                       key: MONGO_URI
-                # Setting this to true will take a backup of all the databases
                 - name: MONGO_COMPLETE
                   valueFrom:
                     secretKeyRef:
-                      name: mongodbbackup
+                      name: {{ .Values.global.mongodb.logicalbackup.secretName }}
                       key: MONGO_COMPLETE
                 - name: BACKUP_PROVIDER
-                  value: {{ $backup.provider | default "az" }}
-              {{- if eq $backup.provider "s3" }}
+                  value: {{ .Values.global.mongodb.logicalbackup.provider | default "az" | quote }}
+              {{- if eq .Values.global.mongodb.logicalbackup.provider "s3" }}
                 - name: S3_BUCKET
-                  value: {{ $backup.s3bucket }}
+                  value: {{ .Values.global.mongodb.logicalbackup.s3bucket | quote }}
                 - name: S3_PATH
-                  value: {{ $backup.s3backuppath }}
-              {{- if not $backup.useiamrole }}
+                  value: {{ .Values.global.mongodb.logicalbackup.s3backuppath | quote }}
+              {{- if not .Values.global.mongodb.logicalbackup.useiamrole }}
                 - name: BACKUP_S3_REGION
-                  value: {{ $backup.s3region | default "us-east-1" }}
+                  value: {{ .Values.global.mongodb.logicalbackup.s3region | default "us-east-1" | quote }}
+                - name: AWS_DEFAULT_REGION
+                  value: {{ .Values.global.mongodb.logicalbackup.s3region | default "us-east-1" | quote }}
+                - name: AWS_REGION
+                  value: {{ .Values.global.mongodb.logicalbackup.s3region | default "us-east-1" | quote }}
                 - name: BACKUP_S3_ENDPOINT
-                  value: {{ $backup.s3endpoint }}
+                  value: {{ .Values.global.mongodb.logicalbackup.s3endpoint | quote }}
                 - name: AWS_ACCESS_KEY_ID
                   valueFrom:
                     secretKeyRef:
-                      name: awsaccesskeyid
+                      name: {{ .Values.global.mongodb.logicalbackup.awsAccessKeyIdSecretName }}
                       key: AWS_ACCESS_KEY_ID
                 - name: AWS_SECRET_ACCESS_KEY
                   valueFrom:
                     secretKeyRef:
-                      name: mongodbbackup
+                      name: {{ .Values.global.mongodb.logicalbackup.secretName }}
                       key: AWS_SECRET_ACCESS_KEY
               {{- end }}
-              {{- else if eq $backup.provider "az" }}
+              {{- else if eq .Values.global.mongodb.logicalbackup.provider "az" }}
                 - name: AZ_BACKUP_PATH
-                  value:  {{ $backup.azbackuppath | default "mongodb-backup/graylog-mongodb" }}
+                  value: {{ .Values.global.mongodb.logicalbackup.azbackuppath | default "mongodb-backup/graylog-mongodb" | quote }}
                 - name: AZURE_STORAGE_ACCOUNT_NAME
                   valueFrom:
                     secretKeyRef:
-                      name: mongodbbackup
+                      name: {{ .Values.global.mongodb.logicalbackup.secretName }}
                       key: AZURE_STORAGE_ACCOUNT_NAME
-                # Azure accountkey
                 - name: AZURE_STORAGE_ACCOUNT_KEY
                   valueFrom:
                     secretKeyRef:
-                      name: mongodbbackup
+                      name: {{ .Values.global.mongodb.logicalbackup.secretName }}
                       key: AZURE_STORAGE_ACCOUNT_KEY
-                # Azure container namemongodbbackup
                 - name: AZURE_STORAGE_CONTAINER
                   valueFrom:
                     secretKeyRef:
-                      name: mongodbbackup
+                      name: {{ .Values.global.mongodb.logicalbackup.secretName }}
                       key: AZURE_STORAGE_CONTAINER
               {{- end }}
               resources:
@@ -102,5 +96,4 @@ spec:
           dnsPolicy: ClusterFirst
           restartPolicy: Never
           terminationGracePeriodSeconds: 300
----
-{{ end }}
+{{- end }}

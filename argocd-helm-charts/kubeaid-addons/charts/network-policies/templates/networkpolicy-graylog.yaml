@@ -1,0 +1,149 @@
+{{- if and ((.Values.global).netpol).enabled ((.Values.global).graylog).netpol }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-networkpolicy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/component: cilium-networkpolicy
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: graylog
+      app.kubernetes.io/instance: {{ .Release.Name }}
+
+# ========
+# INGRESS
+# ========
+
+  ingress:
+    # Allow UI/API only via Traefik
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.global.netpol.traefik.namespace }}
+            {{- range $key, $value := .Values.global.netpol.traefik.labels }}
+            {{ $key }}: {{ $value | quote }}
+            {{- end }}
+      toPorts:
+        - ports:
+            - port: "9000"
+              protocol: TCP
+
+    # Allow ingestion from configured ingestors
+    {{- range .Values.global.graylog.ingestors }}
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .namespace | default $.Release.Namespace }}
+            {{- range $key, $value := .labels }}
+            {{ $key }}: {{ $value | quote }}
+            {{- end }}
+      toPorts:
+        - ports:
+            - port: "5044"
+              protocol: TCP
+            - port: "12201"
+              protocol: TCP
+            - port: "12201"
+              protocol: UDP
+            {{- range $.Values.global.graylog.inputPorts }}
+            - port: {{ .port | quote }}
+              protocol: {{ .protocol }}
+            {{- end }}
+    {{- end }}
+
+    {{- if gt (int (.Values.global.graylog.replicas | default 1)) 1 }}
+    # Allow Graylog cluster communication (replicas > 1)
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Release.Namespace }}
+            app.kubernetes.io/name: graylog
+            app.kubernetes.io/instance: {{ .Release.Name }}
+      toPorts:
+        - ports:
+            - port: "9000"
+              protocol: TCP
+            - port: "12900"
+              protocol: TCP
+    {{- end }}
+
+    {{- if .Values.global.graylog.metrics.enabled }}
+    # Allow metrics scraping (9833/TCP)
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.global.graylog.metrics.namespace }}
+            {{- range $key, $value := .Values.global.graylog.metrics.labels }}
+            {{ $key }}: {{ $value | quote }}
+            {{- end }}
+      toPorts:
+        - ports:
+            - port: "9833"
+              protocol: TCP
+    {{- end }}
+
+# ========
+# EGRESS
+# ========
+
+  egress:
+    # MongoDB
+    # NOTE: `app: <instanceName>-svc` is the pod label assigned by the MongoDB Community Operator.
+    # Cilium enforces at the pod level via eBPF — `toEndpoints` matches pod identity, not Kubernetes Services.
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Release.Namespace }}
+            app: {{ .Values.global.mongodb.instanceName }}-svc
+      toPorts:
+        - ports:
+            - port: "27017"
+              protocol: TCP
+
+    # OpenSearch
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Release.Namespace }}
+            {{- range $key, $value := .Values.global.opensearch.selectorLabels }}
+            {{ $key }}: {{ $value | quote }}
+            {{- end }}
+      toPorts:
+        - ports:
+            - port: "9200"
+              protocol: TCP
+
+    # Kubernetes API server
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "6443"
+              protocol: TCP
+
+    {{- if gt (int (.Values.global.graylog.replicas | default 1)) 1 }}
+    # Graylog cluster communication (replicas > 1)
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Release.Namespace }}
+            app.kubernetes.io/name: graylog
+            app.kubernetes.io/instance: {{ .Release.Name }}
+      toPorts:
+        - ports:
+            - port: "9000"
+              protocol: TCP
+            - port: "12900"
+              protocol: TCP
+    {{- end }}
+
+    {{- if .Values.global.graylog.smtp.enabled }}
+    # SMTP (email alerts)
+    - toFQDNs:
+      {{- range .Values.global.graylog.smtp.fqdns }}
+        - matchName: {{ . | quote }}
+      {{- end }}
+      toPorts:
+        - ports:
+            - port: {{ .Values.global.graylog.smtp.port | quote }}
+              protocol: TCP
+    {{- end }}
+{{- end }}

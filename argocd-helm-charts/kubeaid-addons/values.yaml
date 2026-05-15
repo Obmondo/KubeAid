@@ -128,6 +128,56 @@ global:
     # -- CNPG operator pod selector for webhook traffic (port 8000).
     cnpg: {}
 
+  # mongodb
+  # Provisions a MongoDBCommunity resource.
+  # Requires the MongoDB Community operator to be installed in the cluster.
+  mongodb:
+    # -- Provision a MongoDBCommunity resource.
+    enabled: false
+
+    # -- Enable the MongoDB CiliumNetworkPolicy (requires global.netpol.enabled)
+    netpol: false
+
+    # -- Name of the MongoDBCommunity resource / replica set.
+    instanceName: ""
+
+    # -- Name of the ServiceAccount/Role/RoleBinding used by the MongoDB pods.
+    serviceAccountName: ""
+
+    # -- Number of MongoDB replica set members.
+    replicas: 2
+
+    # -- MongoDB server version.
+    version: "4.4.1"
+
+    # -- Database created for the application user.
+    database: app
+
+    # -- Application user created by the operator.
+    user: app-user
+
+    # -- Secret containing the application user password.
+    passwordSecretName: ""
+
+    # -- Additional labels added to MongoDB pods. Built-in labels are also added.
+    podLabels: {}
+
+    # -- Additional database roles granted to the application user.
+    # Each entry is { db: "<database>", name: "<role>" }.
+    additionalRoles: []
+
+    agent:
+      # -- MongoDB operator agent log level.
+      logLevel: INFO
+
+    # -- Client applications allowed to connect on port 27017.
+    # Each entry is { namespace: "<ns>" (optional), selectorLabels: { ... } }.
+    clients: []
+
+    # -- Optional MongoDB operator pod selector if you need explicit operator-to-db traffic.
+    operator:
+      selectorLabels: {}
+
   # rabbitmq
   # Provisions a RabbitmqCluster resource.
   # Requires the rabbitmq-cluster-operator to be installed in the cluster.
@@ -201,8 +251,10 @@ global:
 
     # -- Git hosts allowed for Argo CD repo access over HTTPS/SSH (egress toFQDNs).
     gitFQDNs: []
-  mongodb:
-    enabled: false
+
+  graylog:
+    # -- Enable CiliumNetworkPolicy for Graylog.
+    netpol: false
 
   # blackbox
   blackbox:
