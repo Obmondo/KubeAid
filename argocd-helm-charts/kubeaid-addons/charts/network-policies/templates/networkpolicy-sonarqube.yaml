@@ -10,25 +10,23 @@ metadata:
 spec:
   endpointSelector:
     matchLabels:
-{{- with .Values.global.sonarqube.endpointSelectorLabels }}
-{{- range $key, $value := . }}
+      {{- if .Values.global.sonarqube.endpointSelectorLabels }}
+      {{- range $key, $value := .Values.global.sonarqube.endpointSelectorLabels }}
       {{ $key }}: {{ $value | quote }}
-{{- end }}
-{{- end }}
+      {{- end }}
+      {{- else }}
+      app: sonarqube
+      {{- end }}
   ingress:
     # Allow same namespace traffic
     - fromEndpoints:
         - matchLabels:
             k8s:io.kubernetes.pod.namespace: {{ .Release.Namespace | quote }}
-    # Traefik -> SonarQube
+    # traefik -> sonarqube
     - fromEndpoints:
         - matchLabels:
-            k8s:io.kubernetes.pod.namespace: {{ .Values.global.netpol.traefik.namespace | quote }}
-{{- with .Values.global.netpol.traefik.labels }}
-{{- range $key, $value := . }}
-            {{ $key }}: {{ $value | quote }}
-{{- end }}
-{{- end }}
+            k8s:io.kubernetes.pod.namespace: {{ .Values.global.netpol.traefik.namespace | default "traefik" | quote }}
+            app.kubernetes.io/name: traefik
       toPorts:
         - ports:
             - port: {{ .Values.global.sonarqube.servicePort | default "9000" | quote }}
@@ -36,31 +34,31 @@ spec:
     # Sonar <-> Sonar
     - fromEndpoints:
         - matchLabels:
-{{- with .Values.global.sonarqube.endpointSelectorLabels }}
-{{- range $key, $value := . }}
+            {{- if .Values.global.sonarqube.endpointSelectorLabels }}
+            {{- range $key, $value := .Values.global.sonarqube.endpointSelectorLabels }}
             {{ $key }}: {{ $value | quote }}
-{{- end }}
-{{- end }}
+            {{- end }}
+            {{- else }}
+            app: sonarqube
+            {{- end }}
   egress:
     # Sonar <-> Sonar
     - toEndpoints:
         - matchLabels:
-{{- with .Values.global.sonarqube.endpointSelectorLabels }}
-{{- range $key, $value := . }}
+            {{- if .Values.global.sonarqube.endpointSelectorLabels }}
+            {{- range $key, $value := .Values.global.sonarqube.endpointSelectorLabels }}
             {{ $key }}: {{ $value | quote }}
-{{- end }}
-{{- end }}
-    # Sonar -> PostgreSQL
+            {{- end }}
+            {{- else }}
+            app: sonarqube
+            {{- end }}
+    # Sonar -> pgsql
     - toEndpoints:
         - matchLabels:
-{{- with ((.Values.global.sonarqube).postgresql).labelSelector }}
-{{- range $key, $value := . }}
-            {{ $key }}: {{ $value | quote }}
-{{- end }}
-{{- end }}
+            cnpg.io/cluster: sonarqube-pgsql
       toPorts:
         - ports:
-            - port: {{ ((.Values.global.sonarqube).postgresql).port | default "5432" | quote }}
+            - port: "5432"
               protocol: TCP
     # Sonar -> kube-apiserver
     - toEntities:
@@ -72,15 +70,10 @@ spec:
             - port: "6443"
               protocol: TCP
     # Sonar -> DNS
-{{- if .Values.global.sonarqube.dns }}
     - toEndpoints:
         - matchLabels:
-            k8s:io.kubernetes.pod.namespace: {{ .Values.global.sonarqube.dns.namespace | quote }}
-{{- with .Values.global.sonarqube.dns.labels }}
-{{- range $key, $value := . }}
-            k8s:{{ $key }}: {{ $value | quote }}
-{{- end }}
-{{- end }}
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
       toPorts:
         - ports:
             - port: "53"
@@ -88,16 +81,16 @@ spec:
           rules:
             dns:
               - matchPattern: "*"
-{{- end }}
-    # Sonar -> External FQDNs
-{{- if .Values.global.sonarqube.egressFQDNs }}
+    # FQDNs
     - toFQDNs:
-{{- range .Values.global.sonarqube.egressFQDNs }}
-        - matchName: {{ . | quote }}
-{{- end }}
+        - matchName: "repo1.maven.org"
+        - matchName: "github.com"
+        - matchName: "api.github.com"
+        - matchName: "ghcr.io"
+        - matchName: "charts.jetstack.io"
+        - matchName: "release-assets.githubusercontent.com"
       toPorts:
         - ports:
             - port: "443"
               protocol: TCP
-{{- end }}
 {{- end }}
