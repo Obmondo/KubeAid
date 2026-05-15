@@ -1,3 +1,4 @@
+{{- if .Values.puppetAgentExporter.serviceMonitor.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -14,3 +15,4 @@ spec:
     matchLabels:
       app.kubernetes.io/component: puppet-agent-exporter
       app.kubernetes.io/name: puppetserver
+{{- end }}

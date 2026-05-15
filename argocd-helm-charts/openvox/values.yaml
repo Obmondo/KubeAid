@@ -153,10 +153,17 @@ puppetserver:
       disableAPICheck: true
       puppetdb:
         enabled: true
+        # this defaults to true in openvox's upstream helm values file too
+        serviceMonitor:
+          enabled: true
       jmx:
         enabled: false
+        serviceMonitor:
+          enabled: false
 
 puppetAgentExporter:
+  serviceMonitor:
+    enabled: true
   image: ghcr.io/obmondo/puppet-agent-exporter
   tag: v0.0.1
   imagePullPolicy: IfNotPresent
