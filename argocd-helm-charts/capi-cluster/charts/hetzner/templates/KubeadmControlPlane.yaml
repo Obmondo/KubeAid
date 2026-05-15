@@ -168,6 +168,11 @@ spec:
         vm.overcommit_memory=1
         kernel.panic=10
         kernel.panic_on_oops=1
+        # Kernel defaults (128 instances) are too low for dense k8s nodes;
+        # exhausting fs.inotify.max_user_instances wedges kubelet's CSI
+        # plugin-watcher. 8192 / 524288 is the k8s-ecosystem standard.
+        fs.inotify.max_user_instances=8192
+        fs.inotify.max_user_watches=524288
       owner: root:root
       path: /etc/sysctl.d/99-kubelet.conf
       permissions: "0744"
