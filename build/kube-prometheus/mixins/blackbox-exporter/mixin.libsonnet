@@ -146,22 +146,6 @@
               description: '**{{ .Labels.instance }}** DNS lookup is slow (~{{ .Value }} seconds).',
             },
           },
-          // =========================
-          // IP FLAPPING (UNSTABLE DNS)
-          // =========================
-          {
-            alert: 'BlackboxIpFlapping',
-            expr: 'changes(probe_ip_addr_hash[5m]) > 3',
-            'for': '5m',
-            labels: {
-              severity: 'critical',
-              alert_id: 'blackbox_ip_flapping',
-            },
-            annotations: {
-              summary: 'IP address flapping detected.',
-              description: 'Resolved IP for **{{ .Labels.instance }}** is changing frequently (DNS instability).',
-            },
-          },
         ],
       },
     ],
