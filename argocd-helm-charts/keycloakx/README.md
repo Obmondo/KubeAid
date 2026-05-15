@@ -196,6 +196,17 @@ we can make the login flow faster, by setting it as default:
   * Alias: `google`
   * Default Identity Provider: `google`
 
+## Set a specific client to a specific authentication flow
+
+If there is a scenario where specific clients like ArgoCD should display multiple OIDC providers
+in the Keycloak login page, then we can follow these steps:
+
+1) Go to the `<customer_name>` realm
+2) Configure __Authentication -> Flows -> Browser -> Duplicate flow -> Set the name for the flow__
+3) Check if the __Identity Provider Redirector -> Actions -> Config__ has no default IdP set
+4) Go the client, f.ex. ArgoCD in the Keycloak's `<customer_name>` realm
+5) __Clients -> Client details -> Advanced -> Authentication flow overrides -> Select the duplicate flow created in Step 2.
+
 ## Add normal users to the Keycloak setup
 
 * Have the user access <https://keycloak.example.com/auth/realms/<customer_name>/account/>
