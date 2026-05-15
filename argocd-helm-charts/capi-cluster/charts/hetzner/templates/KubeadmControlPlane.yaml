@@ -16,8 +16,17 @@ spec:
         # security tooling (kube-bench, kubescape, OPA) is the right
         # layer for enforcement, not chart-side flag pinning.
         extraArgs:
+          # InternalIP is prepended to upstream CAPH's order
+          # (ExternalIP,Hostname,InternalDNS,ExternalDNS) which assumes
+          # HCloud servers always have a public IP. CP-only VPN clusters
+          # don't, so the API server's kubelet proxy would otherwise fall
+          # through to Hostname → host-resolver lookup → "no such host"
+          # (the resolver from connect-nat-gateway.sh doesn't know
+          # internal node names), breaking exec / port-forward /
+          # log-streaming. InternalIP is always populated by HCloud CCM
+          # and is harmless for clusters that do have a public IP.
           - name: kubelet-preferred-address-types
-            value: ExternalIP,Hostname,InternalDNS,ExternalDNS
+            value: InternalIP,ExternalIP,Hostname,InternalDNS,ExternalDNS
         {{/* certSANs lets clients reach kube-apiserver under names other
              than controlPlaneEndpoint.host without tripping x509 errors.
              Includes the LB endpoint hostname plus any operator-supplied
