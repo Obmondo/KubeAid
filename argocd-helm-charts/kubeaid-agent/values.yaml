@@ -42,6 +42,13 @@ appConfig:
 # Obmondo API.
 obmondoAPITLSSecretName: obmondo-clientcert
 
+# -- Extra namespaces where the agent's ServiceAccount may read secrets.
+# A Role + RoleBinding (get/list/watch on secrets) is created in each.
+# The target namespaces must already exist. Useful for cross-namespace
+# secret reads (e.g. obmondo-websites).
+extraSecretReaderNamespaces: []
+#  - obmondo-websites
+
 configMap:
   labels: {}
   annotations: {}

@@ -243,6 +243,13 @@
       "description": "Kubernetes Secret name containing the TLS certificate key-pair, used to communicate with Obmondo API.",
       "type": "string"
     },
+    "extraSecretReaderNamespaces": {
+      "description": "Extra namespaces where the agent's ServiceAccount may read secrets. A Role + RoleBinding is created in each.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "service": {
       "type": "object",
       "properties": {
