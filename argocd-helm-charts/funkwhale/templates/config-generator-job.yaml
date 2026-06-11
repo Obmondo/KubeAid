@@ -72,7 +72,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: config-generator
-          image: bitnami/kubectl:latest
+          image: soldevelo/kubectl:latest
           env:
             - name: SECRET_NAME
               value: "{{ $fullname }}"
