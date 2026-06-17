@@ -1,7 +1,10 @@
 ---
 image:
   repository: ghcr.io/obmondo/hetzner-failover-script
-  tag: v1.1.0
+  # v1.2.0 resolves the node's public IP via the Kubernetes API (needs the RBAC
+  # in templates/rbac.yaml) instead of the private status.hostIP. Requires the
+  # dockerfiles repo to be tagged v1.2.0 so CI publishes this image first.
+  tag: v1.2.0
 
 # Failover IP that pod will manage
 failoverIP: ""

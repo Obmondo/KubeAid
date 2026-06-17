@@ -19,6 +19,8 @@ spec:
       labels:
         app: {{ .Release.Name }}-failover
     spec:
+      # Needs to read Node objects (get nodes) to resolve this node's ExternalIP.
+      serviceAccountName: {{ .Release.Name }}-failover
       containers:
       - name: {{ .Release.Name }}-failover
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
@@ -27,10 +29,15 @@ spec:
           value: {{ .Values.failoverIP }}
         - name: CRON_TIME_INTERVAL
           value: {{ .Values.cronTimeInterval }}
-        - name: SERVER_IP
+        # The pod's own node name. The controller looks the Node up via the
+        # Kubernetes API and uses its ExternalIP (public main IP) as the Robot
+        # Failover target. status.hostIP cannot be used here: with kubelet
+        # --node-ip set to the private vSwitch network it is an RFC1918 address,
+        # which the Robot API rejects with FAILOVER_NEW_SERVER_NOT_FOUND.
+        - name: NODE_NAME
           valueFrom:
             fieldRef:
-              fieldPath: status.hostIP
+              fieldPath: spec.nodeName
         - name: HETZNER_ROBOT_USERNAME
           valueFrom:
             secretKeyRef:
@@ -51,7 +58,12 @@ spec:
             command:
             - /bin/sh
             - -c
-            - "pgrep hetzner-failover"
+            # Match the binary by its full argv. The [h] makes the pattern match
+            # the running process but not pgrep's own /bin/sh wrapper (whose argv
+            # literally contains "[h]etzner..."). Plain "pgrep hetzner-failover"
+            # never matched: the kernel truncates comm to 15 chars
+            # ("hetzner-failove"), so the probe always failed.
+            - "pgrep -f '[h]etzner-failover-script'"
           initialDelaySeconds: 30
           periodSeconds: 10
           timeoutSeconds: 5
@@ -61,7 +73,12 @@ spec:
             command:
             - /bin/sh
             - -c
-            - "pgrep hetzner-failover"
+            # Match the binary by its full argv. The [h] makes the pattern match
+            # the running process but not pgrep's own /bin/sh wrapper (whose argv
+            # literally contains "[h]etzner..."). Plain "pgrep hetzner-failover"
+            # never matched: the kernel truncates comm to 15 chars
+            # ("hetzner-failove"), so the probe always failed.
+            - "pgrep -f '[h]etzner-failover-script'"
           initialDelaySeconds: 15
           periodSeconds: 5
           timeoutSeconds: 5
