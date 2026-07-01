@@ -1,0 +1,21 @@
+linuxaid-agents Job "{{ include "linuxaid-agents.fullname" . }}" created.
+
+  node:      {{ .Values.nodeName }}
+  certname:  {{ .Values.certname }}
+  enforce:   {{ .Values.enforce }} {{- if .Values.enforce }} (APPLYING CHANGES){{ else }} (report-only){{ end }}
+  cert:      secret/{{ .Values.obmondoClientCert.secretName }} in namespace {{ .Release.Namespace }}
+
+Prerequisites:
+  * Deploy into the namespace holding {{ .Values.obmondoClientCert.secretName }} (e.g. monitoring).
+  * The target node must already have the openvox agent at /opt/puppetlabs/bin/puppet.
+  * The image must be pushed to a registry the cluster can pull.
+
+Watch it:
+  kubectl -n {{ .Release.Namespace }} logs -f job/{{ include "linuxaid-agents.fullname" . }}
+
+Re-run (a Job is one-shot):
+  kubectl -n {{ .Release.Namespace }} delete job/{{ include "linuxaid-agents.fullname" . }}
+  helm upgrade --install ...
+
+Start with enforce=false (report-only); flip enforce=true once the run reports clean.
+For recurring per-node runs, switch this Job to a CronJob.
