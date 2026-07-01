@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "linuxaid-agents.fullname" . }}-launcher
+  labels:
+    {{- include "linuxaid-agents.labels" . | nindent 4 }}
+---
+# Cluster-scoped: the launcher lists nodes to discover them.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "linuxaid-agents.fullname" . }}-launcher-nodes
+  labels:
+    {{- include "linuxaid-agents.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "linuxaid-agents.fullname" . }}-launcher-nodes
+  labels:
+    {{- include "linuxaid-agents.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "linuxaid-agents.fullname" . }}-launcher-nodes
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "linuxaid-agents.fullname" . }}-launcher
+    namespace: {{ .Release.Namespace }}
+---
+# Namespaced: the launcher creates the per-node agent Jobs here.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "linuxaid-agents.fullname" . }}-launcher-jobs
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "linuxaid-agents.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "create", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "linuxaid-agents.fullname" . }}-launcher-jobs
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "linuxaid-agents.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "linuxaid-agents.fullname" . }}-launcher-jobs
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "linuxaid-agents.fullname" . }}-launcher
+    namespace: {{ .Release.Namespace }}

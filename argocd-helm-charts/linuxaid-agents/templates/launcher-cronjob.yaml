@@ -1,0 +1,51 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "linuxaid-agents.fullname" . }}-launcher
+  labels:
+    {{- include "linuxaid-agents.labels" . | nindent 4 }}
+    linuxaid-agents.obmondo.com/component: launcher
+spec:
+  schedule: {{ .Values.launcher.schedule | quote }}
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: {{ .Values.startingDeadlineSeconds }}
+  successfulJobsHistoryLimit: {{ .Values.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 600
+      ttlSecondsAfterFinished: {{ .Values.agentJob.ttlSecondsAfterFinished }}
+      template:
+        metadata:
+          labels:
+            {{- include "linuxaid-agents.selectorLabels" . | nindent 12 }}
+            linuxaid-agents.obmondo.com/component: launcher
+        spec:
+          restartPolicy: Never
+          serviceAccountName: {{ include "linuxaid-agents.fullname" . }}-launcher
+          containers:
+            - name: launcher
+              image: "{{ .Values.launcher.image.repository }}:{{ .Values.launcher.image.tag }}"
+              imagePullPolicy: {{ .Values.launcher.image.pullPolicy }}
+              args:
+                - fanout
+                - --image={{ .Values.agentImage.repository }}:{{ .Values.agentImage.tag }}
+                - --image-pull-policy={{ .Values.agentImage.pullPolicy }}
+                - --certname={{ required "certname (the obmondo-clientcert CN) is required" .Values.certname }}
+                - --enforce={{ .Values.enforce }}
+                - --openvox-environment={{ .Values.openvoxEnvironment }}
+                - --cert-secret={{ .Values.obmondoClientCert.secretName }}
+                - --host-path={{ .Values.hostObmondoPath }}
+                - --name-prefix={{ include "linuxaid-agents.fullname" . }}
+                - --ttl-seconds={{ .Values.agentJob.ttlSecondsAfterFinished }}
+                - --active-deadline-seconds={{ .Values.agentJob.activeDeadlineSeconds }}
+                - --backoff-limit={{ .Values.agentJob.backoffLimit }}
+                {{- with .Values.nodeSelector }}
+                - --node-selector={{ . }}
+                {{- end }}
+                {{- with .Values.puppetServer }}
+                - --puppet-server={{ . }}
+                {{- end }}
+              resources:
+                {{- toYaml .Values.launcher.resources | nindent 16 }}

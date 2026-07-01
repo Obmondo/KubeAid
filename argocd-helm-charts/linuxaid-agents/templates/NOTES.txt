@@ -1,21 +1,23 @@
-linuxaid-agents Job "{{ include "linuxaid-agents.fullname" . }}" created.
+linuxaid-agents — fan-out launcher CronJob in namespace {{ .Release.Namespace }}.
 
-  node:      {{ .Values.nodeName }}
-  certname:  {{ .Values.certname }}
-  enforce:   {{ .Values.enforce }} {{- if .Values.enforce }} (APPLYING CHANGES){{ else }} (report-only){{ end }}
-  cert:      secret/{{ .Values.obmondoClientCert.secretName }} in namespace {{ .Release.Namespace }}
+  launcher: {{ .Values.launcher.image.repository }}:{{ .Values.launcher.image.tag }} (schedule {{ .Values.launcher.schedule }})
+  agent:    {{ .Values.agentImage.repository }}:{{ .Values.agentImage.tag }}
+  certname: {{ .Values.certname }}
+  enforce:  {{ .Values.enforce }}{{- if .Values.enforce }} (APPLYING CHANGES){{ else }} (report-only){{ end }}
+  cert:     secret/{{ .Values.obmondoClientCert.secretName }}
+  nodes:    {{ if .Values.nodeSelector }}selector "{{ .Values.nodeSelector }}"{{ else }}all nodes{{ end }}
+
+Each run the launcher lists nodes and creates one ephemeral privileged agent Job per node
+(deterministic name => no overlap). No static node list, no per-node CronJobs.
 
 Prerequisites:
-  * Deploy into the namespace holding {{ .Values.obmondoClientCert.secretName }} (e.g. monitoring).
-  * The target node must already have the openvox agent at /opt/puppetlabs/bin/puppet.
-  * The image must be pushed to a registry the cluster can pull.
+  * Deploy into the namespace holding {{ .Values.obmondoClientCert.secretName }} (e.g. monitoring); it must permit privileged pods (PSA).
+  * Each node must already have the openvox agent at /opt/puppetlabs/bin/puppet.
+  * Both images must be pushed to a registry the cluster can pull.
 
-Watch it:
-  kubectl -n {{ .Release.Namespace }} logs -f job/{{ include "linuxaid-agents.fullname" . }}
+Watch:
+  kubectl -n {{ .Release.Namespace }} get cronjob,jobs -l app.kubernetes.io/name=linuxaid-agents
+  kubectl -n {{ .Release.Namespace }} logs -l linuxaid-agents.obmondo.com/component=launcher
 
-Re-run (a Job is one-shot):
-  kubectl -n {{ .Release.Namespace }} delete job/{{ include "linuxaid-agents.fullname" . }}
-  helm upgrade --install ...
-
-Start with enforce=false (report-only); flip enforce=true once the run reports clean.
-For recurring per-node runs, switch this Job to a CronJob.
+All nodes share the same certname (the obmondo-clientcert CN) => one puppet identity: fine for a
+uniform role, not per-node reporting. Start with enforce=false; flip to true once runs report clean.
