@@ -1,0 +1,67 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "linuxaid-agents.fullname" . }}
+  labels:
+    {{- include "linuxaid-agents.labels" . | nindent 4 }}
+spec:
+  backoffLimit: {{ .Values.backoffLimit }}
+  {{- with .Values.activeDeadlineSeconds }}
+  activeDeadlineSeconds: {{ . }}
+  {{- end }}
+  {{- with .Values.ttlSecondsAfterFinished }}
+  ttlSecondsAfterFinished: {{ . }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        {{- include "linuxaid-agents.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      hostPID: true
+      automountServiceAccountToken: false
+      nodeName: {{ required "nodeName (the target node) is required" .Values.nodeName }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: agent
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            privileged: true
+            runAsUser: 0
+          env:
+            - name: CERTNAME
+              value: {{ required "certname (the obmondo-clientcert CN) is required" .Values.certname | quote }}
+            - name: ENFORCE
+              value: {{ .Values.enforce | quote }}
+            - name: OPENVOX_ENVIRONMENT
+              value: {{ .Values.openvoxEnvironment | quote }}
+            {{- with .Values.puppetServer }}
+            - name: PUPPET_SERVER
+              value: {{ . | quote }}
+            {{- end }}
+            - name: CLIENT_CERT_DIR
+              value: /obmondo-clientcert
+          volumeMounts:
+            - name: obmondo-clientcert
+              mountPath: /obmondo-clientcert
+              readOnly: true
+            - name: host-obmondo
+              mountPath: {{ .Values.hostObmondoPath }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: obmondo-clientcert
+          secret:
+            secretName: {{ .Values.obmondoClientCert.secretName }}
+        - name: host-obmondo
+          hostPath:
+            path: {{ .Values.hostObmondoPath }}
+            type: DirectoryOrCreate
