@@ -1,53 +1,58 @@
-# linuxaid-agents — run the LinuxAid OpenVox agent on a KubeAid node as a Job.
+# linuxaid-agents — run the LinuxAid OpenVox agent on every node, hourly.
 #
-# Deploy into the namespace that holds the obmondo-clientcert secret (typically
-# "monitoring"): a Job can only mount a Secret from its own namespace.
+# A non-privileged launcher CronJob (linuxaid-agent) lists the cluster's nodes and
+# creates one ephemeral privileged agent Job per node each run — so there is no
+# static node list. Deploy into the namespace that holds the obmondo-clientcert
+# secret (e.g. monitoring); it must permit privileged pods (PSA).
 
-image:
-  # NOTE: build + push this from linuxaid-cli (Dockerfile). Pin by digest in prod.
+# Fan-out launcher image (the linuxaid-agent binary; a k8s API client, non-root).
+launcher:
+  image:
+    repository: ghcr.io/obmondo/linuxaid-agent
+    tag: spike
+    pullPolicy: Always
+  schedule: "0 * * * *"          # hourly
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      memory: 64Mi
+
+# Per-node agent image (linuxaid-cli + entrypoint), run by the spawned Jobs.
+agentImage:
   repository: ghcr.io/obmondo/linuxaid-agents
   tag: spike
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 
-imagePullSecrets: []
-
-# Node this Job runs on (spec.nodeName). REQUIRED — the agent mutates this host.
-nodeName: ""
-
-# certname = the CN of the obmondo-clientcert (e.g. "<cluster>.<customerID>").
-# The entrypoint installs the mounted cert into the host puppet SSL tree under
-# this name, and linuxaid-cli derives its identity from it. REQUIRED.
+# certname = the CN of the obmondo-clientcert, shared by all nodes. REQUIRED.
 certname: ""
 
-# Pre-signed client cert the pod mounts (keys: tls.crt / tls.key / ca.crt).
+# Pre-signed client cert the agent pods mount (keys: tls.crt / tls.key / ca.crt).
 obmondoClientCert:
   secretName: obmondo-clientcert
-
-# Optional: pin the puppetserver. When empty, run-openvox resolves it from the
-# Obmondo API (resolveCustomerURLs).
-puppetServer: ""
-
-# LinuxAid/OpenVox environment (release branch).
-openvoxEnvironment: master
 
 # false = report-only (puppet --noop); true = apply changes (--no-noop).
 enforce: false
 
-# Host directory used to stage the linuxaid-cli binary onto the node.
+openvoxEnvironment: master
+
+# Optional puppetserver override; empty = resolved from the Obmondo API.
+puppetServer: ""
+
+# Only manage nodes matching this label selector ("" = all nodes).
+nodeSelector: ""
+
+# Host directory used to stage the linuxaid-cli binary onto each node.
 hostObmondoPath: /opt/obmondo
 
-# Run on any node, including tainted / control-plane (spike default).
-tolerations:
-  - operator: Exists
+# Per-node agent Job controls (passed to the launcher's fanout).
+agentJob:
+  ttlSecondsAfterFinished: 600
+  activeDeadlineSeconds: 1200
+  backoffLimit: 0          # one pod per node per run; a failed run retries next hour
 
-resources:
-  requests:
-    cpu: 50m
-    memory: 64Mi
-  limits:
-    memory: 128Mi
-
-# Job controls.
-backoffLimit: 1
-activeDeadlineSeconds: 1800
-ttlSecondsAfterFinished: 3600
+# Launcher CronJob controls.
+startingDeadlineSeconds: 120
+successfulJobsHistoryLimit: 1
+failedJobsHistoryLimit: 3
