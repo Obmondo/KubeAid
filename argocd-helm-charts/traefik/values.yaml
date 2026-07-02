@@ -63,3 +63,28 @@ traefik:
 #      annotations:
 #        traefik.ingress.kubernetes.io/router.tls: "true"
 #        cert-manager.io/cluster-issuer: letsencrypt
+
+# Internal Traefik instance (aliased subchart above), OFF by default. A
+# ClusterIP-only controller with its own `traefik-internal` IngressClass, for
+# internal / mesh-only domains reached over the NetBird mesh instead of a public
+# HCloud LB. Deliberately NOT the default IngressClass and NO proxyprotocol
+# (there's no LB in front to originate PROXY headers). Web/TLS entrypoints keep
+# upstream defaults; internal Ingresses set their own TLS. kubeaid-cli flips
+# enabled=true when a NetBird Mgmt key is configured, and the netbird-operator
+# then exposes the traefik-internal Service to the mesh via a networkResource.
+traefik-internal:
+  enabled: false
+  fullnameOverride: traefik-internal
+  instanceLabelOverride: traefik-internal
+  service:
+    # traefik chart v41 nests the Service type under service.spec (v29 used
+    # service.type). ClusterIP is load-bearing: the upstream default is
+    # LoadBalancer, which would provision a second public LB.
+    spec:
+      type: ClusterIP
+  ingressClass:
+    enabled: true
+    isDefaultClass: false
+    name: traefik-internal
+  deployment:
+    replicas: 1

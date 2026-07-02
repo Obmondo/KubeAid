@@ -6,3 +6,13 @@ dependencies:
     version: "41.0.0"
     repository: https://helm.traefik.io/traefik
     #repository: "oci://ghcr.io/Obmondo"
+  # Second, ClusterIP-only Traefik instance for internal / mesh-only domains
+  # (its own `traefik-internal` IngressClass). Reached over the NetBird mesh via
+  # a netbird-operator networkResource, not a public LB. Off by default; toggled
+  # by traefik-internal.enabled — kubeaid-cli sets it when a NetBird Mgmt key is
+  # configured.
+  - name: traefik
+    alias: traefik-internal
+    version: "41.0.0"
+    repository: https://helm.traefik.io/traefik
+    condition: traefik-internal.enabled
