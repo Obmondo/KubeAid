@@ -689,7 +689,19 @@ spec:
       # CCM install (DS tolerates everything, so it lands fast). Other
       # cilium resources (operator Deployment, hubble) can still be
       # rolling — ArgoCD takes over after this script.
-      - kubectl create namespace cilium --dry-run=client -o yaml | kubectl apply -f -
+      # The API server can still be settling when postKubeadm reaches here
+      # (openapi endpoint returns EOF), so retry the namespace create up to
+      # 6 times with a 10s gap before giving up.
+      - |
+        for i in $(seq 1 6); do
+          kubectl create namespace cilium --dry-run=client -o yaml | kubectl apply -f - && break
+          if [ "$i" -eq 6 ]; then
+            echo "FATAL: namespace create failed after 6 attempts" >&2
+            exit 1
+          fi
+          echo "namespace create attempt $i failed; retrying in 10s" >&2
+          sleep 10
+        done
       - API_SERVER_URL=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')
       - API_SERVER_HOST=$(echo "$API_SERVER_URL" | awk -F[/:] '{print $4}')
       - API_SERVER_PORT=$(echo "$API_SERVER_URL" | awk -F[/:] '{print $5}')
