@@ -27,7 +27,11 @@ spec:
     {}
     {{- end }}
   ingress:
+    {{- if .Values.mattermost.ingress.ingressClassName }}
+    enabled: false
+    {{- else }}
     enabled: {{ .Values.mattermost.ingress.enabled | default true }}
+    {{- end }}
     {{- if .Values.mattermost.ingress.host }}
     host: {{ .Values.mattermost.ingress.host }}
     {{- end }}

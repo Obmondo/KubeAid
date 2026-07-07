@@ -27,3 +27,34 @@ spec:
       - {{.Values.matternelle.domain}}
       secretName: {{.Values.matternelle.domain}}
 {{ end }}
+
+{{- if .Values.mattermost.ingress.ingressClassName }}
+---
+apiVersion: "networking.k8s.io/v1"
+kind: Ingress
+metadata:
+  name: {{ .Values.mattermost.name | default "mattermost" }}
+  {{- if .Values.mattermost.ingress.annotations }}
+  annotations:
+{{ toYaml .Values.mattermost.ingress.annotations | indent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.mattermost.ingress.ingressClassName }}
+  rules:
+  - host: {{ .Values.mattermost.ingress.host }}
+    http:
+      paths:
+      - path: /
+        backend:
+          service:
+            name: {{ .Values.mattermost.name | default "mattermost" }}
+            port:
+              number: 8065
+        pathType: ImplementationSpecific
+  {{- if .Values.mattermost.ingress.tlsSecret }}
+  tls:
+    - hosts:
+      - {{ .Values.mattermost.ingress.host }}
+      secretName: {{ .Values.mattermost.ingress.tlsSecret }}
+  {{- end }}
+{{- end }}
