@@ -80,6 +80,9 @@ spec:
       infrastructureRef:
         apiGroup: infrastructure.cluster.x-k8s.io
         kind: HCloudMachineTemplate
-        name: {{ printf "%s-%s" $.Values.global.clusterName $nodeGroup.name }}
+        {{/* Rotates with the template's spec. A machineType change renders a new
+             name here, which is the only thing that makes the MachineDeployment
+             roll — CAPI never compares the template's contents. */}}
+        name: {{ include "hetzner.hcloudNodeGroupMachineTemplateName" (dict "root" $ "nodeGroup" $nodeGroup) }}
 {{- end }}
 {{- end }}

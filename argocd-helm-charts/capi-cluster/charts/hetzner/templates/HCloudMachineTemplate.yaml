@@ -3,46 +3,45 @@
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: HCloudMachineTemplate
 metadata:
-  name: {{ .Values.global.clusterName }}-control-plane
+  name: {{ include "hetzner.hcloudControlPlaneMachineTemplateName" . }}
+  {{- if .Values.global.machineTemplateRotation }}
+  annotations:
+    {{/* A rotated template is superseded, never updated: the next spec change
+         renders a differently-named object and this one falls out of the
+         manifest. Pruning it while the rollout it triggered is still in flight
+         would strand a MachineSet that still references it, so leave the stale
+         templates behind. They hold no resources and can be deleted by hand
+         once every Machine has moved off them. */}}
+    argocd.argoproj.io/sync-options: Prune=false
+  {{- end }}
 spec:
   template:
     metadata:
       labels:
         node.cluster.x-k8s.io/cloud-provider: hcloud
     spec:
-      imageName: {{ .Values.hcloud.imageName }}
-      placementGroupName: control-plane
-      type: {{ .Values.controlPlane.hcloud.machineType }}
-      publicNetwork:
-        {{/* Nodes have no public IPv4/IPv6 when using a private network (hcloud
-             with network.type=private) or when running in hybrid mode. */}}
-        {{- $isPrivate := or (eq .Values.mode "hybrid") (eq .Values.network.type "private") }}
-        enableIPv4: {{ not $isPrivate }}
-        enableIPv6: {{ not $isPrivate }}
+      {{- include "hetzner.hcloudControlPlaneMachineTemplateSpec" . | nindent 6 }}
 {{- end }}
 
 {{/* Handling node-groups in HCloud. */}}
 {{- if or (eq .Values.mode "hcloud") (eq .Values.mode "hybrid") }}
 {{- range $nodeGroupIndex, $nodeGroup := $.Values.nodeGroups.hcloud }}
+{{- $ctx := dict "root" $ "nodeGroup" $nodeGroup }}
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: HCloudMachineTemplate
 metadata:
-  name: {{ printf "%s-%s" $.Values.global.clusterName $nodeGroup.name }}
+  name: {{ include "hetzner.hcloudNodeGroupMachineTemplateName" $ctx }}
+  {{- if $.Values.global.machineTemplateRotation }}
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
+  {{- end }}
 spec:
   template:
     metadata:
       labels:
         node.cluster.x-k8s.io/cloud-provider: hcloud
     spec:
-      imageName: {{ $.Values.hcloud.imageName }}
-      placementGroupName: {{ $nodeGroup.name }}
-      type: {{ $nodeGroup.machineType }}
-      publicNetwork:
-        {{/* Nodes have no public IPv4/IPv6 when using a private network (hcloud
-             with network.type=private) or when running in hybrid mode. */}}
-        {{- $isPrivate := or (eq $.Values.mode "hybrid") (eq $.Values.network.type "private") }}
-        enableIPv4: {{ not $isPrivate }}
-        enableIPv6: {{ not $isPrivate }}
+      {{- include "hetzner.hcloudNodeGroupMachineTemplateSpec" $ctx | nindent 6 }}
 {{- end }}
 {{- end }}

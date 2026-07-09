@@ -29,6 +29,21 @@ global:
     version: ""
   pods:
     cidrBlock: 10.244.0.0/16
+  # -- Name hcloud MachineTemplates after a hash of their spec, so a changed
+  # `machineType` (or `imageName`) rotates the name and ClusterAPI performs a
+  # rolling replacement. ClusterAPI compares only the template's *name* when
+  # deciding whether a Machine is up to date — never the template's contents —
+  # so with the fixed legacy name an instance-type change never rolls, and
+  # applies silently to machines created later.
+  #
+  # Turning this on renames the template even when its spec is unchanged, which
+  # rolls the control plane once. Scale to >= 3 control-plane replicas before
+  # enabling it, so etcd keeps quorum while the machines are replaced one by one.
+  # Leave false on an existing cluster until you are ready for that roll.
+  #
+  # Hetzner hcloud only. Bare-metal templates keep their fixed names — their
+  # workers are Machine objects, not MachineDeployments.
+  machineTemplateRotation: false
   # -- Extra OS users to create on every node during bootstrap.
   # Each entry expects:
   #   name           : login name to create.

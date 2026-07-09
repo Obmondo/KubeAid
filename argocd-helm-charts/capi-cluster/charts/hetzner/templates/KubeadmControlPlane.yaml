@@ -866,7 +866,10 @@ spec:
       infrastructureRef:
         apiGroup: infrastructure.cluster.x-k8s.io
         kind: HCloudMachineTemplate
-        name: {{ .Values.global.clusterName }}-control-plane
+        {{/* Rotates with the template's spec, which is what makes a machineType
+             change roll the control plane. Changing only `replicas` leaves this
+             name alone, so the KubeadmControlPlane scales out instead. */}}
+        name: {{ include "hetzner.hcloudControlPlaneMachineTemplateName" . }}
   replicas: {{ .Values.controlPlane.hcloud.replicas }}
   {{- end }}
   version: {{ .Values.global.kubernetes.version }}
