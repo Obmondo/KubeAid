@@ -1,0 +1,144 @@
+{{- if and ((.Values.global).netpol).enabled ((.Values.global).kubeaidAgent).netpol }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-networkpolicy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/component: cilium-networkpolicy
+
+spec:
+  endpointSelector:
+    matchLabels:
+      {{- range $k, $v := (.Values.global.kubeaidAgent.endpointSelectorLabels | default dict) }}
+      {{ $k }}: {{ $v | quote }}
+      {{- end }}
+
+# ========
+# INGRESS
+# ========
+
+  ingress:
+    # Traefik -> kubeaid-agent
+    {{- $traefik := (.Values.global.netpol.traefik | default dict) }}
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ $traefik.namespace | default "traefik" | quote }}
+            {{- range $key, $value := ($traefik.labels | default dict) }}
+            {{ $key }}: {{ $value | quote }}
+            {{- end }}
+      toPorts:
+        - ports:
+            - port: "4000"
+              protocol: TCP
+
+    # Prometheus metrics scraping
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ (.Values.global.netpol.prometheus | default dict).namespace | default "monitoring" | quote }}
+            {{- range $key, $value := ((.Values.global.netpol.prometheus | default dict).labels | default dict) }}
+            {{ $key }}: {{ $value | quote }}
+            {{- end }}
+      toPorts:
+        - ports:
+            - port: "4000"
+              protocol: TCP
+
+# ========
+# EGRESS
+# ========
+
+  egress:
+    # DNS
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: ANY
+          rules:
+            dns:
+              - matchPattern: "*"
+
+    # Kubernetes API
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "6443"
+              protocol: TCP
+
+    # ArgoCD
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.global.argocd.namespace | default "argocd" | quote }}
+            {{- range $k, $v := (.Values.global.argocd.endpointSelectorLabels | default dict) }}
+            {{ $k }}: {{ $v | quote }}
+            {{- end }}
+      toPorts:
+        - ports:
+            {{- range (.Values.global.kubeaidAgent.argocd.ports | default (list "8080" "443")) }}
+            - port: {{ . | quote }}
+              protocol: TCP
+            {{- end }}
+
+    # Prometheus
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ (.Values.global.netpol.prometheus | default dict).namespace | default "monitoring" | quote }}
+            {{- range $key, $value := ((.Values.global.netpol.prometheus | default dict).labels | default dict) }}
+            {{ $key }}: {{ $value | quote }}
+            {{- end }}
+      toPorts:
+        - ports:
+            - port: "9090"
+              protocol: TCP
+
+    {{- $puppetdb := (.Values.global.kubeaidAgent.puppetdb | default dict) }}
+    {{- if $puppetdb.enabled }}
+    # PuppetDB
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ $puppetdb.namespace | quote }}
+            {{- range $key, $value := ($puppetdb.labels | default dict) }}
+            {{ $key }}: {{ $value | quote }}
+            {{- end }}
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+    {{- end }}
+
+    # Sealed Secrets Controller
+    {{- range $ns := (.Values.global.kubeaidAgent.sealedSecrets.namespaces | default (list "sealed-secrets" "kube-system" "system")) }}
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ $ns | quote }}
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+    {{- end }}
+
+    # Obmondo API
+    - toFQDNs:
+        - matchName: {{ .Values.global.kubeaidAgent.obmondoApiFQDN | default "api.obmondo.com" | quote }}
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+
+    # Kubernetes EOL data
+    - toFQDNs:
+        - matchName: "endoflife.date"
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+
+{{- end }}

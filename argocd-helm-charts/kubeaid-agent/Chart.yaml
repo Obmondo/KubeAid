@@ -23,3 +23,7 @@ maintainers:
   - name: Basit Hasan
     email: basit@obmondo.com
     url: https://github.com/basit9958
+dependencies:
+  - name: kubeaid-addons
+    repository: file://../kubeaid-addons
+    version: 0.1.0
