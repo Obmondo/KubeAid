@@ -17,6 +17,7 @@ here rather than being scattered across individual application charts.
 | Argo CD baseline policy | `CiliumNetworkPolicy` | `global.netpol.enabled` + `global.argocd.netpol` |
 | Harbor network policies | `CiliumNetworkPolicy` | `global.netpol.enabled` + `global.harbor.netpol` |
 | SonarQube network policy | `CiliumNetworkPolicy` | `global.netpol.enabled` + `global.sonarqube.netpol` |
+| KubeAid Agent network policy | `CiliumNetworkPolicy` | `global.netpol.enabled` + `global.kubeaidAgent.netpol` |
 
 Everything is **nil-safe** - if a key is missing from values, the template renders nothing rather
 than panicking. New operator types (MariaDB, MongoDB, etc.) can be added by dropping a new
@@ -176,6 +177,8 @@ global:
   harbor:
     netpol: true  
   sonarqube:
+    netpol: true
+  kubeaidAgent:
     netpol: true  
 ```
 
