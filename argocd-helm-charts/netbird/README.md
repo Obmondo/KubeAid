@@ -188,6 +188,39 @@ Forwarding rules: 0
 Peers count: 1/2 Connected
 ```
 
+
+## Network and Policy Automation
+
+This tool synchronizes your network, resource, and policy configuration with the NetBird Management API.
+
+### Build the binary
+To compile the configuration management tool:
+```bash
+cd argocd-helm-charts/netbird/config/
+go build -o netbird-config .
+```
+
+### Setup and Execution
+
+1. Copy the example configuration to your cluster's `kubeaid-config` directory:
+   ```bash
+   cp argocd-helm-charts/netbird/config/config.yaml.example k8s/<cluster-name>/netbird-configs/config.yaml
+   ```
+2. Populate `k8s/<cluster-name>/netbird-configs/config.yaml` with your required networks, resources, and policies.
+
+3. Run the tool by passing the path to your cluster-specific configuration file:
+   ```bash
+   export NETBIRD_MGMT_URL="https://vpn.example.com"
+   export NETBIRD_API_TOKEN="nbp_your_token_here"
+   ./netbird-config --config k8s/<cluster-name>/netbird/config.yaml
+   ```
+
+### Idempotency
+- The script treats the provided configuration as the "Desired State."
+- It checks existing Networks, Resources, Routers, and Policies by name.
+- It will **Create** if missing, **Update** if the attributes (address, groups, etc.) differ, and do nothing if the state already matches the config.
+- Renaming a network/resource in the `config.yaml` will result in the creation of a *new* object, leaving the old one as is (it does not automatically delete).
+
 ### Troubleshooting
 
 #### GET /api/users status 401

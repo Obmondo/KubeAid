@@ -1,0 +1,18 @@
+networks:
+  - name: "examplenetwork-location"
+    resources:
+      - name: "exampleresource-location-uniqueidentifier"
+        address: "172.17.0.0/24"
+        groups: ["Access-Group-Name"]
+    routing_peers:
+      groups: ["Routing-Peer-Group-Name"]
+
+policies:
+  - source:
+      groups: ["Source-Group-Name"]
+    destination:
+      groups: ["Destination-Group-Name"]
+    protocol: "TCP"
+    ports: 
+      - "80"
+      - "443"
