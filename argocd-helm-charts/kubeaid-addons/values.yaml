@@ -264,7 +264,6 @@ global:
       namespace: monitoring
       labels:
         "k8s:app.kubernetes.io/name": kubeaid-agent
-
     # -- Optional: allow Prometheus blackbox-exporter synthetic probes (HTTP/TCP to server, repo-server, redis).
     # Set enabled: true and labels to match your blackbox pod (kubectl get pod -n monitoring -l ... --show-labels).
     blackboxExporter:
@@ -272,7 +271,6 @@ global:
       namespace: monitoring
       labels:
         "k8s:app.kubernetes.io/name": blackbox-exporter
-
     # -- Git hosts allowed for Argo CD repo access over HTTPS/SSH (egress toFQDNs).
     gitFQDNs: []
 
@@ -282,14 +280,11 @@ global:
   relate:
     # -- Enable CiliumNetworkPolicy for the Relate app pod.
     netpol: false
-
     # -- Base set of external FQDNs allowed on port 443. Set defaults here in the chart values.
     egressFQDNs: []
-
     # -- Additional FQDNs appended to egressFQDNs at render time. Set environment-specific
     # hosts here in the private kubeaid-config values without repeating the defaults.
     extraEgressFQDNs: []
-
     # -- SMTP egress for outbound mail.
     smtp:
       # -- Enable SMTP egress rule.
@@ -305,7 +300,6 @@ global:
   blackbox:
     # -- Master switch. Set to true to render Probe resources.
     enabled: false
-
     # -- List of probe groups, one Probe resource per module.
     probes: []
     # - module: http_2xx
@@ -317,10 +311,7 @@ global:
 
   # harbor
   harbor:
-    # Enable Harbor network policies
     netpol: false
-    # -- FQDN for Harbor egress (e.g. grafana plugin pull); set in your private values file
-    url: ""
 
   # sonarqube
   sonarqube:
@@ -338,3 +329,37 @@ global:
   #   dnsNames: opensearch-cluster-master  # auto-generates standard K8s DNS SANs
   #   caSecretName: ""              # optional — defaults to <name>-ca-tls
   #   leafSecretName: ""            # optional — defaults to <name>-tls
+
+  # kubeaid-agent
+  # CiliumNetworkPolicy for the kubeaid-agent pod.
+  # Requires global.netpol.enabled: true.
+  kubeaidAgent:
+    # -- Enable CiliumNetworkPolicy for kubeaid-agent
+    netpol: false
+
+    # -- Labels selecting kubeaid-agent pods (endpointSelector)
+    endpointSelectorLabels:
+      app.kubernetes.io/name: kubeaid-agent
+      app.kubernetes.io/instance: kubeaid-agent
+
+    # -- ArgoCD ports kubeaid-agent connects to. Defaults cover both
+    # plainText (8080) and TLS (443) ArgoCD server configurations.
+    argocd:
+      ports:
+        - "8080"
+        - "443"
+
+    # -- PuppetDB egress. Disabled by default since not all clusters run
+    # puppet facts sync. Set enabled: true and provide namespace/labels.
+    puppetdb:
+      enabled: false
+      namespace: ""
+      labels: {}
+
+    # -- Sealed Secrets controller egress. Defaults cover the common
+    # namespaces controllers are typically installed in.
+    sealedSecrets:
+      namespaces:
+        - sealed-secrets
+        - kube-system
+        - system
