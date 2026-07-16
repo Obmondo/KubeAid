@@ -53,7 +53,7 @@ The vuls-nightly-db carries distro advisory scores (e.g. `redhat_api`, `ubuntu_a
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `cveDictionary.enabled` | Deploy the NVD refresh CronJob | `true` |
-| `cveDictionary.image.repository` | go-cve-dictionary image | `vulsio/go-cve-dictionary` |
+| `cveDictionary.image.repository` | go-cve-dictionary image | `vuls/go-cve-dictionary` |
 | `cveDictionary.image.tag` | Image tag | `v0.16.2` |
 | `cveDictionary.schedule` | Cron schedule for the refresh | `0 3 * * 0` (Sunday 03:00) |
 | `cveDictionary.resources` | Resource requests/limits | 100m/500m CPU, 256Mi/1Gi |
