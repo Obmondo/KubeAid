@@ -87,7 +87,7 @@ vuls2:
 cveDictionary:
   enabled: true
   image:
-    repository: vulsio/go-cve-dictionary
+    repository: vuls/go-cve-dictionary
     tag: v0.16.2
     pullPolicy: IfNotPresent
   # The first fill takes hours (unauthenticated NVD API). Trigger it
