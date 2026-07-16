@@ -46,6 +46,28 @@ When enabled, two init containers run before the vuls server starts:
 
 Both init containers skip work if a valid database (>5 GB) already exists on the PVC.
 
+### NVD CVE dictionary (`cveDictionary`)
+
+The vuls-nightly-db carries distro advisory scores (e.g. `redhat_api`, `ubuntu_api`) but not NVD CVSS scores. A CronJob fills `/vuls/cve.sqlite3` on the results PVC with [go-cve-dictionary](https://github.com/vulsio/go-cve-dictionary) NVD data so scan results also include the `nvd` source.
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `cveDictionary.enabled` | Deploy the NVD refresh CronJob | `true` |
+| `cveDictionary.image.repository` | go-cve-dictionary image | `vulsio/go-cve-dictionary` |
+| `cveDictionary.image.tag` | Image tag | `v0.16.2` |
+| `cveDictionary.schedule` | Cron schedule for the refresh | `0 3 * * 0` (Sunday 03:00) |
+| `cveDictionary.resources` | Resource requests/limits | 100m/500m CPU, 256Mi/1Gi |
+
+Notes:
+
+- The first fill takes hours (unauthenticated NVD API). Trigger it manually instead of waiting for the schedule:
+  ```sh
+  kubectl create job --from=cronjob/<release>-cve-dictionary-fetch cve-fetch-initial -n <namespace>
+  ```
+- The job fetches into `cve.sqlite3.new` and swaps atomically, so the running vuls server never reads a half-written file. It keeps serving the old data until restarted — run `kubectl rollout restart deploy/<release>-vuls-server` after a refresh.
+- The NVD dataset is several GB; size `vulsServer.resultsStorage.size` with headroom on top of the ~11 GB vuls.db.
+- The job requires a node co-located with the vuls server pod (podAffinity) so the results PVC works with `ReadWriteOnce`.
+
 ### Vuls server
 
 | Parameter | Description | Default |
