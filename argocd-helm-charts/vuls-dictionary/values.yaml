@@ -77,6 +77,31 @@ vuls2:
     tag: "0"
     pullPolicy: IfNotPresent
 
+# NVD CVE dictionary (go-cve-dictionary). A CronJob refreshes
+# /vuls/cve.sqlite3 on the results PVC so the vuls server enriches scan
+# results with NVD CVSS scores (the "nvd" source in cveContents).
+# The full NVD dataset is several GB — make sure resultsStorage.size has
+# headroom on top of the ~11 GB vuls.db.
+# The vuls server only picks up a refreshed dictionary after a restart
+# (it holds the old file handle), so restart the deployment after a run.
+cveDictionary:
+  enabled: true
+  image:
+    repository: vulsio/go-cve-dictionary
+    tag: v0.16.2
+    pullPolicy: IfNotPresent
+  # The first fill takes hours (unauthenticated NVD API). Trigger it
+  # manually instead of waiting for the schedule:
+  #   kubectl create job --from=cronjob/<release>-cve-dictionary-fetch cve-fetch-initial
+  schedule: "0 3 * * 0"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
 vulsServer:
   enabled: true
   image:
