@@ -14,9 +14,7 @@
   What it does, every `schedule` tick:
     1. Gets a Keycloak token (client_credentials grant, see auth note below)
     2. Lists all enabled users in the realm, filtered to `emailDomain`
-    3. For each: creates/updates their OX account via OX's SOAP admin API
-       (OXUserService — see auth note further down for why SOAP, not
-       `kubectl exec createuser`). Docs:
+    3. For each: creates/updates their OX account via OX's SOAP admin API. Docs:
        https://wiki.open-xchange.com/wiki/index.php?title=Open-Xchange_Provisioning_using_SOAP
     4. If mailProvisioning is on: also creates their mailbox on the IMAP
        backend (see the mailProvisioning note further down) — this is a
