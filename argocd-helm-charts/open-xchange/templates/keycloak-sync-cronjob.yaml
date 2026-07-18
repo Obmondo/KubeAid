@@ -92,6 +92,12 @@ data:
     CLIENT_ID="{{ required "appsuite.keycloakSync.oidcClientId is required" $sync.oidcClientId }}"
     OX_ADMIN="{{ $sync.oxAdminUser }}"
     OX_PASS="${OX_ADMIN_PASSWORD}"
+    # Every OX account created here needs *some* password set on account
+    # creation, but real login always goes through OIDC (see the auth note
+    # further up) - this is never used as a login credential directly. Still
+    # must not be a guessable, shared literal like "admin" baked into the
+    # chart - set from a value instead so each deployment picks its own.
+    OX_USER_PASS="${OX_USER_PASSWORD}"
     OX_CONTEXT="{{ $sync.oxContext }}"
     # OXUserService lives on the dedicated admin Service (plain HTTP, not the
     # public-facing core-mw), confirmed reachable and working end-to-end
@@ -190,7 +196,7 @@ data:
           <ctx><id>${OX_CONTEXT}</id></ctx>
           <usrdata>
             <name>${USERNAME_X}</name>
-            <password>admin</password>
+            <password>${OX_USER_PASS}</password>
             <given_name>${FIRSTNAME_X}</given_name>
             <sur_name>${LASTNAME_X}</sur_name>
             <display_name>${DISPLAYNAME_X}</display_name>
@@ -290,6 +296,8 @@ spec:
               env:
                 - name: OX_ADMIN_PASSWORD
                   value: {{ required "appsuite.keycloakSync.oxAdminPassword is required" $sync.oxAdminPassword | quote }}
+                - name: OX_USER_PASSWORD
+                  value: {{ required "appsuite.keycloakSync.userPassword is required" $sync.userPassword | quote }}
               volumeMounts:
                 - name: script
                   mountPath: /scripts

@@ -68,6 +68,10 @@ appsuite:
     oxAdminUser: "oxadmin"
     oxAdminPassword: ""
     oxContext: "1"
+    # Password set on the OX account itself at creation time. Real login always goes
+    # through OIDC, so this is never used as a login credential - but it still must not
+    # be left as a guessable, shared default. Set it to something random per deployment.
+    userPassword: ""
 
     # An OX account alone isn't a working mailbox — Dovecot needs its own userdb entry
     # (mailbox path/uid/gid) per user, separate from OX's own user database. Without this,
