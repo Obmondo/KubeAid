@@ -2,5 +2,8 @@ dependencies:
 - name: kubeaid-addons
   repository: file://../kubeaid-addons
   version: 0.1.0
-digest: sha256:bdb24e06cf50b4e684a392bbe22e8b3f19d6e204311d0926882500ecf66b9f4c
-generated: "2026-05-25T02:10:37.922979258+05:30"
+- name: appsuite
+  repository: oci://registry.open-xchange.com/appsuite/charts
+  version: 8.48.481
+digest: sha256:59e86235c22c65ec7bbbc7f3f3c4ee623bc1dc0f3287b7c83e71962f88793df3
+generated: "2026-07-07T19:48:53.210824729+05:30"

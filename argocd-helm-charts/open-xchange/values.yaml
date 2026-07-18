@@ -33,6 +33,58 @@ appsuite:
       # existingSecret: ox-mysql-secret
       # Secret must contain keys: mysql-login, mysql-password
 
+    properties:
+      # Mail filter (Sieve) — required for the App Suite UI's Settings > Mail > Filter Rules
+      # (self-service forwarding/redirect rules). Points at your IMAP server's ManageSieve
+      # port; leave server blank to disable until a real mail backend is wired up.
+      com.openexchange.mail.filter.server: ""   # required: set to mail server in cluster values
+      com.openexchange.mail.filter.port: "4190"
+      com.openexchange.mail.filter.credentialSource: "session"
+      com.openexchange.mail.filter.useSIEVETLS: "false"
+
+  # Keycloak → OX user sync. OX has no JIT auto-provisioning on OIDC login (a login for a
+  # user with no existing OX account fails with USR-0015, it does not create one) — this
+  # CronJob is the actual mechanism for keeping OX users in sync with Keycloak, so new hires
+  # get an account without a manual createuser per person.
+  keycloakSync:
+    enabled: false
+    schedule: "*/15 * * * *"
+    keycloakUrl: ""
+    keycloakRealm: ""
+    # Only Keycloak users whose email ends in this domain are synced (should match your
+    # OX context's domain, e.g. the login2context mapping).
+    emailDomain: ""
+    # Reuses the OIDC client's own credentials (client_credentials grant) instead of a
+    # separate human admin password. Requires the Keycloak client to have "Service
+    # Accounts Enabled" and the realm-management "view-users" role granted to its
+    # service account — a one-time change in the Keycloak admin console, not something
+    # this chart can set up.
+    oidcClientId: ""
+    # Secret containing the OIDC client secret as a Java properties file — the same
+    # secret already used for core-mw.existingPropertiesSecret. Must contain the key
+    # named by oidcSecretKey, with a line "com.openexchange.oidc.clientSecret: <value>".
+    oidcExistingSecret: ""
+    oidcSecretKey: "oidc.properties"
+    oxAdminUser: "oxadmin"
+    oxAdminPassword: ""
+    oxContext: "1"
+    # Password set on the OX account itself at creation time. Real login always goes
+    # through OIDC, so this is never used as a login credential - but it still must not
+    # be left as a guessable, shared default. Set it to something random per deployment,
+    # via a Secret rather than plain values - same convention as oidcExistingSecret.
+    userPasswordExistingSecret: ""
+    userPasswordSecretKey: "password"
+
+    # An OX account alone isn't a working mailbox — Dovecot needs its own userdb entry
+    # (mailbox path/uid/gid) per user, separate from OX's own user database. Without this,
+    # accounts exist in OX but mail silently doesn't work for them. Only relevant if your
+    # IMAP backend is the docker-mailserver chart; point podSelector/namespace at it.
+    mailProvisioning:
+      enabled: false
+      namespace: ""
+      podSelector: "app.kubernetes.io/name=mail-inbound-docker-mailserver"
+      password: "admin"
+
   # Optional components — all disabled by default
   switchboard:
     enabled: false

@@ -1,0 +1,319 @@
+{{/*
+  Keycloak -> OX (+ optional mail backend) user sync.
+
+  Why this exists: OX's OIDC login does not auto-create accounts. A login for a
+  Keycloak user with no matching OX account throws USR-0015 ("Cannot find user
+  with identifier ... in context ...") instead of provisioning one — confirmed
+  from a real core-mw log during testing, not just documentation. So without
+  this CronJob, every new hire needs a manual `createuser` before their first
+  login works. Upstream doesn't support JIT provisioning for this either (even
+  Univention's own Keycloak migration guide for OX assumes accounts are
+  pre-provisioned some other way) — raised via our OX support channel
+  separately, this CronJob is the stopgap in the meantime.
+
+  What it does, every `schedule` tick:
+    1. Gets a Keycloak token (client_credentials grant, see auth note below)
+    2. Lists all enabled users in the realm, filtered to `emailDomain`
+    3. For each: creates/updates their OX account via OX's SOAP admin API. Docs:
+       https://wiki.open-xchange.com/wiki/index.php?title=Open-Xchange_Provisioning_using_SOAP
+    4. If mailProvisioning is on: also creates their mailbox on the IMAP
+       backend (see the mailProvisioning note further down) — this is a
+       *separate* system from OX's own user database, so step 3 alone is not
+       enough for mail to actually work. There's no SOAP/REST equivalent for
+       Dovecot mailbox creation, so this part still uses `kubectl exec`.
+
+  create is expected to fail harmlessly on already-provisioned users (OX
+  returns a SOAP fault) — change (called unconditionally after) handles
+  updates, so re-running this on people who were already synced converges
+  rather than erroring out.
+*/}}
+{{- if .Values.appsuite.keycloakSync.enabled }}
+{{- $sync := .Values.appsuite.keycloakSync }}
+# ServiceAccount the CronJob runs as. Only needed for the mail-backend side
+# (kubectl exec into the mail pod for mailbox provisioning) — OX user
+# provisioning itself goes over OX's own SOAP admin API now, not kubectl exec,
+# so no RBAC is needed against the OX namespace at all.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}-keycloak-sync
+  namespace: {{ .Release.Namespace }}
+{{- if $sync.mailProvisioning.enabled }}
+---
+# Cross-namespace RBAC (a RoleBinding can reference a ServiceAccount from
+# elsewhere, it just can't be created in that other namespace by this
+# release). Lets the job exec into the mail pod to run `setup email add` —
+# there's no SOAP/REST equivalent for Dovecot mailbox creation.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Release.Name }}-keycloak-sync
+  namespace: {{ required "appsuite.keycloakSync.mailProvisioning.namespace is required when mailProvisioning is enabled" $sync.mailProvisioning.namespace }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list", "get"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Release.Name }}-keycloak-sync
+  namespace: {{ $sync.mailProvisioning.namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ .Release.Name }}-keycloak-sync
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Release.Name }}-keycloak-sync
+    namespace: {{ .Release.Namespace }}
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-keycloak-sync-script
+  namespace: {{ .Release.Namespace }}
+data:
+  # This runs as a plain /bin/sh script inside a stock bitnami/kubectl image —
+  # no custom container image, just curl + kubectl + text parsing (grep/cut/sed
+  # instead of jq, since the kubectl image doesn't ship it).
+  sync.sh: |
+    #!/bin/sh
+    set -e
+
+    KC_URL="{{ required "appsuite.keycloakSync.keycloakUrl is required" $sync.keycloakUrl }}"
+    KC_REALM="{{ required "appsuite.keycloakSync.keycloakRealm is required" $sync.keycloakRealm }}"
+    CLIENT_ID="{{ required "appsuite.keycloakSync.oidcClientId is required" $sync.oidcClientId }}"
+    OX_ADMIN="{{ $sync.oxAdminUser }}"
+    OX_PASS="${OX_ADMIN_PASSWORD}"
+    # Every OX account created here needs *some* password set on account
+    # creation, but real login always goes through OIDC (see the auth note
+    # further up) - this is never used as a login credential directly. Still
+    # must not be a guessable, shared literal like "admin" baked into the
+    # chart - set from a value instead so each deployment picks its own.
+    OX_USER_PASS="${OX_USER_PASSWORD}"
+    OX_CONTEXT="{{ $sync.oxContext }}"
+    # OXUserService lives on the dedicated admin Service (plain HTTP, not the
+    # public-facing core-mw), confirmed reachable and working end-to-end
+    # against this exact chart's deployment (create/exists both verified).
+    OX_SOAP_URL="http://{{ .Release.Name }}-core-mw-admin.{{ .Release.Namespace }}.svc.cluster.local/webservices/OXUserService"
+
+    # --- Auth: reuse the OIDC client instead of a separate admin account ---
+    # The OIDC client secret is already sitting in the same secret used for
+    # core-mw.existingPropertiesSecret (mounted below at /etc/oidc-secret), as
+    # a Java properties line: `com.openexchange.oidc.clientSecret: "<value>"`.
+    # Pull just that value out rather than duplicating the secret elsewhere.
+    #
+    # For the resulting client_secret to actually be allowed to call the
+    # Keycloak admin Users API, the client needs "Service Accounts Enabled"
+    # turned on in the Keycloak admin console, with the realm-management
+    # "view-users" role granted to its service account. That's a one-time
+    # Keycloak-side config change this chart can't make for you.
+    CLIENT_SECRET=$(grep 'com.openexchange.oidc.clientSecret' /etc/oidc-secret/{{ $sync.oidcSecretKey }} \
+      | sed -E 's/.*:[[:space:]]*"?([^"]*)"?[[:space:]]*$/\1/')
+
+    echo "==> Getting Keycloak token via client_credentials for client ${CLIENT_ID}..."
+    TOKEN=$(curl -sf -X POST "${KC_URL}/realms/${KC_REALM}/protocol/openid-connect/token" \
+      -H "Content-Type: application/x-www-form-urlencoded" \
+      -d "client_id=${CLIENT_ID}&client_secret=${CLIENT_SECRET}&grant_type=client_credentials" \
+      | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
+
+    if [ -z "$TOKEN" ]; then
+      echo "ERROR: failed to get Keycloak token — check the client has Service Accounts" \
+           "enabled and the view-users realm-management role granted" >&2
+      exit 1
+    fi
+    echo "==> Got token"
+
+    # max=500 is a simple cap, not pagination — fine at our current headcount,
+    # would need real paging past that.
+    echo "==> Fetching users from Keycloak realm ${KC_REALM}..."
+    USERS=$(curl -sf "${KC_URL}/admin/realms/${KC_REALM}/users?max=500&enabled=true" \
+      -H "Authorization: Bearer $TOKEN")
+
+    echo "$USERS" | grep -o '"username":"[^"]*"' | wc -l | xargs echo "==> Found users:"
+
+    {{- if $sync.mailProvisioning.enabled }}
+    # Pod names change on every restart, so look this up fresh each run rather
+    # than hardcoding it. Only the mail pod needs this now — OX provisioning
+    # goes over SOAP, not kubectl exec.
+    MAIL_POD=$(kubectl get pod -n {{ $sync.mailProvisioning.namespace }} -l "{{ $sync.mailProvisioning.podSelector }}" \
+      --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')
+    echo "==> Using mail pod: $MAIL_POD"
+    {{- end }}
+
+    # Minimal XML-escaping for the handful of characters that would otherwise
+    # break the SOAP body — Keycloak display names are free text, so this
+    # isn't just theoretical.
+    xml_escape() {
+      echo "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g'
+    }
+
+    # Keycloak's admin API returns one JSON array; grep -o '{[^}]*}' splits it
+    # back into one object per line since we don't have jq. Relies on each
+    # user object being flat (no nested braces) — true for this response.
+    echo "$USERS" | grep -o '{[^}]*}' | while IFS= read -r user; do
+      USERNAME=$(echo "$user" | grep -o '"username":"[^"]*"' | cut -d'"' -f4)
+      FIRSTNAME=$(echo "$user" | grep -o '"firstName":"[^"]*"' | cut -d'"' -f4)
+      LASTNAME=$(echo "$user" | grep -o '"lastName":"[^"]*"' | cut -d'"' -f4)
+      EMAIL=$(echo "$user" | grep -o '"email":"[^"]*"' | cut -d'"' -f4)
+
+      case "$EMAIL" in
+        *@{{ required "appsuite.keycloakSync.emailDomain is required" $sync.emailDomain }}) ;;
+        *) continue ;;
+      esac
+      [ -z "$EMAIL" ] && continue
+      [ -z "$USERNAME" ] && continue
+      [ -z "$FIRSTNAME" ] && FIRSTNAME="$USERNAME"
+      [ -z "$LASTNAME" ] && LASTNAME=" "
+      DISPLAYNAME="${FIRSTNAME} ${LASTNAME}"
+      DISPLAYNAME=$(echo "$DISPLAYNAME" | sed 's/[[:space:]]*$//')
+
+      USERNAME_X=$(xml_escape "$USERNAME")
+      FIRSTNAME_X=$(xml_escape "$FIRSTNAME")
+      LASTNAME_X=$(xml_escape "$LASTNAME")
+      EMAIL_X=$(xml_escape "$EMAIL")
+      DISPLAYNAME_X=$(xml_escape "$DISPLAYNAME")
+
+      echo "  -> Syncing $USERNAME ($FIRSTNAME $LASTNAME)..."
+
+      # create fails (harmlessly, via a SOAP fault) if the account already
+      # exists — that's expected and fine, change below handles updates.
+      # No -f here — SOAP faults come back as HTTP 500 with the fault detail
+      # in the body, and -f would suppress that body entirely, making the
+      # failure invisible to the grep below instead of just harmless.
+      curl -s -X POST "$OX_SOAP_URL" -H "Content-Type: text/xml" --data-binary @- <<SOAPEOF > /tmp/create_response.xml 2>&1
+    <?xml version="1.0" encoding="UTF-8"?>
+    <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:soap="http://soap.admin.openexchange.com">
+      <soapenv:Body>
+        <soap:create>
+          <ctx><id>${OX_CONTEXT}</id></ctx>
+          <usrdata>
+            <name>${USERNAME_X}</name>
+            <password>${OX_USER_PASS}</password>
+            <given_name>${FIRSTNAME_X}</given_name>
+            <sur_name>${LASTNAME_X}</sur_name>
+            <display_name>${DISPLAYNAME_X}</display_name>
+            <primaryEmail>${EMAIL_X}</primaryEmail>
+            <email1>${EMAIL_X}</email1>
+          </usrdata>
+          <auth>
+            <login>${OX_ADMIN}</login>
+            <password>${OX_PASS}</password>
+          </auth>
+        </soap:create>
+      </soapenv:Body>
+    </soapenv:Envelope>
+    SOAPEOF
+
+      if grep -q "Fault" /tmp/create_response.xml 2>/dev/null; then
+        if ! grep -q "already exists" /tmp/create_response.xml 2>/dev/null; then
+          echo "     WARN: create failed for $USERNAME — $(grep -o '<faultstring>[^<]*</faultstring>' /tmp/create_response.xml)"
+        fi
+      fi
+
+      # Runs unconditionally (not just on create failure) so an existing
+      # user's name gets refreshed if it changed in Keycloak since last sync.
+      curl -s -X POST "$OX_SOAP_URL" -H "Content-Type: text/xml" --data-binary @- <<SOAPEOF > /tmp/change_response.xml 2>&1
+    <?xml version="1.0" encoding="UTF-8"?>
+    <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:soap="http://soap.admin.openexchange.com">
+      <soapenv:Body>
+        <soap:change>
+          <ctx><id>${OX_CONTEXT}</id></ctx>
+          <usrdata>
+            <name>${USERNAME_X}</name>
+            <given_name>${FIRSTNAME_X}</given_name>
+            <sur_name>${LASTNAME_X}</sur_name>
+            <display_name>${DISPLAYNAME_X}</display_name>
+            <primaryEmail>${EMAIL_X}</primaryEmail>
+            <email1>${EMAIL_X}</email1>
+          </usrdata>
+          <auth>
+            <login>${OX_ADMIN}</login>
+            <password>${OX_PASS}</password>
+          </auth>
+        </soap:change>
+      </soapenv:Body>
+    </soapenv:Envelope>
+    SOAPEOF
+
+      if grep -q "Fault" /tmp/change_response.xml 2>/dev/null; then
+        echo "     WARN: change failed for $USERNAME — $(grep -o '<faultstring>[^<]*</faultstring>' /tmp/change_response.xml)"
+      fi
+
+      {{- if $sync.mailProvisioning.enabled }}
+      # OX's own user database and the mail backend's userdb are two separate
+      # systems — an OX account alone does not create a mailbox. Without this
+      # call, the account "exists" in OX but mail silently doesn't work for
+      # that person (auth can succeed via a shared password, but there's no
+      # mailbox path/uid/gid for them to actually deliver into). `setup email
+      # add` errors "already exists" harmlessly on repeat runs, same pattern
+      # as create above. No SOAP/REST equivalent exists for this, so it stays
+      # as kubectl exec.
+      kubectl exec -n {{ $sync.mailProvisioning.namespace }} "$MAIL_POD" -- \
+        setup email add "$EMAIL" "{{ $sync.mailProvisioning.password }}" 2>&1 | grep -v "^$" || true
+      {{- end }}
+    done
+
+    echo "==> Sync complete"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Release.Name }}-keycloak-sync
+  namespace: {{ .Release.Namespace }}
+spec:
+  # Default every 15 min, not daily — this CronJob is the only thing that
+  # actually provisions new accounts (see the big comment at the top of this
+  # file), so a short interval means new hires are usable soon after they show
+  # up in Keycloak instead of waiting up to a day.
+  schedule: {{ $sync.schedule | quote }}
+  # Forbid, not Allow/Replace — overlapping runs would just duplicate the same
+  # create/setup-email-add calls pointlessly, and a slow run finishing late is
+  # harmless.
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: {{ .Release.Name }}-keycloak-sync
+          restartPolicy: OnFailure
+          containers:
+            - name: sync
+              # Stock kubectl image — no custom build. All the logic is the
+              # mounted sync.sh script below, run with curl + kubectl exec
+              # (kubectl only needed now for the mail-provisioning side).
+              image: bitnami/kubectl:latest
+              command: ["/bin/sh", "/scripts/sync.sh"]
+              env:
+                - name: OX_ADMIN_PASSWORD
+                  value: {{ required "appsuite.keycloakSync.oxAdminPassword is required" $sync.oxAdminPassword | quote }}
+                - name: OX_USER_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ required "appsuite.keycloakSync.userPasswordExistingSecret is required" $sync.userPasswordExistingSecret }}
+                      key: {{ $sync.userPasswordSecretKey | default "password" }}
+              volumeMounts:
+                - name: script
+                  mountPath: /scripts
+                # Same secret as core-mw.existingPropertiesSecret — sync.sh
+                # extracts the OIDC client secret from it at runtime rather
+                # than needing its own copy.
+                - name: oidc-secret
+                  mountPath: /etc/oidc-secret
+                  readOnly: true
+          volumes:
+            - name: script
+              configMap:
+                name: {{ .Release.Name }}-keycloak-sync-script
+                defaultMode: 0755
+            - name: oidc-secret
+              secret:
+                secretName: {{ required "appsuite.keycloakSync.oidcExistingSecret is required" $sync.oidcExistingSecret }}
+{{- end }}
