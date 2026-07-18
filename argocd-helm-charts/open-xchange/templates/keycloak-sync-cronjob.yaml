@@ -297,7 +297,10 @@ spec:
                 - name: OX_ADMIN_PASSWORD
                   value: {{ required "appsuite.keycloakSync.oxAdminPassword is required" $sync.oxAdminPassword | quote }}
                 - name: OX_USER_PASSWORD
-                  value: {{ required "appsuite.keycloakSync.userPassword is required" $sync.userPassword | quote }}
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ required "appsuite.keycloakSync.userPasswordExistingSecret is required" $sync.userPasswordExistingSecret }}
+                      key: {{ $sync.userPasswordSecretKey | default "password" }}
               volumeMounts:
                 - name: script
                   mountPath: /scripts
