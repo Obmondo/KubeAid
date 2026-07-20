@@ -21,7 +21,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v6.5.0
+        uses: actions/setup-go@v7.0.0
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v7.2.3
