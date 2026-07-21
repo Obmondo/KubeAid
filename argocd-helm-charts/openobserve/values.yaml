@@ -15,17 +15,53 @@ global:
       enabled: false
 
 openobserve:
-  etcd:
-    image:
-      registry: docker.io
-      repository: bitnamilegacy/etcd
-      tag: 3.5.8-debian-11-r4
-      pullPolicy: IfNotPresent
-      digest: ""
-    volumePermissions:
+  externalSecret:
+    enabled: true
+    name: openobserve-credentials
+  config:
+    RUST_LOG: "error"
+    RUST_BACKTRACE: "full"
+
+  ingester:
+    persistence:
+      size: 10Gi
+
+  replicaCount:
+    ingester: 2
+
+  postgres:
+    enabled: false
+
+global:
+  postgresql:
+    enabled: true
+    instanceName: openobserve
+    logicalbackup:
       image:
-        registry: docker.io
-        repository: bitnamilegacy/os-shell
-        tag: 12-debian-12-r30
-        pullPolicy: IfNotPresent
-        digest: ""
+        repository: ghcr.io/obmondo/postgres-logical-backup
+        tag: 3.1.9
+      enabled: true
+      provider: s3
+      s3endpoint: https://s3.fr-par.scw.cloud
+      s3region: fr-par
+      s3bucket: qa-htz1-kilroy-eu-backups
+      s3bucketscopesuffix: openobserve/metadata-store
+      retention: "7 days"
+      pgversion: 18
+      usePgDump: true
+      host: openobserve-pgsql-rw
+      secretName: openobserve-pgsql-app
+      user: openobserve
+      db: openobserve
+      pgOperatorClusterName: openobserve-pgsql
+    monitoring:
+      enablePodMonitor: false
+    backup:
+      destinationPath: ""
+  blackbox:
+    enabled: true
+    probes:
+      - module: http_2xx
+        interval: 30m
+        urls:
+          - https://openobserve.qa.htz1.kilroy.eu
