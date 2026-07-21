@@ -87,12 +87,7 @@ spec:
               done;
               echo 'Puppetserver OK ✓'
           resources:
-            requests:
-              cpu: 50m
-              memory: 32Mi
-            limits:
-              cpu: 50m
-              memory: 32Mi
+            {{- toYaml (.Values.puppetdb.waitPuppetserverResources | default (dict "requests" (dict "cpu" "150m" "memory" "32Mi") "limits" (dict "cpu" "150m" "memory" "32Mi"))) | nindent 12 }}
         {{- with .Values.puppetdb.extraInitContainers }}
           {{- toYaml . | nindent 8 }}
         {{- end }}

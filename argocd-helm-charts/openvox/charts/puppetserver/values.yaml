@@ -775,6 +775,16 @@ puppetdb:
   #  limits:
   #    memory: 1024Mi
   #    cpu: 1000m
+  ## Resources for the wait-puppetserver init container (polls puppetserver's readiness
+  ## endpoint every 2s before the main containers start). 50m was too tight and got
+  ## throttled in practice - 150m gives it enough headroom for the curl+sleep loop.
+  waitPuppetserverResources:
+    requests:
+      cpu: 150m
+      memory: 32Mi
+    limits:
+      cpu: 150m
+      memory: 32Mi
   ## Extra containers to inject into the PuppetDB pod
   securityContext:
     allowPrivilegeEscalation: false
