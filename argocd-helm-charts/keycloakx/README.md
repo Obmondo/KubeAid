@@ -207,29 +207,20 @@ in the Keycloak login page, then we can follow these steps:
 4) Go the client, f.ex. ArgoCD in the Keycloak's `<customer_name>` realm
 5) __Clients -> Client details -> Advanced -> Authentication flow overrides -> Select the duplicate flow created in Step 2.
 
-## Enable 2FA on Keycloak with OTP or WebAuthn Authenticator (YubiKey)
+## Enabling and Forcing YubiKey (WebAuthn) Authentication in Keycloak
 
-By default, we only have username/password based authentication enabled in Keycloak. To enable 2FA:
+By default, we only have username/password based authentication enabled in Keycloak, and the default flows are read-only. To enable and prioritize YubiKey 2FA:
 
-1) Go to `<customer_name>` realm, and click on __Authentication__.
-2) Navigate to __Authentication -> Flows -> Browser__.
-3) Set __Browser - Conditional 2FA__ to __Required__.
-4) Set __OTP Form__ to __Alternative__.
-5) Set __WebAuthn Authenticatior to __Alternative__.
-6) Go back to __Authentication -> Policies -> WebAuthn Policy__.
-7) Configure __Require discoverable credential__ to __No__ if you have users on YubiKey version 4.
-8) Go back to __Authentication -> Required actions__.
-9) Set __Set as default action__ button in __WebAuthn Register__ to __On__.
-
-NOTE: You might get a `Not Allowed` error while registering an old Yubikey (earlier than version 5).
-> The NotAllowedError during passkey registration typically means your YubiKey 4 lacks the hardware
-capability to create a FIDO2 Discoverable Credential (Passkey), or the browser’s internal picker is
-rejecting the key. YubiKey 4 is primarily a FIDO U2F/FIDO2 standard device, while "Passkeys"
-strictly require FIDO2 Resident Keys.
-
-This is due to Missing Resident Key Support: Passkeys demand "discoverable credentials" (resident keys)
-so the authenticator can store your account username directly on the device. YubiKey 4 does not support
-this FIDO2 feature (it was introduced in the YubiKey 5 series).
+1) Go to `<customer_name>` realm, and click on **Authentication**.
+2) Navigate to **Authentication -> Flows** and duplicate the default **Browser** flow.
+3) In your duplicated flow, set **Browser - Conditional 2FA** to **Required**.
+4) Drag **WebAuthn Authenticator** directly *above* the **OTP Form** so the hardware key prompts first.
+5) Set both **WebAuthn Authenticator** and **OTP Form** to **Alternative**.
+6) Click the action menu and select **Bind flow** to set this as the default **Browser flow**.
+7) Go to **Authentication -> Policies -> WebAuthn Policy**.
+8) Configure **Require discoverable credential** to **No** if you have users on YubiKey version 4.
+9) Go back to **Authentication -> Required actions**.
+10) Set **Set as default action** button in **WebAuthn Register** to **On**.
 
 ## Add normal users to the Keycloak setup
 
