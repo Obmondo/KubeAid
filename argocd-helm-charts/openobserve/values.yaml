@@ -27,3 +27,34 @@ openobserve:
         tag: 12-debian-12-r30
         pullPolicy: IfNotPresent
         digest: ""
+
+# OpenObserve stores logs, traces and k8s/security events.
+# Infra metrics and alerting stay in kube-prometheus.
+openobserve-collector:
+  exporters:
+    otlphttp/openobserve:
+      endpoint: http://openobserve-router.openobserve.svc.cluster.local:5080/api/default
+    otlphttp/openobserve_k8s_events:
+      endpoint: http://openobserve-router.openobserve.svc.cluster.local:5080/api/default
+
+  # Logs only. node-exporter and kubelet/cAdvisor already feed Prometheus.
+  agent:
+    receivers:
+      hostmetrics: null
+      kubeletstats: null
+    service:
+      pipelines:
+        metrics: null
+
+  # Traces, k8s events, and the trace-derived servicegraph service map.
+  gateway:
+    receivers:
+      prometheus: null
+    service:
+      pipelines:
+        metrics:
+          receivers: [servicegraph]
+
+  # kube-prometheus already ships kube-state-metrics.
+  kube-state-metrics:
+    enabled: false
