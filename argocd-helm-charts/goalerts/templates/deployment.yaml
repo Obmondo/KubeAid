@@ -27,23 +27,36 @@ spec:
       serviceAccountName: {{ include "goalert.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.pgchecker.enabled }}
+      initContainers:
+        - name: pgchecker
+          image: "{{ .Values.pgchecker.image.repository }}:{{ .Values.pgchecker.image.tag }}"
+          imagePullPolicy: {{ .Values.pgchecker.image.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - |
+              echo 'Waiting for PostgreSQL to become ready...'
+              until nc -z -w 2 {{ .Values.pgchecker.host | default (printf "%s-pgsql-rw" .Values.global.postgresql.instanceName) }} {{ .Values.pgchecker.port }}; do
+                sleep 2
+              done
+              echo 'PostgreSQL OK ✓'
+          resources:
+            {{- toYaml .Values.pgchecker.resources | nindent 12 }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           env:
-            {{- if .Values.goalert.existingSecret.name }}
-            {{- range $key, $value := .Values.goalert.existingSecret.keys }}
-            - name: {{ $key }}
+            - name: GOALERT_DB_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ $.Values.goalert.existingSecret.name }}
-                  key: {{ $value }}
-            {{- end }}
-            {{- else }}
-            - name: GOALERT_DB_URL
-              value: {{ include "goalert.databaseUrl" . | quote }}
+                  name: {{ .Values.goalert.dbUrlSecret.name }}
+                  key: {{ .Values.goalert.dbUrlSecret.key }}
             - name: GOALERT_DATA_ENCRYPTION_KEY
-              value: {{ .Values.goalert.environment.GOALERT_DATA_ENCRYPTION_KEY | quote }}
-            {{- end }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.goalert.encryptionKeySecret.name }}
+                  key: {{ .Values.goalert.encryptionKeySecret.key }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"

@@ -9,14 +9,12 @@ fullnameOverride: ""
 
 # DB URL + data-encryption key come from a sealed Secret in kubeaid-config-enableit.
 goalert:
-  existingSecret:
+  dbUrlSecret:
+    name: goalert-pgsql-app
+    key: fqdn-uri
+  encryptionKeySecret:
     name: goalert
-    keys:
-      GOALERT_DB_URL: "GOALERT_DB_URL"
-      GOALERT_DATA_ENCRYPTION_KEY: "GOALERT_DATA_ENCRYPTION_KEY"
-  environment:
-    GOALERT_DB_URL: ""
-    GOALERT_DATA_ENCRYPTION_KEY: ""
+    key: GOALERT_DATA_ENCRYPTION_KEY
 
 # Postgres is a CloudNativePG cluster (see global.postgresql), not the bundled one.
 postgresql:
@@ -60,6 +58,22 @@ podAnnotations: {}
 podSecurityContext: {}
 securityContext: {}
 replicaCount: 1
+
+# Init container that blocks GoAlert until the database accepts connections.
+pgchecker:
+  enabled: true
+  image:
+    repository: busybox
+    tag: "1.37"
+    pullPolicy: IfNotPresent
+  host: ""
+  port: 5432
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      memory: 32Mi
 
 # CloudNativePG cluster (goalert-pgsql) provisioned via the kubeaid-addons subchart.
 global:
