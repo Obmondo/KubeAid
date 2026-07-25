@@ -218,6 +218,10 @@ data:
 
       # Runs unconditionally (not just on create failure) so an existing
       # user's name gets refreshed if it changed in Keycloak since last sync.
+      # Deliberately does NOT touch primaryEmail/email1 - an account's mail
+      # identity can be customized to differ from the Keycloak login domain
+      # (e.g. a test domain), and this sync must not fight that on every run.
+      # create (above) still sets them once, for genuinely new accounts only.
       curl -s -X POST "$OX_SOAP_URL" -H "Content-Type: text/xml" --data-binary @- <<SOAPEOF > /tmp/change_response.xml 2>&1
     <?xml version="1.0" encoding="UTF-8"?>
     <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:soap="http://soap.admin.openexchange.com">
@@ -229,8 +233,6 @@ data:
             <given_name>${FIRSTNAME_X}</given_name>
             <sur_name>${LASTNAME_X}</sur_name>
             <display_name>${DISPLAYNAME_X}</display_name>
-            <primaryEmail>${EMAIL_X}</primaryEmail>
-            <email1>${EMAIL_X}</email1>
           </usrdata>
           <auth>
             <login>${OX_ADMIN}</login>
