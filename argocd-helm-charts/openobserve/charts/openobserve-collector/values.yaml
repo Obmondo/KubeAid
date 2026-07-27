@@ -3,17 +3,12 @@
 # Declare variables to be passed into your templates.
 
 exporters:
-  # Default to the in-cluster OpenObserve router so telemetry never leaves the cluster.
-  # Service DNS: <release>-router.<namespace>.svc.cluster.local:<ZO_HTTP_PORT> (default 5080),
-  # path /api/<org> (default org "default"). Override with your OpenObserve ingress URL if the
-  # collector runs outside the cluster. The otlphttp exporter appends /v1/logs|traces|metrics.
-  # Provide real credentials via the openobserve sealed secret, not inline here.
   otlphttp/openobserve:
-    endpoint: http://openobserve-router.openobserve.svc.cluster.local:5080/api/default
+    endpoint: https://api.openobserve.ai/api/default/
     headers:
       Authorization: Basic YOUR_BASE64_ENCODED_AUTH
   otlphttp/openobserve_k8s_events:
-    endpoint: http://openobserve-router.openobserve.svc.cluster.local:5080/api/default
+    endpoint: https://api.openobserve.ai/api/default/
     headers:
       Authorization: Basic CHANGEME_BASE64_ENCODED_AUTH
       stream-name: k8s_events

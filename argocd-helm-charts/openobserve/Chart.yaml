@@ -1,6 +1,6 @@
 apiVersion: v2
 name: openobserve
-version: 0.13.5
+version: 0.13.6
 # We disabling the updates for openobserve, since there's no upstream
 # support for dex OIDC connector configurations for enterprise.
 # It expects all the configurations to be passed as configmap, but passing

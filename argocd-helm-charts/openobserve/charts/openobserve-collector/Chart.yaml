@@ -12,4 +12,4 @@ maintainers:
   url: https://openobserve.ai
 name: openobserve-collector
 type: application
-version: 0.4.5
+version: 0.4.4
