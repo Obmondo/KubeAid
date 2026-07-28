@@ -4,7 +4,7 @@ kind: Middleware
 metadata:
   name: {{ $k }}
 spec:
-  ipWhiteList:
+  ipAllowList:
     sourceRange:
     {{- range $v }}
       - {{ . }}
