@@ -8,6 +8,12 @@ middleware:
       #   -----BEGIN PUBLIC KEY-----
       #   Asdads
       #   -----END PUBLIC KEY-----
+  # IPs allowed to reach this Traefik instance. When set, an `ip-allow-list`
+  # middleware is generated (via the file provider) and applied to the
+  # entrypoints below.
+  ipAllowList:
+    sourceRanges:
+      - 0.0.0.0/0
 traefik:
   instanceLabelOverride: traefik
   podDisruptionBudget:
@@ -43,6 +49,19 @@ traefik:
     - "--entrypoints.web.proxyprotocol.insecure=true"
     - "--entrypoints.websecure.proxyprotocol=true"
     - "--entrypoints.websecure.proxyprotocol.insecure=true"
+    # Load the ip-allow-list middleware (see middleware.ipAllowList) from the
+    # mounted ConfigMap and apply it at the instance level, on every entrypoint.
+    - "--providers.file.directory=/config"
+    - "--providers.file.watch=true"
+    - "--entrypoints.web.http.middlewares=ip-allow-list@file"
+    - "--entrypoints.websecure.http.middlewares=ip-allow-list@file"
+
+  # Mounts the ConfigMap rendered by templates/ip-allow-list.middleware.configmap.yaml.
+  # The volume name must match the ConfigMap name (instance-name + "-middleware-config").
+  volumes:
+    - name: '{{ .Values.instanceLabelOverride | default "traefik" }}-middleware-config'
+      mountPath: /config
+      type: configMap
   # https://github.com/argoproj/argo-cd/issues/1704#issuecomment-904741817
   providers:
     kubernetesIngress:
