@@ -6,7 +6,7 @@ evaluation_interval: 1m
 tests:
   - interval: 1m
     input_series:
-      - series: 'backup_exporter_postgres_error{backup="logical",namespace="test",cluster_name="pg1",type="process"}'
+      - series: 'backup_exporter_postgres_error{backup="logical",exported_namespace="test",cluster_name="pg1",type="process"}'
         values: '1x6'
     alert_rule_test:
       - alertname: PostgresBackupExporterJobFailed
@@ -16,7 +16,7 @@ tests:
               alertname: PostgresBackupExporterJobFailed
               severity: critical
               backup: logical
-              namespace: test
+              exported_namespace: test
               cluster_name: pg1
               type: process
             exp_annotations:
@@ -25,7 +25,7 @@ tests:
 
   - interval: 1m
     input_series:
-      - series: 'postgres_latest_logical_backup_age{namespace="test",cluster_name="pg1"}'
+      - series: 'postgres_latest_logical_backup_age{exported_namespace="test",cluster_name="pg1"}'
         values: '95000x6'
     alert_rule_test:
       - alertname: PostgresLogicalBackupExceededRPO
@@ -34,7 +34,7 @@ tests:
           - exp_labels:
               alertname: PostgresLogicalBackupExceededRPO
               cluster_name: pg1
-              namespace: test
+              exported_namespace: test
               severity: critical
             exp_annotations:
               summary: 'PostgreSQL logical backup exceeded RPO'
@@ -42,7 +42,7 @@ tests:
 
   - interval: 1m
     input_series:
-      - series: 'postgres_latest_cnpg_wal_backup_age{namespace="test",cluster_name="pg1"}'
+      - series: 'postgres_latest_cnpg_wal_backup_age{exported_namespace="test",cluster_name="pg1"}'
         values: '95000x6'
     alert_rule_test:
       - alertname: PostgresCNPGWALBackupExceededRPO
@@ -51,7 +51,7 @@ tests:
           - exp_labels:
               alertname: PostgresCNPGWALBackupExceededRPO
               cluster_name: pg1
-              namespace: test
+              exported_namespace: test
               severity: critical
             exp_annotations:
               summary: 'PostgreSQL CNPG WAL backup exceeded RPO'
@@ -59,7 +59,7 @@ tests:
 
   - interval: 1m
     input_series:
-      - series: 'postgres_latest_logical_backup_age{namespace="test",cluster_name="pg1"}'
+      - series: 'postgres_latest_logical_backup_age{exported_namespace="test",cluster_name="pg1"}'
         values: '0x6'
     alert_rule_test:
       - alertname: PostgresLogicalBackupMissing
@@ -68,7 +68,7 @@ tests:
           - exp_labels:
               alertname: PostgresLogicalBackupMissing
               cluster_name: pg1
-              namespace: test
+              exported_namespace: test
               severity: critical
             exp_annotations:
               summary: 'PostgreSQL logical backup missing'
@@ -76,7 +76,7 @@ tests:
 
   - interval: 1m
     input_series:
-      - series: 'postgres_latest_cnpg_wal_backup_age{namespace="test",cluster_name="pg1"}'
+      - series: 'postgres_latest_cnpg_wal_backup_age{exported_namespace="test",cluster_name="pg1"}'
         values: '0x6'
     alert_rule_test:
       - alertname: PostgresWALBackupMissing
@@ -85,8 +85,69 @@ tests:
           - exp_labels:
               alertname: PostgresWALBackupMissing
               cluster_name: pg1
-              namespace: test
+              exported_namespace: test
               severity: critical
             exp_annotations:
               summary: 'PostgreSQL WAL backup missing'
               description: 'No WAL backup found for test/pg1'
+
+  # "not enabled" error types must not fire PostgresBackupExporterJobFailed --
+  # they mean the app never turned this backup type on, not a job failure.
+  - interval: 1m
+    input_series:
+      - series: 'backup_exporter_postgres_error{backup="logical",exported_namespace="disabled-ns",cluster_name="pg-disabled",type="backup_not_enabled"}'
+        values: '1x6'
+      - series: 'backup_exporter_postgres_error{backup="logical",exported_namespace="disabled-ns2",cluster_name="pg-disabled2",type="cronjob_not_found"}'
+        values: '1x6'
+      - series: 'backup_exporter_postgres_error{backup="wal",exported_namespace="disabled-ns3",cluster_name="pg-disabled3",type="no_scheduled_backups"}'
+        values: '1x6'
+    alert_rule_test:
+      - alertname: PostgresBackupExporterJobFailed
+        eval_time: 6m
+        exp_alerts: []
+
+  # A genuine failure type must still fire PostgresBackupExporterJobFailed.
+  - interval: 1m
+    input_series:
+      - series: 'backup_exporter_postgres_error{backup="logical",exported_namespace="test",cluster_name="pg1",type="s3_connection_failed"}'
+        values: '1x6'
+    alert_rule_test:
+      - alertname: PostgresBackupExporterJobFailed
+        eval_time: 6m
+        exp_alerts:
+          - exp_labels:
+              alertname: PostgresBackupExporterJobFailed
+              severity: critical
+              backup: logical
+              exported_namespace: test
+              cluster_name: pg1
+              type: s3_connection_failed
+            exp_annotations:
+              summary: 'Postgres backup exporter error'
+              description: 'Postgres backup exporter error for test/pg1 (backup: logical, error: s3_connection_failed)'
+
+  # A cluster with the zero-age "missing" sentinel AND a recorded
+  # backup_not_enabled/cronjob_not_found error must not fire
+  # PostgresLogicalBackupMissing -- the unless-join excludes it.
+  - interval: 1m
+    input_series:
+      - series: 'postgres_latest_logical_backup_age{exported_namespace="disabled-ns",cluster_name="pg-disabled"}'
+        values: '0x6'
+      - series: 'backup_exporter_postgres_error{backup="logical",exported_namespace="disabled-ns",cluster_name="pg-disabled",type="backup_not_enabled"}'
+        values: '1x6'
+    alert_rule_test:
+      - alertname: PostgresLogicalBackupMissing
+        eval_time: 6m
+        exp_alerts: []
+
+  # Same, for WAL.
+  - interval: 1m
+    input_series:
+      - series: 'postgres_latest_cnpg_wal_backup_age{exported_namespace="disabled-ns3",cluster_name="pg-disabled3"}'
+        values: '0x6'
+      - series: 'backup_exporter_postgres_error{backup="wal",exported_namespace="disabled-ns3",cluster_name="pg-disabled3",type="no_scheduled_backups"}'
+        values: '1x6'
+    alert_rule_test:
+      - alertname: PostgresWALBackupMissing
+        eval_time: 6m
+        exp_alerts: []

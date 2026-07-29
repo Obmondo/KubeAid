@@ -1,4 +1,56 @@
 {{- if and .Values.prometheusRule.enabled (hasKey .Values.prometheusRule "velero") ( .Values.prometheusRule.velero.enabled ) }}
+{{- $includeNS := .Values.prometheusRule.velero.includeNamespaces | default list }}
+{{- $nsResources := .Values.prometheusRule.velero.includeNamespaceResources | default dict }}
+{{- $ignoreNS := .Values.prometheusRule.velero.ignoreNamespaces | default list }}
+{{- $ignoreResources := .Values.prometheusRule.velero.ignoreResourceNames | default list }}
+{{/* The metric's own "namespace" label collides with the one Prometheus
+     injects from the scrape target (the exporter pod's own namespace,
+     "monitoring") since honorLabels isn't set on the ServiceMonitor. The
+     target's label wins, and the scraped one is renamed to
+     "exported_namespace" -- that's the one that actually varies per PVC, so
+     all namespace matching below uses it instead of "namespace". */}}
+{{/* $unionBraces holds one self-contained {..} label-matcher set per fully
+     open namespace group plus one per namespace restricted to specific PVC
+     names, so the alert expr becomes "metric{A} <op> or metric{B} <op> ..."
+     -- some namespaces can be fully open while others are scoped down to a
+     single named PVC, in the same rule. */}}
+{{- $unionBraces := list }}
+{{- if $includeNS }}
+{{- $unionBraces = append $unionBraces (printf "{exported_namespace=~\"%s\"}" (join "|" $includeNS)) }}
+{{- end }}
+{{- range $ns, $resources := $nsResources }}
+{{- $unionBraces = append $unionBraces (printf "{exported_namespace=\"%s\",resource_name=~\"%s\"}" $ns (join "|" $resources)) }}
+{{- end }}
+{{- $fallbackBraces := "" }}
+{{- if not $unionBraces }}
+{{/* No opt-in list set at all: fall back to the exclude-list behavior. */}}
+{{- $matchers := list }}
+{{- if $ignoreNS }}
+{{- $matchers = append $matchers (printf "exported_namespace!~\"%s\"" (join "|" $ignoreNS)) }}
+{{- end }}
+{{- if $ignoreResources }}
+{{- $matchers = append $matchers (printf "resource_name!~\"%s\"" (join "|" $ignoreResources)) }}
+{{- end }}
+{{- if $matchers }}
+{{- $fallbackBraces = printf "{%s}" (join "," $matchers) }}
+{{- end }}
+{{- end }}
+{{- $rpoThreshold := include "backup-exporter.durationToSeconds" .Values.exporter.velero.max_rpo }}
+{{- $rpoParts := list }}
+{{- $missingParts := list }}
+{{- range $b := $unionBraces }}
+{{- $rpoParts = append $rpoParts (printf "backup_exporter_velero_latest_backup_age%s > %s" $b $rpoThreshold) }}
+{{- $missingParts = append $missingParts (printf "backup_exporter_velero_latest_backup_age%s == 0" $b) }}
+{{- end }}
+{{- $rpoExpr := "" }}
+{{- $missingExpr := "" }}
+{{- if $rpoParts }}
+{{- $rpoExpr = join " or " $rpoParts }}
+{{- $missingExpr = join " or " $missingParts }}
+{{- else }}
+{{- $rpoExpr = printf "backup_exporter_velero_latest_backup_age%s > %s" $fallbackBraces $rpoThreshold }}
+{{- $missingExpr = printf "backup_exporter_velero_latest_backup_age%s == 0" $fallbackBraces }}
+{{- end }}
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
@@ -22,19 +74,19 @@ spec:
             summary: 'Velero backup exporter job failed'
             description: 'Velero backup exporter error (type: {{ `{{ $labels.type }}` }})'
         - alert: VeleroBackupExceededRPO
-          expr: backup_exporter_velero_latest_backup_age > {{ include "backup-exporter.durationToSeconds" .Values.exporter.velero.max_rpo }}
+          expr: {{ $rpoExpr }}
           for: {{ .Values.prometheusRule.velero.alertForDuration | default "5m" }}
           labels:
             severity: {{ .Values.prometheusRule.velero.severity | default "critical" }}
           annotations:
             summary: 'Velero backup exceeded RPO'
-            description: 'Backup for {{ `{{ $labels.namespace }}` }}/{{ `{{ $labels.resource_name }}` }} ({{ `{{ $labels.resource_type }}` }}, method: {{ `{{ $labels.backup }}` }}) exceeded RPO (age: {{ `{{ $value }}` }})'
+            description: 'Backup for {{ `{{ $labels.exported_namespace }}` }}/{{ `{{ $labels.resource_name }}` }} ({{ `{{ $labels.resource_type }}` }}, method: {{ `{{ $labels.backup }}` }}) exceeded RPO (age: {{ `{{ $value }}` }})'
         - alert: VeleroBackupMissing
-          expr: backup_exporter_velero_latest_backup_age == 0
+          expr: {{ $missingExpr }}
           for: {{ .Values.prometheusRule.velero.alertForDuration | default "5m" }}
           labels:
             severity: {{ .Values.prometheusRule.velero.severity | default "critical" }}
           annotations:
             summary: 'Velero backup missing'
-            description: 'No backup found for {{ `{{ $labels.namespace }}` }}/{{ `{{ $labels.resource_name }}` }} ({{ `{{ $labels.resource_type }}` }}, method: {{ `{{ $labels.backup }}` }})'
+            description: 'No backup found for {{ `{{ $labels.exported_namespace }}` }}/{{ `{{ $labels.resource_name }}` }} ({{ `{{ $labels.resource_type }}` }}, method: {{ `{{ $labels.backup }}` }})'
 {{- end }}

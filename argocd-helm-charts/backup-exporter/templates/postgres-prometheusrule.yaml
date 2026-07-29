@@ -1,4 +1,11 @@
 {{- if and .Values.prometheusRule.enabled (hasKey .Values.prometheusRule "postgres") ( .Values.prometheusRule.postgres.enabled ) }}
+{{- $ignoreNS := .Values.prometheusRule.postgres.ignoreNamespaces | default list }}
+{{- $nsSuffix := "" }}
+{{- $nsBraces := "" }}
+{{- if $ignoreNS }}
+{{- $nsSuffix = printf ",exported_namespace!~\"%s\"" (join "|" $ignoreNS) }}
+{{- $nsBraces = printf "{exported_namespace!~\"%s\"}" (join "|" $ignoreNS) }}
+{{- end }}
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
@@ -13,44 +20,65 @@ spec:
   groups:
     - name: {{ include "backup-exporter.name" . }}-postgres
       rules:
+        # "not enabled" error types (backup_not_enabled, cronjob_not_found,
+        # no_scheduled_backups) mean the app never turned this backup type on
+        # -- that isn't a job failure, so it's excluded here rather than
+        # firing for every app that hasn't opted in.
+        #
+        # Note: the metric's own "namespace" label collides with the one
+        # Prometheus injects from the scrape target (the exporter pod's own
+        # namespace, "monitoring") since honorLabels isn't set on the
+        # ServiceMonitor. The target's label wins, and the scraped one is
+        # renamed to "exported_namespace" -- that's the one that actually
+        # varies per app, so all namespace matching below uses it instead of
+        # "namespace".
         - alert: PostgresBackupExporterJobFailed
-          expr: max by (namespace, cluster_name, backup, type) (backup_exporter_postgres_error == 1) > 0
+          expr: max by (exported_namespace, cluster_name, backup, type) (backup_exporter_postgres_error{type!~"backup_not_enabled|cronjob_not_found|no_scheduled_backups"{{ $nsSuffix }}} == 1) > 0
           for: {{ .Values.prometheusRule.postgres.alertForDuration | default "5m" }}
           labels:
             severity: {{ .Values.prometheusRule.postgres.severity | default "critical" }}
           annotations:
             summary: 'Postgres backup exporter error'
-            description: 'Postgres backup exporter error for {{ `{{ $labels.namespace }}` }}/{{ `{{ $labels.cluster_name }}` }} (backup: {{ `{{ $labels.backup }}` }}, error: {{ `{{ $labels.type }}` }})'
+            description: 'Postgres backup exporter error for {{ `{{ $labels.exported_namespace }}` }}/{{ `{{ $labels.cluster_name }}` }} (backup: {{ `{{ $labels.backup }}` }}, error: {{ `{{ $labels.type }}` }})'
         - alert: PostgresLogicalBackupExceededRPO
-          expr: postgres_latest_logical_backup_age > {{ include "backup-exporter.durationToSeconds" .Values.exporter.postgres.max_rpo }}
+          expr: postgres_latest_logical_backup_age{{ $nsBraces }} > {{ include "backup-exporter.durationToSeconds" .Values.exporter.postgres.max_rpo }}
           for: {{ .Values.prometheusRule.postgres.alertForDuration | default "5m" }}
           labels:
             severity: {{ .Values.prometheusRule.postgres.severity | default "critical" }}
           annotations:
             summary: 'PostgreSQL logical backup exceeded RPO'
-            description: 'Logical backup for {{ `{{ $labels.namespace }}` }}/{{ `{{ $labels.cluster_name }}` }} exceeded RPO (age: {{ `{{ $value }}` }})'
+            description: 'Logical backup for {{ `{{ $labels.exported_namespace }}` }}/{{ `{{ $labels.cluster_name }}` }} exceeded RPO (age: {{ `{{ $value }}` }})'
         - alert: PostgresCNPGWALBackupExceededRPO
-          expr: postgres_latest_cnpg_wal_backup_age > {{ include "backup-exporter.durationToSeconds" .Values.exporter.postgres.max_rpo }}
+          expr: postgres_latest_cnpg_wal_backup_age{{ $nsBraces }} > {{ include "backup-exporter.durationToSeconds" .Values.exporter.postgres.max_rpo }}
           for: {{ .Values.prometheusRule.postgres.alertForDuration | default "5m" }}
           labels:
             severity: {{ .Values.prometheusRule.postgres.severity | default "critical" }}
           annotations:
             summary: 'PostgreSQL CNPG WAL backup exceeded RPO'
-            description: 'WAL backup for {{ `{{ $labels.namespace }}` }}/{{ `{{ $labels.cluster_name }}` }} exceeded RPO (age: {{ `{{ $value }}` }})'
+            description: 'WAL backup for {{ `{{ $labels.exported_namespace }}` }}/{{ `{{ $labels.cluster_name }}` }} exceeded RPO (age: {{ `{{ $value }}` }})'
+        # The "missing" sentinel (age == 0) is published for every CNPG
+        # cluster regardless of whether logical backup was ever enabled for
+        # it, so clusters the exporter has already flagged as not-enabled
+        # (via backup_exporter_postgres_error) are excluded via the join
+        # below instead of alerting on apps that never opted in. The join
+        # matches on exported_namespace (not namespace, see note above) and
+        # cluster_name together, since cluster_name alone isn't unique
+        # across namespaces (e.g. multiple apps have a cluster named
+        # "api-postgresql").
         - alert: PostgresLogicalBackupMissing
-          expr: postgres_latest_logical_backup_age == 0
+          expr: postgres_latest_logical_backup_age{{ $nsBraces }} == 0 unless on (exported_namespace, cluster_name) (backup_exporter_postgres_error{backup="logical", type=~"backup_not_enabled|cronjob_not_found"} == 1)
           for: {{ .Values.prometheusRule.postgres.alertForDuration | default "5m" }}
           labels:
             severity: {{ .Values.prometheusRule.postgres.severity | default "critical" }}
           annotations:
             summary: 'PostgreSQL logical backup missing'
-            description: 'No logical backup found for {{ `{{ $labels.namespace }}` }}/{{ `{{ $labels.cluster_name }}` }}'
+            description: 'No logical backup found for {{ `{{ $labels.exported_namespace }}` }}/{{ `{{ $labels.cluster_name }}` }}'
         - alert: PostgresWALBackupMissing
-          expr: postgres_latest_cnpg_wal_backup_age == 0
+          expr: postgres_latest_cnpg_wal_backup_age{{ $nsBraces }} == 0 unless on (exported_namespace, cluster_name) (backup_exporter_postgres_error{backup="wal", type=~"backup_not_enabled|cronjob_not_found|no_scheduled_backups"} == 1)
           for: {{ .Values.prometheusRule.postgres.alertForDuration | default "5m" }}
           labels:
             severity: {{ .Values.prometheusRule.postgres.severity | default "critical" }}
           annotations:
             summary: 'PostgreSQL WAL backup missing'
-            description: 'No WAL backup found for {{ `{{ $labels.namespace }}` }}/{{ `{{ $labels.cluster_name }}` }}'
+            description: 'No WAL backup found for {{ `{{ $labels.exported_namespace }}` }}/{{ `{{ $labels.cluster_name }}` }}'
 {{- end }}

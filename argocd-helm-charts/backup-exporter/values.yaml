@@ -230,12 +230,48 @@ prometheusRule:
     severity: critical
     alertForDuration: 5m
     namespace: monitoring
+    # Namespaces to exclude from all postgres backup-exporter alerts (regex
+    # values, matched against the "namespace" label). Use this for namespaces
+    # that should never be checked at all, on top of the automatic exclusion
+    # of clusters where logical/WAL backup was never enabled.
+    ignoreNamespaces: []
   velero:
     enabled: true
     labels: {}
     severity: critical
     alertForDuration: 5m
     namespace: monitoring
+    # Namespaces where velero backup is actually enabled (regex values,
+    # matched against the "namespace" label). When set, ONLY these
+    # namespaces are ever alerted on -- set this to the same namespaces
+    # listed in your Velero Schedule(s)' includedNamespaces, so alerts only
+    # fire where backup is enabled, not for every PVC in the cluster.
+    # Takes priority over ignoreNamespaces when both are set.
+    includeNamespaces: []
+    # Namespaces to restrict to specific PVCs only, rather than being fully
+    # open. Keyed by namespace, each value is a list of resource_name regex
+    # values -- only those PVCs are ever alerted on for that namespace, even
+    # though the namespace itself isn't (and shouldn't be) listed in
+    # includeNamespaces. Combines with includeNamespaces: some namespaces can
+    # be fully open while others here are scoped down to one named PVC.
+    # Example:
+    #   includeNamespaceResources:
+    #     monitoring:
+    #       - prometheus-k8s-db-prometheus-k8s-0
+    #     puppetserver-enableit:
+    #       - puppetserver-enableit-code-claim
+    includeNamespaceResources: {}
+    # Namespaces to exclude from all velero backup-exporter alerts (regex
+    # values, matched against the "namespace" label). Ignored if
+    # includeNamespaces is set.
+    ignoreNamespaces: []
+    # Resource names to exclude from all velero backup-exporter alerts (regex
+    # values, matched against the "resource_name" label). Intended as a
+    # stand-in for PVCs that Velero's own resourcePolicy already skips (e.g.
+    # redis, mongodb, rabbitmq, opensearch, CNPG-managed volumes) -- the
+    # exporter has no visibility into that policy today, so this list has to
+    # be kept in sync by hand.
+    ignoreResourceNames: []
   mongodb:
     # Follows exporter.mongodb.enabled -- rules for an exporter that is not
     # running would alert on series that never appear.
