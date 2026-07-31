@@ -238,13 +238,30 @@ sibling of the branch directories, not a child of `code/`.
     from `SigningPolicy` CRs, which only support `any`, certname globs, CSR
     attributes and DNS alt names. No executable.
 
-    A partial escape hatch exists: `writeExtraConfig(..., "server")` runs after
-    that line, so `config.puppet.extraConfig.server.autosign` emits a duplicate
-    key that Puppet would likely honour (last occurrence wins), and the script's
-    path resolves because `environments/master` is mounted. **But** the script
-    needs `AUTOSIGN_CLIENT_CERT` / `AUTOSIGN_CLIENT_KEY` from the
-    `obmondo-clientcert` secret, and the `Server` CRD exposes neither
-    `extraSecrets` nor `extraEnv` — so the certificate cannot reach the pod.
+    **The extraConfig escape hatch does not work — tested, not assumed.**
+    `writeExtraConfig(..., "server")` does run after that line, so
+    `config.puppet.extraConfig.server.autosign` really does emit a second
+    `autosign =` key in puppet.conf. Puppetserver honours the **first**
+    occurrence:
+
+    ```
+    WARN [p.p.certificate-authority] Autosign command '/usr/local/bin/openvox-autosign'
+         rejected certificate 'pilot-probe-01' because the exit code was 1, not zero
+    ```
+
+    That was with the override pointed at `/bin/true`, which would have signed
+    unconditionally had it been consulted. The CSR was refused and
+    `GET /puppet-ca/v1/certificate/pilot-probe-01` returned 404.
+
+    Even if the key had won, the script needs `AUTOSIGN_CLIENT_CERT` /
+    `AUTOSIGN_CLIENT_KEY` from the `obmondo-clientcert` secret, and the `Server`
+    CRD exposes neither `extraSecrets` nor `extraEnv` — so the certificate could
+    not reach the pod anyway. Two independent walls.
+
+    Incidental finding while testing: puppet.conf is mounted with `subPath`, so
+    ConfigMap updates never reach a running pod. Every config change needs a
+    Server restart, contrary to the comment at `config_autosign.go:74` claiming
+    policy changes apply without one.
 
     Treat this as a third blocker alongside #1 and #12, and arguably the most
     important one: it is business flow, not infrastructure plumbing. Needs
