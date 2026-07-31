@@ -86,6 +86,26 @@ tracks a newer chart version.
 
 The bucket must not be folded into `buzz.s3.endpoint`; the two are passed separately.
 
+## Ingress
+
+`buzz.ingress.className` and `buzz.ingress.annotations` are deliberately empty. Helm merges annotation
+maps, so a default here would appear on every install and could not be removed downstream — set both
+per cluster.
+
+Relay traffic is long-lived WebSockets. On NGINX raise the timeouts, or connections drop after the
+60s default:
+
+```yaml
+buzz:
+  ingress:
+    className: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+```
+
+Traefik proxies WebSockets without extra configuration.
+
 ## Relay membership
 
 `buzz.relay.requireRelayMembership` is `false` here, which runs an open relay and needs no operator

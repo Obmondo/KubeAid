@@ -82,14 +82,13 @@ buzz:
       size: 10Gi
       # storageClass: ""
 
+  # Class and annotations are left to the cluster: Helm merges annotation maps,
+  # so anything set here leaks into every install and cannot be removed
+  # downstream. See README.md for the NGINX WebSocket timeouts.
   ingress:
     enabled: true
-    className: nginx
-    annotations:
-      cert-manager.io/cluster-issuer: letsencrypt
-      # Relay connections are long-lived WebSockets; the 60s default cuts them.
-      nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-      nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    className: ""
+    annotations: {}
     tls:
       - hosts:
           - buzz.example.com
