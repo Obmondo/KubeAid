@@ -1,0 +1,85 @@
+{{- if .Values.gfetch.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-gfetch
+  labels:
+    app.kubernetes.io/component: gfetch
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: gfetch
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: gfetch
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/gfetch-configmap.yaml") . | sha256sum }}
+    spec:
+      {{- with .Values.gfetch.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: gfetch
+          image: "{{ .Values.gfetch.image.repository }}:{{ .Values.gfetch.image.tag }}"
+          imagePullPolicy: {{ .Values.gfetch.image.pullPolicy }}
+          command:
+            - gfetch
+            - daemon
+            - --config
+            - /etc/gfetch/config.yaml
+          {{- with .Values.gfetch.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.gfetch.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+            successThreshold: 1
+          volumeMounts:
+            - name: gfetch-config
+              mountPath: /etc/gfetch/config.yaml
+              subPath: config.yaml
+              readOnly: true
+            - name: puppet-code-storage
+              # Must match where the operator mounts the same PVC on the Server
+              # pod, which is /etc/puppetlabs/code/environments — i.e. the
+              # volume root IS the environments directory. See README gap #13.
+              mountPath: {{ .Values.gfetch.codeMountPath }}
+            {{- if .Values.gfetch.ssh.existingSecret }}
+            - name: gfetch-ssh
+              mountPath: /home/gfetch/.ssh
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: gfetch-config
+          configMap:
+            name: {{ .Release.Name }}-gfetch
+        - name: puppet-code-storage
+          persistentVolumeClaim:
+            claimName: {{ include "openvox.codeClaimName" . }}
+        {{- if .Values.gfetch.ssh.existingSecret }}
+        - name: gfetch-ssh
+          secret:
+            secretName: {{ .Values.gfetch.ssh.existingSecret }}
+            defaultMode: 292
+            items:
+              - key: id_rsa
+                path: id_rsa
+        {{- end }}
+{{- end }}

@@ -108,6 +108,7 @@ kubeaid_apps:
   - gatekeeper
   - cert-manager
   - openvox
+  - openvox-operator
   - aws-ebs-csi-driver
   - cerebro
   - crossplane-providers-and-functions

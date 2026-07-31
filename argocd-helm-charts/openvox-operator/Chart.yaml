@@ -1,0 +1,22 @@
+apiVersion: v2
+name: openvox-operator
+description: Kubernetes operator that manages OpenVox (Puppet) Server, CA and OpenVoxDB via CRDs, plus the Server/CA/Database CRs themselves. Pilot/evaluation only — see README.md.
+type: application
+version: 0.1.0
+appVersion: "0.9.6"
+# Upstream: https://github.com/slauger/openvox-operator
+# NOTE: upstream API is v1alpha1. Breaking changes expected between releases.
+dependencies:
+  - name: kubeaid-addons
+    version: 0.1.0
+    repository: file://../kubeaid-addons
+  # The controller + CRDs.
+  - name: openvox-operator
+    version: 0.9.6
+    repository: oci://ghcr.io/slauger/charts
+  # The CRs (Config, CertificateAuthority, Server, Pool, Database, ...).
+  # Depends on the CRDs above being present — ArgoCD needs ServerSideApply and
+  # a retry, or a sync-wave split, on first install.
+  - name: openvox-stack
+    version: 0.9.6
+    repository: oci://ghcr.io/slauger/charts

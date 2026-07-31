@@ -1,0 +1,15 @@
+{{- if and .Values.blackbox.probe .Values.ingressRouteTCP.puppetserver.fqdn }}
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: blackbox-probe-openvox
+spec:
+  interval: 30m
+  module: http_2xx
+  prober:
+    url: blackbox-exporter.monitoring.svc.cluster.local:19115
+  targets:
+    staticConfig:
+      static:
+        - https://{{ .Values.ingressRouteTCP.puppetserver.fqdn }}/status/v1/services
+{{- end }}

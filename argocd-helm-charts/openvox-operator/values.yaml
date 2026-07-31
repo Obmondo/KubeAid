@@ -1,0 +1,336 @@
+---
+# PostgreSQL for OpenVoxDB, provisioned by CNPG via kubeaid-addons.
+# Mirrors the existing argocd-helm-charts/openvox setup.
+global:
+  postgresql:
+    enabled: true
+    instanceName: openvox
+    database: openvoxdb
+    owner: openvoxdb
+    instances: 1
+    size: 2Gi
+    monitoring:
+      enablePodMonitor: true
+    resources:
+      limits:
+        memory: 256Mi
+      requests:
+        memory: 256Mi
+        cpu: 100m
+    backups:
+      enabled: false
+    logicalbackup:
+      enabled: false
+    recover:
+      enabled: false
+
+# Used to name the monitoring namespace in the Prometheus RoleBinding, same as
+# the openvox chart.
+customerid: ""
+
+# Traefik TLS-passthrough exposure. The operator gives us ClusterIP Services
+# only; set the FQDNs here to publish them. Empty = nothing rendered.
+ingressRouteTCP:
+  entryPoint: websecure
+  puppetserver:
+    fqdn: ""
+    # Which Pool to route to. `server` is the agent-facing pool.
+    pool: server
+  puppetdb:
+    fqdn: ""
+
+blackbox:
+  probe: true
+
+prometheusRBAC:
+  enabled: true
+
+# PVC for the Puppet code tree, rendered by this chart (the operator only
+# consumes it). Size mirrors puppetserver.persistence.code in the openvox chart.
+code:
+  persistence:
+    enabled: true
+    size: 8Gi
+    storageClass: ""
+    accessModes:
+      # ReadWriteMany if gfetch runs as its own Deployment rather than a
+      # sidecar — the writer and the server pods both need the volume.
+      - ReadWriteOnce
+
+openvox-operator:
+  replicaCount: 1
+
+  image:
+    repository: ghcr.io/slauger/openvox-operator
+    # UPSTREAM: no version tags are published — only `latest` and git SHAs
+    # (see README gap #12). Digest takes precedence over tag and is the only
+    # reproducible option. This is `latest` as of 2026-07-31.
+    tag: latest
+    digest: sha256:6b84c3ae723bb55c083dc9e8e99d6990281676dfd19bc33ba5fe74ab39aeffec
+    pullPolicy: IfNotPresent
+
+  leaderElect: true
+
+  # Watch only the namespace the pilot runs in, so this operator cannot touch
+  # anything outside the evaluation namespace.
+  scope:
+    mode: namespace
+    watchNamespace: ""
+
+  # We front OpenVox with Traefik IngressRouteTCP, not Gateway API.
+  # Leaving this on makes the operator reconcile HTTPRoute/Gateway objects
+  # whose CRDs may not exist in the cluster.
+  gatewayAPI:
+    enabled: false
+
+  resources:
+    requests:
+      cpu: 10m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+  metrics:
+    enabled: true
+    port: 8080
+    service:
+      enabled: true
+    serviceMonitor:
+      enabled: true
+      interval: 30s
+
+  # Admission webhooks need cert-manager. Enable once the pilot is stable —
+  # they give CRD validation, which is worth having before any prod use.
+  webhook:
+    enabled: false
+    certManager:
+      enabled: true
+
+openvox-stack:
+  config:
+    name: openvox
+    readOnlyRootFilesystem: true
+
+    image:
+      repository: ghcr.io/slauger/openvox-server
+      # No version tags published, and openvox-stack exposes no digest field —
+      # so this cannot be pinned. See README gap #12.
+      tag: latest
+      pullPolicy: IfNotPresent
+
+    puppet:
+      # OPENVOXSERVER_ENVIRONMENT_TIMEOUT: 0
+      # UPSTREAM BUG: openvox-stack renders this unquoted, so "0" reaches the
+      # API server as a number and the CRD rejects it (spec.puppet.environmentTimeout
+      # is typed string). `unlimited` is puppet's equivalent of 0 and renders
+      # as a bare string, so it survives the round trip.
+      environmentTimeout: unlimited
+      # gfetch writes environments here (gfetch.defaults.local_path).
+      environmentPath: /etc/puppetlabs/code/environments
+      # OPENVOX_REPORTS: puppetdb,prometheus — only puppetdb maps cleanly.
+      # See README gap #5 for the prometheus half.
+      reports: puppetdb
+      storeconfigs: true
+      storeBackend: puppetdb
+      # PILOT GAP: eyaml. Path is set, but the eyaml-keys secret still has to
+      # be mounted somehow — see README gap #3.
+      hieraConfig: /etc/puppetlabs/puppet/hiera.yaml
+      extraConfig:
+        main:
+          # puppetboard's DEFAULT_ENVIRONMENT in the current chart.
+          environment: master
+
+    # OPENVOXSERVER_MAX_REQUESTS_PER_INSTANCE: 10000
+    puppetserver:
+      maxRequestsPerInstance: 10000
+
+    metrics:
+      enabled: true
+      jmx:
+        # Disabled today (puppetserver.metrics.prometheus.jmx.enabled: false).
+        enabled: false
+
+    # PILOT GAP: code delivery.
+    # Today code comes from git via g10k/gfetch into a PVC. The operator wants
+    # either an OCI image (needs k8s >= 1.35 + ImageVolume feature gate) or an
+    # externally-managed PVC. We use the PVC path so the existing gfetch
+    # sidecar/deployment can keep populating it unchanged.
+    code:
+      image: ""
+      claimName: openvox-code
+
+  # Certificate authority, managed by the operator.
+  # Replaces the ca-backup-cronjob + crl-updater-cronjob in the current chart.
+  ca:
+    name: openvox-ca
+    ttl: 5y
+    allowAutoRenewal: true
+    enableInfraCRL: true
+    crlRefreshInterval: 5m
+    storage:
+      size: 1Gi
+    resources:
+      requests:
+        cpu: 200m
+        memory: 768Mi
+      limits:
+        memory: 1Gi
+
+  # Autosign policy. Current chart does this with a custom entrypoint writing
+  # autosign.conf; here it is a SigningPolicy CR.
+  # `any: true` is intentionally NOT used — set a preshared key before any
+  # non-lab use.
+  signingPolicies: []
+  # signingPolicies:
+  #   - name: preshared-key
+  #     csrAttributes:
+  #       - name: pp_preshared_key
+  #         value: ""   # source from a sealed secret
+
+  reportProcessors:
+    - name: openvoxdb
+      processor: puppetdb
+      url: https://openvox-db:8081
+
+  # PILOT GAP: ENC.
+  # Current setup uses external_nodes = exec with linuxaid_enc.rb on disk.
+  # The operator only supports an HTTP classifier. Leaving disabled until we
+  # decide whether to wrap the ENC script in a small HTTP service.
+  nodeClassifier:
+    enabled: false
+    name: linuxaid-enc
+    url: ""
+    request:
+      method: GET
+      path: /node/{certname}
+    response:
+      format: yaml
+    timeoutSeconds: 10
+
+  database:
+    enabled: true
+    name: openvox-db
+    certificate:
+      # The CA autosigns this certname; it must match the autosign entry the
+      # current chart writes for `openvoxdb`.
+      certname: openvoxdb
+      dnsAltNames:
+        - openvox-db
+    image:
+      repository: ghcr.io/slauger/openvox-db
+      # Semver tags do exist here (0.3.0), unlike the server image.
+      tag: "0.3.0"
+      pullPolicy: IfNotPresent
+    postgres:
+      host: openvox-pgsql-rw
+      port: 5432
+      database: openvoxdb
+      # CNPG app secret. Verify the operator reads the `username`/`password`
+      # keys CNPG writes — see README verification checklist.
+      credentialsSecretRef: openvox-pgsql-app
+      sslMode: require
+    replicas: 1
+    javaArgs: "-Xms512m -Xmx2500m -XX:+HeapDumpOnOutOfMemoryError"
+    resources:
+      requests:
+        cpu: 250m
+        memory: 1Gi
+      limits:
+        memory: 1Gi
+
+  servers:
+    - name: ca
+      ca: true
+      server: true
+      poolRefs: [ca, server]
+      certificate:
+        certname: puppet
+        dnsAltNames: []
+      replicas: 1
+      javaArgs: "-Xms512m -Xmx2500m -XX:+HeapDumpOnOutOfMemoryError"
+      maxActiveInstances: 4
+      resources:
+        requests:
+          cpu: "1"
+          memory: 3Gi
+        limits:
+          memory: 3Gi
+
+  # Traefik IngressRouteTCP fronts these, so plain ClusterIP with no route.
+  pools:
+    - name: ca
+      service:
+        type: ClusterIP
+        port: 8140
+    - name: server
+      service:
+        type: ClusterIP
+        port: 8140
+
+# --- Ported unchanged from argocd-helm-charts/openvox ---------------------
+puppetAgentExporter:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+  image: ghcr.io/obmondo/puppet-agent-exporter
+  tag: v0.0.1
+  imagePullPolicy: IfNotPresent
+  extraEnv:
+    METRICS_PATH: /etc/puppetlabs/code/prometheus-dropzone
+  resources:
+    limits:
+      memory: 50Mi
+    requests:
+      memory: 50Mi
+      cpu: 20m
+
+gfetch:
+  enabled: true
+  # Where the code PVC is mounted in the gfetch pod. The operator mounts the
+  # same PVC at /etc/puppetlabs/code/environments on the Server pod (volume
+  # root == environments dir), so gfetch must write branches at the volume
+  # root, not under an environments/ subdirectory. See README gap #13.
+  codeMountPath: /etc/puppetlabs/code/environments
+  serviceMonitor:
+    enabled: true
+  image:
+    repository: ghcr.io/obmondo/gfetch
+    tag: v1.2.0
+    pullPolicy: IfNotPresent
+  podSecurityContext:
+    runAsNonRoot: true
+    fsGroup: 999
+    fsGroupChangePolicy: "Always"
+  securityContext:
+    runAsUser: 999
+    runAsGroup: 999
+  resources:
+    requests:
+      memory: 64Mi
+      cpu: 50m
+    limits:
+      memory: 128Mi
+  defaults:
+    ssh_key_path: /home/gfetch/.ssh/id_rsa
+    ssh_known_hosts: |
+      [gitea.obmondo.com]:2223 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKTyoLz71gCQ3RJ3mfLWD+AGvy876irH0SlCoPmkHxUc
+      [gitea.obmondo.com]:2223 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDlF+Kh48gzMPCp+drznpH0fpJrUJpiQUlHoWhBbYkXK1VTvFJ7GWCl3oqqfWlGILJ6tYHGZ6oPh93fzuAHDWjaDgdrMb75AzrbE+7qP6WVDLK/SLy5ynJ8fQNxVVncVlWoq0D79EevIWawG1uECqpV5WAL6vCEhlBwcXDTdVaYF3KZWng5YQxaJzxdLbnQEYeKQ/mMQV/HT2eWF++G00EtRlqD7WR86jLOEwp3PDh5PF0tKKWzMYPWWfrC3FmBdz5L9doJDOksJAhwOyWtkFkt37g7LqWgHOMFRE2xPsz+IgKzxJ7DhZMfxEgkJEpQhS6v8e4nPtG/KdLNTOM5NlV1
+      [gitea.obmondo.com]:2223 ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBFDZKKX5kDl8liLAp6+pkvzcbAODbJ9x2iZlBwUCedH0SiiFB8J8GFBnR/WwwL57tUTtMv+bdvSPx4HyAPIc7e4=
+    # Volume root — see codeMountPath above.
+    local_path: /etc/puppetlabs/code/environments
+    poll_interval: 2m
+    openvox: true
+    openvox_max_workers: 5
+    branches:
+      - "*"
+    prune: true
+    prune_stale: true
+    stale_age: 60d
+  repos:
+    linuxaid:
+      url: "https://github.com/Obmondo/LinuxAid.git"
+      openvox_max_workers: 15
+      tags:
+        - /^v[1-9]\.[5-9]\.[0-9]+$/
+  ssh:
+    existingSecret: g10k-git-secret

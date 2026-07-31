@@ -1,0 +1,44 @@
+{{- /*
+Lets the linuxaid Prometheus discover targets in this namespace.
+Ported unchanged from argocd-helm-charts/openvox.
+*/}}
+{{- if .Values.prometheusRBAC.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prometheus-k8s
+  namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - services
+      - endpoints
+      - pods
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingresses
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prometheus-k8s
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: prometheus-k8s
+subjects:
+  - kind: ServiceAccount
+    name: prometheus-k8s
+    namespace: monitoring-{{ .Values.customerid | default "linuxaid" }}
+{{- end }}

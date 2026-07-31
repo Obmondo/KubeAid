@@ -1,0 +1,12 @@
+dependencies:
+- name: kubeaid-addons
+  repository: file://../kubeaid-addons
+  version: 0.1.0
+- name: openvox-operator
+  repository: oci://ghcr.io/slauger/charts
+  version: 0.9.6
+- name: openvox-stack
+  repository: oci://ghcr.io/slauger/charts
+  version: 0.9.6
+digest: sha256:3f82f6f663cce1773c9ff2514c82fd6667762c79249e1e372e61af56a1cccb30
+generated: "2026-07-31T12:11:41.278992443+05:30"

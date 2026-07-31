@@ -1,0 +1,86 @@
+{{- /*
+Ported from argocd-helm-charts/openvox. Reads the textfile dropzone written by
+the puppetserver prometheus report processor off the shared code PVC.
+NOTE: the operator has no custom-entrypoint hook, so nothing currently writes
+that dropzone — see README gap #5. Kept here so the wiring is ready.
+*/}}
+{{- if .Values.puppetAgentExporter.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: puppet-agent-exporter
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: puppet-agent-exporter
+      app.kubernetes.io/name: openvox
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: puppet-agent-exporter
+        app.kubernetes.io/name: openvox
+    spec:
+      containers:
+        - name: puppet-agent-exporter
+          image: "{{ tpl .Values.puppetAgentExporter.image . }}:{{ tpl .Values.puppetAgentExporter.tag . }}"
+          imagePullPolicy: {{ tpl .Values.puppetAgentExporter.imagePullPolicy . }}
+          resources:
+            {{- toYaml .Values.puppetAgentExporter.resources | nindent 12 }}
+          env:
+            {{- range $key, $value := .Values.puppetAgentExporter.extraEnv }}
+            - name: {{ $key }}
+              value: "{{ $value }}"
+            {{- end }}
+          volumeMounts:
+            - name: puppet-code-storage
+              mountPath: /etc/puppetlabs/code/
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: 8080
+              scheme: HTTP
+          ports:
+            - containerPort: 8080
+              name: http-metrics
+              protocol: TCP
+      volumes:
+        - name: puppet-code-storage
+          persistentVolumeClaim:
+            claimName: {{ include "openvox.codeClaimName" . }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: puppet-agent-exporter
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    app.kubernetes.io/component: puppet-agent-exporter
+    app.kubernetes.io/name: openvox
+spec:
+  ports:
+    - name: http-metrics
+      port: 8080
+      targetPort: 8080
+  selector:
+    app.kubernetes.io/component: puppet-agent-exporter
+    app.kubernetes.io/name: openvox
+{{- if .Values.puppetAgentExporter.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: puppet-agent-exporter
+spec:
+  endpoints:
+    - interval: 30s
+      path: /metrics
+      port: http-metrics
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace | quote }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: puppet-agent-exporter
+      app.kubernetes.io/name: openvox
+{{- end }}
+{{- end }}

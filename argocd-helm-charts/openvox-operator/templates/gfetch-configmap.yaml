@@ -1,0 +1,97 @@
+{{- if .Values.gfetch.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-gfetch
+data:
+  config.yaml: |-
+    defaults:
+      {{- with .Values.gfetch.defaults.ssh_known_hosts }}
+      ssh_known_hosts: |
+        {{- . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.gfetch.defaults.ssh_key_path }}
+      ssh_key_path: {{ .Values.gfetch.defaults.ssh_key_path | quote }}
+      {{- end }}
+      {{- if .Values.gfetch.defaults.openvox }}
+      openvox: {{ .Values.gfetch.defaults.openvox }}
+      {{- end }}
+      {{- if .Values.gfetch.defaults.openvox_max_workers }}
+      openvox_max_workers: {{ .Values.gfetch.defaults.openvox_max_workers }}
+      {{- end }}
+      {{- if .Values.gfetch.defaults.poll_interval }}
+      poll_interval: {{ .Values.gfetch.defaults.poll_interval | quote }}
+      {{- end }}
+      {{- if .Values.gfetch.defaults.local_path }}
+      local_path: {{ .Values.gfetch.defaults.local_path | quote }}
+      {{- end }}
+      {{- if .Values.gfetch.defaults.prune }}
+      prune: {{ .Values.gfetch.defaults.prune }}
+      {{- end }}
+      {{- if .Values.gfetch.defaults.prune_stale }}
+      prune_stale: {{ .Values.gfetch.defaults.prune_stale }}
+      {{- end }}
+      {{- if .Values.gfetch.defaults.stale_age }}
+      stale_age: {{ .Values.gfetch.defaults.stale_age }}
+      {{- end }}
+      {{- with .Values.gfetch.defaults.branches }}
+      branches:
+        {{- range . }}
+        - {{ . | quote }}
+        {{- end }}
+      {{- end }}
+      {{- with .Values.gfetch.defaults.tags }}
+      tags:
+        {{- range . }}
+        - {{ . | quote }}
+        {{- end }}
+      {{- end }}
+    repos:
+    {{- range $name, $repo := .Values.gfetch.repos }}
+      {{ $name }}:
+        url: {{ $repo.url | quote }}
+        {{- if $repo.ssh_key_path }}
+        ssh_key_path: {{ $repo.ssh_key_path | quote }}
+        {{- end }}
+        {{- if $repo.ssh_known_hosts }}
+        ssh_known_hosts: |
+          {{- $repo.ssh_known_hosts | nindent 10 }}
+        {{- end }}
+        {{- if $repo.local_path }}
+        local_path: {{ $repo.local_path | quote }}
+        {{- end }}
+        {{- if $repo.poll_interval }}
+        poll_interval: {{ $repo.poll_interval | quote }}
+        {{- end }}
+        {{- if $repo.checkout }}
+        checkout: {{ $repo.checkout | quote }}
+        {{- end }}
+        {{- if $repo.openvox }}
+        openvox: {{ $repo.openvox }}
+        {{- end }}
+        {{- if $repo.openvox_max_workers }}
+        openvox_max_workers: {{ $repo.openvox_max_workers }}
+        {{- end }}
+        {{- if $repo.prune }}
+        prune: {{ $repo.prune }}
+        {{- end }}
+        {{- if $repo.prune_stale }}
+        prune_stale: {{ $repo.prune_stale }}
+        {{- end }}
+        {{- if $repo.stale_age }}
+        stale_age: {{ $repo.stale_age }}
+        {{- end }}
+        {{- with $repo.branches }}
+        branches:
+          {{- range . }}
+          - {{ . | quote }}
+          {{- end }}
+        {{- end }}
+        {{- with $repo.tags }}
+        tags:
+          {{- range . }}
+          - {{ . | quote }}
+          {{- end }}
+        {{- end }}
+    {{- end }}
+{{- end }}

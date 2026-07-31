@@ -1,0 +1,21 @@
+{{- /*
+PVC holding the Puppet code tree. The operator does not create this — it only
+consumes it via config.code.claimName. gfetch (or whatever replaces it) is
+expected to populate it from LinuxAid.git.
+Mirrors puppetserver.persistence.code in argocd-helm-charts/openvox.
+*/}}
+{{- if .Values.code.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ index .Values "openvox-stack" "config" "code" "claimName" }}
+spec:
+  accessModes:
+    {{- toYaml .Values.code.persistence.accessModes | nindent 4 }}
+  {{- with .Values.code.persistence.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.code.persistence.size }}
+{{- end }}
