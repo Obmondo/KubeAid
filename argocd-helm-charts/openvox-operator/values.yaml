@@ -300,7 +300,9 @@ gfetch:
   podSecurityContext:
     runAsNonRoot: true
     fsGroup: 999
-    fsGroupChangePolicy: "Always"
+    # "Always" recursively chowns the whole code tree on every pod start, which
+    # takes minutes on a populated 20Gi volume and blocks the rollout.
+    fsGroupChangePolicy: "OnRootMismatch"
   securityContext:
     runAsUser: 999
     runAsGroup: 999
