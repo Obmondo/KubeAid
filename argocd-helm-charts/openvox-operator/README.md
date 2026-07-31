@@ -227,6 +227,50 @@ Only remaining red light is the exporter, which is gap #5 and expected. Note the
 dropzone path needs rethinking under the corrected layout: it would now be a
 sibling of the branch directories, not a child of `code/`.
 
+16. **Policy-executable autosign is not supported — this breaks node
+    registration.** Our production flow is not "autosign a pattern": the agent
+    runs, and `environments/master/puppet_autosign.rb` calls the Obmondo API
+    (`PUT /servers/puppet/certname/<certname>`), which both authorises the CSR
+    **and registers the node in Obmondo**. Signing is the registration hook.
+
+    The operator hardcodes `autosign = /usr/local/bin/openvox-autosign` in
+    puppet.conf (`internal/controller/config_rendering.go:78`) and drives it
+    from `SigningPolicy` CRs, which only support `any`, certname globs, CSR
+    attributes and DNS alt names. No executable.
+
+    A partial escape hatch exists: `writeExtraConfig(..., "server")` runs after
+    that line, so `config.puppet.extraConfig.server.autosign` emits a duplicate
+    key that Puppet would likely honour (last occurrence wins), and the script's
+    path resolves because `environments/master` is mounted. **But** the script
+    needs `AUTOSIGN_CLIENT_CERT` / `AUTOSIGN_CLIENT_KEY` from the
+    `obmondo-clientcert` secret, and the `Server` CRD exposes neither
+    `extraSecrets` nor `extraEnv` — so the certificate cannot reach the pod.
+
+    Treat this as a third blocker alongside #1 and #12, and arguably the most
+    important one: it is business flow, not infrastructure plumbing. Needs
+    either an upstream `extraEnv`/`extraSecrets` on `Server` plus confirmation
+    that the extraConfig override works, or a redesign of how nodes register
+    with Obmondo.
+
+## Functional tests still to run
+
+Deliberately **not** run yet. Adoption is blocked on upstream gaps #1 and #12,
+so these would all have to be repeated against a fixed version. Run them when
+upstream responds and we redeploy — the reinstall is reproducible, so this is
+cheap to pick up.
+
+| # | Test | Proves |
+|---|---|---|
+| 1 | Agent CSR signed via a `SigningPolicy` with `pattern.allow` | Enrollment works without the `puppetserver ca sign` CLI |
+| 2 | Agent receives a catalog from the `master` environment | Real LinuxAid code compiles — expect gap #3 to bite here |
+| 3 | Report reaches OpenVoxDB and is queryable | `ReportProcessor` CR wiring |
+| 4 | Prometheus scrapes the ServiceMonitors | Monitoring parity with the openvox chart |
+| 5 | Forced certificate renewal and CRL refresh | The main reason to adopt this at all |
+| 6 | Agent still trusts the server after a Server pod reschedule | Certificate persistence |
+
+There is a `ghcr.io/slauger/openvox-agent` image suitable for driving 1-3 from
+an in-cluster pod.
+
 ## Wins if it pans out
 
 - CA lifecycle, renewal and CRL handled by the controller — drops
