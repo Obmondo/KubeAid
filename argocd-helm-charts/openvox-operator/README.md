@@ -174,6 +174,16 @@ verification item for the pilot.
     `postInitApplicationSQL` knob to kubeaid-addons (preferred), or switch this
     chart's PostgreSQL to `openvox-db-postgres` and give up those conventions.
 
+15. **Uninstall deadlocks on finalizers.** `Certificate` CRs carry a finalizer
+    that only the operator can clear, but Helm (and ArgoCD) delete the operator
+    Deployment before the CRs, so deletion hangs forever — including the CRD
+    itself. Recovering needs a manual
+    `kubectl patch certificates.openvox.voxpupuli.org <name> --type merge
+    -p '{"metadata":{"finalizers":null}}'` per certificate.
+    **Verify:** whether an ArgoCD sync-wave on the operator Deployment, or
+    `Prune=false` on the CRs, avoids this. Relevant to every app deletion and
+    to disaster recovery, so it needs an answer before adoption.
+
 ## Cluster test, kcm.obmondo.com, 2026-07-31
 
 Deployed to namespace `puppetserver-pilot` (k8s 1.33, so the OCI ImageVolume
@@ -198,10 +208,24 @@ missing hiera-data path which has no obvious answer. Everything else has a
 workaround. Worth filing #12, #13, #14 and the `environmentTimeout` quoting bug
 upstream once the pilot is fully exercised.
 
-Note on the pilot's code tree: the volume was populated under the old layout,
-so `master` currently exists as a symlink at the volume root pointing at
-`environments/master`. A clean re-clone with `gfetch.codeMountPath` set
-correctly makes that unnecessary.
+### Clean-room reinstall, same day
+
+Everything above was then torn down — release uninstalled, PVCs, operator-issued
+secrets and CRDs all deleted — and installed again from scratch to confirm none
+of it depended on manual intervention. Result: it converged unattended.
+
+| Check | Result |
+|---|---|
+| CA | Ready in ~2.5 min, no hand-holding (still on `openebs-hostpath`, gap #1) |
+| `pg_trgm` | Created automatically by the new kubeaid-addons `postInitApplicationSQL` knob |
+| gfetch cold clone | 24 branches at the volume root, real `master` directory, no stale `environments/` — the `codeMountPath` fix holds |
+| Server | Running 1/1, **0 restarts**, `/status/v1/simple` → `running` |
+| Database | Running 1/1 |
+| `puppet-agent-exporter` | `/metrics` 500 — the dropzone directory does not exist, gap #5 |
+
+Only remaining red light is the exporter, which is gap #5 and expected. Note the
+dropzone path needs rethinking under the corrected layout: it would now be a
+sibling of the branch directories, not a child of `code/`.
 
 ## Wins if it pans out
 
