@@ -163,6 +163,17 @@ verification item for the pilot.
     mounts nothing at `/etc/puppetlabs/code`, so the `linuxaid-config-*` repos
     have no visible path on the Server pod. Compounds gap #3.
 
+14. **`pg_trgm` is not created.** OpenVoxDB refuses to start without the
+    PostgreSQL `pg_trgm` extension. Created by hand for the pilot.
+    Not an upstream bug: there is a third published chart,
+    `oci://ghcr.io/slauger/charts/openvox-db-postgres` 0.9.6, which renders a
+    CNPG `Cluster` with `bootstrap.initdb.postInitApplicationSQL:
+    [CREATE EXTENSION IF NOT EXISTS pg_trgm]` plus a `postInitSQL` escape
+    hatch. We use `kubeaid-addons` for CNPG instead, to keep the KubeAid
+    backup/monitoring conventions. **Decision needed:** add a
+    `postInitApplicationSQL` knob to kubeaid-addons (preferred), or switch this
+    chart's PostgreSQL to `openvox-db-postgres` and give up those conventions.
+
 ## Cluster test, kcm.obmondo.com, 2026-07-31
 
 Deployed to namespace `puppetserver-pilot` (k8s 1.33, so the OCI ImageVolume
@@ -177,11 +188,20 @@ path was unavailable as predicted). Findings, in the order they were hit:
 | CA once running | OK — `Ready`, 5y cert, valid to 2031-07-30. Renewal/CRL handled by the controller as advertised. |
 | Code delivery | Works after gap #13's mount fix, gfetch needs 2Gi (1Gi OOMKills on a cold clone). |
 | hiera-data | **No path exists** on the Server pod — see gap #13. |
-| Server bring-up | Blocked behind the above; not yet confirmed healthy. |
+| Server bring-up | **OK.** `Server` CR `Running`, 1/1 ready, `/status/v1/simple` returns `running`. Both Pool Services have endpoints, and their names (`<release>-ca`, `<release>-server`) match what the IngressRouteTCP templates target. |
+| OpenVoxDB | **OK after creating `pg_trgm` by hand** — see gap #14. `Database` CR `Running`, 1/1. |
+| Report processor / agent run | Not yet exercised — no agent has checked in. |
 
-Bottom line: two hard blockers (#12 image pinning, plus the missing `fsGroup`)
-that we cannot fix from values and that need upstream changes. Both are worth
-filing as issues.
+Bottom line: two hard blockers (#12 image pinning, and the missing `fsGroup`)
+that cannot be fixed from values and need upstream changes, plus gap #13's
+missing hiera-data path which has no obvious answer. Everything else has a
+workaround. Worth filing #12, #13, #14 and the `environmentTimeout` quoting bug
+upstream once the pilot is fully exercised.
+
+Note on the pilot's code tree: the volume was populated under the old layout,
+so `master` currently exists as a symlink at the volume root pointing at
+`environments/master`. A clean re-clone with `gfetch.codeMountPath` set
+correctly makes that unnecessary.
 
 ## Wins if it pans out
 
