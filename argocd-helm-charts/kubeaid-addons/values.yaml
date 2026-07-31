@@ -88,6 +88,15 @@ global:
     # -- Database owner created during initdb
     owner: app
 
+    # -- SQL statements CNPG runs once against the application database right
+    # after initdb, as the database owner. Use for extensions an application
+    # requires before its first start, e.g. OpenVoxDB needs pg_trgm:
+    #   postInitApplicationSQL:
+    #     - CREATE EXTENSION IF NOT EXISTS pg_trgm
+    # Ignored when recover.enabled is true — a recovered cluster already has
+    # whatever the source cluster had.
+    postInitApplicationSQL: []
+
     # -- PVC size for each PostgreSQL instance
     size: 2Gi
 

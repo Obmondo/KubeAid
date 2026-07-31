@@ -7,6 +7,10 @@ global:
     instanceName: openvox
     database: openvoxdb
     owner: openvoxdb
+    # OpenVoxDB refuses to start without it. The operator does not create it —
+    # our old chart got it from the puppetdb preinstall job. See README gap #14.
+    postInitApplicationSQL:
+      - CREATE EXTENSION IF NOT EXISTS pg_trgm
     instances: 1
     size: 2Gi
     monitoring:

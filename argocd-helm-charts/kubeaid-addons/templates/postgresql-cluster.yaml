@@ -72,6 +72,10 @@ spec:
     initdb:
       database: {{ .Values.global.postgresql.database | default .Values.global.postgresql.instanceName }}
       owner: {{ .Values.global.postgresql.owner | default .Values.global.postgresql.instanceName }}
+      {{- with $postgresql.postInitApplicationSQL }}
+      postInitApplicationSQL:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
     {{- end }}
 
   {{- if $postgresql.recover.enabled }}
