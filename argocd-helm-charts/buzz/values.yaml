@@ -89,6 +89,68 @@ buzz:
       enabled: false
       size: 10Gi
 
+  # Both run before the relay on every start and assume the chart defaults
+  # above: host buzz-pgsql-rw from global.postgresql.instanceName, and the
+  # DATABASE_URL key from secrets.existingSecret. Change either and change
+  # these to match. See README.md.
+  extraInitContainers:
+    # CNPG is often still bootstrapping when the relay first rolls out, and the
+    # relay exits rather than retries. psql rather than pg_isready: this has to
+    # prove auth and the database itself, not just an open socket.
+    - name: wait-for-db
+      image: postgres:16-alpine
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: [ALL]
+      env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: buzz-secrets
+              key: DATABASE_URL
+      command:
+        - sh
+        - -c
+        - |
+          until psql "$DATABASE_URL" -c 'select 1' >/dev/null 2>&1; do
+            echo "Waiting for database..."
+            sleep 2
+          done
+          echo "Database is ready!"
+    # Repairs installs that passed through relay 0.1.0. That image created
+    # audit_log at runtime but shipped no migration runner, so sqlx recorded
+    # nothing; migration 1 then aborts on "relation audit_log already exists"
+    # and rolls back the entire schema, leaving a relay that starts, serves
+    # WebSockets and fails every query. Guarded on _sqlx_migrations being
+    # absent, so it is a no-op on a fresh install and after the first migrate.
+    # Removable once no install predates 0.2.0.
+    - name: reconcile-legacy-schema
+      image: postgres:16-alpine
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: [ALL]
+      env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: buzz-secrets
+              key: DATABASE_URL
+      command:
+        - sh
+        - -c
+        - |
+          set -e
+          applied=$(psql "$DATABASE_URL" -At -c "select to_regclass('public._sqlx_migrations')")
+          orphan=$(psql "$DATABASE_URL" -At -c "select to_regclass('public.audit_log')")
+          if [ -z "$applied" ] && [ -n "$orphan" ]; then
+            echo "Pre-0.2.0 schema found: dropping orphan audit_log so migration 1 can run"
+            psql "$DATABASE_URL" -c 'drop table if exists audit_log cascade'
+          else
+            echo "Nothing to reconcile"
+          fi
+
   # Class and annotations are left to the cluster: Helm merges annotation maps,
   # so anything set here leaks into every install and cannot be removed
   # downstream. See README.md for the NGINX WebSocket timeouts.

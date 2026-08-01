@@ -98,6 +98,32 @@ tracks a newer chart version.
 
 The bucket must not be folded into `buzz.s3.endpoint`; the two are passed separately.
 
+### Conformance probe (A3 gate)
+
+Before serving git traffic the relay races `BUZZ_GIT_PROBE_WRITERS` (default **32**) concurrent
+compare-and-swap writers against one key, `BUZZ_GIT_PROBE_ROUNDS` (default 3) times, to prove the
+backend gives linearizable conditional writes. Git-on-object-storage stores refs as CAS'd pointer
+objects, so a backend without that silently loses concurrent pushes — hence the gate is fatal.
+
+Backends that support `If-Match` but throttle under contention — Ceph RGW among them — fail this with
+`503 ServiceUnavailable` partway through, which looks like a capability gap but is not. The tell is
+*where* it fails: an unsupported `If-Match` fails deterministically in an early phase, whereas
+throttling fails intermittently, after earlier phases and the first round have passed.
+
+Narrow the race rather than removing the gate:
+
+```yaml
+buzz:
+  relay:
+    extraEnv:
+      - name: BUZZ_GIT_PROBE_WRITERS
+        value: "8"
+```
+
+`BUZZ_GIT_CONFORMANCE_PROBE: "false"` skips the gate entirely. That is a last resort — the relay has
+no retry or backoff for `503`, so a backend that throttles the probe will also throttle real
+concurrent pushes, and skipping only moves the failure to runtime.
+
 ## Ingress
 
 `buzz.ingress.className` and `buzz.ingress.annotations` are deliberately empty. Helm merges annotation
@@ -152,7 +178,31 @@ instead:
 crane manifest ghcr.io/block/buzz:<tag> >/dev/null && echo exists
 ```
 
-`0.2.0` is the newest published release image; it shares a digest with `latest`.
+`0.2.0` is the newest published *release* image, and `latest` still resolves to it — so `latest` is
+not current code. Upstream also publishes a per-commit `sha-<short>` image for every merge to main,
+and `main` shares a digest with the newest of those, so tracking upstream means pinning a `sha-` tag.
+
+Pair a main-head image with this chart deliberately: chart 0.1.7 renders the environment for a much
+older relay, so a relay far ahead of it may expect configuration the chart cannot express. A startup
+failure that complains about configuration rather than a backend is the sign of that drift.
+
+## Init containers
+
+`buzz.extraInitContainers` ships two, both `postgres:16-alpine`:
+
+- **`wait-for-db`** — CNPG is usually still bootstrapping when the relay first rolls out, and the
+  relay exits rather than retries. It polls with `psql` rather than `pg_isready` so it proves auth
+  and the database, not just an open socket.
+- **`reconcile-legacy-schema`** — repairs installs that passed through relay 0.1.0. That image
+  created `audit_log` at runtime but shipped no migration runner, so sqlx recorded nothing; migration
+  1 then aborts on `relation "audit_log" already exists` and rolls the whole schema back. The result
+  is a relay that starts, serves WebSockets and fails every query on a missing relation. It is
+  guarded on `_sqlx_migrations` being absent, so it is a no-op on a fresh install and after the first
+  successful migrate, and can be dropped once no install predates 0.2.0.
+
+Both assume the chart defaults — host `buzz-pgsql-rw` from `global.postgresql.instanceName`, and the
+`DATABASE_URL` key from `secrets.existingSecret`. Change either and change these to match.
+`extraInitContainers` is a list, so overriding it downstream replaces rather than merges.
 
 ## Git storage
 
