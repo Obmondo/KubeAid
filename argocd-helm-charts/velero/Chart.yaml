@@ -1,7 +1,7 @@
 # See new chart versions here: https://github.com/vmware-tanzu/helm-charts/tree/main/charts/velero
 apiVersion: v2
 name: velero
-version: 1.0.0
+version: 1.0.1
 dependencies:
   - name: velero
     version: 12.1.0
