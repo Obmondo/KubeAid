@@ -6,4 +6,4 @@ version: 0.2.0
 dependencies:
   - name: netbird-operator
     repository: oci://ghcr.io/netbirdio/helm-charts
-    version: 0.7.0
+    version: 0.8.0
