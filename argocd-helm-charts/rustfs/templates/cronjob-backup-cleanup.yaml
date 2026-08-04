@@ -24,12 +24,29 @@ spec:
             fsGroup: 10001
           containers:
             - name: cleanup
-              image: "{{ (.Values.backupCleanup.image).repository | default "minio/mc" }}:{{ (.Values.backupCleanup.image).tag | default "RELEASE.2025-08-13T08-35-41Z" }}"
+              image: "{{ (.Values.backupCleanup.image).repository | default "harbor.obmondo.com/deepak/s3-backup-cleanup" }}:{{ (.Values.backupCleanup.image).tag | default "v1.0.0" }}"
               imagePullPolicy: IfNotPresent
-              envFrom:
-                - secretRef:
-                    name: {{ .Values.backupCleanup.secretName | default .Values.rustfs.secret.existingSecret | default "rustfs-secret" }}
               env:
+                - name: ENDPOINT
+                  value: {{ .Values.backupCleanup.endpoint | default (printf "http://%s-svc.%s.svc.cluster.local:9000" .Release.Name .Release.Namespace) | quote }}
+                - name: BUCKETS
+                  value: {{ .Values.backupCleanup.buckets | default list | join " " | quote }}
+                - name: RETENTION_DAYS
+                  value: {{ .Values.backupCleanup.retentionDays | default 7 | quote }}
+                - name: EXCLUDE_PREFIXES
+                  value: {{ .Values.backupCleanup.excludePrefixes | default (list "velero-backup") | join " " | quote }}
+                - name: AWS_DEFAULT_REGION
+                  value: {{ .Values.backupCleanup.region | default "us-east-1" | quote }}
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.backupCleanup.secretName | default .Values.rustfs.secret.existingSecret | default "rustfs-secret" }}
+                      key: {{ .Values.backupCleanup.secretAccessKeyIdKey | default "RUSTFS_ACCESS_KEY" }}
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.backupCleanup.secretName | default .Values.rustfs.secret.existingSecret | default "rustfs-secret" }}
+                      key: {{ .Values.backupCleanup.secretSecretAccessKeyKey | default "RUSTFS_SECRET_KEY" }}
                 - name: HOME
                   value: /tmp
               securityContext:
@@ -42,32 +59,6 @@ spec:
               volumeMounts:
                 - name: tmp
                   mountPath: /tmp
-              command:
-                - sh
-                - -c
-                - |
-                  set -eu
-
-                  ENDPOINT={{ .Values.backupCleanup.endpoint | default (printf "http://%s-svc.%s.svc.cluster.local:9000" .Release.Name .Release.Namespace) | quote }}
-                  mc alias set rustfs "$ENDPOINT" "$RUSTFS_ACCESS_KEY" "$RUSTFS_SECRET_KEY" >/dev/null
-
-                  EXCLUDE_PREFIXES={{ .Values.backupCleanup.excludePrefixes | default (list "velero-backup") | join " " | quote }}
-                  RETENTION_DAYS={{ .Values.backupCleanup.retentionDays | default 7 }}
-
-                  for bucket in {{ .Values.backupCleanup.buckets | default list | join " " }}; do
-                    for prefix in $(mc ls "rustfs/$bucket" | awk '{print $NF}' | sed 's#/$##'); do
-                      skip=0
-                      for ex in $EXCLUDE_PREFIXES; do
-                        [ "$prefix" = "$ex" ] && skip=1
-                      done
-                      if [ "$skip" -eq 1 ]; then
-                        echo "skip  rustfs/$bucket/$prefix (excluded)"
-                        continue
-                      fi
-                      echo "clean rustfs/$bucket/$prefix (removing objects older than ${RETENTION_DAYS}d)"
-                      mc rm --recursive --force --older-than "${RETENTION_DAYS}d" "rustfs/$bucket/$prefix/"
-                    done
-                  done
           volumes:
             - name: tmp
               emptyDir: {}
