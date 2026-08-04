@@ -1,0 +1,74 @@
+{{- if (.Values.backupCleanup).enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: rustfs-backup-cleanup
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: {{ .Values.backupCleanup.schedule | default "0 3 * * *" | quote }}
+  concurrencyPolicy: Forbid
+  suspend: {{ .Values.backupCleanup.suspend | default false }}
+  successfulJobsHistoryLimit: {{ .Values.backupCleanup.successfulJobsHistoryLimit | default 3 }}
+  failedJobsHistoryLimit: {{ .Values.backupCleanup.failedJobsHistoryLimit | default 3 }}
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: {{ .Values.backupCleanup.activeDeadlineSeconds | default 1800 }}
+      backoffLimit: {{ .Values.backupCleanup.backoffLimit | default 1 }}
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsUser: 10001
+            runAsGroup: 10001
+            runAsNonRoot: true
+            fsGroup: 10001
+          containers:
+            - name: cleanup
+              image: "{{ (.Values.backupCleanup.image).repository | default "minio/mc" }}:{{ (.Values.backupCleanup.image).tag | default "RELEASE.2025-08-13T08-35-41Z" }}"
+              imagePullPolicy: IfNotPresent
+              envFrom:
+                - secretRef:
+                    name: {{ .Values.backupCleanup.secretName | default .Values.rustfs.secret.existingSecret | default "rustfs-secret" }}
+              env:
+                - name: HOME
+                  value: /tmp
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              resources:
+                {{- toYaml (.Values.backupCleanup.resources | default (dict "requests" (dict "cpu" "50m" "memory" "64Mi") "limits" (dict "memory" "256Mi"))) | nindent 16 }}
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+              command:
+                - sh
+                - -c
+                - |
+                  set -eu
+
+                  ENDPOINT={{ .Values.backupCleanup.endpoint | default (printf "http://%s-svc.%s.svc.cluster.local:9000" .Release.Name .Release.Namespace) | quote }}
+                  mc alias set rustfs "$ENDPOINT" "$RUSTFS_ACCESS_KEY" "$RUSTFS_SECRET_KEY" >/dev/null
+
+                  EXCLUDE_PREFIXES={{ .Values.backupCleanup.excludePrefixes | default (list "velero-backup") | join " " | quote }}
+                  RETENTION_DAYS={{ .Values.backupCleanup.retentionDays | default 7 }}
+
+                  for bucket in {{ .Values.backupCleanup.buckets | default list | join " " }}; do
+                    for prefix in $(mc ls "rustfs/$bucket" | awk '{print $NF}' | sed 's#/$##'); do
+                      skip=0
+                      for ex in $EXCLUDE_PREFIXES; do
+                        [ "$prefix" = "$ex" ] && skip=1
+                      done
+                      if [ "$skip" -eq 1 ]; then
+                        echo "skip  rustfs/$bucket/$prefix (excluded)"
+                        continue
+                      fi
+                      echo "clean rustfs/$bucket/$prefix (removing objects older than ${RETENTION_DAYS}d)"
+                      mc rm --recursive --force --older-than "${RETENTION_DAYS}d" "rustfs/$bucket/$prefix/"
+                    done
+                  done
+          volumes:
+            - name: tmp
+              emptyDir: {}
+{{- end }}

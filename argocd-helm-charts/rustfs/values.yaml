@@ -16,3 +16,22 @@ rustfs:
   ingress:
     enabled: true
     className: nginx
+
+# Optional CronJob that prunes objects older than retentionDays from the top-level
+# prefix of each bucket in `buckets`. Prefixes listed in excludePrefixes are skipped -
+# in particular, a Velero backup repository (Kopia/restic) must never be pruned by raw
+# object age since it manages its own retention and pruning it externally can corrupt
+# the dedup'd repo.
+backupCleanup:
+  enabled: false
+  schedule: "0 3 * * *"
+  retentionDays: 7
+  buckets: []
+  excludePrefixes:
+    - velero-backup
+  # secretName: existing secret providing RUSTFS_ACCESS_KEY / RUSTFS_SECRET_KEY.
+  #   Defaults to rustfs.secret.existingSecret.
+  # endpoint: RustFS S3 endpoint. Defaults to http://<release-name>-svc.<namespace>.svc.cluster.local:9000
+  image:
+    repository: minio/mc
+    tag: RELEASE.2025-08-13T08-35-41Z
