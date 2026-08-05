@@ -1,0 +1,65 @@
+{{- if (.Values.backupCleanup).enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: rustfs-backup-cleanup
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: {{ .Values.backupCleanup.schedule | default "0 3 * * *" | quote }}
+  concurrencyPolicy: Forbid
+  suspend: {{ .Values.backupCleanup.suspend | default false }}
+  successfulJobsHistoryLimit: {{ .Values.backupCleanup.successfulJobsHistoryLimit | default 3 }}
+  failedJobsHistoryLimit: {{ .Values.backupCleanup.failedJobsHistoryLimit | default 3 }}
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: {{ .Values.backupCleanup.activeDeadlineSeconds | default 1800 }}
+      backoffLimit: {{ .Values.backupCleanup.backoffLimit | default 1 }}
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsUser: 10001
+            runAsGroup: 10001
+            runAsNonRoot: true
+            fsGroup: 10001
+          containers:
+            - name: cleanup
+              image: "{{ (.Values.backupCleanup.image).repository | default "harbor.obmondo.com/deepak/s3-backup-cleanup" }}:{{ (.Values.backupCleanup.image).tag | default "v1.0.0" }}"
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: ENDPOINT
+                  value: {{ .Values.backupCleanup.endpoint | default (printf "http://%s-svc.%s.svc.cluster.local:9000" .Release.Name .Release.Namespace) | quote }}
+                - name: BUCKETS
+                  value: {{ .Values.backupCleanup.buckets | default list | join " " | quote }}
+                - name: RETENTION_DAYS
+                  value: {{ .Values.backupCleanup.retentionDays | default 7 | quote }}
+                - name: EXCLUDE_PREFIXES
+                  value: {{ .Values.backupCleanup.excludePrefixes | default (list "velero-backup") | join " " | quote }}
+                - name: AWS_DEFAULT_REGION
+                  value: {{ .Values.backupCleanup.region | default "us-east-1" | quote }}
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.backupCleanup.secretName | default .Values.rustfs.secret.existingSecret | default "rustfs-secret" }}
+                      key: {{ .Values.backupCleanup.secretAccessKeyIdKey | default "RUSTFS_ACCESS_KEY" }}
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.backupCleanup.secretName | default .Values.rustfs.secret.existingSecret | default "rustfs-secret" }}
+                      key: {{ .Values.backupCleanup.secretSecretAccessKeyKey | default "RUSTFS_SECRET_KEY" }}
+                - name: HOME
+                  value: /tmp
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              resources:
+                {{- toYaml (.Values.backupCleanup.resources | default (dict "requests" (dict "cpu" "50m" "memory" "64Mi") "limits" (dict "memory" "256Mi"))) | nindent 16 }}
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: tmp
+              emptyDir: {}
+{{- end }}

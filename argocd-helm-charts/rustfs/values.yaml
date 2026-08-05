@@ -20,3 +20,31 @@ rustfs:
   ingress:
     enabled: true
     className: nginx
+
+# Optional CronJob that permanently prunes objects (and, on a versioned bucket, every
+# version + delete marker of each object) older than retentionDays from the top-level
+# prefix of each bucket in `buckets`. Prefixes listed in excludePrefixes are skipped -
+# in particular, a Velero backup repository (Kopia/restic) must never be pruned by raw
+# object age since it manages its own retention and pruning it externally can corrupt
+# the dedup'd repo.
+#
+# Runs github.com/Obmondo/dockerfiles' s3-backup-cleanup image (aws s3api under the
+# hood). On a versioned bucket a plain DeleteObject call does NOT free space - it only
+# adds a delete marker and leaves the underlying version on disk - so that image
+# permanently deletes each matched Version and DeleteMarker by its specific VersionId
+# instead.
+backupCleanup:
+  enabled: false
+  schedule: "0 3 * * *"
+  retentionDays: 7
+  buckets: []
+  excludePrefixes:
+    - velero-backup
+  region: us-east-1
+  # endpoint: S3-compatible endpoint. Defaults to http://<release-name>-svc.<namespace>.svc.cluster.local:9000
+  # secretName: secret providing the credentials. Defaults to rustfs.secret.existingSecret.
+  secretAccessKeyIdKey: RUSTFS_ACCESS_KEY
+  secretSecretAccessKeyKey: RUSTFS_SECRET_KEY
+  image:
+    repository: harbor.obmondo.com/deepak/s3-backup-cleanup
+    tag: v1.0.0
