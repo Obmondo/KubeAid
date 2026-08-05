@@ -477,25 +477,27 @@ kubectl get pods --all-namespaces -o json | jq -r '
 | **Network** | 10G NIC available | Fast Ceph replication |
 | **Cost** | Higher | Better for production |
 
-#### Recommended Hardware: AX52
+#### Recommended Hardware: AX102
 
 | Component | Specification | Purpose |
 | ----------- | --------------- | --------- |
-| **CPU** | AMD Ryzen 9 5950X (16c/32t) | High-performance workloads |
-| **RAM** | 128 GB DDR4 ECC | Large memory for apps + Ceph |
+| **CPU** | AMD Ryzen 9 7950X3D (16c/32t) | High-performance workloads |
+| **RAM** | 128 GB DDR5 ECC | Large memory for apps + Ceph |
 | **Storage** | 2× 3.84 TB NVMe | Ceph OSD + Local PV |
 | **Network** | **10 Gbps NIC** | Fast Ceph replication, low latency |
+
+See the [Hetzner purchasing guide](./guides/hetzner-server-buy-guides.md) for sizing and current prices.
 
 ```mermaid
 graph TB
     subgraph cluster["🏭 Production Cluster on Dedicated Servers"]
-        subgraph cp["🔐 Control Plane (3× CAX41 ARM64)"]
+        subgraph cp["🔐 Control Plane (3× CAX11 ARM64)"]
             cp1["CP-1<br/>Ampere"]
             cp2["CP-2<br/>Ampere"]
             cp3["CP-3<br/>Ampere"]
         end
         
-        subgraph workers["⚙️ Workers (3× AX52 + 10G NIC)"]
+        subgraph workers["⚙️ Workers (3× AX102 + 10G NIC)"]
             w1["Worker-1<br/>Ceph OSD<br/>Apps"]
             w2["Worker-2<br/>Ceph OSD<br/>Apps"]
             w3["Worker-3<br/>Ceph OSD<br/>Apps"]
@@ -627,14 +629,14 @@ databases:
 # Cluster configuration
 controlPlane:
   count: 3
-  hardware: AX41-NVMe          # Dedicated servers
+  hardware: AX102              # Dedicated servers
   taints:
     - key: node-role.kubernetes.io/control-plane
       effect: NoSchedule
 
 workers:
   count: 3+
-  hardware: AX41               # With Ceph OSD disks
+  hardware: AX102              # With Ceph OSD disks
 
 storage:
   primary: rook-ceph-block     # Ceph for all persistent storage
@@ -669,7 +671,7 @@ kubectl taint nodes <cp-node> node-role.kubernetes.io/control-plane:NoSchedule
 2. Add more worker nodes
 3. Migrate to Ceph storage
 
-See: [Hetzner CSI Volume Limit Debugging](../guides/storage/hetzner/hetzner-csi-volume-limit-debugging.md)
+See: [Hetzner CSI Volume Limit Debugging](https://gitea.obmondo.com/EnableIT/wiki/src/branch/master/guides/storage/hetzner/hetzner-csi-volume-limit-debugging.md)
 
 ### "Database not recovering after node failure"
 
