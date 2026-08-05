@@ -30,7 +30,7 @@ spec:
             summary: 'Velero backup exceeded RPO'
             description: 'Backup for {{ `{{ $labels.namespace }}` }}/{{ `{{ $labels.resource_name }}` }} ({{ `{{ $labels.resource_type }}` }}, method: {{ `{{ $labels.backup }}` }}) exceeded RPO (age: {{ `{{ $value }}` }})'
         - alert: VeleroBackupMissing
-          expr: backup_exporter_velero_latest_backup_age == 0
+          expr: backup_exporter_velero_latest_backup_age == 0 unless on (namespace, resource_name, resource_type) (backup_exporter_velero_error{type="backup_not_enabled"} == 1)
           for: {{ .Values.prometheusRule.velero.alertForDuration | default "5m" }}
           labels:
             severity: {{ .Values.prometheusRule.velero.severity | default "critical" }}

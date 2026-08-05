@@ -13,8 +13,12 @@ spec:
   groups:
     - name: {{ include "backup-exporter.name" . }}-postgres
       rules:
+        # "not enabled" error types (backup_not_enabled, cronjob_not_found,
+        # no_scheduled_backups) mean the app never turned this backup type on
+        # -- that isn't a job failure, so it's excluded here rather than
+        # firing for every app that hasn't opted in.
         - alert: PostgresBackupExporterJobFailed
-          expr: max by (namespace, cluster_name, backup, type) (backup_exporter_postgres_error == 1) > 0
+          expr: max by (namespace, cluster_name, backup, type) (backup_exporter_postgres_error{type!~"backup_not_enabled|cronjob_not_found|no_scheduled_backups"} == 1) > 0
           for: {{ .Values.prometheusRule.postgres.alertForDuration | default "5m" }}
           labels:
             severity: {{ .Values.prometheusRule.postgres.severity | default "critical" }}
@@ -37,8 +41,16 @@ spec:
           annotations:
             summary: 'PostgreSQL CNPG WAL backup exceeded RPO'
             description: 'WAL backup for {{ `{{ $labels.namespace }}` }}/{{ `{{ $labels.cluster_name }}` }} exceeded RPO (age: {{ `{{ $value }}` }})'
+        # The "missing" sentinel (age == 0) is published for every CNPG
+        # cluster regardless of whether logical backup was ever enabled for
+        # it, so clusters the exporter has already flagged as not-enabled
+        # (via backup_exporter_postgres_error) are excluded via the join
+        # below instead of alerting on apps that never opted in. The join
+        # matches on namespace and cluster_name together, since cluster_name
+        # alone isn't unique across namespaces (e.g. multiple apps have a
+        # cluster named "api-postgresql").
         - alert: PostgresLogicalBackupMissing
-          expr: postgres_latest_logical_backup_age == 0
+          expr: postgres_latest_logical_backup_age == 0 unless on (namespace, cluster_name) (backup_exporter_postgres_error{backup="logical", type=~"backup_not_enabled|cronjob_not_found"} == 1)
           for: {{ .Values.prometheusRule.postgres.alertForDuration | default "5m" }}
           labels:
             severity: {{ .Values.prometheusRule.postgres.severity | default "critical" }}
@@ -46,7 +58,7 @@ spec:
             summary: 'PostgreSQL logical backup missing'
             description: 'No logical backup found for {{ `{{ $labels.namespace }}` }}/{{ `{{ $labels.cluster_name }}` }}'
         - alert: PostgresWALBackupMissing
-          expr: postgres_latest_cnpg_wal_backup_age == 0
+          expr: postgres_latest_cnpg_wal_backup_age == 0 unless on (namespace, cluster_name) (backup_exporter_postgres_error{backup="wal", type=~"backup_not_enabled|cronjob_not_found|no_scheduled_backups"} == 1)
           for: {{ .Values.prometheusRule.postgres.alertForDuration | default "5m" }}
           labels:
             severity: {{ .Values.prometheusRule.postgres.severity | default "critical" }}

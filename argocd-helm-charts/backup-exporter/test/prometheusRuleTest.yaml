@@ -90,3 +90,98 @@ tests:
             exp_annotations:
               summary: 'PostgreSQL WAL backup missing'
               description: 'No WAL backup found for test/pg1'
+
+  # "not enabled" error types must not fire PostgresBackupExporterJobFailed --
+  # they mean the app never turned this backup type on, not a job failure.
+  - interval: 1m
+    input_series:
+      - series: 'backup_exporter_postgres_error{backup="logical",namespace="disabled-ns",cluster_name="pg-disabled",type="backup_not_enabled"}'
+        values: '1x6'
+      - series: 'backup_exporter_postgres_error{backup="logical",namespace="disabled-ns2",cluster_name="pg-disabled2",type="cronjob_not_found"}'
+        values: '1x6'
+      - series: 'backup_exporter_postgres_error{backup="wal",namespace="disabled-ns3",cluster_name="pg-disabled3",type="no_scheduled_backups"}'
+        values: '1x6'
+    alert_rule_test:
+      - alertname: PostgresBackupExporterJobFailed
+        eval_time: 6m
+        exp_alerts: []
+
+  # A genuine failure type must still fire PostgresBackupExporterJobFailed.
+  - interval: 1m
+    input_series:
+      - series: 'backup_exporter_postgres_error{backup="logical",namespace="test",cluster_name="pg1",type="s3_connection_failed"}'
+        values: '1x6'
+    alert_rule_test:
+      - alertname: PostgresBackupExporterJobFailed
+        eval_time: 6m
+        exp_alerts:
+          - exp_labels:
+              alertname: PostgresBackupExporterJobFailed
+              severity: critical
+              backup: logical
+              namespace: test
+              cluster_name: pg1
+              type: s3_connection_failed
+            exp_annotations:
+              summary: 'Postgres backup exporter error'
+              description: 'Postgres backup exporter error for test/pg1 (backup: logical, error: s3_connection_failed)'
+
+  # A cluster with the zero-age "missing" sentinel AND a recorded
+  # backup_not_enabled/cronjob_not_found error must not fire
+  # PostgresLogicalBackupMissing -- the unless-join excludes it.
+  - interval: 1m
+    input_series:
+      - series: 'postgres_latest_logical_backup_age{namespace="disabled-ns",cluster_name="pg-disabled"}'
+        values: '0x6'
+      - series: 'backup_exporter_postgres_error{backup="logical",namespace="disabled-ns",cluster_name="pg-disabled",type="backup_not_enabled"}'
+        values: '1x6'
+    alert_rule_test:
+      - alertname: PostgresLogicalBackupMissing
+        eval_time: 6m
+        exp_alerts: []
+
+  # Same, for WAL.
+  - interval: 1m
+    input_series:
+      - series: 'postgres_latest_cnpg_wal_backup_age{namespace="disabled-ns3",cluster_name="pg-disabled3"}'
+        values: '0x6'
+      - series: 'backup_exporter_postgres_error{backup="wal",namespace="disabled-ns3",cluster_name="pg-disabled3",type="no_scheduled_backups"}'
+        values: '1x6'
+    alert_rule_test:
+      - alertname: PostgresWALBackupMissing
+        eval_time: 6m
+        exp_alerts: []
+
+  # A PVC outside every schedule's included namespaces (exporter-classified,
+  # backup_exporter_velero_error type=backup_not_enabled) must not fire
+  # VeleroBackupMissing, even though the age sentinel is 0.
+  - interval: 1m
+    input_series:
+      - series: 'backup_exporter_velero_latest_backup_age{backup="",namespace="not-scheduled-ns",resource_name="some-pvc",resource_type="pvc"}'
+        values: '0x6'
+      - series: 'backup_exporter_velero_error{namespace="not-scheduled-ns",resource_name="some-pvc",resource_type="pvc",type="backup_not_enabled"}'
+        values: '1x6'
+    alert_rule_test:
+      - alertname: VeleroBackupMissing
+        eval_time: 6m
+        exp_alerts: []
+
+  # A genuinely missing, in-scope PVC (no matching not-enabled error) must
+  # still fire VeleroBackupMissing.
+  - interval: 1m
+    input_series:
+      - series: 'backup_exporter_velero_latest_backup_age{backup="",namespace="puppetserver-enableit",resource_name="code-claim",resource_type="pvc"}'
+        values: '0x6'
+    alert_rule_test:
+      - alertname: VeleroBackupMissing
+        eval_time: 6m
+        exp_alerts:
+          - exp_labels:
+              alertname: VeleroBackupMissing
+              severity: critical
+              namespace: puppetserver-enableit
+              resource_name: code-claim
+              resource_type: pvc
+            exp_annotations:
+              summary: 'Velero backup missing'
+              description: 'No backup found for puppetserver-enableit/code-claim (pvc, method: )'

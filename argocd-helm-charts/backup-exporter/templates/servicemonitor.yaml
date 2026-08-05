@@ -13,6 +13,12 @@ spec:
     - interval: {{ .Values.serviceMonitor.interval }}
       port: http
       path: /metrics
+      # The exporter's own "namespace" label (the app/PVC being reported on)
+      # otherwise collides with the one Prometheus injects from the scrape
+      # target (this pod's own namespace) and gets renamed to
+      # "exported_namespace". honorLabels keeps the scraped value instead, so
+      # every PrometheusRule can just match on "namespace" directly.
+      honorLabels: true
   selector:
     matchLabels:
       {{- include "backup-exporter.selectorLabels" . | nindent 6 }}
