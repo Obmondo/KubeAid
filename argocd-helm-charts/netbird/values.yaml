@@ -141,7 +141,7 @@ netbird:
         - --single-account-mode-domain=vpn.example.com
         - --dns-domain=netbird.selfhosted
     image:
-      tag: 0.74.6
+      tag: 0.76.1
     persistentVolume:
       enabled: false
     envFromSecret:
@@ -188,7 +188,7 @@ netbird:
 
   signal:
     image:
-      tag: 0.74.6
+      tag: 0.76.1
     service:
       annotations:
         traefik.ingress.kubernetes.io/service.serversscheme: h2c
@@ -207,7 +207,7 @@ netbird:
 
   relay:
     image:
-      tag: 0.74.6
+      tag: 0.76.1
     env:
       NB_LOG_LEVEL: info
       NB_LISTEN_ADDRESS: ":33080"
@@ -230,7 +230,7 @@ netbird:
   dashboard:
     enabled: true
     image:
-      tag: v2.90.4
+      tag: v2.90.9
     envFromSecret:
       AUTH_CLIENT_ID: netbird/idpClientID
       AUTH_AUDIENCE: netbird/idpClientID
