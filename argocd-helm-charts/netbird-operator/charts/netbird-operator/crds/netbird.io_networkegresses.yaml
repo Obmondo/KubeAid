@@ -4,14 +4,14 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: clusterproxies.netbird.io
+  name: networkegresses.netbird.io
 spec:
   group: netbird.io
   names:
-    kind: ClusterProxy
-    listKind: ClusterProxyList
-    plural: clusterproxies
-    singular: clusterproxy
+    kind: NetworkEgress
+    listKind: NetworkEgressList
+    plural: networkegresses
+    singular: networkegress
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -24,7 +24,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: ClusterProxy is the Schema for the clusterproxies API
+        description: NetworkEgress is the Schema for the networkegresses API.
         properties:
           apiVersion:
             description: |-
@@ -44,66 +44,90 @@ spec:
           metadata:
             type: object
           spec:
-            description: ClusterProxySpec defines the desired state of ClusterProxy.
+            description: NetworkEgressSpec defines the desired state of NetworkEgress.
             properties:
-              apiServer:
-                default: https://kubernetes.default.svc.cluster.local/
-                description: APIServer is the URL of the Kubernetes API server to
-                  proxy requests to.
-                type: string
-              clusterName:
-                description: ClusterName is the name of the Kubernetes cluster.
-                type: string
+              networkRouterRef:
+                description: NetworkRouterRef is a reference to the network and router
+                  where the resource will be created.
+                properties:
+                  name:
+                    description: Name of the referent.
+                    type: string
+                  namespace:
+                    description: Namespace of the referent.
+                    type: string
+                required:
+                - name
+                - namespace
+                type: object
                 x-kubernetes-validations:
                 - message: Value is immutable
                   rule: self == oldSelf
-              groups:
-                description: Groups are references to groups that the peer will be
-                  a part of.
+              ports:
+                description: Ports to the resource to route.
                 items:
                   properties:
-                    id:
-                      description: ID is the id of the group.
-                      type: string
-                    localRef:
-                      description: LocalReference is a reference to a group in the
-                        same namespace.
-                      properties:
-                        name:
-                          default: ""
-                          description: |-
-                            Name of the referent.
-                            This field is effectively required, but due to backwards compatibility is
-                            allowed to be empty. Instances of this type with an empty value here are
-                            almost certainly wrong.
-                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          type: string
-                      type: object
-                      x-kubernetes-map-type: atomic
                     name:
-                      description: Name is the name of the group.
+                      description: Name of the port.
+                      maxLength: 15
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                       type: string
+                    port:
+                      description: The port that will be exposed by this service.
+                      format: int32
+                      maximum: 65535
+                      minimum: 1
+                      type: integer
+                  required:
+                  - name
+                  - port
                   type: object
-                  x-kubernetes-validations:
-                  - message: Exactly one of id, name, or localRef must be set
-                    rule: (has(self.id)?1:0)+(has(self.name)?1:0)+(has(self.localRef)?1:0)==1
+                minItems: 1
                 type: array
-              serviceAccountName:
-                description: ServiceAccountName is a reference to the service account
-                  used for impersonation.
-                type: string
+              target:
+                description: Target for egress traffic.
+                properties:
+                  fqdn:
+                    description: FQDN targets an exact domain name (no wildcards).
+                    properties:
+                      hostname:
+                        description: Hostname is a fully qualified domain name to
+                          match exactly.
+                        pattern: ^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$
+                        type: string
+                    required:
+                    - hostname
+                    type: object
+                  ip:
+                    description: IP targets a single specific IP address (not a CIDR
+                      range).
+                    properties:
+                      address:
+                        description: Address is a single IP address.
+                        type: string
+                        x-kubernetes-validations:
+                        - message: address must be a valid IPv4 or IPv6 address
+                          rule: isIP(self)
+                    required:
+                    - address
+                    type: object
+                type: object
+                x-kubernetes-validations:
+                - message: exactly one of ip or fqdn must be set
+                  rule: '(has(self.ip) ? 1 : 0) + (has(self.fqdn) ? 1 : 0) == 1'
             required:
-            - apiServer
-            - clusterName
-            - serviceAccountName
+            - networkRouterRef
+            - ports
+            - target
             type: object
           status:
             default:
               observedGeneration: -1
-            description: ClusterProxyStatus defines the observed state of ClusterProxy.
+            description: NetworkEgressStatus defines the observed state of NetworkEgress.
             properties:
               conditions:
-                description: Conditions holds the conditions for the ClusterProxy.
+                description: Conditions holds the conditions for the NetworkEgress.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
