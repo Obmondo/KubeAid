@@ -7,12 +7,12 @@ images:
   # etcd image to use
   etcdWrapper:
     repository: europe-docker.pkg.dev/gardener-project/public/gardener/etcd-wrapper
-    tag: latest
+    tag: v0.8.0
     pullPolicy: IfNotPresent
   # etcd-backup-restore image to use
   etcdBackupRestore:
     repository: europe-docker.pkg.dev/gardener-project/public/gardener/etcdbrctl
-    tag: latest
+    tag: v0.43.0
     pullPolicy: IfNotPresent
 
 resources:
