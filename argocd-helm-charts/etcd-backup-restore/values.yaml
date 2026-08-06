@@ -59,6 +59,8 @@ backup:
   # schedule is cron standard schedule to take full snapshots.
   schedule: "0 */1 * * *"
 
+  storePrefix: etcd
+
   # deltaSnapshotPeriod is Period after which delta snapshot will be persisted. If this value is set to be lesser than 1 second, delta snapshotting will be disabled.
   deltaSnapshotPeriod: "60s"
   # deltaSnapshotMemoryLimit is memory limit in bytes after which delta snapshots will be taken out of schedule.
