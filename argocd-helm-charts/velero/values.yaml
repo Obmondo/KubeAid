@@ -8,10 +8,20 @@ schedule:
   excludedResources:
     - workloadconfigurationscansummaries.spdx.softwarecomposition.kubescape.io
 skipVolumePolicies:
+  # rabbitmq: covers both the plain "app" label some deployments use and the
+  # app.kubernetes.io/name label the Bitnami/helm chart sets.
   - app: rabbitmq
+  - app.kubernetes.io/name: rabbitmq
+  # redis: redis_setup_type covers the enableit redis chart; the Bitnami
+  # chart (e.g. kube-prometheus-stack's Redis) never sets that label at all,
+  # only app.kubernetes.io/name.
   - redis_setup_type: cluster
   - redis_setup_type: standalone
+  - app.kubernetes.io/name: redis
+  # mongodb: replica-set and community operator deployments label
+  # differently ("...-replica-set-svc" vs "...-community-svc").
   - app: mongodb-replica-set-svc
+  - app: mongodb-community-svc
   - app.kubernetes.io/name: opensearch
   - app.kubernetes.io/managed-by: cloudnative-pg
 velero:
