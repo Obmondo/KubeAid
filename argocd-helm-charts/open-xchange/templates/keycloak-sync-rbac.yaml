@@ -1,0 +1,45 @@
+{{- if .Values.appsuite.keycloakSync.enabled }}
+{{- $sync := .Values.appsuite.keycloakSync }}
+# ServiceAccount the CronJob runs as. Only needed for the mail-backend side
+# (kubectl exec into the mail pod for mailbox provisioning) — OX user
+# provisioning itself goes over OX's own SOAP admin API now, not kubectl exec,
+# so no RBAC is needed against the OX namespace at all.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}-keycloak-sync
+  namespace: {{ .Release.Namespace }}
+{{- if $sync.mailProvisioning.enabled }}
+---
+# Cross-namespace RBAC (a RoleBinding can reference a ServiceAccount from
+# elsewhere, it just can't be created in that other namespace by this
+# release). Lets the job exec into the mail pod to run `setup email add` —
+# there's no SOAP/REST equivalent for Dovecot mailbox creation.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Release.Name }}-keycloak-sync
+  namespace: {{ required "appsuite.keycloakSync.mailProvisioning.namespace is required when mailProvisioning is enabled" $sync.mailProvisioning.namespace }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list", "get"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Release.Name }}-keycloak-sync
+  namespace: {{ $sync.mailProvisioning.namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ .Release.Name }}-keycloak-sync
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Release.Name }}-keycloak-sync
+    namespace: {{ .Release.Namespace }}
+{{- end }}
+{{- end }}
