@@ -1,0 +1,230 @@
+images:
+  # Image to use for changing backup bucket permissions
+  changeBackupBucketPermissions:
+    repository: europe-docker.pkg.dev/gardener-project/public/3rd/alpine
+    tag: 3.20.3
+    pullPolicy: IfNotPresent
+  # etcd image to use
+  etcdWrapper:
+    repository: europe-docker.pkg.dev/gardener-project/public/gardener/etcd-wrapper
+    tag: latest
+    pullPolicy: IfNotPresent
+  # etcd-backup-restore image to use
+  etcdBackupRestore:
+    repository: europe-docker.pkg.dev/gardener-project/public/gardener/etcdbrctl
+    tag: latest
+    pullPolicy: IfNotPresent
+
+resources:
+  etcd:
+    limits:
+      cpu: 100m
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  backup:
+    limits:
+      cpu: 100m
+      memory: 1Gi
+    requests:
+      cpu: 23m
+      memory: 128Mi
+
+servicePorts:
+  etcd:
+    client: 2379
+    peer: 2380
+  etcdBackupRestore:
+    server: 8080
+  etcdWrapper:
+    server: 9095
+
+storageCapacity: 20Gi
+
+# autoCompaction defines the specification to be used by Etcd as well as by embedded-Etcd of backup-restore sidecar during restoration.
+# auto-compaction mode for etcd and embedded-Etcd: 'periodic' mode or 'revision' mode.
+# auto-compaction retention length for etcd as well as for  embedded-Etcd of backup-restore sidecar.
+autoCompaction:
+  mode: periodic
+  retentionLength: "30m"
+
+replicas: 1
+
+# memberNamePrefix is an optional prefix prepended to the pod name to form the etcd member name.
+# When set, the member name becomes "<memberNamePrefix>-<pod-name>".
+memberNamePrefix: ""
+
+backup:
+  # schedule is cron standard schedule to take full snapshots.
+  schedule: "0 */1 * * *"
+
+  # deltaSnapshotPeriod is Period after which delta snapshot will be persisted. If this value is set to be lesser than 1 second, delta snapshotting will be disabled.
+  deltaSnapshotPeriod: "60s"
+  # deltaSnapshotMemoryLimit is memory limit in bytes after which delta snapshots will be taken out of schedule.
+  deltaSnapshotMemoryLimit: 104857600 #100MB
+
+  # defragmentationSchedule is schedule on which the etcd data will defragmented. Value should follow standard cron format.
+  defragmentationSchedule: "0 0 */3 * *"
+
+  # garbageCollectionPolicy mentions the policy for garbage collecting old backups. Allowed values are Exponential(default), LimitBased.
+  garbageCollectionPolicy: Exponential
+  # maxBackups is the maximum number of backups to keep (may change in future). This is honoured only in the case when garbageCollectionPolicy is set to LimitBased.
+  maxBackups: 7
+  # garbageCollectionPeriod is the time period after which old snapshots are periodically garbage-collected
+  garbageCollectionPeriod: "1m"
+
+  etcdConnectionTimeout: "5m"
+  etcdSnapshotTimeout: "8m"
+  etcdDefragTimeout: "8m"
+  # etcdQuotaBytes used to Raise alarms when backend DB size exceeds the given quota bytes
+  etcdQuotaBytes: 8589934592 #8GB
+
+  # storageContainer is name of the container or bucket name used for storage.
+  # Directory name in case of local storage provider.
+  storageContainer: "etcd-bucket"
+
+  # storageProvider indicate the type of backup storage provider.
+  # Supported values are ABS,GCS,S3,Swift,OSS,OCS,ECS,Local, empty means no backup.
+  storageProvider: ""
+
+  # endpoint that will be used to override the default endpoint of the storage provider
+  # endpointOverride: ""
+
+  # compression defines the specification to compress the snapshots(full as well as delta).
+  # it only supports 3 compression Policy: gzip(default), zlib, lzw.
+  compression:
+    enabled: true
+    policy: "gzip"
+  leaderElection:
+    etcdConnectionTimeout: 5s
+    reelectionPeriod: 5s
+
+  # Please uncomment the following section based on the storage provider.
+  # local:
+  #   path: "/etc/local-backupbuckets"
+  # s3:
+  #   region: region-where-bucket-exists
+  #   secretAccessKey: secret-access-key-with-object-storage-privileges
+  #   accessKeyID: access-key-id-with-route53-privileges
+  #   endpoint: endpoint-override-for-s3 # optional
+  #   s3ForcePathStyle: "true" # optional
+  #   sseCustomerKey: aes-256-sse-customer-key # optional
+  #   sseCustomerAlgorithm: aes-256-sse-customer-algorithm # optional
+  #   roleARN: arn:aws:iam::123456789012:role/role-name
+  # gcs:
+  #   serviceAccountJson: service-account-json-with-object-storage-privileges
+  #   credentialsConfig:
+  #     universe_domain: "googleapis.com"
+  #     type: "external_account"
+  #     audience: "//iam.googleapis.com/projects/<project_number>/locations/global/workloadIdentityPools/<pool_name>/providers/<provider_name>"
+  #     subject_token_type: "urn:ietf:params:oauth:token-type:jwt"
+  #     token_url: "https://sts.googleapis.com/v1/token"
+  #     service_account_impersonation_url: "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/<service_account_email>:generateAccessToken" # optional
+  #   projectID: project
+  #   storageAPIEndpoint: endpoint-override-for-storage-api # optional
+  #   emulatorEnabled: boolean-flag-to-configure-etcdbr-to-use-gcs-emulator # optional
+  # abs:
+  #   storageAccount: storage-account-with-object-storage-privileges
+  #   storageKey: storage-key-with-object-storage-privileges
+  #   domain: non-default-domain-for-object-storage-service # optional
+  #   emulatorEnabled: boolean-float-to-enable-e2e-tests-to-use-azure-emulator # optional
+  # swift:
+  #   authURL: identity-server-url
+  #   domainName: domain-name
+  #   username: username-with-object-storage-privileges
+  #   password: password
+  #   tenantName: tenant-name
+  #   regionName: region-name
+  # oss:
+  #   endpoint: oss-endpoint-url
+  #   accessKeySecret: secret-access-key-with-object-storage-privileges
+  #   accessKeyID: access-key-id-with-object-storage-privileges
+  # ecs:
+  #   endpoint: ecs-endpoint-url
+  #   secretAccessKey: secret-access-key-with-object-storage-privileges
+  #   accessKeyID: access-key-id-with-object-storage-privileges
+  #   disableSsl: "false"         # optional
+  #   insecureSkipVerify: "false" # optional
+  # ocs:
+  #   accessKeyID: access-key-id-with-object-storage-privileges
+  #   secretAccessKey: secret-access-key-with-object-storage-privileges
+  #   endpoint: ocs-endpoint-url
+  #   region: region-name
+  tokenAuth:
+    enabled: false
+    audience: aud
+    expirationSeconds: 3600
+
+# etcdAuth field contains the pre-created username-password pair
+# for etcd. Comment this whole section if you dont want to use
+# password-based authentication for the etcd.
+etcdAuth: {}
+  # username: username
+  # password: password
+
+tls:
+  etcd: {}
+    # ca: |
+    #     -----BEGIN CERTIFICATE-----
+    #     ...
+    #     -----END CERTIFICATE-----
+    # server:
+    #   crt: |
+    #       -----BEGIN CERTIFICATE-----
+    #       ...
+    #       -----END CERTIFICATE-----
+    #   key: |
+    #       -----BEGIN PRIVATE KEY-----
+    #       ...
+    #       -----END PRIVATE KEY-----
+    # client:
+    #   crt: |
+    #       -----BEGIN CERTIFICATE-----
+    #       ...
+    #       -----END CERTIFICATE-----
+    #   key: |
+    #       -----BEGIN PRIVATE KEY-----
+    #       ...
+    #       -----END PRIVATE KEY-----
+    # peer:
+    #   ca: |
+    #     -----BEGIN CERTIFICATE-----
+    #     ...
+    #     -----END CERTIFICATE-----
+    #   server:
+    #     crt: |
+    #         -----BEGIN CERTIFICATE-----
+    #         ...
+    #         -----END CERTIFICATE-----
+    #     key: |
+    #         -----BEGIN PRIVATE KEY-----
+    #         ...
+    #         -----END PRIVATE KEY-----
+  # # etcdBackupRestore field contains the pre-created secrets for backup-restore server.
+  # # Comment this whole section if you dont want to use tls for the backup-restore server.
+  etcdBackupRestore: {}
+    # ca: |
+    #     -----BEGIN CERTIFICATE-----
+    #     ...
+    #     -----END CERTIFICATE-----
+    # server:
+    #   crt: |
+    #       -----BEGIN CERTIFICATE-----
+    #       ...
+    #       -----END CERTIFICATE-----
+    #   key: |
+    #       -----BEGIN PRIVATE KEY-----
+    #       ...
+    #       -----END PRIVATE KEY-----
+    # client:
+    #   crt: |
+    #       -----BEGIN CERTIFICATE-----
+    #       ...
+    #       -----END CERTIFICATE-----
+    #   key: |
+    #       -----BEGIN PRIVATE KEY-----
+    #       ...
+    #       -----END PRIVATE KEY-----
+# podAnnotations that will be passed to the resulting etcd pod
+podAnnotations: {}
