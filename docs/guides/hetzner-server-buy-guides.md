@@ -1,4 +1,3 @@
-
 # Hetzner Bare Metal & HCloud Server Purchasing Guide
 
 This document provides guidance for purchasing Hetzner servers for Kubernetes deployments, including recommended hardware,
@@ -26,7 +25,6 @@ For **bare metal clusters**, we recommend:
 
 * **Single server setup**: One node (suitable for testing or small deployments).
 * **High-availability setup**: 3 control plane nodes + 3 worker nodes for redundancy.
-(we recommend running the control plane on VMs to save on resources and cost).
 
 ### Best Practices
 
@@ -67,19 +65,35 @@ For **bare metal clusters**, we recommend:
 
 ## 3. HCloud Server Recommendations
 
-* **Control Plane Node**: CAX11 (2 vCPU, 4 GB RAM, 40 GB storage, ~4€/month)
-* **Worker Node**: CAX41 (16 vCPU, 32 GB RAM, 320 GB storage, ~23€/month)
+* **Control Plane Node**: CAX11 (2 vCPU, 4 GB RAM, 40 GB storage, 5.99€/month)
+* **Worker Node**: CAX41 (16 vCPU, 32 GB RAM, 320 GB storage, 40.99€/month)
+
+Add 0.50€/month per node for the IPv4 address. Prices are list, as of the
+[15 June 2026 adjustment](https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/).
+Hetzner changed prices three times in the first half of 2026, so re-check that page before you quote a total.
 
 ### Important Notes
 
 * HCloud nodes have a **limit of 16 volumes per node**.
 * Volume attachment is subject to **location limitations per country**, so plan accordingly.
 
+### Outbound Traffic
+
+Traffic is usually the largest hidden cost difference against a hyperscaler, so budget it explicitly:
+
+* HCloud servers in **Germany and Finland include 20 TB outbound per server per month**, pooled across the project.
+* **US locations include roughly 1 TB**, and **Singapore as little as 0.5 TB**, so the same cluster costs
+  materially more outside the EU.
+* Overage is **€1/TB** in the EU locations and **€7.40/TB** in Singapore.
+* The allowance is fair use, not a contract. It pools across the project rather than guaranteeing headroom
+  to one hot node.
+* Bare metal servers are sold with unlimited traffic on the standard 1 Gbit uplink.
+
 ---
 
-## 4. Hybrid Cluster  (Recommended setup)
+## 4. Hybrid Cluster (Recommended setup)
 
-* **Control Plane**: CAX11 HCloud server (~4€/month)
+* **Control Plane**: CAX11 HCloud server (5.99€/month, plus 0.50€ for the IPv4)
 * **Worker Node**: Bare Metal
 
   * RAM: 4 × 16384 MB DDR4
@@ -96,7 +110,7 @@ For **bare metal clusters**, we recommend:
 | Layout            | Nodes                                               | Storage       | RAM           | Notes                               |
 | ----------------- | --------------------------------------------------- | ------------- | ------------- | ----------------------------------- |
 | Single Bare Metal | 1 node                                              | 2 × 1 TB NVMe | 4 × 16 GB     | Small/test cluster                  |
-| HA Bare Metal     | 3 control + 3 worker                                | 2 × 10 TB HDD | 4 × 16 GB     | Production with redundancy          |
+| HA Bare Metal     | 3 control + 3 worker                                | 2 × 1 TB NVMe | 4 × 16 GB     | Production with redundancy          |
 | All HCloud        | 3 control (CAX11) + 3 worker (CAX41)                | CAX41 default | CAX41 default | Cloud cluster with scaling          |
 | Hybrid            | 1 or 3 control (CAX11) + 1 or 3 worker (bare metal) | 2 × 1 TB NVMe | 4 × 16 GB     | Internal high-performance workloads |
 
