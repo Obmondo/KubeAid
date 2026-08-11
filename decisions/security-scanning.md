@@ -83,7 +83,7 @@ A Critical in an image where upstream has already shipped a fix is a pull reques
 
 So the alert we ship fires on the intersection, not on Trivy alone:
 
-```
+```text
 ImageOutdatedAndVulnerable = fixable Critical/High CVEs  AND  newer tag exists upstream
 ```
 
