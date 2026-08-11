@@ -118,6 +118,9 @@ IT has.
 We are working on documenting each of the decisions we've made and why:
 
 - [GitOps](decisions/gitops.md) - Why Gitops with Argocd and not Pulimi, Terraform or Ansible?
+- [Security Scanning](decisions/security-scanning.md) - Why one tool per security layer - Trivy over Kubescape,
+  Tetragon over KubeArmor, Kyverno plus in-tree ValidatingAdmissionPolicy - and what each produces as compliance
+  evidence.
 - *[RemoteAccess](decisions/remoteaccess.md) - How to access services you do not want open to the internet -
   VPN, SSH etc.* (Upcoming)
 - *[Ingress](decisions/ingress.md) - How to ingest traffic - with safety and reliability.* (Upcoming)
