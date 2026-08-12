@@ -2,7 +2,7 @@
 terraform {
   required_providers {
     azurerm = {
-      version = ">= 2.75.0"
+      version = "~> 3.100"
     }
 
     kubernetes = {

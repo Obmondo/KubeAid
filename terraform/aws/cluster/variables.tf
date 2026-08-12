@@ -78,7 +78,7 @@ variable "kops_state_bucket_name" {
 variable "kubernetes_version" {
   type        = string
   description = "K8s cluster version"
-  default     = "1.22.8"
+  default     = "1.28.7"
 }
 
 variable "tags" {
