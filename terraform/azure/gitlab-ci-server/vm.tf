@@ -17,9 +17,8 @@ resource "azurerm_linux_virtual_machine" "vm-gitlab" {
   ]
 
   admin_username = "ubuntu"
-  admin_password = "Testing@123"
 
-  disable_password_authentication = false
+  disable_password_authentication = true
   
   admin_ssh_key {
     username   = "ubuntu"

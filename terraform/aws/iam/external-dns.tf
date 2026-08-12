@@ -72,7 +72,7 @@ resource "aws_iam_policy" "external-dns" {
 
 resource "aws_iam_role_policy_attachment" "external-dns-attachment" {
   role       = aws_iam_role.external-dns.name
-  policy_arn = aws_iam_policy.kube2iam.arn
+  policy_arn = aws_iam_policy.external-dns.arn
 }
 
 resource "aws_iam_role_policy_attachment" "external-dns-attachment2" {
