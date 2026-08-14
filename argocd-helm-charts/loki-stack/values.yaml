@@ -1,35 +1,110 @@
-loki-stack:
-  test_pod:
-    enabled: false
-    image: bats/bats:1.8.2
-    pullPolicy: IfNotPresent
+# KubeAid defaults for Grafana Loki.
+#
+# Loki is deployed in Monolithic (single binary) mode backed by a PVC. That is the
+# right shape for a single cluster ingesting up to a few tens of GB/day. For larger
+# installs switch deploymentMode to SimpleScalable or Distributed and point
+# loki.storage at object storage (S3, GCS, Azure Blob, or an in-cluster MinIO /
+# Garage / Rook Ceph RGW bucket) - those modes require object storage.
+#
+# This chart ships Loki only. Pick your own log shipper (fluent-bit,
+# opentelemetry-operator) and point it at the gateway service.
+loki:
+  enabled: true
+
+  deploymentMode: Monolithic
 
   loki:
-    enabled: true
-    isDefault: true
-    url: http://{{(include "loki.serviceName" .)}}:{{ .Values.loki.service.port }}
-    image:
-      tag: 2.9.15
+    # Single tenant. Turn this on only if you also make every client send a
+    # X-Scope-OrgID header, otherwise all writes and reads will be rejected.
+    auth_enabled: false
+
+    # Monolithic mode runs a single Loki instance, so there is nowhere to
+    # replicate to. The chart default of 3 will not start.
+    commonConfig:
+      replication_factor: 1
+
+    # tsdb + v13 is the current index and schema version. Never edit an existing
+    # entry, its `from` date is what the already written index is stored under.
+    # To change anything, append a new entry with a future date.
+    schemaConfig:
+      configs:
+        - from: "2024-04-01"
+          store: tsdb
+          object_store: filesystem
+          schema: v13
+          index:
+            prefix: loki_index_
+            period: 24h
+
+    storage:
+      type: filesystem
+
+    limits_config:
+      reject_old_samples: true
+      reject_old_samples_max_age: 168h
+      max_cache_freshness_per_query: 10m
+      split_queries_by_interval: 15m
+      query_timeout: 300s
+      volume_enabled: true
+      # 30 days. Enforced by the compactor, see structuredConfig below.
+      retention_period: 720h
+
+    # The compactor is what actually deletes chunks once retention_period passes.
+    # Without retention_enabled the PVC just grows forever.
+    structuredConfig:
+      compactor:
+        retention_enabled: true
+        delete_request_store: filesystem
+
+  singleBinary:
+    # Chart default is 0, which deploys a StatefulSet with no pods.
+    replicas: 1
     persistence:
       enabled: true
-    readinessProbe:
-      httpGet:
-        path: /ready
-        port: http-metrics
-      initialDelaySeconds: 45
-    livenessProbe:
-      httpGet:
-        path: /ready
-        port: http-metrics
-      initialDelaySeconds: 45
-    datasource:
-      jsonData: "{}"
-      uid: ""
+      size: 50Gi
+      # Leave unset to use the cluster's default StorageClass.
+      # storageClass: null
 
-  promtail:
+  # SimpleScalable targets. They default to 3 replicas each upstream, which
+  # collides with the monolithic target, so zero them out here.
+  write:
+    replicas: 0
+  read:
+    replicas: 0
+  backend:
+    replicas: 0
+
+  # Nginx in front of Loki. Gives log shippers and Grafana one endpoint to talk to:
+  # http://<release>-gateway.<namespace>.svc.cluster.local
+  gateway:
     enabled: true
-    config:
-      logLevel: info
-      serverPort: 3101
-      clients:
-        - url: http://{{ .Release.Name }}:3100/loki/api/v1/push
+    replicas: 1
+
+  # Memcached chunk and query result caches. They add two more workloads and ask
+  # for a lot of memory, which is not worth it at monolithic scale. Enable these
+  # when you move to SimpleScalable or Distributed.
+  chunksCache:
+    enabled: false
+  resultsCache:
+    enabled: false
+
+  # Synthetic log producer used to self-test the install, plus the helm test hook.
+  # Neither is wanted in a GitOps managed cluster.
+  lokiCanary:
+    enabled: false
+  test:
+    enabled: false
+
+  # Loki ships its own MinIO subchart for object storage. KubeAid has dedicated
+  # charts for that (minio, garage, rook-ceph), use one of those instead.
+  minio:
+    enabled: false
+
+  monitoring:
+    # Requires kube-prometheus (the Prometheus Operator CRDs) in the cluster.
+    serviceMonitor:
+      enabled: false
+    rules:
+      enabled: false
+    dashboards:
+      enabled: false
