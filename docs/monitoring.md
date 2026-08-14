@@ -3,7 +3,7 @@
 KubeAid monitoring has two layers:
 
 1. **Metrics** - `kube-prometheus` (Prometheus, Alertmanager, Grafana)
-2. **Logs** - one of OpenObserve, Graylog, or OpenSearch + Kibana
+2. **Logs** - one of OpenObserve, Loki, Graylog, or OpenSearch + Kibana
 
 Per-stack setup and operations are documented in each application's Helm chart README (linked below).
 
@@ -45,6 +45,7 @@ its own - none of them replace Prometheus for metrics.
 | Option | Scope | Log collection | Prometheus integration | Application docs |
 | ------ | ----- | -------------- | ---------------------- | ---------------- |
 | OpenObserve | Logs, metrics, and alerts | OpenTelemetry (`OTLP`) | Pulls metrics and alerts from Prometheus; alerts on logs | [openobserve](../argocd-helm-charts/openobserve/README.md) |
+| Loki | Logs only | Fluent Bit, OpenTelemetry Collector, Grafana Alloy, Promtail | Queried from the same Grafana as Prometheus; optional ServiceMonitor | [loki-stack](../argocd-helm-charts/loki-stack/README.md) |
 | Graylog | Logs only | Fluent Bit, Fluentd, Beats, Syslog, GELF, etc. | None (metrics stay in kube-prometheus) | [graylog](../argocd-helm-charts/graylog/README.md) |
 | OpenSearch + Kibana | Logs only (ELK-style) | Fluent Bit, Fluentd, OpenTelemetry Collector, etc. | None (metrics stay in kube-prometheus) | [opensearch](../argocd-helm-charts/opensearch/README.md), [opensearch-dashboards](../argocd-helm-charts/opensearch-dashboards/charts/opensearch-dashboards/README.md) |
 
@@ -55,6 +56,15 @@ metrics and alerts from Prometheus, and provide log-based search and alerting.
 
 - [OpenObserve Helm chart](../argocd-helm-charts/openobserve/README.md)
 - [OpenObserve Collector reference](../argocd-helm-charts/openobserve/charts/openobserve-collector/docs/README.md)
+
+### Loki
+
+Loki indexes labels rather than log content, which keeps it cheap to run, and it is queried with LogQL from the
+same Grafana that already serves your Prometheus dashboards. That shared query surface is the main reason to pick
+it. Logs are pushed to Loki by Fluent Bit, the OpenTelemetry Collector, Grafana Alloy, or any client that speaks
+the Loki push API.
+
+- [Loki Helm chart](../argocd-helm-charts/loki-stack/README.md)
 
 ### Graylog
 
@@ -81,6 +91,7 @@ flowchart LR
 
     subgraph Logs["Log stack (one of)"]
         OO["OpenObserve"]
+        LK["Loki"]
         GL["Graylog"]
         OSD["OpenSearch + Dashboards"]
     end
@@ -90,16 +101,19 @@ flowchart LR
     end
 
     Collectors --> OO
+    Collectors --> LK
     Collectors --> GL
     Collectors --> OSD
     Apps --> Collectors
     Prom -. metrics and alerts .-> OO
+    LK -. queried from .-> Graf["Grafana"]
+    Prom -. queried from .-> Graf
 ```
 
 ## Alerting strategy
 
 - **Metric alerts** - Prometheus rules evaluated by Prometheus, routed by Alertmanager
-- **Log alerts** - evaluated by the log stack (OpenObserve, Graylog, or OpenSearch)
+- **Log alerts** - evaluated by the log stack (OpenObserve, Loki, Graylog, or OpenSearch)
 
 Metrics tell you that something is unhealthy; logs help explain why.
 

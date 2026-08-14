@@ -1,6 +1,6 @@
 apiVersion: v2
 name: loki-stack
-description: A Helm chart for Kubernetes
+description: Grafana Loki for log aggregation
 # A chart can be either an 'application' or a 'library' chart.
 #
 # Application charts are a collection of templates that can be packaged into versioned archives
@@ -10,21 +10,21 @@ description: A Helm chart for Kubernetes
 # a dependency of application charts to inject those utilities and functions into the rendering
 # pipeline. Library charts do not define any templates and therefore cannot be deployed.
 type: application
-# Deprecated: KubeAid standardizes logs on OpenTelemetry Collector -> OpenObserve.
-# See README.md and docs/monitoring.md.
-deprecated: true
 # This is the chart version. This version number should be incremented each time you make changes
 # to the chart and its templates, including the app version.
 # Versions are expected to follow Semantic Versioning (https://semver.org/)
-version: 0.1.1
+version: 1.0.0
 # This is the version number of the application being deployed. This version number should be
 # incremented each time you make changes to the application. Versions are not expected to
 # follow Semantic Versioning. They should reflect the version the application is using.
 # It is recommended to use it with quotes.
-appVersion: "1.0.0"
+appVersion: "3.7.6"
 dependencies:
-  - name: loki-stack
-    alias: loki-stack
-    version: "2.10.3"
-    repository: "https://grafana.github.io/helm-charts"
-    condition: loki-stack.enabled
+  # The old grafana/loki-stack chart is deprecated and unmaintained upstream. The
+  # community-maintained grafana-community/loki chart is the supported replacement.
+  # helm repo update does not support OCI, so version bumps here are done manually
+  # and pulled with helm dependency update.
+  - name: loki
+    version: "18.8.1"
+    repository: "oci://ghcr.io/grafana-community/helm-charts"
+    condition: loki.enabled

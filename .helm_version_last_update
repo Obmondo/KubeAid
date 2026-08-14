@@ -54,7 +54,6 @@
 2026-07-21 3.8.2 kyverno
 2026-07-21 0.6.14 lemmy
 2026-07-21 4.5.1 localpv-provisioner
-2026-07-21 2.10.3 loki-stack
 2026-07-21 26.6.0 mariadb-operator
 2026-07-21 11.0.0 matomo
 2026-07-21 1.0.5 mattermost-operator
@@ -109,3 +108,4 @@
 2026-07-21 1.0.196 yetibot
 2026-07-21 2.10.1 zfs-localpv
 2026-07-09 5.1.1 docker-mailserver
+2026-08-14 18.8.1 loki

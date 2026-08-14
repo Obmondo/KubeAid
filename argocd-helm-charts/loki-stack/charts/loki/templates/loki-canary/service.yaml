@@ -1,0 +1,28 @@
+{{- if .Values.lokiCanary.enabled -}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "loki.resourceName" (dict "ctx" . "component" "canary") }}
+  namespace: {{ include "loki.namespace" $ }}
+  labels:
+    {{- include "loki.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: canary
+    {{- with .Values.lokiCanary.service.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.lokiCanary.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: http-metrics
+      port: 3500
+      targetPort: http-metrics
+      protocol: TCP
+  selector:
+    {{- include "loki.selectorLabels" $ | nindent 4 }}
+    app.kubernetes.io/component: canary
+{{- end -}}
