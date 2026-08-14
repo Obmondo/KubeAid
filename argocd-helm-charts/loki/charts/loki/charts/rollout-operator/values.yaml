@@ -1,0 +1,187 @@
+# Default values for rollout-operator.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+
+global:
+  # -- Common labels for all object directly managed by this chart.
+  commonLabels: {}
+
+# -- Number of old ReplicaSets to retain
+revisionHistoryLimit: 10
+
+image:
+  repository: grafana/rollout-operator
+  registry: docker.io
+  pullPolicy: IfNotPresent
+  # -- Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+
+# -- hostAliases to add
+hostAliases: []
+#  - ip: 1.2.3.4
+#    hostnames:
+#      - domain.tld
+
+# -- Enable or disable the use of host networking for the pod.
+# When true, the pod will use the node's network namespace
+hostNetwork: false
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # -- Specifies whether a service account should be created
+  create: true
+  # -- Annotations to add to the service account
+  annotations: {}
+  # -- The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+## CRD management.
+## rollout-operator always requires its CRDs (ReplicaTemplate, NoDownscale) to
+## be present in the cluster — the operator will not start without them. This
+## flag controls only whether *this chart* installs them via the bundled
+## `crds` subchart.
+##
+## Leave `enabled: true` (default) for standalone installs.
+##
+## Set `enabled: false` only when CRDs are managed out of band, for example:
+##   * a single shared rollout-operator instance owns the CRDs cluster-wide
+##     and other releases should not contend with them;
+##   * CRDs are reconciled by a GitOps controller, an umbrella chart, or a
+##     separate Helm release dedicated to CRDs;
+##   * cluster RBAC forbids the release's service account from creating CRDs.
+## In all of these cases you are responsible for ensuring the CRDs exist
+## before installing/upgrading this chart.
+crds:
+  # -- Install CRDs as part of the chart (via the bundled `crds` subchart).
+  # Set to `false` only when CRDs are managed out of band — see the comment
+  # above for guidance.
+  enabled: true
+
+# -- Additional annotations to add to the deployment
+annotations: {}
+
+# -- Pod Annotations
+podAnnotations: {}
+
+# -- Pod (extra) Labels
+podLabels: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+# -- List of additional CLI arguments to configure rollout-operator (example: `--log.level=info`)
+extraArgs: []
+
+# -- Environment variables to add to rollout-operator container
+extraEnv: []
+
+# -- Environment variables from secrets or configmaps to add to rollout-operator container
+extraEnvFrom: []
+
+resources:
+  limits:
+    # cpu: "1"
+    memory: 200Mi
+  requests:
+    cpu: 100m
+    memory: 100Mi
+
+minReadySeconds: 10
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+priorityClassName: ""
+
+serviceMonitor:
+  # -- Create ServiceMonitor to scrape metrics for Prometheus
+  enabled: false
+  # -- Alternative namespace for ServiceMonitor resources
+  namespace: null
+  # -- Namespace selector for ServiceMonitor resources
+  namespaceSelector: {}
+  # -- ServiceMonitor annotations
+  annotations: {}
+  # -- Additional ServiceMonitor labels
+  labels: {}
+  # -- ServiceMonitor scrape interval
+  interval: null
+  # -- ServiceMonitor scrape timeout in Go duration format (e.g. 15s)
+  scrapeTimeout: null
+  # -- ServiceMonitor relabel configs to apply to samples before scraping
+  # https://github.com/prometheus-operator/prometheus-operator/blob/master/Documentation/api.md#relabelconfig
+  relabelings: []
+
+webhooks:
+  # -- Enable the rollout-operator webhooks. See https://github.com/grafana/rollout-operator/#webhooks.
+  # Note that the webhooks require custom resource definitions. If upgrading, manually apply the files in the `crds` directory.
+  enabled: true
+  # -- Timeout in seconds for the prepare-downscale mutating webhook. Must be between 1 and 30.
+  timeoutSeconds: 10
+  # -- Validating and mutating webhook failure policy. `Ignore` or `Fail`.
+  failurePolicy: "Fail"
+  # -- Secret resource name for the TLS certificate to be used with the webhooks
+  selfSignedCertSecretName: "certificate"
+  # -- objectSelector to filter which objects the webhooks apply to.
+  objectSelector: {}
+  # See https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#matching-requests-objectselector
+  # Example:
+  #   objectSelector:
+  #     matchLabels:
+  #       app: loki
+  #     matchExpressions:
+  #       - key: environment
+  #         operator: In
+  #         values:
+  #           - production
+
+# -- Namespace selector applied to all webhooks. Defaults to restricting to the release namespace.
+# See https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#matching-requests-namespaceselector
+namespaceSelector:
+  # Example 1 - matchExpressions only: merged with the default release namespace matchLabels.
+  #   values.yaml:
+  #     matchExpressions:
+  #       - key: team
+  #         operator: NotIn
+  #         values: [team-a]
+  #   renders:
+  #     namespaceSelector:
+  #       matchLabels:
+  #         kubernetes.io/metadata.name: <release-namespace>
+  #       matchExpressions:
+  #         - key: team
+  #           operator: NotIn
+  #           values: [team-a]
+  #
+  # Example 2 - matchLabels set: full selector is user-controlled (matchExpressions also supported).
+  #   values.yaml:
+  #     matchLabels:
+  #       kubernetes.io/metadata.name: logging
+  #   renders:
+  #     namespaceSelector:
+  #       matchLabels:
+  #         kubernetes.io/metadata.name: logging
+  #
+  # Example 3 - set to null: omits namespaceSelector entirely (e.g. when objectSelector alone is sufficient).
+  #   values.yaml:
+  #     namespaceSelector: null
+  #   renders:
+  #     (nothing)
+  matchExpressions: []
