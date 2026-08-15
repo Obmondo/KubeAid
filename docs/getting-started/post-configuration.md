@@ -148,23 +148,25 @@ k8s/<cluster-name>/sealed-secrets/<namespace>/<secret-name>.json
 
 ## Step 6: Configure Updates
 
-To receive feature and security updates for KubeAid:
+Obmondo publishes KubeAid feature and security updates as
+[release tags](https://github.com/Obmondo/KubeAid/releases). How they reach you depends on which repository your
+ArgoCD Applications point at:
 
-### Option A: Automatic Updates (Recommended)
+- **The Obmondo repository directly** (the default): nothing to configure - new release tags are available as soon
+  as they are published.
+- **Your own fork**: pull upstream releases into it yourself:
 
-Grant write access to your repositories to the GitHub user `obmondo-pushupdate-user`.
+  ```bash
+  cd /path/to/your/kubeaid-fork
+  git remote add upstream https://github.com/Obmondo/KubeAid.git
+  git fetch upstream --tags
+  git merge upstream/master
+  git push origin master --tags
+  ```
 
-### Option B: Manual Updates
-
-Pull updates manually from the upstream KubeAid repository:
-
-```bash
-cd /path/to/your/kubeaid-fork
-git remote add upstream https://github.com/Obmondo/KubeAid.git
-git fetch upstream
-git merge upstream/main
-git push origin main
-```
+Either way, a new release tag changes nothing on the cluster by itself - your ArgoCD Applications pin the KubeAid
+repository to a release tag. To roll an update out, bump that pinned tag; see
+[Update KubeAid ArgoCD Apps](../operations/update-kubeaid-argocd-apps.md).
 
 ## Provider-Specific Notes
 

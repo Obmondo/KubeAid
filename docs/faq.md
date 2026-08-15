@@ -20,7 +20,7 @@ Not to get started - the only repository you must create is your own kubeaid-con
 [sample template](https://github.com/Obmondo/kubeaid-config)); the platform repository is consumed from upstream by
 default. Mirroring KubeAid is recommended for production: your cluster's ArgoCD Applications then point at *your*
 mirror, so nothing lands on your cluster that you didn't pull into your own Git first, and updates only arrive when
-you (or an update automation you granted access) update the mirror. Upstream charts are vendored into the
+you update the mirror. Upstream charts are vendored into the
 repository, so what you deploy is exactly what was reviewed - a defence against supply-chain attacks. See
 [Prerequisites](./getting-started/prerequisites.md#git-repositories).
 
@@ -34,12 +34,16 @@ chart values per cluster. See the warning in
 
 ## How do updates reach my cluster?
 
-Obmondo updates the upstream KubeAid repository with new application versions and improvements. You pull those into
-your mirror either automatically (grant write access to the GitHub user `obmondo-pushupdate-user`) or manually with a
-`git fetch upstream && git merge upstream/main`. Once your mirror is updated, ArgoCD notices and marks the affected
-applications `OutOfSync`; you can inspect the exact diff before syncing. See
-[Post-Configuration, Step 6](./getting-started/post-configuration.md#step-6-configure-updates) and, for pinning all
-apps to a specific KubeAid release tag during a service window,
+Obmondo updates the upstream KubeAid repository with new application versions and improvements, published as
+[release tags](https://github.com/Obmondo/KubeAid/releases). Your ArgoCD Applications consume KubeAid either
+directly from the [Obmondo repository](https://github.com/Obmondo/KubeAid) or from your own fork, which you keep in
+sync with `git fetch upstream --tags && git merge upstream/master`. Either way, a new release changes nothing on
+the cluster by itself: every Application pins the KubeAid repository to a specific release tag (`targetRevision`).
+To roll an update out, bump that pinned tag across all apps with
+`bin/update-kubeaid-argocd-app.sh -c <cluster-name> -r <tag>` and push the resulting kubeaid-config change - only
+then does ArgoCD mark the affected applications `OutOfSync`, and you can inspect the exact diff before syncing
+during a service window. See
+[Post-Configuration, Step 6](./getting-started/post-configuration.md#step-6-configure-updates) and
 [Update KubeAid ArgoCD Apps](./operations/update-kubeaid-argocd-apps.md).
 
 ## Is auto-sync enabled - who actually applies changes?
@@ -89,10 +93,12 @@ alongside the metrics stack. See [Monitoring](./monitoring.md) for the full pict
 ## Can KubeAid run air-gapped?
 
 Partially, by design. The repository vendors everything needed to set up (or fully recover) a cluster - charts,
-templates, and configuration - and regular PVC backups are part of the model. Maintaining a mirrored copy of all
-container images and pointing every chart at it is still an open TODO, so image pulls currently need registry
-access; hosting your own registry with [Harbor](./guides/harbor-registry.md) is the documented building block for
-that. See [Features Technical Details](./kubeaid/features-technical-details.md).
+templates, and configuration - and regular PVC backups are part of the model. For container images, the kyverno
+chart ships a `harbor-proxy-cache-mutate` ClusterPolicy that rewrites image references (docker.io, and optionally
+ghcr.io and registry.k8s.io) to your own [Harbor](./guides/harbor-registry.md) registry at admission time, so
+workloads pull through your registry instead of the upstream ones - no per-chart image overrides needed. A fully
+disconnected install (every image pre-mirrored, with no upstream access at all) is still on the
+[roadmap](../ROADMAP.md). See [Features Technical Details](./kubeaid/features-technical-details.md).
 
 ## What is a VPN-type cluster?
 

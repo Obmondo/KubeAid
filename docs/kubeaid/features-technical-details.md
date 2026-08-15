@@ -62,7 +62,10 @@ can go view exact diff this update will cause on your cluster (`app diff`) or ju
 We maintain a copy of everything needed to set up your cluster (or do full recovery) in this repo, and run regular
 backups of PVCs.
 
-**TODO:** Maintain copy of all used Docker images and override images on all charts used to use that instead.
+Container images are redirected to your own Harbor registry by the `harbor-proxy-cache-mutate` Kyverno policy
+(shipped in the kyverno chart), which mutates image references at admission time - no per-chart image overrides
+needed. A fully disconnected install (every image pre-mirrored, with no upstream access at all) is on the
+[roadmap](../../ROADMAP.md).
 
 ### Cluster security
 
