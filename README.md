@@ -26,19 +26,6 @@ clusters.
 · [**Getting Started**](https://kubeaid.io/docs/getting-started/)
 · [**Full Documentation**](https://kubeaid.io/docs/)
 
-## Table of Contents
-
-- [What Exactly Is KubeAid?](#what-exactly-is-kubeaid)
-- [How It Works](#how-it-works)
-- [Quick Start](#quick-start)
-- [Features](#features)
-- [Documentation](#documentation)
-- [Contributing](#contributing)
-- [Community and Governance](#community-and-governance)
-- [Roadmap](ROADMAP.md)
-- [Support](#support)
-- [License](#license)
-
 ## What Exactly Is KubeAid?
 
 Installing Kubernetes looks easy until you do it on a second platform. AWS wants IAM roles, Azure wants Workload
