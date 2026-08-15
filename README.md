@@ -8,15 +8,12 @@
 [![Docs](https://img.shields.io/badge/docs-kubeaid.io-blue)](https://kubeaid.io/docs/)
 
 **KubeAid is an open-source Kubernetes platform: one tested, maintained way to install and operate Kubernetes
-clusters on every platform** — AWS (self-managed or EKS), Azure (self-managed or AKS), Hetzner (HCloud and Bare
-Metal), on-premise bare metal, or locally on K3D.
+clusters everywhere** — AWS and Azure (self-managed, or managed EKS/AKS), Hetzner, bare metal, or locally on K3D.
 
-Running Kubernetes means constantly tracking a moving ecosystem: which chart just got deprecated, which API version is
-about to break, which default is a security risk, what current best practice looks like. **KubeAid's job is to carry
-that mental overhead for you.** We curate the stack, test the defaults, track deprecations and breaking changes, and
-ship the result as regular updates — you review and pull them when it suits you. It also gives you a trustworthy
-source of Helm charts: every chart is vendored into this repository and updated through periodic, reviewed releases —
-not pulled live from upstream registries at deploy time — which protects you against supply-chain attacks.
+Running Kubernetes means tracking a moving ecosystem: charts get deprecated, APIs break, defaults turn out to be
+security risks. **KubeAid carries that overhead for you** — a curated stack of 100+ vendored Helm charts with tested
+defaults, shipped as reviewed updates you pull when it suits you. Nothing is fetched live from upstream at deploy
+time: what you deploy is exactly what was reviewed.
 
 This repository holds the platform itself — curated Helm charts, monitoring, and secure defaults. It is consumed by
 the **[KubeAid CLI](https://github.com/Obmondo/kubeaid-cli)**, which is the tool you actually run to create and manage
