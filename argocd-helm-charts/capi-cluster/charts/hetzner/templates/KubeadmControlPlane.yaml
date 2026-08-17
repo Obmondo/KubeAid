@@ -514,7 +514,7 @@ spec:
           exit 1
         fi
 
-        NETWORK_INTERFACE="$(ip route get 8.8.8.8 | awk '{print $5; exit}')"
+        {{- include "hetzner.detectNetworkInterfaceScript" . | nindent 8 }}
         cat <<EOF > /etc/netplan/60-vlan.yaml
         network:
           version: 2
@@ -559,7 +559,7 @@ spec:
            bare-metal floating IP above) it needs no first-master-only /
            loopback handling. */}}
       - |
-        NETWORK_INTERFACE="$(ip route get 8.8.8.8 | awk '{print $5; exit}')"
+        {{- include "hetzner.detectNetworkInterfaceScript" . | nindent 8 }}
         cat <<EOF > /etc/netplan/60-hcloud-floating-ip.yaml
         network:
           version: 2
