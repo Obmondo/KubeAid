@@ -34,6 +34,19 @@
               summary: 'The cluster has not added their respective node counts to the DB for more than 10 days this month.',
             },
           },
+          {
+            alert: 'MissingNodeCountDetected',
+            expr: 'kubeaid_agent_node_count_report_status == 1',
+            'for': '1h',
+            labels: {
+              severity: 'critical',
+              alert_id: 'MissingNodeCountDetected',
+            },
+            annotations: {
+              description: 'The cluster **{{ .Labels.certname }}** failed to fetch or report its node count to the Obmondo API. Node count data may be missing for the monthly average calculation.',
+              summary: 'The cluster failed to report its node count to the Obmondo API.',
+            },
+          },
         ],
       },
     ],
