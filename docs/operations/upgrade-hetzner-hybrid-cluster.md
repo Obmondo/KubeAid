@@ -18,7 +18,7 @@ adjust if your `global.capiClusterNamespace` differs. Replace `<cluster>`,
 ## What actually changes what
 
 | You want to change | Where it lives | How it reaches the node |
-|---|---|---|
+| --- | --- | --- |
 | Kubernetes version | `global.kubernetes.version` | `KubeadmControlPlane` / `Machine` `spec.version` |
 | HCloud (control-plane) OS | `hetzner.hcloud.imageName` | `HCloudMachineTemplate` — **immutable**, delete + recreate |
 | Bare-metal (worker) OS | `hetzner.bareMetal.installImage.imagePath` | `HetznerBareMetalMachine` — **immutable**, only applied on re-provision |
@@ -45,7 +45,7 @@ helm template -f values.yaml -f <kubeaid-config>/k8s/<cluster>/argocd-apps/value
 
 A typical failure after a chart bump:
 
-```
+```text
 Error: values don't meet the specifications of the schema(s) in the following chart(s):
 hetzner:
 - at '/hcloud': additional properties 'hetznerNetwork' not allowed
@@ -84,7 +84,7 @@ Edit `values-capi-cluster.yaml`, commit, and sync the `capi-cluster` app.
 **The sync will report partial failure. This is expected.** Immutable resources
 are rejected by the admission webhooks:
 
-```
+```text
 admission webhook "validation.hcloudmachinetemplate.infrastructure.x-k8s.io" denied the request:
 HCloudMachineTemplate.Spec is immutable
 ```
@@ -308,7 +308,7 @@ kubectl --context <cluster> -n capi-cluster get machine <machine> \
   -o jsonpath='{.status.conditions[?(@.type=="Deleting")].message}{"\n"}'
 ```
 
-```
+```text
 VolumeAttachment with .spec.source.persistentVolumeName not matching a PersistentVolume: pvc-…
 ```
 
@@ -340,7 +340,7 @@ kubectl --context <cluster> -n capi-cluster get hetznerbaremetalmachine <machine
   -o jsonpath='{.status.conditions[?(@.type=="Ready")].message}{"\n"}'
 ```
 
-```
+```text
 failed to get cloud init output: command of CloudInitStatus failed (ssh connection worked): status: error
 ```
 
@@ -387,7 +387,7 @@ kubectl --context <cluster> -n capi-cluster annotate hetznerbaremetalhost <serve
 
 ### `logs` / `exec` / `port-forward` fail on a re-provisioned node
 
-```
+```text
 Error from server: Get "https://10.0.1.x:10250/containerLogs/…": remote error: tls: internal error
 ```
 
@@ -436,7 +436,7 @@ kubectl --context <cluster> get csr -w   # expect Approved,Issued
 
 ### ArgoCD app stuck in `ComparisonError`
 
-```
+```text
 Failed to load target state: … open …/values-<app>.yaml: no such file or directory
 ```
 
