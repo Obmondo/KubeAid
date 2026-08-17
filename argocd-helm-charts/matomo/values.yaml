@@ -1,27 +1,15 @@
+# digitalist chart nests its own keys: matomo.matomo.* (app), matomo.db.* (database)
 matomo:
-  image:
-    registry: docker.io
-    repository: bitnamilegacy/matomo
-    tag: 5.1.1
-  mariadb:
-    enabled: false
-  externalDatabase:
-    host: matomo-mariadb
+  db:
+    hostname: matomo-mariadb
     port: 3306
-    user: matomo
-    database: matomo
-    existingSecret: matomo-user
-  persistence:
-    size: 1Gi
-  cronjobs:
-    archive:
-      persistence:
-        enabled: false
-    taskScheduler:
-      persistence:
-        enabled: false
-  service:
-    type: ClusterIP
+    password:
+      secretKeyRef:
+        name: matomo-user
+        key: db-password
+    name: matomo-mariadb
+    username: matomo
+    prefix: matomo_
 
 #  This are configs for external mariadb deployment
 mariadb:

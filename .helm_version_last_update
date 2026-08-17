@@ -58,7 +58,7 @@
 2026-08-15 4.5.1 localpv-provisioner
 2026-08-15 2.10.3 loki-stack
 2026-08-15 26.6.0 mariadb-operator
-2026-08-15 11.0.0 matomo
+2026-08-17 12.0.19 matomo
 2026-08-15 1.0.5 mattermost-operator
 2026-08-15 0.15.1 metal3
 2026-08-15 6.4.22 metallb
