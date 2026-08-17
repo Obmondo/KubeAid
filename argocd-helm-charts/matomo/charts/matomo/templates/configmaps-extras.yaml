@@ -1,0 +1,14 @@
+{{ if  .Values.extraConfigMaps.create -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: matomo-additional-config-maps
+  namespace: {{.Values.namespace}}
+data:
+{{- if  and .Values.extraConfigMaps.create .Values.extraConfigMaps.data }}
+{{- range $index, $content := .Values.extraConfigMaps.data }}
+  {{ $index }}: |-
+{{ $content | indent 4 }}
+{{- end }}
+{{- end }}
+{{- end }}

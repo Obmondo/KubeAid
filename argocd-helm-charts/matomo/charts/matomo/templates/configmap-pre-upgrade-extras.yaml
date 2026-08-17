@@ -1,0 +1,24 @@
+{{ if  .Values.extraConfigMaps.create -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: matomo-pre-upgrade-additional-config-maps
+  namespace: {{.Values.namespace}}
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    partOf: matomo
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-6"
+    "helm.sh/hook-delete-policy": hook-succeeded
+data:
+{{- if  and .Values.extraConfigMaps.create .Values.extraConfigMaps.data }}
+{{- range $index, $content := .Values.extraConfigMaps.data }}
+  {{ $index }}: |-
+{{ $content | indent 4 }}
+{{- end }}
+{{- end }}
+{{- end }}

@@ -1,6 +1,6 @@
 dependencies:
 - name: matomo
-  repository: https://charts.bitnami.com/bitnami
-  version: 11.0.0
-digest: sha256:abb940970285876c06b922f347e21dd3299492aaa3d15cc2ca12b35e74d36add
-generated: "2025-12-06T17:31:00.952304958+05:30"
+  repository: oci://registry-1.docker.io/digitalist
+  version: 12.0.19
+digest: sha256:03eb37bd15c19f2c8d43d5204c2e3e0343be67b20761709156bf4426a589f66b
+generated: "2026-08-17T16:31:33.920344341+05:30"

@@ -1,0 +1,1939 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "properties": {
+    "db": {
+      "additionalProperties": false,
+      "properties": {
+        "hostname": {
+          "default": "matomo-db-mysql",
+          "description": "Database hostname.",
+          "required": [],
+          "title": "hostname"
+        },
+        "name": {
+          "default": "matomo",
+          "description": "Database name.",
+          "required": [],
+          "title": "name"
+        },
+        "password": {
+          "additionalProperties": false,
+          "properties": {
+            "secretKeyRef": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "default": "mysql-root-password",
+                  "description": "Key within the secret holding the database password.",
+                  "required": [],
+                  "title": "key"
+                },
+                "name": {
+                  "default": "matomo-db-mysql",
+                  "description": "Name of the secret holding the database password.",
+                  "required": [],
+                  "title": "name"
+                }
+              },
+              "required": [],
+              "title": "secretKeyRef",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "password",
+          "type": "object"
+        },
+        "port": {
+          "default": "3306",
+          "description": "Database port.",
+          "required": [],
+          "title": "port"
+        },
+        "prefix": {
+          "default": "matomo_",
+          "description": "Table prefix.",
+          "required": [],
+          "title": "prefix"
+        },
+        "username": {
+          "default": "root",
+          "description": "Database username.",
+          "required": [],
+          "title": "username"
+        }
+      },
+      "required": [],
+      "title": "db",
+      "type": "object"
+    },
+    "extraConfigMaps": {
+      "additionalProperties": false,
+      "description": "Extra configMaps",
+      "properties": {
+        "create": {
+          "default": false,
+          "title": "create",
+          "type": "boolean"
+        },
+        "data": {
+          "additionalProperties": true,
+          "description": " additionalProperties: true @schema",
+          "required": [],
+          "title": "data"
+        }
+      },
+      "required": [],
+      "title": "extraConfigMaps"
+    },
+    "extraSecrets": {
+      "additionalProperties": false,
+      "description": "Extra secrets",
+      "properties": {
+        "create": {
+          "default": false,
+          "title": "create",
+          "type": "boolean"
+        },
+        "data": {
+          "additionalProperties": true,
+          "description": " additionalProperties: true @schema",
+          "required": [],
+          "title": "data"
+        }
+      },
+      "required": [],
+      "title": "extraSecrets"
+    },
+    "extraServices": {
+      "additionalProperties": true,
+      "description": "Extra services",
+      "required": [],
+      "title": "extraServices",
+      "type": [
+        "object",
+        "array"
+      ]
+    },
+    "extraVolumeMounts": {
+      "description": "Extra volumes to mount",
+      "items": {
+        "additionalProperties": true,
+        "required": [],
+        "type": "object"
+      },
+      "required": [],
+      "title": "extraVolumeMounts"
+    },
+    "extraVolumes": {
+      "description": "Extra volumes",
+      "items": {
+        "additionalProperties": true,
+        "required": [],
+        "type": "object"
+      },
+      "required": [],
+      "title": "extraVolumes"
+    },
+    "global": {
+      "additionalProperties": false,
+      "description": "Globals settings",
+      "properties": {
+        "imagePullSecrets": {
+          "description": "Global image pull secrets",
+          "items": {
+            "required": []
+          },
+          "required": [],
+          "title": "imagePullSecrets"
+        },
+        "imageRegistry": {
+          "default": "",
+          "description": "Global image registry",
+          "required": [],
+          "title": "imageRegistry"
+        }
+      },
+      "required": [],
+      "title": "global"
+    },
+    "matomo": {
+      "additionalProperties": false,
+      "properties": {
+        "automountServiceAccountToken": {
+          "default": "false",
+          "description": "Mount the service account token into Matomo pods. No workload in this chart uses the Kubernetes API; enable only if a custom sidecar needs it.",
+          "required": [],
+          "title": "automountServiceAccountToken"
+        },
+        "cli": {
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "default": "true",
+              "description": "Enable the cli Deployment (runs supervisord for one-off `console` commands via `kubectl exec`).",
+              "required": [],
+              "title": "enabled"
+            },
+            "livenessProbe": {
+              "additionalProperties": true,
+              "description": "Liveness probe for the cli container (checks supervisord is running).",
+              "required": [],
+              "title": "livenessProbe"
+            },
+            "readinessProbe": {
+              "additionalProperties": true,
+              "description": "Readiness probe for the cli container (checks supervisord is running).",
+              "required": [],
+              "title": "readinessProbe"
+            },
+            "replicas": {
+              "default": "1",
+              "description": "Number of replicas for the cli Deployment.",
+              "required": [],
+              "title": "replicas"
+            },
+            "resources": {
+              "additionalProperties": false,
+              "description": "Default resources for the Matomo cli container.",
+              "properties": {
+                "limits": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "cpu": {
+                      "default": "500m",
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "512Mi",
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "limits",
+                  "type": "object"
+                },
+                "requests": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "cpu": {
+                      "default": "100m",
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "128Mi",
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "requests",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "resources"
+            }
+          },
+          "required": [],
+          "title": "cli",
+          "type": "object"
+        },
+        "config": {
+          "additionalProperties": true,
+          "description": "Full install.json content, replacing the chart's built-in default when set.",
+          "required": [],
+          "title": "config"
+        },
+        "cronJobs": {
+          "additionalProperties": false,
+          "properties": {
+            "coreArchive": {
+              "additionalProperties": false,
+              "properties": {
+                "activeDeadlineSeconds": {
+                  "default": "43200",
+                  "description": "activeDeadlineSeconds for the core:archive Job.",
+                  "required": [],
+                  "title": "activeDeadlineSeconds"
+                },
+                "command": {
+                  "default": "./console core:archive --disable-scheduled-tasks",
+                  "description": "Command run by the core:archive CronJob.",
+                  "required": [],
+                  "title": "command"
+                },
+                "concurrencyPolicy": {
+                  "default": "Allow",
+                  "description": "concurrencyPolicy for the core:archive CronJob.",
+                  "required": [],
+                  "title": "concurrencyPolicy"
+                },
+                "enabled": {
+                  "default": "true",
+                  "description": "Enable the core:archive CronJob.",
+                  "required": [],
+                  "title": "enabled"
+                },
+                "labels": {
+                  "additionalProperties": false,
+                  "description": "Labels applied to the coreArchive CronJob (name, instance, component, part-of, managed-by).",
+                  "properties": {
+                    "component": {
+                      "default": "cronjob",
+                      "title": "component",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "default": "matomo",
+                      "title": "instance",
+                      "type": "string"
+                    },
+                    "managedBy": {
+                      "default": "helm",
+                      "title": "managedBy",
+                      "type": "string"
+                    },
+                    "name": {
+                      "default": "matomo-jobs-corearchive",
+                      "title": "name",
+                      "type": "string"
+                    },
+                    "partOf": {
+                      "default": "matomo",
+                      "title": "partOf",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "labels"
+                },
+                "resources": {
+                  "additionalProperties": false,
+                  "description": "Default resources for the core:archive cronjob.",
+                  "properties": {
+                    "limits": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "cpu": {
+                          "default": "1000m",
+                          "title": "cpu",
+                          "type": "string"
+                        },
+                        "memory": {
+                          "default": "1Gi",
+                          "title": "memory",
+                          "type": "string"
+                        }
+                      },
+                      "required": [],
+                      "title": "limits",
+                      "type": "object"
+                    },
+                    "requests": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "cpu": {
+                          "default": "100m",
+                          "title": "cpu",
+                          "type": "string"
+                        },
+                        "memory": {
+                          "default": "128Mi",
+                          "title": "memory",
+                          "type": "string"
+                        }
+                      },
+                      "required": [],
+                      "title": "requests",
+                      "type": "object"
+                    }
+                  },
+                  "required": [],
+                  "title": "resources"
+                },
+                "schedule": {
+                  "default": "*/60 * * * *",
+                  "description": "Cron schedule for core:archive.",
+                  "required": [],
+                  "title": "schedule"
+                }
+              },
+              "required": [],
+              "title": "coreArchive",
+              "type": "object"
+            },
+            "scheduledTasks": {
+              "additionalProperties": false,
+              "properties": {
+                "activeDeadlineSeconds": {
+                  "default": "43200",
+                  "description": "activeDeadlineSeconds for the scheduled-tasks Job.",
+                  "required": [],
+                  "title": "activeDeadlineSeconds"
+                },
+                "command": {
+                  "default": "./console scheduled-tasks:run",
+                  "description": "Command run by the scheduled-tasks CronJob.",
+                  "required": [],
+                  "title": "command"
+                },
+                "enabled": {
+                  "default": "true",
+                  "description": "Enable the scheduled-tasks CronJob.",
+                  "required": [],
+                  "title": "enabled"
+                },
+                "labels": {
+                  "additionalProperties": false,
+                  "description": "Labels applied to the scheduledTasks CronJob (name, instance, component, part-of, managed-by).",
+                  "properties": {
+                    "component": {
+                      "default": "cronjob",
+                      "title": "component",
+                      "type": "string"
+                    },
+                    "instance": {
+                      "default": "matomo",
+                      "title": "instance",
+                      "type": "string"
+                    },
+                    "managedBy": {
+                      "default": "helm",
+                      "title": "managedBy",
+                      "type": "string"
+                    },
+                    "name": {
+                      "default": "matomo-jobs-scheduled-tasks",
+                      "title": "name",
+                      "type": "string"
+                    },
+                    "partOf": {
+                      "default": "matomo",
+                      "title": "partOf",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "labels"
+                },
+                "php": {
+                  "additionalProperties": true,
+                  "default": "",
+                  "description": "PHP configuration overrides for the scheduled-tasks CronJob.",
+                  "required": [],
+                  "title": "php",
+                  "type": [
+                    "object",
+                    "null"
+                  ]
+                },
+                "resources": {
+                  "additionalProperties": false,
+                  "description": "Default resources for the scheduled-tasks cronjob.",
+                  "properties": {
+                    "limits": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "cpu": {
+                          "default": "1000m",
+                          "title": "cpu",
+                          "type": "string"
+                        },
+                        "memory": {
+                          "default": "1Gi",
+                          "title": "memory",
+                          "type": "string"
+                        }
+                      },
+                      "required": [],
+                      "title": "limits",
+                      "type": "object"
+                    },
+                    "requests": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "cpu": {
+                          "default": "100m",
+                          "title": "cpu",
+                          "type": "string"
+                        },
+                        "memory": {
+                          "default": "128Mi",
+                          "title": "memory",
+                          "type": "string"
+                        }
+                      },
+                      "required": [],
+                      "title": "requests",
+                      "type": "object"
+                    }
+                  },
+                  "required": [],
+                  "title": "resources"
+                },
+                "schedule": {
+                  "default": "*/60 * * * *",
+                  "description": "Cron schedule for scheduled-tasks:run.",
+                  "required": [],
+                  "title": "schedule"
+                }
+              },
+              "required": [],
+              "title": "scheduledTasks",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "cronJobs",
+          "type": "object"
+        },
+        "dashboard": {
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "default": "true",
+              "description": "Enable the dashboard Deployment and Service.",
+              "required": [],
+              "title": "enabled"
+            },
+            "exporter": {
+              "additionalProperties": false,
+              "description": "php-fpm_exporter (fpm-metrics) sidecar for the dashboard pod.",
+              "properties": {
+                "enabled": {
+                  "default": "true",
+                  "description": "Enable the dashboard php-fpm_exporter (fpm-metrics) sidecar and its `metrics` port on the matomo-dashboard Service.",
+                  "required": [],
+                  "title": "enabled"
+                },
+                "image": {
+                  "default": "",
+                  "description": "Override the php-fpm_exporter image used for the dashboard (falls back to `matomo.exporterImage` when empty).",
+                  "required": [],
+                  "title": "image"
+                },
+                "livenessProbe": {
+                  "additionalProperties": true,
+                  "description": "Liveness probe for the dashboard php-fpm_exporter (fpm-metrics) container.",
+                  "required": [],
+                  "title": "livenessProbe"
+                },
+                "readinessProbe": {
+                  "additionalProperties": true,
+                  "description": "Readiness probe for the dashboard php-fpm_exporter (fpm-metrics) container.",
+                  "required": [],
+                  "title": "readinessProbe"
+                },
+                "resources": {
+                  "additionalProperties": false,
+                  "description": "Default resources for the dashboard php-fpm_exporter (fpm-metrics) container.",
+                  "properties": {
+                    "limits": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "cpu": {
+                          "default": "100m",
+                          "title": "cpu",
+                          "type": "string"
+                        },
+                        "memory": {
+                          "default": "128Mi",
+                          "title": "memory",
+                          "type": "string"
+                        }
+                      },
+                      "required": [],
+                      "title": "limits",
+                      "type": "object"
+                    },
+                    "requests": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "cpu": {
+                          "default": "15m",
+                          "title": "cpu",
+                          "type": "string"
+                        },
+                        "memory": {
+                          "default": "32Mi",
+                          "title": "memory",
+                          "type": "string"
+                        }
+                      },
+                      "required": [],
+                      "title": "requests",
+                      "type": "object"
+                    }
+                  },
+                  "required": [],
+                  "title": "resources"
+                }
+              },
+              "required": [],
+              "title": "exporter"
+            },
+            "firstuser": {
+              "additionalProperties": false,
+              "description": "Credentials for the first (super)user, applied by the init container on install.",
+              "properties": {
+                "email": {
+                  "default": "foo@example.com",
+                  "title": "email",
+                  "type": "string"
+                },
+                "password": {
+                  "default": "admin123",
+                  "title": "password",
+                  "type": "string"
+                },
+                "username": {
+                  "default": "admin",
+                  "title": "username",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "firstuser"
+            },
+            "hostname": {
+              "default": "my.host",
+              "description": "Hostname used for the dashboard Ingress/HTTPRoute rule.",
+              "required": [],
+              "title": "hostname"
+            },
+            "ingress": {
+              "additionalProperties": false,
+              "properties": {
+                "annotations": {
+                  "additionalProperties": true,
+                  "description": "Extra annotations for the dashboard Ingress.",
+                  "properties": {
+                    "digitalist.cloud/instance": {
+                      "default": "matomo",
+                      "title": "digitalist.cloud/instance",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "annotations"
+                }
+              },
+              "required": [],
+              "title": "ingress",
+              "type": "object"
+            },
+            "ingressClassName": {
+              "default": "",
+              "description": "ingressClassName for the dashboard Ingress.",
+              "required": [],
+              "title": "ingressClassName"
+            },
+            "loadbalancer": {
+              "default": "false",
+              "description": "Create a LoadBalancer Service for the dashboard, used as the Ingress/HTTPRoute backend when true.",
+              "required": [],
+              "title": "loadbalancer"
+            },
+            "nginx": {
+              "additionalProperties": false,
+              "properties": {
+                "conf": {
+                  "additionalProperties": true,
+                  "default": "",
+                  "description": "Override the full dashboard nginx configuration (nginx.conf, fastcgi_params, mime.types). As: conf:   nginx.conf: |     worker_processes 5;     load_module modules/ngx_http_geoip2_module.so;     ...   fastcgi_params: |     fastcgi_param   COUNTRY_CODE            $geoip2_data_country_code;     fastcgi_param   QUERY_STRING            $query_string;     fastcgi_param   REQUEST_METHOD          $request_method;     ...   mime.types: |     types {       text/html                                        html htm shtml;       text/css                                         css;       text/xml                                         xml;       ...",
+                  "required": [],
+                  "title": "conf",
+                  "type": [
+                    "string",
+                    "object"
+                  ]
+                },
+                "image": {
+                  "default": "",
+                  "description": "Override the nginx image used for the dashboard (falls back to `nginx.image` when empty).",
+                  "required": [],
+                  "title": "image"
+                },
+                "livenessProbe": {
+                  "additionalProperties": true,
+                  "description": "Liveness probe for the dashboard nginx container.",
+                  "required": [],
+                  "title": "livenessProbe"
+                },
+                "nginxWorkerProcesses": {
+                  "default": "5",
+                  "description": "Worker process count for the dashboard nginx.",
+                  "required": [],
+                  "title": "nginxWorkerProcesses"
+                },
+                "readinessProbe": {
+                  "additionalProperties": true,
+                  "description": "Readiness probe for the dashboard nginx container.",
+                  "required": [],
+                  "title": "readinessProbe"
+                }
+              },
+              "required": [],
+              "title": "nginx",
+              "type": "object"
+            },
+            "replicas": {
+              "default": "1",
+              "description": "Number of replicas for the dashboard Deployment.",
+              "required": [],
+              "title": "replicas"
+            },
+            "secretName": {
+              "default": "",
+              "description": "Existing TLS secret name for the dashboard ingress.",
+              "required": [],
+              "title": "secretName"
+            },
+            "sidecars": {
+              "description": "Extra containers to run alongside the dashboard pod. Added like this: sidecars: - name: fpm-metrics   image: hipages/php-fpm_exporter:2.2.0   imagePullPolicy: IfNotPresent   resources:     limits:       cpu: 500m       memory: 256Mi     requests:       cpu: 40m       memory: 32Mi",
+              "items": {
+                "required": []
+              },
+              "required": [],
+              "title": "sidecars"
+            },
+            "tls": {
+              "default": "false",
+              "description": "Add a TLS block to the dashboard Ingress for `hostname`.",
+              "required": [],
+              "title": "tls"
+            },
+            "whitelist": {
+              "description": "List of CIDRs allowed to reach the dashboard Ingress (nginx.ingress.kubernetes.io/whitelist-source-range). Empty disables the restriction.",
+              "items": {
+                "required": []
+              },
+              "required": [],
+              "title": "whitelist"
+            }
+          },
+          "required": [],
+          "title": "dashboard",
+          "type": "object"
+        },
+        "env": {
+          "description": "Env variables to inject, if any.",
+          "items": {
+            "additionalProperties": true,
+            "required": [],
+            "type": "object"
+          },
+          "required": [],
+          "title": "env"
+        },
+        "exporterImage": {
+          "default": "hipages/php-fpm_exporter:2.2.0",
+          "description": "Image for the php-fpm_exporter (fpm-metrics) sidecar shared by the dashboard and tracker pods. Override per-workload via `matomo.dashboard.exporter.image` / `matomo.tracker.exporter.image`.",
+          "required": [],
+          "title": "exporterImage"
+        },
+        "extralabels": {
+          "additionalProperties": true,
+          "description": "Extra labels applied to Matomo pods (dashboard, tracker, cli, cronjobs, queuedtracking).",
+          "required": [],
+          "title": "extralabels"
+        },
+        "gatewayApi": {
+          "additionalProperties": false,
+          "description": "Gateway API support. When enabled, HTTPRoutes are created for the dashboard and tracker (using their `hostname` values) instead of - or alongside - the Ingress resources. Requires the Gateway API CRDs and a Gateway; TLS is terminated on the Gateway listener, not in the chart.",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "extralabels": {
+              "additionalProperties": true,
+              "description": "Extra labels for the HTTPRoutes.",
+              "required": [],
+              "title": "extralabels"
+            },
+            "parentRefs": {
+              "description": "parentRefs applied to all HTTPRoutes, e.g.: parentRefs:   - name: my-gateway     namespace: my-namespace     sectionName: http",
+              "items": {
+                "required": []
+              },
+              "required": [],
+              "title": "parentRefs"
+            }
+          },
+          "required": [],
+          "title": "gatewayApi"
+        },
+        "image": {
+          "default": "digitalist/matomo:5.12.0",
+          "description": "Which image to use for Matomo deployment.",
+          "required": [],
+          "title": "image"
+        },
+        "imagePullSecrets": {
+          "description": "Image pull secrets for Matomo.",
+          "items": {
+            "required": []
+          },
+          "required": [],
+          "title": "imagePullSecrets"
+        },
+        "imageRegistry": {
+          "default": "",
+          "description": "Image registry to use.",
+          "required": [],
+          "title": "imageRegistry"
+        },
+        "ingress": {
+          "additionalProperties": false,
+          "properties": {
+            "annotations": {
+              "additionalProperties": true,
+              "description": "Extra annotations applied to both the dashboard and tracker Ingress resources.",
+              "required": [],
+              "title": "annotations"
+            },
+            "enabled": {
+              "default": "true",
+              "description": "Create Ingress resources for the dashboard and tracker.",
+              "required": [],
+              "title": "enabled"
+            },
+            "extralabels": {
+              "additionalProperties": true,
+              "description": "Extra labels for the dashboard and tracker Ingress resources.",
+              "required": [],
+              "title": "extralabels"
+            }
+          },
+          "required": [],
+          "title": "ingress",
+          "type": "object"
+        },
+        "initResources": {
+          "additionalProperties": false,
+          "description": "Resources for the shared matomo-init init container (runs on every workload: dashboard, tracker, cli, cronjobs, queuedtracking, pre-upgrade and post-install Jobs).",
+          "properties": {
+            "limits": {
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "default": "200m",
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "512Mi",
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "limits",
+              "type": "object"
+            },
+            "requests": {
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "default": "100m",
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "128Mi",
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "requests",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "initResources"
+        },
+        "installCommand": {
+          "default": "./console plugin:activate ExtraTools \u0026\u0026 ./console matomo:install --install-file=/tmp/matomo/install.json --force --do-not-drop-db",
+          "description": "Install command. If already installed, it just creates the needed config.",
+          "required": [],
+          "title": "installCommand"
+        },
+        "license": {
+          "additionalProperties": true,
+          "default": "",
+          "description": "Reference to a secret holding a premium plugin license, if any.",
+          "required": [],
+          "title": "license",
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "livenessProbe": {
+          "additionalProperties": true,
+          "description": "Liveness probe for the Matomo php-fpm containers (dashboard, tracker).",
+          "required": [],
+          "title": "livenessProbe"
+        },
+        "php": {
+          "additionalProperties": true,
+          "default": "",
+          "description": "php.ini overrides for the dashboard and core:archive php-fpm containers.",
+          "required": [],
+          "title": "php",
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "phpfpm": {
+          "additionalProperties": true,
+          "default": "",
+          "description": "php-fpm pool tuning for the dashboard's php-fpm container.",
+          "required": [],
+          "title": "phpfpm",
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "postInstallCommand": {
+          "default": "",
+          "description": "Command to run in a post-install Job. The Job (and its resources) is only created when this is non-empty.",
+          "required": [],
+          "title": "postInstallCommand"
+        },
+        "postInstallResources": {
+          "additionalProperties": false,
+          "description": "Default resources for the post-install Job container.",
+          "properties": {
+            "limits": {
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "default": "500m",
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "512Mi",
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "limits",
+              "type": "object"
+            },
+            "requests": {
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "default": "100m",
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "128Mi",
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "requests",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "postInstallResources"
+        },
+        "postInstallSleepTime": {
+          "default": "5",
+          "description": "Seconds the post-install Job sleeps before running `postInstallCommand` (gives Matomo time to finish bootstrapping).",
+          "required": [],
+          "title": "postInstallSleepTime"
+        },
+        "preUpgradeCommand": {
+          "default": "",
+          "description": "Command to run in a pre-upgrade Job. The Job (and its resources) is only created when this is non-empty.",
+          "required": [],
+          "title": "preUpgradeCommand"
+        },
+        "preUpgradeResources": {
+          "additionalProperties": false,
+          "description": "Default resources for the pre-upgrade Job container.",
+          "properties": {
+            "limits": {
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "default": "500m",
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "512Mi",
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "limits",
+              "type": "object"
+            },
+            "requests": {
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "default": "100m",
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "128Mi",
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "requests",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "preUpgradeResources"
+        },
+        "preUpgradeSleepTime": {
+          "default": "5",
+          "description": "Seconds the pre-upgrade Job sleeps before running `preUpgradeCommand`.",
+          "required": [],
+          "title": "preUpgradeSleepTime"
+        },
+        "queuedTrackingMonitor": {
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "default": "true",
+              "description": "Enable the queuedtracking:monitor Deployment.",
+              "required": [],
+              "title": "enabled"
+            },
+            "livenessProbe": {
+              "additionalProperties": true,
+              "description": "Liveness probe for the queuedtracking-monitor container (checks supervisord is running).",
+              "required": [],
+              "title": "livenessProbe"
+            },
+            "readinessProbe": {
+              "additionalProperties": true,
+              "description": "Readiness probe for the queuedtracking-monitor container (checks supervisord is running).",
+              "required": [],
+              "title": "readinessProbe"
+            },
+            "replicas": {
+              "default": "1",
+              "description": "Number of replicas for the queuedtracking-monitor Deployment.",
+              "required": [],
+              "title": "replicas"
+            },
+            "resources": {
+              "additionalProperties": false,
+              "description": "Default resources for the queuedtracking-monitor container.",
+              "properties": {
+                "limits": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "cpu": {
+                      "default": "500m",
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "180Mi",
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "limits",
+                  "type": "object"
+                },
+                "requests": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "cpu": {
+                      "default": "300m",
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "128Mi",
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "requests",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "resources"
+            }
+          },
+          "required": [],
+          "title": "queuedTrackingMonitor",
+          "type": "object"
+        },
+        "queuedTrackingProcess": {
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "default": "false",
+              "description": "Enable the queuedtracking:process worker deployment. Required when QueuedTracking runs with processDuringTrackingRequest disabled.",
+              "required": [],
+              "title": "enabled"
+            },
+            "livenessProbe": {
+              "additionalProperties": true,
+              "description": "Liveness probe for the queuedtracking-process container (checks supervisord is running). Overriding replaces the default entirely. Example: livenessProbe:   exec:     command:     - /bin/sh     - -c     - \"ps -A | grep supervisord\"   initialDelaySeconds: 15   periodSeconds: 20",
+              "required": [],
+              "title": "livenessProbe"
+            },
+            "numProcs": {
+              "default": "1",
+              "description": "Number of supervisord worker processes for queuedtracking:process per pod.",
+              "required": [],
+              "title": "numProcs"
+            },
+            "readinessProbe": {
+              "additionalProperties": true,
+              "description": "Readiness probe for the queuedtracking-process container (checks supervisord is running).",
+              "required": [],
+              "title": "readinessProbe"
+            },
+            "replicas": {
+              "default": "1",
+              "description": "Number of replicas for the queuedtracking-process Deployment.",
+              "required": [],
+              "title": "replicas"
+            },
+            "resources": {
+              "additionalProperties": false,
+              "description": "Default resources for the queuedtracking-process container.",
+              "properties": {
+                "limits": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "cpu": {
+                      "default": "1",
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "220Mi",
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "limits",
+                  "type": "object"
+                },
+                "requests": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "cpu": {
+                      "default": "250m",
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "128Mi",
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "requests",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "resources"
+            }
+          },
+          "required": [],
+          "title": "queuedTrackingProcess",
+          "type": "object"
+        },
+        "readinessProbe": {
+          "additionalProperties": true,
+          "description": "Readiness probe for the Matomo php-fpm containers (dashboard, tracker).",
+          "required": [],
+          "title": "readinessProbe"
+        },
+        "resources": {
+          "additionalProperties": false,
+          "description": "Default resources for the Matomo php-fpm container (dashboard). Sized for matomo.phpfpm's default pm.max_children (32): ~120Mi/worker realistic average plus headroom for the FPM master and occasional heavier requests. If you change pm.max_children, revisit this limit (and vice versa).",
+          "properties": {
+            "limits": {
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "default": "2000m",
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "4Gi",
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "limits",
+              "type": "object"
+            },
+            "requests": {
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "default": "500m",
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "512Mi",
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "requests",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "resources"
+        },
+        "runAsUser": {
+          "default": "82",
+          "description": "run container as user id.",
+          "required": [],
+          "title": "runAsUser"
+        },
+        "tagManagerRegenerate": {
+          "additionalProperties": false,
+          "description": " # pod's own ephemeral static-data and onto a single ReadWriteMany # PersistentVolumeClaim, kept fresh by a dedicated CronJob instead of by # the dashboard/tracker pods themselves. Disabled by default because it # requires a StorageClass that supports ReadWriteMany; when enabled, the # dashboard and tracker no longer regenerate TagManager containers at # all (see matomo.warmupCommand above) - they just read the shared # volume, which the CronJob refreshes on its own schedule.",
+          "properties": {
+            "activeDeadlineSeconds": {
+              "default": "300",
+              "description": "activeDeadlineSeconds for the regenerate-tagmanager Job.",
+              "required": [],
+              "title": "activeDeadlineSeconds"
+            },
+            "concurrencyPolicy": {
+              "default": "Forbid",
+              "description": "concurrencyPolicy for the regenerate-tagmanager CronJob.",
+              "required": [],
+              "title": "concurrencyPolicy"
+            },
+            "enabled": {
+              "default": "false",
+              "description": "Enable the regenerate-tagmanager CronJob and the shared ReadWriteMany PersistentVolumeClaim mounted at /var/www/html/js on the dashboard and tracker pods.",
+              "required": [],
+              "title": "enabled"
+            },
+            "fsGroup": {
+              "default": "",
+              "description": "fsGroup applied to the dashboard, tracker, and regenerate-tagmanager pods when this feature is enabled. nginx (nginx.runAsUser) and matomo (matomo.runAsUser) run as different UIDs but both need access to the shared PVC; fsGroup is pod-wide, unlike runAsUser, so it's what lets them actually share it. Defaults to matomo.runAsUser. Note this has no effect on hostPath-backed volumes (e.g. the kind e2e test fixture) - only on real volume plugins/CSI drivers (NFS, CephFS, etc).",
+              "required": [],
+              "title": "fsGroup",
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "resources": {
+              "additionalProperties": false,
+              "description": "Default resources for the regenerate-tagmanager CronJob container.",
+              "properties": {
+                "limits": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "cpu": {
+                      "default": "1000m",
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "1Gi",
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "limits",
+                  "type": "object"
+                },
+                "requests": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "cpu": {
+                      "default": "100m",
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "128Mi",
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "requests",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "resources"
+            },
+            "schedule": {
+              "default": "*/2 * * * *",
+              "description": "Cron schedule for the regenerate-tagmanager CronJob.",
+              "required": [],
+              "title": "schedule"
+            },
+            "seedResources": {
+              "additionalProperties": false,
+              "description": "Resources for the dashboard/tracker matomo-seed-tagmanager-js init container that seeds the shared volume on its first-ever mount.",
+              "properties": {
+                "limits": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "cpu": {
+                      "default": "500m",
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "256Mi",
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "limits",
+                  "type": "object"
+                },
+                "requests": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "cpu": {
+                      "default": "50m",
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "32Mi",
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "requests",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "seedResources"
+            },
+            "seedSourcePath": {
+              "default": "/usr/src/matomo/js",
+              "description": "Path inside the matomo image the matomo-seed-tagmanager-js init container copies from when seeding the shared volume on its first-ever mount. Defaults to the default JS assets bundled in the image, alongside the rest of Matomo's source under /usr/src/matomo.",
+              "required": [],
+              "title": "seedSourcePath"
+            },
+            "volume": {
+              "additionalProperties": false,
+              "properties": {
+                "create": {
+                  "default": "true",
+                  "description": "Whether this chart creates the shared TagManager JS PersistentVolumeClaim (matomo-tagmanager-js). Set to false and provide existingClaim to use a PVC you've already created instead (e.g. one provisioned/managed outside this chart, or shared with other releases). storageClassName and size below only apply when this is true.",
+                  "required": [],
+                  "title": "create"
+                },
+                "existingClaim": {
+                  "default": "",
+                  "description": "Name of a pre-existing PersistentVolumeClaim to use instead of the one this chart creates. Only used when create is false; must already exist in this release's namespace and support the ReadWriteMany access mode.",
+                  "required": [],
+                  "title": "existingClaim"
+                },
+                "labels": {
+                  "additionalProperties": true,
+                  "description": "Extra labels for the tagmanager JS PersistentVolumeClaim. Labels set here will override or add to the default label (app: matomo-jobs-regenerate-tagmanager). @schema additionalProperties: true @schema",
+                  "required": [],
+                  "title": "labels"
+                },
+                "size": {
+                  "default": "1Gi",
+                  "description": "Size of the shared TagManager JS PersistentVolumeClaim created by this chart (only used when create is true).",
+                  "required": [],
+                  "title": "size"
+                },
+                "storageClassName": {
+                  "default": "",
+                  "description": "storageClassName for the shared TagManager JS PersistentVolumeClaim created by this chart (only used when create is true). Must support the ReadWriteMany access mode. Empty uses the cluster's default StorageClass (only suitable if that default supports RWX).",
+                  "required": [],
+                  "title": "storageClassName"
+                }
+              },
+              "required": [],
+              "title": "volume",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "tagManagerRegenerate"
+        },
+        "tracker": {
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "default": "true",
+              "description": "Enable the tracker Deployment and Service.",
+              "required": [],
+              "title": "enabled"
+            },
+            "exporter": {
+              "additionalProperties": false,
+              "description": "php-fpm_exporter (fpm-metrics) sidecar for the tracker pod.",
+              "properties": {
+                "enabled": {
+                  "default": "true",
+                  "description": "Enable the tracker php-fpm_exporter (fpm-metrics) sidecar and its `metrics` port on the matomo-tracker Service.",
+                  "required": [],
+                  "title": "enabled"
+                },
+                "image": {
+                  "default": "",
+                  "description": "Override the php-fpm_exporter image used for the tracker (falls back to `matomo.exporterImage` when empty).",
+                  "required": [],
+                  "title": "image"
+                },
+                "livenessProbe": {
+                  "additionalProperties": true,
+                  "description": "Liveness probe for the tracker php-fpm_exporter (fpm-metrics) container.",
+                  "required": [],
+                  "title": "livenessProbe"
+                },
+                "readinessProbe": {
+                  "additionalProperties": true,
+                  "description": "Readiness probe for the tracker php-fpm_exporter (fpm-metrics) container.",
+                  "required": [],
+                  "title": "readinessProbe"
+                },
+                "resources": {
+                  "additionalProperties": false,
+                  "description": "Default resources for the tracker php-fpm_exporter (fpm-metrics) container.",
+                  "properties": {
+                    "limits": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "cpu": {
+                          "default": "40m",
+                          "title": "cpu",
+                          "type": "string"
+                        },
+                        "memory": {
+                          "default": "32Mi",
+                          "title": "memory",
+                          "type": "string"
+                        }
+                      },
+                      "required": [],
+                      "title": "limits",
+                      "type": "object"
+                    },
+                    "requests": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "cpu": {
+                          "default": "40m",
+                          "title": "cpu",
+                          "type": "string"
+                        },
+                        "memory": {
+                          "default": "32Mi",
+                          "title": "memory",
+                          "type": "string"
+                        }
+                      },
+                      "required": [],
+                      "title": "requests",
+                      "type": "object"
+                    }
+                  },
+                  "required": [],
+                  "title": "resources"
+                }
+              },
+              "required": [],
+              "title": "exporter"
+            },
+            "hostname": {
+              "default": "tracker.my.host",
+              "description": "Hostname used for the tracker Ingress/HTTPRoute rule.",
+              "required": [],
+              "title": "hostname"
+            },
+            "ingress": {
+              "additionalProperties": false,
+              "properties": {
+                "annotations": {
+                  "additionalProperties": true,
+                  "description": "Extra annotations for the tracker Ingress.",
+                  "properties": {
+                    "digitalist.cloud/instance": {
+                      "default": "matomo",
+                      "title": "digitalist.cloud/instance",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "annotations"
+                }
+              },
+              "required": [],
+              "title": "ingress",
+              "type": "object"
+            },
+            "ingressClassName": {
+              "default": "",
+              "description": "ingressClassName for the tracker Ingress.",
+              "required": [],
+              "title": "ingressClassName"
+            },
+            "loadbalancer": {
+              "default": "false",
+              "description": "Create a LoadBalancer Service for the tracker, used as the Ingress/HTTPRoute backend when true.",
+              "required": [],
+              "title": "loadbalancer"
+            },
+            "nginx": {
+              "additionalProperties": false,
+              "properties": {
+                "livenessProbe": {
+                  "additionalProperties": true,
+                  "description": "Liveness probe for the tracker nginx container.",
+                  "required": [],
+                  "title": "livenessProbe"
+                },
+                "nginxWorkerProcesses": {
+                  "default": "5",
+                  "description": "Worker process count for the tracker nginx.",
+                  "required": [],
+                  "title": "nginxWorkerProcesses"
+                },
+                "readinessProbe": {
+                  "additionalProperties": true,
+                  "description": "Readiness probe for the tracker nginx container.",
+                  "required": [],
+                  "title": "readinessProbe"
+                },
+                "resources": {
+                  "additionalProperties": false,
+                  "description": "Default resources for the tracker nginx container.",
+                  "properties": {
+                    "limits": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "cpu": {
+                          "default": "500m",
+                          "title": "cpu",
+                          "type": "string"
+                        },
+                        "memory": {
+                          "default": "256Mi",
+                          "title": "memory",
+                          "type": "string"
+                        }
+                      },
+                      "required": [],
+                      "title": "limits",
+                      "type": "object"
+                    },
+                    "requests": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "cpu": {
+                          "default": "50m",
+                          "title": "cpu",
+                          "type": "string"
+                        },
+                        "memory": {
+                          "default": "64Mi",
+                          "title": "memory",
+                          "type": "string"
+                        }
+                      },
+                      "required": [],
+                      "title": "requests",
+                      "type": "object"
+                    }
+                  },
+                  "required": [],
+                  "title": "resources"
+                }
+              },
+              "required": [],
+              "title": "nginx",
+              "type": "object"
+            },
+            "phpfpm": {
+              "additionalProperties": false,
+              "description": "php-fpm pool tuning for the tracker (process manager type, max/spare children, idle timeout, max requests, status path).",
+              "properties": {
+                "max_children": {
+                  "default": 75,
+                  "title": "max_children",
+                  "type": "integer"
+                },
+                "max_requests": {
+                  "default": 500,
+                  "title": "max_requests",
+                  "type": "integer"
+                },
+                "max_spare_servers": {
+                  "default": 75,
+                  "title": "max_spare_servers",
+                  "type": "integer"
+                },
+                "memory_limit": {
+                  "default": "2048M",
+                  "title": "memory_limit",
+                  "type": "string"
+                },
+                "min_spare_servers": {
+                  "default": 5,
+                  "title": "min_spare_servers",
+                  "type": "integer"
+                },
+                "process_idle_timeout": {
+                  "default": "600s",
+                  "title": "process_idle_timeout",
+                  "type": "string"
+                },
+                "start_servers": {
+                  "default": 5,
+                  "title": "start_servers",
+                  "type": "integer"
+                },
+                "status_path": {
+                  "default": "/status",
+                  "title": "status_path",
+                  "type": "string"
+                },
+                "type": {
+                  "default": "ondemand",
+                  "title": "type",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "phpfpm"
+            },
+            "replicas": {
+              "default": "1",
+              "description": "Number of replicas for the tracker Deployment.",
+              "required": [],
+              "title": "replicas"
+            },
+            "resources": {
+              "additionalProperties": false,
+              "description": "Default resources for the Matomo php-fpm container in the tracker.",
+              "properties": {
+                "limits": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "cpu": {
+                      "default": "1000m",
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "768Mi",
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "limits",
+                  "type": "object"
+                },
+                "requests": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "cpu": {
+                      "default": "300m",
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "256Mi",
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "requests",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "resources"
+            },
+            "secretName": {
+              "default": "",
+              "description": "Existing TLS secret name for the tracker ingress.",
+              "required": [],
+              "title": "secretName"
+            },
+            "tls": {
+              "default": "false",
+              "description": "Add a TLS block to the tracker Ingress for `hostname`.",
+              "required": [],
+              "title": "tls"
+            }
+          },
+          "required": [],
+          "title": "tracker",
+          "type": "object"
+        },
+        "waitForDbResources": {
+          "additionalProperties": false,
+          "description": "Resources for the wait-for-db init container (pre-upgrade and post-install Jobs only).",
+          "properties": {
+            "limits": {
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "default": "100m",
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "64Mi",
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "limits",
+              "type": "object"
+            },
+            "requests": {
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "default": "10m",
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "16Mi",
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "requests",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "waitForDbResources"
+        },
+        "warmupCommand": {
+          "default": "./console core:update --yes --no-interaction",
+          "description": "force` (in installCommand above) doesn't itself fire the plugin install/update events some plugins (e.g. TagManager) hook to regenerate generated assets - normally left to happen lazily on the first web request(s) after a (re)start. Since static-data is an emptyDir, that bookkeeping resets on every fresh pod, so without this, concurrent probes/traffic on every restart each independently race to redo that (expensive) regeneration. Running it once here, synchronously, avoids that. Unless matomo.tagManagerRegenerate.enabled is true, this is also followed by a guarded `tagmanager:regenerate-released-containers` call (see matomo.tagManagerRegenerateGuarded in _helpers.tpl); when that feature is enabled, the regenerate-tagmanager CronJob owns that work instead, so it's skipped here.",
+          "required": [],
+          "title": "warmupCommand"
+        },
+        "warmupResources": {
+          "additionalProperties": false,
+          "description": "Resources for the matomo-warmup init container (dashboard and tracker).",
+          "properties": {
+            "limits": {
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "default": "500m",
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "512Mi",
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "limits",
+              "type": "object"
+            },
+            "requests": {
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "default": "100m",
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "128Mi",
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "requests",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "warmupResources"
+        }
+      },
+      "required": [],
+      "title": "matomo",
+      "type": "object"
+    },
+    "namespace": {
+      "default": "matomo",
+      "description": "Namespace to install Matomo in, default matomo.",
+      "required": [],
+      "title": "namespace"
+    },
+    "networkPolicy": {
+      "additionalProperties": false,
+      "description": "NetworkPolicy for the Matomo workloads. When enabled, one NetworkPolicy per component (dashboard, tracker, cli, queuedtracking monitor/process) is created. The default rule allows all ingress, which changes nothing functionally but makes every pod covered by a policy; tighten by overriding `networkPolicy.ingress` for your environment.",
+      "properties": {
+        "enabled": {
+          "default": true,
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "ingress": {
+          "description": "Ingress rules applied to every component policy. Default: allow all.",
+          "items": {
+            "additionalProperties": true,
+            "required": [],
+            "type": "object"
+          },
+          "required": [],
+          "title": "ingress"
+        }
+      },
+      "required": [],
+      "title": "networkPolicy"
+    },
+    "nginx": {
+      "additionalProperties": false,
+      "description": "Default nginx image and settings shared by the dashboard (unless `matomo.dashboard.nginx.image` is set) and the tracker.",
+      "properties": {
+        "image": {
+          "default": "digitalist/nginx:1.21.6",
+          "description": "nginx image used for the dashboard and tracker.",
+          "required": [],
+          "title": "image"
+        },
+        "imagePullSecrets": {
+          "description": "Image pull secrets for the nginx image.",
+          "items": {
+            "required": []
+          },
+          "required": [],
+          "title": "imagePullSecrets"
+        },
+        "resources": {
+          "additionalProperties": false,
+          "description": "Default resources for the dashboard nginx container.",
+          "properties": {
+            "limits": {
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "default": "500m",
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "256Mi",
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "limits",
+              "type": "object"
+            },
+            "requests": {
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "default": "50m",
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "64Mi",
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "requests",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "resources"
+        },
+        "runAsUser": {
+          "default": "100",
+          "description": "run the nginx container as this user id.",
+          "required": [],
+          "title": "runAsUser"
+        }
+      },
+      "required": [],
+      "title": "nginx"
+    },
+    "nodeSelector": {
+      "additionalProperties": true,
+      "description": "Node labels for pod assignment.",
+      "required": [],
+      "title": "nodeSelector"
+    },
+    "tolerations": {
+      "description": "Tolerations for pod assignment",
+      "items": {
+        "required": []
+      },
+      "required": [],
+      "title": "tolerations"
+    }
+  },
+  "required": [],
+  "type": "object"
+}

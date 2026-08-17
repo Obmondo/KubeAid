@@ -1,0 +1,77 @@
+{{- if .Values.matomo.preUpgradeCommand }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: matomo-pre-upgrade
+  namespace: {{.Values.namespace}}
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    partOf: matomo
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    metadata:
+      name: "{{ .Release.Name }}"
+      labels:
+        app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+        app.kubernetes.io/instance: {{ .Release.Name | quote }}
+        helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+      annotations:
+{{ include "matomo.podAnnotations" . | indent 8 }}
+    spec:
+      automountServiceAccountToken: {{ .Values.matomo.automountServiceAccountToken }}
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      restartPolicy: Never
+{{ include "matomo.images.pullSecrets" ( dict "images" (list .Values.matomo) "global" .Values.global) | nindent 6 }}
+      # Under plain helm this hook runs before release resources are updated, so
+      # it sees the previous release's matomo-configuration and never runs on
+      # install. The init containers make the Job self-sufficient, so it also
+      # works when tools like ArgoCD run it as a sync hook on a fresh namespace
+      # where the database is still provisioning.
+      initContainers:
+{{ include "matomo.waitForDb" . | nindent 8 }}
+{{ include "matomo.initContainer" . | nindent 8 }}
+      containers:
+      - name: pre-upgrade-matomo
+        image: {{.Values.matomo.image}}
+        imagePullPolicy: Always
+        {{- if .Values.matomo.preUpgradeResources }}
+        resources:
+{{ toYaml .Values.matomo.preUpgradeResources | indent 10 }}
+        {{- end }}
+        securityContext:
+          runAsUser: {{.Values.matomo.runAsUser}}
+          runAsNonRoot: true
+          privileged: false
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+        volumeMounts:
+        - name: static-data
+          mountPath: /var/www/html
+        - name: matomo-pre-upgrade-additional-config-maps
+          mountPath: /var/www/html/config/common.config.ini.php
+          subPath: common.config.ini.php
+        # To do anything with Matomo, we first need to bootstrap it (curl).
+        command:  [ 'bash' , '-c' , 'sleep {{.Values.matomo.preUpgradeSleepTime}}; curl -Il --max-time 10 https://{{.Values.matomo.dashboard.hostname}}; {{.Values.matomo.preUpgradeCommand}}' ]
+      volumes:
+        - name: matomo-configuration
+          configMap:
+            name: matomo-configuration
+        - name: static-data
+          emptyDir: {}
+{{ if  .Values.extraConfigMaps.create }}
+        - name: matomo-pre-upgrade-additional-config-maps
+          configMap:
+            name: matomo-pre-upgrade-additional-config-maps
+{{- end }}
+{{- end -}}

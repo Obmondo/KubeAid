@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: matomo-scheduledtasks-php
+  namespace: {{.Values.namespace}}
+{{- if .Values.matomo.cronJobs.scheduledTasks.php }}
+data:
+  zz-global.ini: |
+    expose_php={{ .Values.matomo.cronJobs.scheduledTasks.php.expose_php | default "Off" }}
+    opcache.memory_consumption={{ .Values.matomo.cronJobs.scheduledTasks.php.opcache_memory_consumption | default "512" }}
+    opcache.jit_buffer_size={{ .Values.matomo.cronJobs.scheduledTasks.php.opcache_jit_buffer_size | default "256M" }}
+    opcache.jit={{ .Values.matomo.cronJobs.scheduledTasks.php.opcache_jit | default "1235" }}
+    max_execution_time={{ .Values.matomo.cronJobs.scheduledTasks.php.max_execution_time | default "0" }}
+    post_max_size={{ .Values.matomo.cronJobs.scheduledTasks.php.post_max_size | default "1500M" }}
+    upload_max_filesize={{ .Values.matomo.cronJobs.scheduledTasks.php.upload_max_filesize | default "32M" }}
+    max_input_time={{ .Values.matomo.cronJobs.scheduledTasks.php.max_input_time | default "3600" }}
+    max_file_uploads={{ .Values.matomo.cronJobs.scheduledTasks.php.opcache_max_file_upload| default "300" }}
+    memory_limit={{ .Values.matomo.cronJobs.scheduledTasks.php.memory_limit | default "4G" }}
+    display_errors={{ .Values.matomo.cronJobs.scheduledTasks.php.display_errors | default "Off" }}
+    error_reporting={{ .Values.matomo.cronJobs.scheduledTasks.php.error_reporting | default "22527" }}
+    mysqli.reconnect={{ .Values.matomo.cronJobs.scheduledTasks.php.mysqli_reconnect | default "On" }}
+    mysqli.allow_local_infile={{ .Values.matomo.cronJobs.scheduledTasks.php.mysqli_allow_local_infile | default "On" }}
+    default_socket_timeout={{ .Values.matomo.cronJobs.scheduledTasks.php.default_socket_timeout | default "20" }}
+    max_input_vars={{ .Values.matomo.cronJobs.scheduledTasks.php.max_input_vars | default "2000" }}
+{{ else }}
+data:
+  zz-global.ini: |
+    expose_php=Off
+    opcache.memory_consumption=512
+    opcache.jit_buffer_size=256M
+    opcache.jit=1235
+    max_execution_time=0
+    post_max_size=1500M
+    upload_max_filesize=32M
+    max_input_time=1800
+    max_file_uploads="300"
+    memory_limit=4G
+    display_errors=Off
+    error_reporting="22527"
+    mysqli.reconnect=On
+    mysqli.allow_local_infile=On
+    default_socket_timeout=20
+    max_input_vars=2000
+{{- end }}

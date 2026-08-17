@@ -1,0 +1,14 @@
+{{- if .Values.matomo.tracker.loadbalancer }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: matomo-tracker-lb
+  namespace: {{.Values.namespace}}
+spec:
+  selector:
+    app: matomo-tracker
+  ports:
+    - port: 80
+      targetPort: 8080
+  type: LoadBalancer
+{{- end -}}

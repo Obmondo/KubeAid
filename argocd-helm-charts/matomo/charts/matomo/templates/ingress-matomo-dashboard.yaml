@@ -1,0 +1,61 @@
+{{- if .Values.matomo.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  labels:
+    app: matomo-dashboard
+{{- if .Values.matomo.ingress.extralabels }}
+{{ toYaml .Values.matomo.ingress.extralabels | indent 4 }}
+{{- end }}
+  name: matomo-dashboard
+  namespace: {{.Values.namespace}}
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: 200m
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "700"
+    {{- if .Values.matomo.ingress.annotations }}
+      {{- with .Values.matomo.ingress.annotations }}
+        {{- toYaml . | nindent 4 }}
+      {{- end }}
+    {{- end }}
+    {{- if .Values.matomo.dashboard.ingress.annotations }}
+      {{- with .Values.matomo.dashboard.ingress.annotations }}
+        {{- toYaml . | nindent 4 }}
+      {{- end }}
+    {{- end }}
+    {{- if .Values.matomo.dashboard.whitelist }}
+    nginx.ingress.kubernetes.io/whitelist-source-range: {{.Values.matomo.dashboard.whitelist | toPrettyJson}}
+    {{ else }}
+  {{- end }}
+spec:
+  {{- if .Values.matomo.dashboard.ingressClassName }}
+  ingressClassName: {{.Values.matomo.dashboard.ingressClassName}}
+  {{- end }}
+  rules:
+  - host: {{.Values.matomo.dashboard.hostname}}
+    http:
+      paths:
+      - path: /
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            {{- if .Values.matomo.dashboard.loadbalancer }}
+            name: matomo-dashboard-lb
+            port:
+              number: 80
+              {{ else }}
+            name: matomo-dashboard
+            port:
+              number: 8080
+            {{- end }}
+
+  {{- if .Values.matomo.dashboard.tls }}
+  tls:
+  - hosts:
+    - {{.Values.matomo.dashboard.hostname}}
+    {{- if .Values.matomo.dashboard.secretName }}
+    secretName: {{.Values.matomo.dashboard.secretName}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}

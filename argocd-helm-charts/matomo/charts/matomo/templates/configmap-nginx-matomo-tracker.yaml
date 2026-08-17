@@ -1,0 +1,304 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-matomo-tracker
+  namespace: {{.Values.namespace}}
+data:
+  nginx.conf: |
+    worker_processes {{ .Values.matomo.tracker.nginx.nginxWorkerProcesses | default 5 }};
+    load_module modules/ngx_http_geoip2_module.so;
+    events {
+      worker_connections 768;
+    }
+    pid        /tmp/nginx.pid;
+    http {
+      # Gzip compression settings
+      gzip on;
+      gzip_disable "MSIE [1-6]\.";
+      gzip_vary on;
+      gzip_proxied any;
+      gzip_comp_level 5;
+      gzip_min_length 512;
+      gzip_buffers 16 128k;
+      gzip_http_version 1.1;
+      gzip_types
+        application/json
+        application/javascript;
+      geoip2 /usr/share/geoip/GeoLite2-Country.mmdb {
+        $geoip2_data_country_code default=SE source=$http_x_forwarded_for country iso_code;
+      }
+      client_max_body_size 200M;
+      server_tokens off;
+      client_body_temp_path /tmp/client_temp;
+      proxy_temp_path       /tmp/proxy_temp_path;
+      fastcgi_temp_path     /tmp/fastcgi_temp;
+      uwsgi_temp_path       /tmp/uwsgi_temp;
+      scgi_temp_path        /tmp/scgi_temp;
+      include       /etc/nginx/mime.types;
+      default_type  application/octet-stream;
+      log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                        '$status $body_bytes_sent "$http_referer" '
+                        '"$http_user_agent" "$http_x_forwarded_for"';
+      log_format  main_geo  '$remote_addr - $remote_user [$time_local] "$request" '
+                            '$status $body_bytes_sent "$http_referer" '
+                            '"$http_user_agent" "$http_x_forwarded_for" '
+                            '$geoip2_data_country_code';
+      access_log  /var/log/nginx/access.log  main_geo;
+      sendfile        on;
+      keepalive_timeout 0;
+
+      map $args $method {
+        default 0;
+        "~UserFeedback.saveFeedback" 1;
+        "~UserFeedback.getForm" 1;
+      }
+      server {
+        listen [::]:8080 default_server;
+        listen 8080 default_server;
+        server_name _;
+        root /var/www/html;
+        index matomo.php;
+        location /health {
+          return 200 'no content';
+        }
+        add_header Referrer-Policy origin always; # make sure outgoing links don't show the URL to the Matomo instance
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-XSS-Protection "1; mode=block" always;
+
+        location ~ ^/(node_modules/jquery/dist/jquery)\.js$ {
+            proxy_ignore_headers Cache-Control;
+            allow all;
+        }
+        location ~ ^/(node_modules/jquery/dist/jquery)\.js$ {
+            proxy_ignore_headers Cache-Control;
+            allow all;
+        }
+
+        location ~* \.(js|css)$ {
+            proxy_ignore_headers Cache-Control;
+            add_header Access-Control-Allow-Origin *;
+            allow all;
+        }
+
+        location = /favicon.ico {
+            log_not_found off;
+            access_log off;
+        }
+        ## only allow accessing the following php files
+        location ~ ^/(matomo|piwik|js/index|plugins/HeatmapSessionRecording/configs)\.php$ {
+          include fastcgi_params;
+          fastcgi_split_path_info ^(.+?\.php)(/.*)$;
+          if (!-f $document_root$fastcgi_script_name) {
+            return 404;
+          }
+          try_files $fastcgi_script_name =404; # protects against CVE-2019-11043.
+          fastcgi_pass 127.0.0.1:9000;
+          fastcgi_read_timeout 240s;
+          fastcgi_param HTTP_PROXY "";
+          fastcgi_index matomo.php;
+        }
+        location ~ ^/(status)$ {
+          access_log off;
+          fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+          fastcgi_index index.php;
+          include fastcgi_params;
+          fastcgi_pass 127.0.0.1:9000;
+        }
+
+        ## serve all other files normally
+        location / {
+            try_files $uri $uri/ =404;
+        }
+        ## disable all access to the following directories
+        location ~ ^/(config|tmp|core|lang) {
+            deny all;
+            return 403; # replace with 404 to not show these directories exist
+        }
+        location ~ /\.ht {
+            deny  all;
+            return 403;
+        }
+        location ~ js/container_.*_preview\.js$ {
+            expires off;
+            add_header Cache-Control 'private, no-cache, no-store';
+        }
+        location ~ \.(gif|ico|jpg|png|svg|css|htm|html|mp3|mp4|wav|ogg|avi|ttf|eot|woff|woff2|json)$ {
+            allow all;
+            ## Cache images,CSS and webfonts for an hour
+            ## Increasing the duration may improve the load-time, but may cause old files to show after an Matomo upgrade
+            expires 1h;
+            add_header Pragma public;
+            add_header Cache-Control "public";
+        }
+        location ~ \.(js)$ {
+            allow all;
+            ## Cache JS for 5 minutes
+            ## Increasing the duration may improve the load-time, but may cause old files to show after an Matomo upgrade
+            expires 5m;
+            add_header Pragma public;
+            add_header Cache-Control "public";
+        }
+        location ~ ^/(libs|vendor|plugins|misc|node_modules) {
+            deny all;
+            return 403;
+        }
+        ## properly display textfiles in root directory
+        location ~/(.*\.md|LEGALNOTICE|LICENSE) {
+            default_type text/plain;
+        }
+
+        location ~* ^.+\.php$ {
+          try_files $uri =404;
+          fastcgi_split_path_info ^(.+?\.php)(/.*)$;
+          if (!-f $document_root$fastcgi_script_name) {
+                return 404;
+          }
+              proxy_read_timeout 600s;
+              proxy_send_timeout 600s;
+              proxy_connect_timeout 75s;
+              fastcgi_read_timeout 600s;
+              fastcgi_send_timeout 600s;
+              proxy_set_header Connection "";
+              proxy_http_version 1.1;
+              proxy_set_header   Host      $http_host;
+              proxy_set_header   X-Real-IP         $remote_addr;
+              proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+              proxy_set_header   X-Forwarded-Proto $scheme;
+              proxy_set_header   X-Forwarded-Host  $host;
+              proxy_set_header   X-Forwarded-Port  $server_port;
+              fastcgi_param HTTP_PROXY "";
+              fastcgi_pass 127.0.0.1:9000;
+              fastcgi_index index.php;
+              include fastcgi_params;
+              if ( $method = 0 ) {
+                return 403;
+              }
+        }
+      }
+    }
+  fastcgi_params: |
+    fastcgi_param   COUNTRY_CODE            $geoip2_data_country_code;
+    fastcgi_param   QUERY_STRING            $query_string;
+    fastcgi_param   REQUEST_METHOD          $request_method;
+    fastcgi_param   CONTENT_TYPE            $content_type;
+    fastcgi_param   CONTENT_LENGTH          $content_length;
+
+    fastcgi_param   SCRIPT_FILENAME         $document_root$fastcgi_script_name;
+    fastcgi_param   SCRIPT_NAME             $fastcgi_script_name;
+    fastcgi_param   PATH_INFO               $fastcgi_path_info;
+    fastcgi_param   PATH_TRANSLATED         $document_root$fastcgi_path_info;
+    fastcgi_param   REQUEST_URI             $request_uri;
+    fastcgi_param   DOCUMENT_URI            $document_uri;
+    fastcgi_param   DOCUMENT_ROOT           $document_root;
+    fastcgi_param   SERVER_PROTOCOL         $server_protocol;
+
+    fastcgi_param   GATEWAY_INTERFACE       CGI/1.1;
+    fastcgi_param   SERVER_SOFTWARE         nginx/$nginx_version;
+
+    fastcgi_param   REMOTE_ADDR             $remote_addr;
+    fastcgi_param   REMOTE_PORT             $remote_port;
+    fastcgi_param   SERVER_ADDR             $server_addr;
+    fastcgi_param   SERVER_PORT             $server_port;
+    fastcgi_param   SERVER_NAME             $server_name;
+
+    fastcgi_param   HTTPS                   $https;
+
+    # PHP only, required if PHP was built with --enable-force-cgi-redirect
+    fastcgi_param   REDIRECT_STATUS         200;
+  mime.types: |
+    types {
+      text/html                                        html htm shtml;
+      text/css                                         css;
+      text/xml                                         xml;
+      image/gif                                        gif;
+      image/jpeg                                       jpeg jpg;
+      application/javascript                           js;
+      application/atom+xml                             atom;
+      application/rss+xml                              rss;
+
+      text/mathml                                      mml;
+      text/plain                                       txt;
+      text/vnd.sun.j2me.app-descriptor                 jad;
+      text/vnd.wap.wml                                 wml;
+      text/x-component                                 htc;
+
+      image/png                                        png;
+      image/svg+xml                                    svg svgz;
+      image/tiff                                       tif tiff;
+      image/vnd.wap.wbmp                               wbmp;
+      image/webp                                       webp;
+      image/x-icon                                     ico;
+      image/x-jng                                      jng;
+      image/x-ms-bmp                                   bmp;
+
+      font/woff                                        woff;
+      font/woff2                                       woff2;
+
+      application/java-archive                         jar war ear;
+      application/json                                 json;
+      application/mac-binhex40                         hqx;
+      application/msword                               doc;
+      application/pdf                                  pdf;
+      application/postscript                           ps eps ai;
+      application/rtf                                  rtf;
+      application/vnd.apple.mpegurl                    m3u8;
+      application/vnd.google-earth.kml+xml             kml;
+      application/vnd.google-earth.kmz                 kmz;
+      application/vnd.ms-excel                         xls;
+      application/vnd.ms-fontobject                    eot;
+      application/vnd.ms-powerpoint                    ppt;
+      application/vnd.oasis.opendocument.graphics      odg;
+      application/vnd.oasis.opendocument.presentation  odp;
+      application/vnd.oasis.opendocument.spreadsheet   ods;
+      application/vnd.oasis.opendocument.text          odt;
+      application/vnd.openxmlformats-officedocument.presentationml.presentation
+                                                      pptx;
+      application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+                                                      xlsx;
+      application/vnd.openxmlformats-officedocument.wordprocessingml.document
+                                                      docx;
+      application/vnd.wap.wmlc                         wmlc;
+      application/x-7z-compressed                      7z;
+      application/x-cocoa                              cco;
+      application/x-java-archive-diff                  jardiff;
+      application/x-java-jnlp-file                     jnlp;
+      application/x-makeself                           run;
+      application/x-perl                               pl pm;
+      application/x-pilot                              prc pdb;
+      application/x-rar-compressed                     rar;
+      application/x-redhat-package-manager             rpm;
+      application/x-sea                                sea;
+      application/x-shockwave-flash                    swf;
+      application/x-stuffit                            sit;
+      application/x-tcl                                tcl tk;
+      application/x-x509-ca-cert                       der pem crt;
+      application/x-xpinstall                          xpi;
+      application/xhtml+xml                            xhtml;
+      application/xspf+xml                             xspf;
+      application/zip                                  zip;
+
+      application/octet-stream                         bin exe dll;
+      application/octet-stream                         deb;
+      application/octet-stream                         dmg;
+      application/octet-stream                         iso img;
+      application/octet-stream                         msi msp msm;
+
+      audio/midi                                       mid midi kar;
+      audio/mpeg                                       mp3;
+      audio/ogg                                        ogg;
+      audio/x-m4a                                      m4a;
+      audio/x-realaudio                                ra;
+
+      video/3gpp                                       3gpp 3gp;
+      video/mp2t                                       ts;
+      video/mp4                                        mp4;
+      video/mpeg                                       mpeg mpg;
+      video/quicktime                                  mov;
+      video/webm                                       webm;
+      video/x-flv                                      flv;
+      video/x-m4v                                      m4v;
+      video/x-mng                                      mng;
+      video/x-ms-asf                                   asx asf;
+      video/x-ms-wmv                                   wmv;
+      video/x-msvideo                                  avi;
+    }

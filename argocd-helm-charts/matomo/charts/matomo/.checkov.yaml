@@ -1,0 +1,17 @@
+# Checkov configuration for the Matomo chart.
+# Each skip below is a deliberate policy decision
+skip-check:
+  # Secrets as environment variables: the Matomo image's entrypoint consumes
+  # MATOMO_DB_PASSWORD as an env var sourced from a Kubernetes Secret via
+  # secretKeyRef - that is the mechanism supported upstream.
+  - CKV_K8S_35
+  # Image digests: the chart pins version tags and supports global.imageRegistry
+  # overrides; hard-coded digests would break registry mirroring and make every
+  # image bump a multi-line change.
+  - CKV_K8S_43
+  # High UID (>= 10000): uid 82 (www-data) and 100 (nginx) are baked into the
+  # image file ownership; raising runAsUser breaks file permissions at runtime.
+  - CKV_K8S_40
+  # Read-only root filesystem: php-fpm and nginx write to /tmp, pid files and
+  # cache directories. Needs per-image writable-path mapping to emptyDir mounts.
+  - CKV_K8S_22

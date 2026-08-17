@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: matomo-dashboard-php
+  namespace: {{.Values.namespace}}
+{{- if .Values.matomo.php }}
+data:
+  zz-global.ini: |
+    expose_php={{ .Values.matomo.php.expose_php | default "Off" }}
+    opcache.memory_consumption={{ .Values.matomo.php.opcache_memory_consumption | default "512" }}
+    opcache.interned_strings_buffer={{ .Values.matomo.php.opcache_interned_strings_buffer | default "16" }}
+    opcache.save_comments={{ .Values.matomo.php.opcache_save_comments | default "1" }}
+    opcache.jit_buffer_size={{ .Values.matomo.php.opcache_jit_buffer_size | default "256M" }}
+    opcache.jit={{ .Values.matomo.php.opcache_jit | default "1235" }}
+    max_execution_time={{ .Values.matomo.php.max_execution_time | default "300" }}
+    post_max_size={{ .Values.matomo.php.post_max_size | default "1500M" }}
+    upload_max_filesize={{ .Values.matomo.php.upload_max_filesize | default "32M" }}
+    max_input_time={{ .Values.matomo.php.max_input_time | default "3600" }}
+    max_file_uploads={{ .Values.matomo.php.opcache_max_file_upload| default "300" }}
+    memory_limit={{ .Values.matomo.php.memory_limit | default "2G" }}
+    display_errors={{ .Values.matomo.php.display_errors | default "Off" }}
+    error_reporting={{ .Values.matomo.php.error_reporting | default "22527" }}
+    mysqli.reconnect={{ .Values.matomo.php.mysqli_reconnect | default "On" }}
+    mysqli.allow_local_infile={{ .Values.matomo.php.mysqli_allow_local_infile | default "On" }}
+    default_socket_timeout={{ .Values.matomo.php.default_socket_timeout | default "20" }}
+{{ else }}
+data:
+  zz-global.ini: |
+    expose_php=Off
+    opcache.memory_consumption=512
+    opcache.interned_strings_buffer=16
+    opcache.save_comments=1
+    opcache.jit_buffer_size=256M
+    opcache.jit=1235
+    max_execution_time=300
+    post_max_size=1500M
+    upload_max_filesize=32M
+    max_input_time=3600
+    max_file_uploads="300"
+    memory_limit=2G
+    display_errors=Off
+    error_reporting="22527"
+    mysqli.reconnect="On"
+    mysqli.allow_local_infile="On"
+    default_socket_timeout="20"
+{{- end }}

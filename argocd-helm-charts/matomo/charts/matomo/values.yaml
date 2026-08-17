@@ -1,1183 +1,816 @@
-# Copyright Broadcom, Inc. All Rights Reserved.
-# SPDX-License-Identifier: APACHE-2.0
-
-## @section Global parameters
 ## Global Docker image parameters
-## Please, note that this will override the image parameters, including dependencies, configured to use the global value
+## Please, note that this will override the image parameters, configured to use the global value
 ## Current available global Docker image parameters: imageRegistry, imagePullSecrets and storageClass
-##
-
-## @param global.imageRegistry Global Docker image registry
-## @param global.imagePullSecrets Global Docker registry secret names as an array
-## @param global.defaultStorageClass Global default StorageClass for Persistent Volume(s)
-##
+ # -- Globals settings
 global:
+  ## As:
+  ## imageRegistry: "docker.io"
+  # -- Global image registry
   imageRegistry: ""
-  ## E.g.
+  ## As:
   ## imagePullSecrets:
   ##   - myRegistryKeySecretName
   ##
+  # -- Global image pull secrets
   imagePullSecrets: []
-  defaultStorageClass: ""
-  ## Security parameters
-  ##
-  security:
-    ## @param global.security.allowInsecureImages Allows skipping image verification
-    allowInsecureImages: false
-  ## Compatibility adaptations for Kubernetes platforms
-  ##
-  compatibility:
-    ## Compatibility adaptations for Openshift
-    ##
-    openshift:
-      ## @param global.compatibility.openshift.adaptSecurityContext Adapt the securityContext sections of the deployment to make them compatible with Openshift restricted-v2 SCC: remove runAsUser, runAsGroup and fsGroup and let the platform use their allowed default IDs. Possible values: auto (apply if the detected running cluster is Openshift), force (perform the adaptation always), disabled (do not perform adaptation)
-      ##
-      adaptSecurityContext: auto
-## @section Common parameters
-##
 
-## @param kubeVersion Force target Kubernetes version (using Helm capabilities if not set)
-##
-kubeVersion: ""
-## @param nameOverride String to partially override matomo.fullname template (will maintain the release name)
-##
-nameOverride: ""
-## @param fullnameOverride String to fully override matomo.fullname template
-##
-fullnameOverride: ""
-## @param namespaceOverride String to fully override common.names.namespace
-##
-namespaceOverride: ""
-## @param commonAnnotations Common annotations to add to all Matomo resources (sub-charts are not considered). Evaluated as a template
-##
-commonAnnotations: {}
-## @param commonLabels Common labels to add to all Matomo resources (sub-charts are not considered). Evaluated as a template
-##
-commonLabels: {}
-## @param extraDeploy Array of extra objects to deploy with the release (evaluated as a template).
-##
-extraDeploy: []
-## @param usePasswordFiles Mount credentials as files instead of using environment variables
-##
-usePasswordFiles: true
+# -- Namespace to install Matomo in, default matomo.
+namespace: matomo
 
-## @section Matomo parameters
-##
-
-## Bitnami Matomo image version
-## ref: https://hub.docker.com/r/bitnami/matomo/tags/
-## @param image.registry [default: REGISTRY_NAME] Matomo image registry
-## @param image.repository [default: REPOSITORY_NAME/matomo] Matomo Image name
-## @skip image.tag Matomo Image tag
-## @param image.digest Matomo image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag
-## @param image.pullPolicy Matomo image pull policy
-## @param image.pullSecrets Specify docker-registry secret names as an array
-## @param image.debug Specify if debug logs should be enabled
-##
-image:
-  registry: docker.io
-  repository: bitnami/matomo
-  tag: 5.3.2-debian-12-r12
-  digest: ""
-  ## Specify a imagePullPolicy
-  ## ref: https://kubernetes.io/docs/concepts/containers/images/#pre-pulled-images
-  ##
-  pullPolicy: IfNotPresent
-  ## Optionally specify an array of imagePullSecrets.
-  ## Secrets must be manually created in the namespace.
-  ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
-  ## e.g:
-  ## pullSecrets:
+matomo:
+  # -- Image registry to use.
+  imageRegistry: ""
+  ## As:
+  ## imagePullSecrets:
   ##   - myRegistryKeySecretName
-  ##
-  pullSecrets: []
-  ## Set to true if you would like to see extra information on logs
-  ##
-  debug: false
-## @param replicaCount Number of Matomo Pods to run (requires ReadWriteMany PVC support)
-##
-replicaCount: 1
-## @param matomoUsername User of the application
-## ref: https://github.com/bitnami/containers/tree/main/bitnami/matomo#configuration
-##
-matomoUsername: user
-## @param matomoPassword Application password
-## Defaults to a random 10-character alphanumeric string if not set
-## ref: https://github.com/bitnami/containers/tree/main/bitnami/matomo#configuration
-##
-matomoPassword: ""
-## @param matomoEmail Admin email
-## ref: https://github.com/bitnami/containers/tree/main/bitnami/matomo#configuration
-##
-matomoEmail: user@example.com
-## @param matomoWebsiteName Matomo application name
-## ref: https://github.com/bitnami/containers/tree/main/bitnami/matomo#configuration
-##
-matomoWebsiteName: example
-## @param matomoWebsiteHost Matomo application host
-## ref: https://github.com/bitnami/containers/tree/main/bitnami/matomo#configuration
-##
-matomoWebsiteHost: https://example.org
-## @param matomoSkipInstall Skip Matomo installation wizard. Useful for migrations and restoring from SQL dump
-## ref: https://github.com/bitnami/containers/tree/main/bitnami/matomo#configuration
-##
-matomoSkipInstall: false
-## @param customPostInitScripts Custom post-init.d user scripts
-## ref: https://github.com/bitnami/containers/tree/main/bitnami/matomo
-## NOTE: supported formats are `.sh` or `.php`
-## NOTE: scripts are exclusively executed during the 1st boot of the container
-## e.g:
-## customPostInitScripts:
-##   custom-post-init.sh: |
-##     #!/bin/bash
-##     echo "Hello from custom-post-init.sh"
-##   .htaccess: |
-##     RewriteEngine On
-##     RewriteBase /
-##     ...
-##
-customPostInitScripts: {}
-## @param allowEmptyPassword Allow DB blank passwords
-## ref: https://github.com/bitnami/containers/tree/main/bitnami/matomo#environment-variables
-##
-allowEmptyPassword: true
-## @param command Override default container command (useful when using custom images)
-##
-command: []
-## @param args Override default container args (useful when using custom images)
-##
-args: []
-## @param updateStrategy.type Update strategy - only really applicable for deployments with RWO PVs attached
-## If replicas = 1, an update can get "stuck", as the previous pod remains attached to the
-## PV, and the "incoming" pod can never start. Changing the strategy to "Recreate" will
-## terminate the single previous pod, so that the new, incoming pod can attach to the PV
-##
-updateStrategy:
-  type: RollingUpdate
-## @param priorityClassName Matomo pods' priorityClassName
-##
-priorityClassName: ""
-## @param schedulerName Name of the k8s scheduler (other than default)
-## ref: https://kubernetes.io/docs/tasks/administer-cluster/configure-multiple-schedulers/
-##
-schedulerName: ""
-## @param topologySpreadConstraints Topology Spread Constraints for pod assignment
-## https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/
-## The value is evaluated as a template
-##
-topologySpreadConstraints: []
-## @param automountServiceAccountToken Mount Service Account token in pod
-##
-automountServiceAccountToken: true
-## @param hostAliases [array] Add deployment host aliases
-## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
-##
-hostAliases:
-  ## Necessary for apache-exporter to work
-  ##
-  - ip: "127.0.0.1"
-    hostnames:
-      - "status.localhost"
-## @param extraEnvVars Extra environment variables
-## For example:
-##
-extraEnvVars: []
-#  - name: BEARER_AUTH
-#    value: true
-## @param extraEnvVarsCM ConfigMap containing extra env vars
-##
-extraEnvVarsCM: ""
-## @param extraEnvVarsSecret Secret containing extra env vars (in case of sensitive data)
-##
-extraEnvVarsSecret: ""
-## @param extraVolumes Array of extra volumes to be added to the deployment (evaluated as template). Requires setting `extraVolumeMounts`
-##
-extraVolumes: []
-## @param extraVolumeMounts Array of extra volume mounts to be added to the container (evaluated as template). Normally used with `extraVolumes`.
-##
-extraVolumeMounts: []
-## @param initContainers Add additional init containers to the pod (evaluated as a template)
-##
-initContainers: []
-## Pod Disruption Budget configuration
-## ref: https://kubernetes.io/docs/tasks/run-application/configure-pdb
-## @param pdb.create Enable/disable a Pod Disruption Budget creation
-## @param pdb.minAvailable Minimum number/percentage of pods that should remain scheduled
-## @param pdb.maxUnavailable Maximum number/percentage of pods that may be made unavailable. Defaults to `1` if both `pdb.minAvailable` and `pdb.maxUnavailable` are empty.
-##
-pdb:
-  create: true
-  minAvailable: ""
-  maxUnavailable: ""
-## @param sidecars Attach additional containers to the pod (evaluated as a template)
-##
-sidecars: []
-## @param serviceAccountName Attach serviceAccountName to the pod and sidecars
-##
-serviceAccountName: ""
-## @param tolerations Tolerations for pod assignment
-## Ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
-##
-tolerations: []
-## @param existingSecret Name of a secret with the application password
-##
-existingSecret: ""
-## SMTP mail delivery configuration
-## ref: https://github.com/bitnami/containers/tree/main/bitnami/matomo/#smtp-configuration
-## @param smtpAuth SMTP authentication mechanism (options: Plain, Login, Cram-md5)
-## @param smtpHost SMTP host
-## @param smtpPort SMTP port
-## @param smtpUser SMTP user
-## @param smtpPassword SMTP password
-## @param smtpProtocol SMTP Protocol (options: ssl,tls, nil)
-## @param noreplyName Noreply name
-## @param noreplyAddress Noreply address
-##
-smtpAuth: ""
-smtpHost: ""
-smtpPort: ""
-smtpUser: ""
-smtpPassword: ""
-smtpProtocol: ""
-noreplyName: ""
-noreplyAddress: ""
-## @param smtpExistingSecret The name of an existing secret with SMTP credentials
-## NOTE: Must contain key `smtp-password`
-## NOTE: When it's set, the `smtpPassword` parameter is ignored
-##
-smtpExistingSecret: ""
-## @param containerPorts [object] Container ports
-##
-containerPorts:
-  http: 8080
-  https: 8443
-## @param extraContainerPorts Optionally specify extra list of additional ports for Matomo container(s)
-## e.g:
-## extraContainerPorts:
-##   - name: myservice
-##     containerPort: 9090
-##
-extraContainerPorts: []
-## Enable persistence using Persistent Volume Claims
-## ref: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
-##
-persistence:
-  ## @param persistence.enabled Enable persistence using PVC
-  ##
-  enabled: true
-  ## @param persistence.storageClass PVC Storage Class for Matomo volume
-  ## If defined, storageClassName: <storageClass>
-  ## If set to "-", storageClassName: "", which disables dynamic provisioning
-  ## If undefined (the default) or set to null, no storageClassName spec is
-  ##   set, choosing the default provisioner.  (gp2 on AWS, standard on
-  ##   GKE, AWS & OpenStack)
-  ##
-  storageClass: ""
-  ## @param persistence.accessModes PVC Access Mode for Matomo volume
-  ## Requires persistence.enabled: true
-  ## If defined, PVC must be created manually before volume will be bound
-  ##
-  accessModes:
-    - ReadWriteOnce
-  ## @param persistence.size PVC Storage Request for Matomo volume
-  ##
-  size: 8Gi
-  ## @param persistence.dataSource Custom PVC data source
-  ##
-  dataSource: {}
-  ## @param persistence.existingClaim A manually managed Persistent Volume Claim
-  ## Requires persistence.enabled: true
-  ## If defined, PVC must be created manually before volume will be bound
-  ##
-  existingClaim: ""
-  ## @param persistence.hostPath If defined, the matomo-data volume will mount to the specified hostPath.
-  ## Requires persistence.enabled: true
-  ## Requires persistence.existingClaim: nil|false
-  ## Default: nil.
-  ##
-  hostPath: ""
-  ## @param persistence.annotations Persistent Volume Claim annotations
-  ##
-  annotations: {}
-  ## @param persistence.selector Selector to match an existing Persistent Volume for Matomo data PVC
-  ## If set, the PVC can't have a PV dynamically provisioned for it
-  ## E.g.
-  ## selector:
-  ##   matchLabels:
-  ##     app: my-app
-  ##
-  selector: {}
-## @param podAffinityPreset Pod affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
-## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity
-##
-podAffinityPreset: ""
-## @param podAntiAffinityPreset Pod anti-affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
-## Ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity
-##
-podAntiAffinityPreset: soft
-## Node affinity preset
-## Ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity
-## @param nodeAffinityPreset.type Node affinity preset type. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
-## @param nodeAffinityPreset.key Node label key to match Ignored if `affinity` is set.
-## @param nodeAffinityPreset.values Node label values to match. Ignored if `affinity` is set.
-##
-nodeAffinityPreset:
-  type: ""
-  ## E.g.
-  ## key: "kubernetes.io/e2e-az-name"
-  ##
-  key: ""
-  ## E.g.
-  ## values:
-  ##   - e2e-az1
-  ##   - e2e-az2
-  ##
-  values: []
-## @param affinity Affinity for pod assignment
-## Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
-## Note: podAffinityPreset, podAntiAffinityPreset, and nodeAffinityPreset will be ignored when it's set
-##
-affinity: {}
-## @param nodeSelector Node labels for pod assignment. Evaluated as a template.
-## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
-##
-nodeSelector: {}
-## Matomo container's resource requests and limits
-## ref: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
-## We usually recommend not to specify default resources and to leave this as a conscious
-## choice for the user. This also increases chances charts run on environments with little
-## resources, such as Minikube. If you do want to specify resources, uncomment the following
-## lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-## @param resourcesPreset Set container resources according to one common preset (allowed values: none, nano, micro, small, medium, large, xlarge, 2xlarge). This is ignored if resources is set (resources is recommended for production).
-## More information: https://github.com/bitnami/charts/blob/main/bitnami/common/templates/_resources.tpl#L15
-##
-resourcesPreset: "micro"
-## @param resources Set container requests and limits for different resources like CPU or memory (essential for production workloads)
-## Example:
-## resources:
-##   requests:
-##     cpu: 2
-##     memory: 512Mi
-##   limits:
-##     cpu: 3
-##     memory: 1024Mi
-##
-resources: {}
-## Configure Pods Security Context
-## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
-## @param podSecurityContext.enabled Enable Matomo pods' Security Context
-## @param podSecurityContext.fsGroupChangePolicy Set filesystem group change policy
-## @param podSecurityContext.sysctls Set kernel settings using the sysctl interface
-## @param podSecurityContext.supplementalGroups Set filesystem extra groups
-## @param podSecurityContext.fsGroup Matomo pods' group ID
-##
-podSecurityContext:
-  enabled: true
-  fsGroupChangePolicy: Always
-  sysctls: []
-  supplementalGroups: []
-  fsGroup: 1001
-## Configure Container Security Context (only main container)
-## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
-## @param containerSecurityContext.enabled Enabled containers' Security Context
-## @param containerSecurityContext.seLinuxOptions [object,nullable] Set SELinux options in container
-## @param containerSecurityContext.runAsUser Set containers' Security Context runAsUser
-## @param containerSecurityContext.runAsGroup Set containers' Security Context runAsGroup
-## @param containerSecurityContext.runAsNonRoot Set container's Security Context runAsNonRoot
-## @param containerSecurityContext.privileged Set container's Security Context privileged
-## @param containerSecurityContext.readOnlyRootFilesystem Set container's Security Context readOnlyRootFilesystem
-## @param containerSecurityContext.allowPrivilegeEscalation Set container's Security Context allowPrivilegeEscalation
-## @param containerSecurityContext.capabilities.drop List of capabilities to be dropped
-## @param containerSecurityContext.seccompProfile.type Set container's Security Context seccomp profile
-##
-containerSecurityContext:
-  enabled: true
-  seLinuxOptions: {}
-  runAsUser: 1001
-  runAsGroup: 0
-  runAsNonRoot: true
-  privileged: false
-  readOnlyRootFilesystem: false
-  allowPrivilegeEscalation: false
-  capabilities:
-    drop: ["ALL"]
-  seccompProfile:
-    type: "RuntimeDefault"
-## Configure extra options for startup probe
-## Matomo core exposes / to unauthenticated requests, making it a good
-## default startup and readiness path. However, that may not always be the
-## case. For example, if the image value is overridden to an image containing a
-## module that alters that route, or an image that does not auto-install Matomo.
-## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#configure-probes
-## @param startupProbe.enabled Enable startupProbe
-## @param startupProbe.path Request path for startupProbe
-## @param startupProbe.initialDelaySeconds Initial delay seconds for startupProbe
-## @param startupProbe.periodSeconds Period seconds for startupProbe
-## @param startupProbe.timeoutSeconds Timeout seconds for startupProbe
-## @param startupProbe.failureThreshold Failure threshold for startupProbe
-## @param startupProbe.successThreshold Success threshold for startupProbe
-##
-startupProbe:
-  enabled: false
-  path: /matomo.php
-  initialDelaySeconds: 600
-  periodSeconds: 10
-  timeoutSeconds: 5
-  failureThreshold: 5
-  successThreshold: 1
-## Configure extra options for liveness probe
-## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#configure-probes
-## @param livenessProbe.enabled Enable livenessProbe
-## @param livenessProbe.initialDelaySeconds Initial delay seconds for livenessProbe
-## @param livenessProbe.periodSeconds Period seconds for livenessProbe
-## @param livenessProbe.timeoutSeconds Timeout seconds for livenessProbe
-## @param livenessProbe.failureThreshold Failure threshold for livenessProbe
-## @param livenessProbe.successThreshold Success threshold for livenessProbe
-##
-livenessProbe:
-  enabled: true
-  initialDelaySeconds: 600
-  periodSeconds: 10
-  timeoutSeconds: 5
-  failureThreshold: 5
-  successThreshold: 1
-## Configure extra options for readiness probe
-## Matomo core exposes / to unauthenticated requests, making it a good
-## default startup and readiness path. However, that may not always be the
-## case. For example, if the image value is overridden to an image containing a
-## module that alters that route, or an image that does not auto-install Matomo.
-## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#configure-probes
-## @param readinessProbe.enabled Enable readinessProbe
-## @param readinessProbe.path Request path for readinessProbe
-## @param readinessProbe.initialDelaySeconds Initial delay seconds for readinessProbe
-## @param readinessProbe.periodSeconds Period seconds for readinessProbe
-## @param readinessProbe.timeoutSeconds Timeout seconds for readinessProbe
-## @param readinessProbe.failureThreshold Failure threshold for readinessProbe
-## @param readinessProbe.successThreshold Success threshold for readinessProbe
-##
-readinessProbe:
-  enabled: true
-  path: /matomo.php
-  initialDelaySeconds: 30
-  periodSeconds: 5
-  timeoutSeconds: 1
-  failureThreshold: 5
-  successThreshold: 1
-## @param customStartupProbe Override default startup probe
-##
-customStartupProbe: {}
-## @param customLivenessProbe Override default liveness probe
-##
-customLivenessProbe: {}
-## @param customReadinessProbe Override default readiness probe
-##
-customReadinessProbe: {}
-## @param lifecycleHooks LifecycleHook to set additional configuration at startup Evaluated as a template
-##
-lifecycleHooks: {}
-## @param podAnnotations Pod annotations
-## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-##
-podAnnotations: {}
-## @param podLabels Add additional labels to the pod (evaluated as a template)
-## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
-##
-podLabels: {}
-## @section Traffic Exposure Parameters
-##
+  # -- Image pull secrets for Matomo.
+  imagePullSecrets: []
+  # -- Which image to use for Matomo deployment.
+  image: digitalist/matomo:5.12.0
+  # -- Image for the php-fpm_exporter (fpm-metrics) sidecar shared by the
+  # dashboard and tracker pods. Override per-workload via
+  # `matomo.dashboard.exporter.image` / `matomo.tracker.exporter.image`.
+  exporterImage: hipages/php-fpm_exporter:2.2.0
+  # -- run container as user id.
+  runAsUser: 82
+  # -- Mount the service account token into Matomo pods. No workload in this
+  # chart uses the Kubernetes API; enable only if a custom sidecar needs it.
+  automountServiceAccountToken: false
+  # -- Default resources for the Matomo php-fpm container (dashboard). Sized
+  # for matomo.phpfpm's default pm.max_children (32): ~120Mi/worker realistic
+  # average plus headroom for the FPM master and occasional heavier requests.
+  # If you change pm.max_children, revisit this limit (and vice versa).
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
 
-## Kubernetes configuration. For minikube, set this to NodePort, elsewhere use LoadBalancer
-##
-service:
-  ## @param service.type Kubernetes Service type
-  ##
-  type: LoadBalancer
-  ## @param service.ports.http Service HTTP port
-  ## @param service.ports.https Service HTTPS port
-  ##
-  ports:
-    http: 80
-    https: 443
-  ## @param service.loadBalancerSourceRanges Restricts access for LoadBalancer (only with `service.type: LoadBalancer`)
-  ## e.g:
-  ## loadBalancerSourceRanges:
-  ##   - 0.0.0.0/0
-  ##
-  loadBalancerSourceRanges: []
-  ## @param service.loadBalancerIP loadBalancerIP for the Matomo Service (optional, cloud specific)
-  ## ref: https://kubernetes.io/docs/concepts/services-networking/service/#type-loadbalancer
-  ##
-  loadBalancerIP: ""
-  ## @param service.nodePorts [object] Kubernetes node port
-  ## nodePorts:
-  ##   http: <to set explicitly, choose port between 30000-32767>
-  ##   https: <to set explicitly, choose port between 30000-32767>
-  ##
-  nodePorts:
-    http: ""
-    https: ""
-  ## @param service.externalTrafficPolicy Enable client source IP preservation
-  ## ref https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/#preserving-the-client-source-ip
-  ##
-  externalTrafficPolicy: Cluster
-  ## @param service.clusterIP Matomo service Cluster IP
-  ## e.g.:
-  ## clusterIP: None
-  ##
-  clusterIP: ""
-  ## @param service.extraPorts Extra ports to expose (normally used with the `sidecar` value)
-  ##
-  extraPorts: []
-  ## @param service.annotations Additional custom annotations for Matomo service
-  ##
-  annotations: {}
-  ## @param service.sessionAffinity Session Affinity for Kubernetes service, can be "None" or "ClientIP"
-  ## If "ClientIP", consecutive client requests will be directed to the same Pod
-  ## ref: https://kubernetes.io/docs/concepts/services-networking/service/#virtual-ips-and-service-proxies
-  ##
-  sessionAffinity: None
-  ## @param service.sessionAffinityConfig Additional settings for the sessionAffinity
-  ## sessionAffinityConfig:
-  ##   clientIP:
-  ##     timeoutSeconds: 300
-  ##
-  sessionAffinityConfig: {}
-## Configure the ingress resource that allows you to access the
-## Matomo installation. Set up the URL
-## ref: https://kubernetes.io/docs/concepts/services-networking/ingress/
-##
-ingress:
-  ## @param ingress.enabled Enable ingress controller resource
-  ##
-  enabled: false
-  ## @param ingress.pathType Ingress Path type
-  ##
-  pathType: ImplementationSpecific
-  ## @param ingress.apiVersion Override API Version (automatically detected if not set)
-  ##
-  apiVersion: ""
-  ## @param ingress.ingressClassName IngressClass that will be be used to implement the Ingress (Kubernetes 1.18+)
-  ## This is supported in Kubernetes 1.18+ and required if you have more than one IngressClass marked as the default for your cluster .
-  ## ref: https://kubernetes.io/blog/2020/04/02/improvements-to-the-ingress-api-in-kubernetes-1.18/
-  ##
-  ingressClassName: ""
-  ## @param ingress.hostname Default host for the ingress resource
-  ##
-  hostname: "matomo.local"
-  ## @param ingress.path The Path to Matomo. You may need to set this to '/*' in order to use this
-  ## with ALB ingress controllers.
-  ##
-  path: /
-  ## @param ingress.annotations Additional annotations for the Ingress resource. To enable certificate autogeneration, place here your cert-manager annotations.
-  ## For a full list of possible ingress annotations, please see
-  ## ref: https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/nginx-configuration/annotations.md
-  ## Use this parameter to set the required annotations for cert-manager, see
-  ## ref: https://cert-manager.io/docs/usage/ingress/#supported-annotations
-  ##
-  ## e.g:
-  ## annotations:
-  ##   kubernetes.io/ingress.class: nginx
-  ##   cert-manager.io/cluster-issuer: cluster-issuer-name
-  ##
-  annotations: {}
-  ## @param ingress.tls Enable TLS configuration for the hostname defined at ingress.hostname parameter
-  ## TLS certificates will be retrieved from a TLS secret with name: {{- printf "%s-tls" .Values.ingress.hostname }}
-  ## You can use the ingress.secrets parameter to create this TLS secret or relay on cert-manager to create it
-  ##
-  tls: false
-  ## @param ingress.selfSigned Create a TLS secret for this ingress record using self-signed certificates generated by Helm
-  ##
-  selfSigned: false
-  ## @param ingress.extraHosts The list of additional hostnames to be covered with this ingress record.
-  ## Most likely the hostname above will be enough, but in the event more hosts are needed, this is an array
-  ## extraHosts:
-  ## - name: matomo.local
-  ##   path: /
-  ##
-  extraHosts: []
-  ## @param ingress.extraPaths Any additional arbitrary paths that may need to be added to the ingress under the main host.
-  ## For example: The ALB ingress controller requires a special rule for handling SSL redirection.
-  ## extraPaths:
-  ## - path: /*
-  ##   backend:
-  ##     serviceName: ssl-redirect
-  ##     servicePort: use-annotation
-  ##
-  extraPaths: []
-  ## @param ingress.extraTls The tls configuration for additional hostnames to be covered with this ingress record.
-  ## see: https://kubernetes.io/docs/concepts/services-networking/ingress/#tls
-  ## extraTls:
-  ## - hosts:
-  ##     - matomo.local
-  ##   secretName: matomo.local-tls
-  ##
-  extraTls: []
-  ## @param ingress.secrets If you're providing your own certificates, please use this to add the certificates as secrets
-  ## key and certificate should start with -----BEGIN CERTIFICATE----- or
-  ## -----BEGIN RSA PRIVATE KEY-----
-  ##
-  ## name should line up with a tlsSecret set further up
-  ## If you're using cert-manager, this is unneeded, as it will create the secret for you if it is not set
-  ##
-  ## It is also possible to create and manage the certificates outside of this helm chart
-  ## Please see README.md for more information
-  ## Example:
-  ## - name: matomo.local-tls
-  ##   key:
-  ##   certificate:
-  ##
-  secrets: []
-  ## @param ingress.extraRules Additional rules to be covered with this ingress record
-  ## ref: https://kubernetes.io/docs/concepts/services-networking/ingress/#ingress-rules
-  ## e.g:
-  ## extraRules:
-  ## - host: example.local
-  ##     http:
-  ##       path: /
-  ##       backend:
-  ##         service:
-  ##           name: example-svc
-  ##           port:
-  ##             name: http
-  ##
-  extraRules: []
-## @section Database parameters
-##
+  # -- Resources for the shared matomo-init init container (runs on every
+  # workload: dashboard, tracker, cli, cronjobs, queuedtracking, pre-upgrade
+  # and post-install Jobs).
+  initResources:
+    limits:
+      cpu: 200m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  # -- Resources for the wait-for-db init container (pre-upgrade and
+  # post-install Jobs only).
+  waitForDbResources:
+    limits:
+      cpu: 100m
+      memory: 64Mi
+    requests:
+      cpu: 10m
+      memory: 16Mi
 
-## MariaDB chart configuration
-## https://github.com/bitnami/charts/blob/main/bitnami/mariadb/values.yaml
-##
-mariadb:
-  ## @param mariadb.enabled Whether to deploy a mariadb server to satisfy the applications database requirements
-  ## To use an external database set this to false and configure the externalDatabase parameters
-  ##
-  enabled: true
-  ## @param mariadb.architecture MariaDB architecture (`standalone` or `replication`)
-  ##
-  architecture: standalone
-  ## MariaDB Authentication parameters
-  ## @param mariadb.auth.rootPassword Password for the MariaDB `root` user
-  ## @param mariadb.auth.database Database name to create
-  ## @param mariadb.auth.username Database user to create
-  ## @param mariadb.auth.password Password for the database
-  ##
-  auth:
-    ## ref: https://github.com/bitnami/containers/tree/main/bitnami/mariadb#setting-the-root-password-on-first-run
-    ##
-    rootPassword: ""
-    ## ref: https://github.com/bitnami/containers/blob/main/bitnami/mariadb/README.md#creating-a-database-on-first-run
-    ##
-    database: bitnami_matomo
-    ## ref: https://github.com/bitnami/containers/blob/main/bitnami/mariadb/README.md#creating-a-database-user-on-first-run
-    ##
-    username: bn_matomo
-    password: ""
-  primary:
-    ## Enable persistence using Persistent Volume Claims
-    ## ref: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
-    ## @param mariadb.primary.persistence.enabled Enable database persistence using PVC
-    ## @param mariadb.primary.persistence.storageClass MariaDB primary persistent volume storage Class
-    ## @param mariadb.primary.persistence.accessModes Database Persistent Volume Access Modes
-    ## @param mariadb.primary.persistence.size Database Persistent Volume Size
-    ## @param mariadb.primary.persistence.hostPath Set path in case you want to use local host path volumes (not recommended in production)
-    ## @param mariadb.primary.persistence.existingClaim Name of an existing `PersistentVolumeClaim` for MariaDB primary replicas
-    ##
-    persistence:
-      enabled: true
-      ## mariadb data Persistent Volume Storage Class
-      ## If defined, storageClassName: <storageClass>
-      ## If set to "-", storageClassName: "", which disables dynamic provisioning
-      ## If undefined (the default) or set to null, no storageClassName spec is
-      ##   set, choosing the default provisioner.  (gp2 on AWS, standard on
-      ##   GKE, AWS & OpenStack)
-      ##
-      storageClass: ""
-      accessModes:
-        - ReadWriteOnce
-      size: 8Gi
-      hostPath: ""
+  # -- Command run by the matomo-warmup init container (dashboard and tracker
+  # only), after matomo-init and before php-fpm/nginx start. `matomo:install
+  # --force` (in installCommand above) doesn't itself fire the plugin
+  # install/update events some plugins (e.g. TagManager) hook to regenerate
+  # generated assets - normally left to happen lazily on the first web
+  # request(s) after a (re)start. Since static-data is an emptyDir, that
+  # bookkeeping resets on every fresh pod, so without this, concurrent
+  # probes/traffic on every restart each independently race to redo that
+  # (expensive) regeneration. Running it once here, synchronously, avoids
+  # that. Unless matomo.tagManagerRegenerate.enabled is true, this is also
+  # followed by a guarded `tagmanager:regenerate-released-containers` call
+  # (see matomo.tagManagerRegenerateGuarded in _helpers.tpl); when that
+  # feature is enabled, the regenerate-tagmanager CronJob owns that work
+  # instead, so it's skipped here.
+  warmupCommand: ./console core:update --yes --no-interaction
+  # -- Resources for the matomo-warmup init container (dashboard and tracker).
+  warmupResources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  ## Moves TagManager's generated container JS (/var/www/html/js) out of each
+  ## pod's own ephemeral static-data and onto a single ReadWriteMany
+  ## PersistentVolumeClaim, kept fresh by a dedicated CronJob instead of by
+  ## the dashboard/tracker pods themselves. Disabled by default because it
+  ## requires a StorageClass that supports ReadWriteMany; when enabled, the
+  ## dashboard and tracker no longer regenerate TagManager containers at
+  ## all (see matomo.warmupCommand above) - they just read the shared
+  ## volume, which the CronJob refreshes on its own schedule.
+  tagManagerRegenerate:
+    # -- Enable the regenerate-tagmanager CronJob and the shared
+    # ReadWriteMany PersistentVolumeClaim mounted at /var/www/html/js on the
+    # dashboard and tracker pods.
+    enabled: false
+    # @schema
+    # type: [integer, "null"]
+    # required: false
+    # @schema
+    # -- fsGroup applied to the dashboard, tracker, and regenerate-tagmanager
+    # pods when this feature is enabled. nginx (nginx.runAsUser) and matomo
+    # (matomo.runAsUser) run as different UIDs but both need access to the
+    # shared PVC; fsGroup is pod-wide, unlike runAsUser, so it's what lets
+    # them actually share it. Defaults to matomo.runAsUser. Note this has no
+    # effect on hostPath-backed volumes (e.g. the kind e2e test fixture) -
+    # only on real volume plugins/CSI drivers (NFS, CephFS, etc).
+    fsGroup:
+    # -- Cron schedule for the regenerate-tagmanager CronJob.
+    schedule: "*/2 * * * *"
+    # -- concurrencyPolicy for the regenerate-tagmanager CronJob.
+    concurrencyPolicy: Forbid
+    # -- activeDeadlineSeconds for the regenerate-tagmanager Job.
+    activeDeadlineSeconds: 300
+    # -- Default resources for the regenerate-tagmanager CronJob container.
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+    # -- Path inside the matomo image the matomo-seed-tagmanager-js init
+    # container copies from when seeding the shared volume on its
+    # first-ever mount. Defaults to the default JS assets bundled in the
+    # image, alongside the rest of Matomo's source under /usr/src/matomo.
+    seedSourcePath: /usr/src/matomo/js
+    # -- Resources for the dashboard/tracker matomo-seed-tagmanager-js init
+    # container that seeds the shared volume on its first-ever mount.
+    seedResources:
+      requests:
+        cpu: 50m
+        memory: 32Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+    volume:
+      # -- Whether this chart creates the shared TagManager JS
+      # PersistentVolumeClaim (matomo-tagmanager-js). Set to false and
+      # provide existingClaim to use a PVC you've already created instead
+      # (e.g. one provisioned/managed outside this chart, or shared with
+      # other releases). storageClassName and size below only apply when
+      # this is true.
+      create: true
+      # -- Name of a pre-existing PersistentVolumeClaim to use instead of
+      # the one this chart creates. Only used when create is false; must
+      # already exist in this release's namespace and support the
+      # ReadWriteMany access mode.
       existingClaim: ""
-    ## MariaDB primary container's resource requests and limits
-    ## ref: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
-    ## We usually recommend not to specify default resources and to leave this as a conscious
-    ## choice for the user. This also increases chances charts run on environments with little
-    ## resources, such as Minikube. If you do want to specify resources, uncomment the following
-    ## lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-    ## @param mariadb.primary.resourcesPreset Set container resources according to one common preset (allowed values: none, nano, small, medium, large, xlarge, 2xlarge). This is ignored if primary.resources is set (primary.resources is recommended for production).
-    ## More information: https://github.com/bitnami/charts/blob/main/bitnami/common/templates/_resources.tpl#L15
-    ##
-    resourcesPreset: "micro"
-    ## @param mariadb.primary.resources Set container requests and limits for different resources like CPU or memory (essential for production workloads)
-    ## Example:
-    ## resources:
-    ##   requests:
-    ##     cpu: 2
-    ##     memory: 512Mi
-    ##   limits:
-    ##     cpu: 3
-    ##     memory: 1024Mi
-    ##
-    resources: {}
-  logicalbackup:
+      # -- storageClassName for the shared TagManager JS PersistentVolumeClaim
+      # created by this chart (only used when create is true). Must support
+      # the ReadWriteMany access mode. Empty uses the cluster's default
+      # StorageClass (only suitable if that default supports RWX).
+      storageClassName: ""
+      # -- Extra labels for the tagmanager JS PersistentVolumeClaim.
+      # Labels set here will override or add to the default label
+      # (app: matomo-jobs-regenerate-tagmanager).
+      # @schema
+      # additionalProperties: true
+      # @schema
+      labels:
+        {}
+      # -- Size of the shared TagManager JS PersistentVolumeClaim created by
+      # this chart (only used when create is true).
+      size: 1Gi
+
+  # -- Install command. If already installed, it just creates the needed config.
+  installCommand: ./console plugin:activate ExtraTools && ./console matomo:install --install-file=/tmp/matomo/install.json --force --do-not-drop-db
+  ## Full replacement for the default install.json used by installCommand.
+  ## When empty, the chart's built-in default (see configmap-matomo.yaml) is
+  ## used instead. As:
+  ## config:
+  ##   PluginsInstalled: [...]
+  ##   Site:
+  ##     name: My Site
+  ##     url: https://example.com
+  ##   Config:
+  ##     General:
+  ##       ...
+  # @schema
+  # additionalProperties: true
+  # @schema
+  # -- Full install.json content, replacing the chart's built-in default when set.
+  config: {}
+  # -- Seconds the post-install Job sleeps before running `postInstallCommand`
+  # (gives Matomo time to finish bootstrapping).
+  postInstallSleepTime: 5
+  # -- Command to run in a post-install Job. The Job (and its resources) is
+  # only created when this is non-empty.
+  postInstallCommand: ""
+  # -- Default resources for the post-install Job container.
+  postInstallResources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  # -- Seconds the pre-upgrade Job sleeps before running `preUpgradeCommand`.
+  preUpgradeSleepTime: 5
+  # -- Command to run in a pre-upgrade Job. The Job (and its resources) is
+  # only created when this is non-empty.
+  preUpgradeCommand: ""
+  # -- Default resources for the pre-upgrade Job container.
+  preUpgradeResources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  # @schema
+  # additionalProperties: true
+  # @schema
+  # -- Extra labels applied to Matomo pods (dashboard, tracker, cli, cronjobs, queuedtracking).
+  extralabels: {}
+  # @schema
+  # additionalProperties: true
+  # @schema
+  # -- Readiness probe for the Matomo php-fpm containers (dashboard, tracker).
+  readinessProbe: {}
+  # @schema
+  # additionalProperties: true
+  # @schema
+  # -- Liveness probe for the Matomo php-fpm containers (dashboard, tracker).
+  livenessProbe: {}
+  ## matomo:
+  ##   env:
+  ##     - name: BAR
+  ##       value: foo
+  ##     - name: FOO
+  ##       valueFromSecret:
+  ##         secretName: foo
+  ##         key: bar
+  # @schema
+  # items:
+  #   type: object
+  #   additionalProperties: true
+  # @schema
+  # -- Env variables to inject, if any.
+  env: []
+  ## If you have a premium license for plugins, set it here.
+  ## you need to create the secret before referring it.
+  ## As:
+  ## license:
+  ##   secretKeyRef:
+  ##     name: matomo-license
+  ##     key: matomo-license
+  # @schema
+  # type: [object, "null"]
+  # additionalProperties: true
+  # required: false
+  # @schema
+  # -- Reference to a secret holding a premium plugin license, if any.
+  license:
+
+  ## php.ini overrides shared by the dashboard and core:archive cronjob
+  ## php-fpm containers. Only rendered (as a ConfigMap) when set; otherwise
+  ## the chart's built-in defaults are used. As:
+  ## php:
+  ##   memory_limit: 2G
+  ##   max_execution_time: 300
+  # @schema
+  # type: [object, "null"]
+  # additionalProperties: true
+  # required: false
+  # @schema
+  # -- php.ini overrides for the dashboard and core:archive php-fpm containers.
+  php:
+  ## php-fpm pool tuning (pm, max_children, spare servers, status_path, ...)
+  ## for the dashboard's php-fpm container. Only rendered (as a ConfigMap)
+  ## when set; otherwise the chart's built-in defaults are used. Default
+  ## `pm` is `dynamic`, keeping `min_spare_servers` warm workers resident at
+  ## all times to avoid fork latency on the next request; switch to
+  ## `ondemand` if you'd rather scale workers to zero when idle (then
+  ## `process_idle_timeout` applies instead of the spare-server settings).
+  ## This ConfigMap is also mounted into the core:archive CronJob container,
+  ## but pm.*/php_admin_value directives are php-fpm-pool-only and have no
+  ## effect there since core:archive runs via the php CLI SAPI, not php-fpm.
+  ## Also always enables the php-fpm slowlog (any request running longer than
+  ## `request_slowlog_timeout`, default 10s, gets a full PHP stack trace
+  ## logged to stderr/`kubectl logs`) to help diagnose stuck or hanging
+  ## requests, e.g. a blocked database call.
+  ## As:
+  ## phpfpm:
+  ##   type: dynamic
+  ##   max_children: 32
+  ##   request_slowlog_timeout: 10s
+  # @schema
+  # type: [object, "null"]
+  # additionalProperties: true
+  # required: false
+  # @schema
+  # -- php-fpm pool tuning for the dashboard's php-fpm container.
+  phpfpm:
+
+  ingress:
+    # -- Create Ingress resources for the dashboard and tracker.
     enabled: true
-## External database configuration
-## @param externalDatabase.host Host of the existing database
-## @param externalDatabase.port Port of the existing database
-## @param externalDatabase.user Existing username in the external db
-## @param externalDatabase.password Password for the above username
-## @param externalDatabase.database Name of the existing database
-## @param externalDatabase.existingSecret Name of a secret containing the database credentials
-##
-externalDatabase:
-  host: ""
+    # @schema
+    # additionalProperties: true
+    # @schema
+    # -- Extra labels for the dashboard and tracker Ingress resources.
+    extralabels: {}
+    # @schema
+    # additionalProperties: true
+    # @schema
+    # -- Extra annotations applied to both the dashboard and tracker Ingress resources.
+    annotations: {}
+
+  # -- Gateway API support. When enabled, HTTPRoutes are created for the
+  # dashboard and tracker (using their `hostname` values) instead of - or
+  # alongside - the Ingress resources. Requires the Gateway API CRDs and a
+  # Gateway; TLS is terminated on the Gateway listener, not in the chart.
+  gatewayApi:
+    enabled: false
+    # -- parentRefs applied to all HTTPRoutes, e.g.:
+    # parentRefs:
+    #   - name: my-gateway
+    #     namespace: my-namespace
+    #     sectionName: http
+    parentRefs: []
+    # @schema
+    # additionalProperties: true
+    # @schema
+    # -- Extra labels for the HTTPRoutes.
+    extralabels: {}
+
+  cli:
+    # -- Number of replicas for the cli Deployment.
+    replicas: 1
+    # -- Enable the cli Deployment (runs supervisord for one-off `console` commands via `kubectl exec`).
+    enabled: true
+    # -- Default resources for the Matomo cli container.
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    # @schema
+    # additionalProperties: true
+    # @schema
+    # -- Liveness probe for the cli container (checks supervisord is running).
+    livenessProbe: {}
+    # @schema
+    # additionalProperties: true
+    # @schema
+    # -- Readiness probe for the cli container (checks supervisord is running).
+    readinessProbe: {}
+
+  cronJobs:
+    coreArchive:
+      # -- Enable the core:archive CronJob.
+      enabled: true
+      # -- Labels applied to the coreArchive CronJob (name, instance, component, part-of, managed-by).
+      labels:
+        name: matomo-jobs-corearchive
+        instance: matomo
+        component: cronjob
+        partOf: matomo
+        managedBy: helm
+      # -- Cron schedule for core:archive.
+      schedule: "*/60 * * * *"
+      # -- concurrencyPolicy for the core:archive CronJob.
+      concurrencyPolicy: Allow
+      # -- activeDeadlineSeconds for the core:archive Job.
+      activeDeadlineSeconds: 43200
+      # -- Command run by the core:archive CronJob.
+      command: ./console core:archive --disable-scheduled-tasks
+      # -- Default resources for the core:archive cronjob.
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 1000m
+          memory: 1Gi
+    scheduledTasks:
+      ## PHP ini overrides for the scheduled-tasks CronJob container. Only
+      ## rendered (as a ConfigMap) when set. As:
+      ## php:
+      ##   memory_limit: 4G
+      ##   max_execution_time: 0
+      # @schema
+      # type: [object, "null"]
+      # additionalProperties: true
+      # required: false
+      # @schema
+      # -- PHP configuration overrides for the scheduled-tasks CronJob.
+      php:
+      # -- Enable the scheduled-tasks CronJob.
+      enabled: true
+      # -- Labels applied to the scheduledTasks CronJob (name, instance, component, part-of, managed-by).
+      labels:
+        name: matomo-jobs-scheduled-tasks
+        instance: matomo
+        component: cronjob
+        partOf: matomo
+        managedBy: helm
+      # -- Cron schedule for scheduled-tasks:run.
+      schedule: "*/60 * * * *"
+      # -- activeDeadlineSeconds for the scheduled-tasks Job.
+      activeDeadlineSeconds: 43200
+      # -- Command run by the scheduled-tasks CronJob.
+      command: ./console scheduled-tasks:run
+      # -- Default resources for the scheduled-tasks cronjob.
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 1000m
+          memory: 1Gi
+
+  dashboard:
+    # -- Extra containers to run alongside the dashboard pod. Added like this:
+    # sidecars:
+    # - name: fpm-metrics
+    #   image: hipages/php-fpm_exporter:2.2.0
+    #   imagePullPolicy: IfNotPresent
+    #   resources:
+    #     limits:
+    #       cpu: 500m
+    #       memory: 256Mi
+    #     requests:
+    #       cpu: 40m
+    #       memory: 32Mi
+    sidecars: []
+    # -- Enable the dashboard Deployment and Service.
+    enabled: true
+    # -- Number of replicas for the dashboard Deployment.
+    replicas: 1
+    # -- Create a LoadBalancer Service for the dashboard, used as the Ingress/HTTPRoute backend when true.
+    loadbalancer: false
+    # -- Hostname used for the dashboard Ingress/HTTPRoute rule.
+    hostname: my.host
+    # -- Add a TLS block to the dashboard Ingress for `hostname`.
+    tls: false
+    # -- Existing TLS secret name for the dashboard ingress.
+    secretName: ""
+    # -- Credentials for the first (super)user, applied by the init container on install.
+    firstuser:
+      username: admin
+      password: admin123
+      email: foo@example.com
+    # -- php-fpm_exporter (fpm-metrics) sidecar for the dashboard pod.
+    exporter:
+      # -- Enable the dashboard php-fpm_exporter (fpm-metrics) sidecar and
+      # its `metrics` port on the matomo-dashboard Service.
+      enabled: true
+      # -- Override the php-fpm_exporter image used for the dashboard
+      # (falls back to `matomo.exporterImage` when empty).
+      image: ''
+      # -- Default resources for the dashboard php-fpm_exporter (fpm-metrics) container.
+      resources:
+        limits:
+          cpu: 100m
+          memory: 128Mi
+        requests:
+          cpu: 15m
+          memory: 32Mi
+      # @schema
+      # additionalProperties: true
+      # @schema
+      # -- Liveness probe for the dashboard php-fpm_exporter (fpm-metrics) container.
+      livenessProbe: {}
+      # @schema
+      # additionalProperties: true
+      # @schema
+      # -- Readiness probe for the dashboard php-fpm_exporter (fpm-metrics) container.
+      readinessProbe: {}
+    nginx:
+      # -- Worker process count for the dashboard nginx.
+      nginxWorkerProcesses: 5
+      # -- Override the nginx image used for the dashboard (falls back to `nginx.image` when empty).
+      image: ''
+      # @schema
+      # type: [string, object]
+      # additionalProperties: true
+      # @schema
+      # -- Override the full dashboard nginx configuration (nginx.conf, fastcgi_params, mime.types). As:
+      # conf:
+      #   nginx.conf: |
+      #     worker_processes 5;
+      #     load_module modules/ngx_http_geoip2_module.so;
+      #     ...
+      #   fastcgi_params: |
+      #     fastcgi_param   COUNTRY_CODE            $geoip2_data_country_code;
+      #     fastcgi_param   QUERY_STRING            $query_string;
+      #     fastcgi_param   REQUEST_METHOD          $request_method;
+      #     ...
+      #   mime.types: |
+      #     types {
+      #       text/html                                        html htm shtml;
+      #       text/css                                         css;
+      #       text/xml                                         xml;
+      #       ...
+      conf: ''
+      # @schema
+      # additionalProperties: true
+      # @schema
+      # -- Liveness probe for the dashboard nginx container.
+      livenessProbe: {}
+      # @schema
+      # additionalProperties: true
+      # @schema
+      # -- Readiness probe for the dashboard nginx container.
+      readinessProbe: {}
+    # -- ingressClassName for the dashboard Ingress.
+    ingressClassName: ""
+    # -- List of CIDRs allowed to reach the dashboard Ingress (nginx.ingress.kubernetes.io/whitelist-source-range). Empty disables the restriction.
+    whitelist: []
+    ingress:
+      # @schema
+      # additionalProperties: true
+      # @schema
+      # -- Extra annotations for the dashboard Ingress.
+      annotations:
+        digitalist.cloud/instance: "matomo"
+
+  queuedTrackingMonitor:
+    # -- Enable the queuedtracking:monitor Deployment.
+    enabled: true
+    # -- Number of replicas for the queuedtracking-monitor Deployment.
+    replicas: 1
+    # -- Default resources for the queuedtracking-monitor container.
+    resources:
+      requests:
+        memory: 128Mi
+        cpu: 300m
+      limits:
+        memory: 180Mi
+        cpu: 500m
+    # @schema
+    # additionalProperties: true
+    # @schema
+    # -- Liveness probe for the queuedtracking-monitor container (checks supervisord is running).
+    livenessProbe: {}
+    # @schema
+    # additionalProperties: true
+    # @schema
+    # -- Readiness probe for the queuedtracking-monitor container (checks supervisord is running).
+    readinessProbe: {}
+  queuedTrackingProcess:
+    # -- Enable the queuedtracking:process worker deployment. Required when
+    # QueuedTracking runs with processDuringTrackingRequest disabled.
+    enabled: false
+    # -- Number of replicas for the queuedtracking-process Deployment.
+    replicas: 1
+    # -- Number of supervisord worker processes for queuedtracking:process per pod.
+    numProcs: 1
+    # -- Default resources for the queuedtracking-process container.
+    resources:
+      requests:
+        memory: 128Mi
+        cpu: 250m
+      limits:
+        memory: 220Mi
+        cpu: "1"
+    # @schema
+    # additionalProperties: true
+    # @schema
+    # -- Liveness probe for the queuedtracking-process container (checks supervisord is running). Overriding replaces the default entirely. Example:
+    # livenessProbe:
+    #   exec:
+    #     command:
+    #     - /bin/sh
+    #     - -c
+    #     - "ps -A | grep supervisord"
+    #   initialDelaySeconds: 15
+    #   periodSeconds: 20
+    livenessProbe: {}
+    # @schema
+    # additionalProperties: true
+    # @schema
+    # -- Readiness probe for the queuedtracking-process container (checks supervisord is running).
+    readinessProbe: {}
+
+  tracker:
+    # -- Enable the tracker Deployment and Service.
+    enabled: true
+    # -- Number of replicas for the tracker Deployment.
+    replicas: 1
+    # -- Hostname used for the tracker Ingress/HTTPRoute rule.
+    hostname: tracker.my.host
+    # -- Add a TLS block to the tracker Ingress for `hostname`.
+    tls: false
+    # -- Existing TLS secret name for the tracker ingress.
+    secretName: ""
+    # -- Create a LoadBalancer Service for the tracker, used as the Ingress/HTTPRoute backend when true.
+    loadbalancer: false
+    # -- Default resources for the Matomo php-fpm container in the tracker.
+    resources:
+      requests:
+        cpu: 300m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 768Mi
+    # -- php-fpm_exporter (fpm-metrics) sidecar for the tracker pod.
+    exporter:
+      # -- Enable the tracker php-fpm_exporter (fpm-metrics) sidecar and its
+      # `metrics` port on the matomo-tracker Service.
+      enabled: true
+      # -- Override the php-fpm_exporter image used for the tracker (falls
+      # back to `matomo.exporterImage` when empty).
+      image: ''
+      # -- Default resources for the tracker php-fpm_exporter (fpm-metrics) container.
+      resources:
+        limits:
+          cpu: 40m
+          memory: 32Mi
+        requests:
+          cpu: 40m
+          memory: 32Mi
+      # @schema
+      # additionalProperties: true
+      # @schema
+      # -- Liveness probe for the tracker php-fpm_exporter (fpm-metrics) container.
+      livenessProbe: {}
+      # @schema
+      # additionalProperties: true
+      # @schema
+      # -- Readiness probe for the tracker php-fpm_exporter (fpm-metrics) container.
+      readinessProbe: {}
+    nginx:
+      # -- Default resources for the tracker nginx container.
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 500m
+          memory: 256Mi
+      # -- Worker process count for the tracker nginx.
+      nginxWorkerProcesses: 5
+      # @schema
+      # additionalProperties: true
+      # @schema
+      # -- Liveness probe for the tracker nginx container.
+      livenessProbe: {}
+      # @schema
+      # additionalProperties: true
+      # @schema
+      # -- Readiness probe for the tracker nginx container.
+      readinessProbe: {}
+    # -- php-fpm pool tuning for the tracker (process manager type, max/spare children, idle timeout, max requests, status path).
+    phpfpm:
+      type: ondemand
+      max_children: 75
+      process_idle_timeout: 600s
+      max_requests: 500
+      start_servers: 5
+      min_spare_servers: 5
+      max_spare_servers: 75
+      memory_limit: 2048M
+      status_path: /status
+    # -- ingressClassName for the tracker Ingress.
+    ingressClassName: ""
+    ingress:
+      # @schema
+      # additionalProperties: true
+      # @schema
+      # -- Extra annotations for the tracker Ingress.
+      annotations:
+        digitalist.cloud/instance: "matomo"
+
+# -- Default nginx image and settings shared by the dashboard (unless
+# `matomo.dashboard.nginx.image` is set) and the tracker.
+nginx:
+  # -- nginx image used for the dashboard and tracker.
+  image: digitalist/nginx:1.21.6
+  # -- Image pull secrets for the nginx image.
+  imagePullSecrets: []
+  # -- run the nginx container as this user id.
+  runAsUser: 100
+  # -- Default resources for the dashboard nginx container.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+db:
+  # -- Database hostname.
+  hostname: matomo-db-mysql
+  # -- Database port.
   port: 3306
-  user: bn_matomo
-  password: ""
-  database: bitnami_matomo
-  existingSecret: ""
-## @section Volume Permissions parameters
-##
+  password:
+    secretKeyRef:
+      # -- Name of the secret holding the database password.
+      name: matomo-db-mysql
+      # -- Key within the secret holding the database password.
+      key: mysql-root-password
+  # -- Database name.
+  name: matomo
+  # -- Database username.
+  username: root
+  # -- Table prefix.
+  prefix: matomo_
 
-## Init containers parameters:
-## volumePermissions: Change the owner and group of the persistent volume mountpoint to runAsUser:fsGroup values from the securityContext section.
-##
-volumePermissions:
-  ## @param volumePermissions.enabled Enable init container that changes volume permissions in the data directory (for cases where the default k8s `runAsUser` and `fsUser` values do not work)
-  ##
-  enabled: false
-  ## @param volumePermissions.image.registry [default: REGISTRY_NAME] Init container volume-permissions image registry
-  ## @param volumePermissions.image.repository [default: REPOSITORY_NAME/os-shell] Init container volume-permissions image name
-  ## @skip volumePermissions.image.tag Init container volume-permissions image tag
-  ## @param volumePermissions.image.digest Init container volume-permissions image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag
-  ## @param volumePermissions.image.pullPolicy Init container volume-permissions image pull policy
-  ## @param volumePermissions.image.pullSecrets Specify docker-registry secret names as an array
-  ##
-  image:
-    registry: docker.io
-    repository: bitnami/os-shell
-    tag: 12-debian-12-r50
-    digest: ""
-    pullPolicy: IfNotPresent
-    ## Optionally specify an array of imagePullSecrets.
-    ## Secrets must be manually created in the namespace.
-    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
-    ## e.g:
-    ## pullSecrets:
-    ##   - myRegistryKeySecretName
-    ##
-    pullSecrets: []
-  ## Init containers' resource requests and limits
-  ## ref: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
-  ## We usually recommend not to specify default resources and to leave this as a conscious
-  ## choice for the user. This also increases chances charts run on environments with little
-  ## resources, such as Minikube. If you do want to specify resources, uncomment the following
-  ## lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  ## @param volumePermissions.resourcesPreset Set container resources according to one common preset (allowed values: none, nano, micro, small, medium, large, xlarge, 2xlarge). This is ignored if volumePermissions.resources is set (volumePermissions.resources is recommended for production).
-  ## More information: https://github.com/bitnami/charts/blob/main/bitnami/common/templates/_resources.tpl#L15
-  ##
-  resourcesPreset: "small"
-  ## @param volumePermissions.resources Set container requests and limits for different resources like CPU or memory (essential for production workloads)
-  ## Example:
-  ## resources:
-  ##   requests:
-  ##     cpu: 2
-  ##     memory: 512Mi
-  ##   limits:
-  ##     cpu: 3
-  ##     memory: 1024Mi
-  ##
-  resources: {}
-## @section Metrics parameters
-##
+# -- Extra secrets
+extraSecrets:
+  create: false
+  # @schema
+  # additionalProperties: true
+  # @schema
+  data: {}
+# * secrets need to base64 encoded.
+#  data:
+#    name: Zm9vCg==
+#    bar: YmFyCg==
+# @schema
+# type: [object, array]
+# additionalProperties: true
+# @schema
+# -- Extra services
+extraServices: {}
+#  - name: foo
+    ## Service port type
+#    type: ClusterIP
+    ## Service protocol
+#    protocol: TCP
+    ## The container target port
+#    containerPort: 12001
+    ## The service port
+#    port: 12001
+#    selector:
+#      app: matomo-dashboard
+    ## The node port (only relevant for type LoadBalancer or NodePort)
+#    nodePort:
+    ## The cluster ip address (only relevant for type LoadBalancer or NodePort)
+#    clusterIP:
+    ## The loadbalancer ip address (only relevant for type LoadBalancer)
+#    loadBalancerIP:
+# -- Extra configMaps
+extraConfigMaps:
+  create: false
+  # @schema
+  # additionalProperties: true
+  # @schema
+  data: {}
+# data:
+#   my.ini: |
+#     extension=foo.so
+#     foo.socket=tcp://bar:9309
+# @schema
+# items:
+#   type: object
+#   additionalProperties: true
+# @schema
+# -- Extra volumes
+extraVolumes: []
+# extraVolumes:
+# - name: mySecretVolume
+#   secret:
+#     secretName: matomo-extra-secrets
+# - name: my.ini
+#   configMap:
+#     name: matomo-additional-config-maps
+#     items:
+#     - key: "my.ini"
+#       path: "my.ini"
+# @schema
+# items:
+#   type: object
+#   additionalProperties: true
+# @schema
+# -- Extra volumes to mount
+extraVolumeMounts: []
+# extraVolumeMounts:
+# - name: mySecretVolume
+#   mountPath: /foo/secrets/mySecretVolume/
+# - name: my.ini
+#   mountPath: /usr/local/etc/php/conf.d/my.ini
+#   subPath: my.ini
 
-## Prometheus Exporter / Metrics
-##
-metrics:
-  ## @param metrics.enabled Start a exporter side-car
-  ##
-  enabled: false
-  ## @param metrics.image.registry [default: REGISTRY_NAME] Apache exporter image registry
-  ## @param metrics.image.repository [default: REPOSITORY_NAME/apache-exporter] Apache exporter image repository
-  ## @skip metrics.image.tag Apache exporter image tag
-  ## @param metrics.image.digest Apache exporter image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag
-  ## @param metrics.image.pullPolicy Image pull policy
-  ## @param metrics.image.pullSecrets Specify docker-registry secret names as an array
-  ##
-  image:
-    registry: docker.io
-    repository: bitnami/apache-exporter
-    tag: 1.0.10-debian-12-r55
-    digest: ""
-    pullPolicy: IfNotPresent
-    ## Optionally specify an array of imagePullSecrets.
-    ## Secrets must be manually created in the namespace.
-    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
-    ## e.g:
-    ## pullSecrets:
-    ##   - myRegistryKeySecretName
-    ##
-    pullSecrets: []
-  ## @param metrics.resourcesPreset Set container resources according to one common preset (allowed values: none, nano, micro, small, medium, large, xlarge, 2xlarge). This is ignored if metrics.resources is set (metrics.resources is recommended for production).
-  ## More information: https://github.com/bitnami/charts/blob/main/bitnami/common/templates/_resources.tpl#L15
-  ##
-  resourcesPreset: "small"
-  ## @param metrics.resources Set container requests and limits for different resources like CPU or memory (essential for production workloads)
-  ## Example:
-  ## resources:
-  ##   requests:
-  ##     cpu: 2
-  ##     memory: 512Mi
-  ##   limits:
-  ##     cpu: 3
-  ##     memory: 1024Mi
-  ## ref: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
-  ##
-  resources: {}
-  ##
-  ## @param metrics.podAnnotations [object] Additional annotations for Metrics exporter pod
-  ##
-  podAnnotations:
-    prometheus.io/scrape: "true"
-    prometheus.io/port: "9117"
-## @section Certificate injection parameters
-##
-
-## Add custom certificates and certificate authorities to matomo container
-##
-certificates:
-  ## @param certificates.customCertificate.certificateSecret Secret containing the certificate and key to add
-  ## @param certificates.customCertificate.chainSecret.name Name of the secret containing the certificate chain
-  ## @param certificates.customCertificate.chainSecret.key Key of the certificate chain file inside the secret
-  ## @param certificates.customCertificate.certificateLocation Location in the container to store the certificate
-  ## @param certificates.customCertificate.keyLocation Location in the container to store the private key
-  ## @param certificates.customCertificate.chainLocation Location in the container to store the certificate chain
-  ##
-  customCertificate:
-    certificateSecret: ""
-    chainSecret:
-      name: secret-name
-      key: secret-key
-    certificateLocation: /etc/ssl/certs/ssl-cert-snakeoil.pem
-    keyLocation: /etc/ssl/private/ssl-cert-snakeoil.key
-    chainLocation: /etc/ssl/certs/mychain.pem
-  ## @param certificates.customCAs Defines a list of secrets to import into the container trust store
-  ##
-  customCAs: []
-  ## @param certificates.command Override default container command (useful when using custom images)
-  ##
-  command: []
-  ## @param certificates.args Override default container args (useful when using custom images)
-  ##
-  args: []
-  ## @param certificates.extraEnvVars Container sidecar extra environment variables (eg proxy)
-  ##
-  extraEnvVars: []
-  ## @param certificates.extraEnvVarsCM ConfigMap containing extra env vars
-  ##
-  extraEnvVarsCM: ""
-  ## @param certificates.extraEnvVarsSecret Secret containing extra env vars (in case of sensitive data)
-  ##
-  extraEnvVarsSecret: ""
-  ## @param certificates.image.registry [default: REGISTRY_NAME] Container sidecar registry
-  ## @param certificates.image.repository [default: REPOSITORY_NAME/os-shell] Container sidecar image
-  ## @skip certificates.image.tag Container sidecar image tag
-  ## @param certificates.image.digest Container sidecar image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag
-  ## @param certificates.image.pullPolicy Container sidecar image pull policy
-  ## @param certificates.image.pullSecrets Container sidecar image pull secrets
-  ##
-  image:
-    registry: docker.io
-    repository: bitnami/os-shell
-    tag: 12-debian-12-r50
-    digest: ""
-    ## Specify a imagePullPolicy
-    ## ref: https://kubernetes.io/docs/concepts/containers/images/#pre-pulled-images
-    ##
-    pullPolicy: IfNotPresent
-    ## e.g:
-    ## pullSecrets:
-    ##   - myRegistryKeySecretName
-    ##
-    pullSecrets: []
-## @section NetworkPolicy parameters
-##
-
-## Network Policy configuration
-## ref: https://kubernetes.io/docs/concepts/services-networking/network-policies/
-##
+# -- NetworkPolicy for the Matomo workloads. When enabled, one NetworkPolicy
+# per component (dashboard, tracker, cli, queuedtracking monitor/process) is
+# created. The default rule allows all ingress, which changes nothing
+# functionally but makes every pod covered by a policy; tighten by overriding
+# `networkPolicy.ingress` for your environment.
 networkPolicy:
-  ## @param networkPolicy.enabled Specifies whether a NetworkPolicy should be created
-  ##
   enabled: true
-  ## @param networkPolicy.allowExternal Don't require server label for connections
-  ## The Policy model to apply. When set to false, only pods with the correct
-  ## server label will have network access to the ports server is listening
-  ## on. When true, server will accept connections from any source
-  ## (with the correct destination port).
-  ##
-  allowExternal: true
-  ## @param networkPolicy.allowExternalEgress Allow the pod to access any range of port and all destinations.
-  ##
-  allowExternalEgress: true
-  ## @param networkPolicy.extraIngress [array] Add extra ingress rules to the NetworkPolicy
-  ## e.g:
-  ## extraIngress:
-  ##   - ports:
-  ##       - port: 1234
-  ##     from:
-  ##       - podSelector:
-  ##           - matchLabels:
-  ##               - role: frontend
-  ##       - podSelector:
-  ##           - matchExpressions:
-  ##               - key: role
-  ##                 operator: In
-  ##                 values:
-  ##                   - frontend
-  extraIngress: []
-  ## @param networkPolicy.extraEgress [array] Add extra ingress rules to the NetworkPolicy
-  ## e.g:
-  ## extraEgress:
-  ##   - ports:
-  ##       - port: 1234
-  ##     to:
-  ##       - podSelector:
-  ##           - matchLabels:
-  ##               - role: frontend
-  ##       - podSelector:
-  ##           - matchExpressions:
-  ##               - key: role
-  ##                 operator: In
-  ##                 values:
-  ##                   - frontend
-  ##
-  extraEgress: []
-  ## @param networkPolicy.ingressNSMatchLabels [object] Labels to match to allow traffic from other namespaces
-  ## @param networkPolicy.ingressNSPodMatchLabels [object] Pod labels to match to allow traffic from other namespaces
-  ##
-  ingressNSMatchLabels: {}
-  ingressNSPodMatchLabels: {}
-## @section CronJob parameters
-##
-cronjobs:
-  taskScheduler:
-    ## @param cronjobs.taskScheduler.enabled Whether to enable scheduled mail-to-task CronJob
-    ##
-    enabled: true
-    ## @param cronjobs.taskScheduler.schedule Kubernetes CronJob schedule
-    ##
-    schedule: "*/5 * * * *"
-    ## @param cronjobs.taskScheduler.serviceAccountName Attach serviceAccountName to the pod of the CronJob
-    ##
-    serviceAccountName: ""
-    ## @param cronjobs.taskScheduler.automountServiceAccountToken Mount Service Account token in pod of the CronJob
-    ##
-    automountServiceAccountToken: true
-    ## @param cronjobs.taskScheduler.suspend Whether to create suspended CronJob
-    ##
-    suspend: false
-    ## @param cronjobs.taskScheduler.affinity Affinity for CronJob pod assignment
-    ##
-    affinity: {}
-    ## @param cronjobs.taskScheduler.nodeSelector Node labels for CronJob pod assignment. Evaluated as a template.
-    ## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
-    ##
-    nodeSelector: {}
-    ## @param cronjobs.taskScheduler.tolerations Tolerations for CronJob pod assignment
-    ## Ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
-    ##
-    tolerations: []
-    ## @param cronjobs.taskScheduler.command Override default container command (useful when using custom images)
-    ##
-    command: []
-    ## @param cronjobs.taskScheduler.args Override default container args (useful when using custom images)
-    ##
-    args: []
-    ## @param
-    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
-    ## @param cronjobs.taskScheduler.containerSecurityContext.enabled Enabled containers' Security Context
-    ## @param cronjobs.taskScheduler.containerSecurityContext.seLinuxOptions [object,nullable] Set SELinux options in container
-    ## @param cronjobs.taskScheduler.containerSecurityContext.runAsUser Set containers' Security Context runAsUser
-    ## @param cronjobs.taskScheduler.containerSecurityContext.runAsGroup Set containers' Security Context runAsGroup
-    ## @param cronjobs.taskScheduler.containerSecurityContext.runAsNonRoot Set container's Security Context runAsNonRoot
-    ## @param cronjobs.taskScheduler.containerSecurityContext.privileged Set container's Security Context privileged
-    ## @param cronjobs.taskScheduler.containerSecurityContext.readOnlyRootFilesystem Set container's Security Context readOnlyRootFilesystem
-    ## @param cronjobs.taskScheduler.containerSecurityContext.allowPrivilegeEscalation Set container's Security Context allowPrivilegeEscalation
-    ## @param cronjobs.taskScheduler.containerSecurityContext.capabilities.drop List of capabilities to be dropped
-    ## @param cronjobs.taskScheduler.containerSecurityContext.seccompProfile.type Set container's Security Context seccomp profile
-    ##
-    containerSecurityContext:
-      enabled: true
-      seLinuxOptions: {}
-      runAsUser: 1001
-      runAsGroup: 0
-      runAsNonRoot: true
-      privileged: false
-      readOnlyRootFilesystem: false
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop: ["ALL"]
-      seccompProfile:
-        type: "RuntimeDefault"
-    ## @param cronjobs.taskScheduler.podAnnotations Additional pod annotations
-    ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-    ##
-    podAnnotations: {}
-    ## @param cronjobs.taskScheduler.podLabels Additional pod labels
-    ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
-    ##
-    podLabels: {}
-    ## @param cronjobs.taskScheduler.resources Set container requests and limits for different resources like CPU or memory (essential for production workloads)
-    ## Example:
-    ## resources:
-    ##   requests:
-    ##     cpu: 2
-    ##     memory: 512Mi
-    ##   limits:
-    ##     cpu: 3
-    ##     memory: 1024Mi
-    ##
-    resources: {}
+  # @schema
+  # items:
+  #   type: object
+  #   additionalProperties: true
+  # @schema
+  # -- Ingress rules applied to every component policy. Default: allow all.
+  ingress:
+    - {}
 
-    ## Persistence using Persistent Volume Claims for the taskScheduler CronJob
-    ## ref: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
-    ## @param cronjobs.taskScheduler.persistence.enabled Enable persistence using Persistent Volume Claims
-    ## @param cronjobs.taskScheduler.persistence.existingClaim A manually managed Persistent Volume Claim
-    ##
-    persistence:
-      enabled: true
-      existingClaim: ""
+# @schema
+# additionalProperties: true
+# @schema
+# -- Node labels for pod assignment.
+nodeSelector: {}
 
-    ## Configure Pods Security Context for the taskScheduler CronJob
-    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
-    ## @param cronjobs.taskScheduler.podSecurityContext.enabled Enable Task scheduler cronjob pods' Security Context
-    ## @param cronjobs.taskScheduler.podSecurityContext.fsGroupChangePolicy Set filesystem group change policy
-    ## @param cronjobs.taskScheduler.podSecurityContext.sysctls Set kernel settings using the sysctl interface
-    ## @param cronjobs.taskScheduler.podSecurityContext.supplementalGroups Set filesystem extra groups
-    ## @param cronjobs.taskScheduler.podSecurityContext.fsGroup Task scheduler cronjob pods' group ID
-    ##
-    podSecurityContext:
-      enabled: true
-      fsGroupChangePolicy: Always
-      sysctls: []
-      supplementalGroups: []
-      fsGroup: 1001
-
-    ## @param cronjobs.taskScheduler.extraEnvVars Extra environment variables for the taskScheduler CronJob
-    extraEnvVars: []
-
-    ## @param cronjobs.taskScheduler.initContainers Additional init containers for the taskScheduler CronJob
-    ##
-    initContainers: []
-  archive:
-    ## @param cronjobs.archive.enabled Whether to enable scheduled mail-to-task CronJob
-    ##
-    enabled: true
-    ## @param cronjobs.archive.schedule Kubernetes CronJob schedule
-    ##
-    schedule: "*/5 * * * *"
-    ## @param cronjobs.archive.serviceAccountName Attach serviceAccountName to the pod of the CronJob
-    ##
-    serviceAccountName: ""
-    ## @param cronjobs.archive.automountServiceAccountToken Mount Service Account token in pod of the CronJob
-    ##
-    automountServiceAccountToken: true
-    ## @param cronjobs.archive.suspend Whether to create suspended CronJob
-    ##
-    suspend: false
-    ## @param cronjobs.archive.affinity Affinity for CronJob pod assignment
-    ##
-    affinity: {}
-    ## @param cronjobs.archive.tolerations Tolerations for CronJob pod assignment
-    ## Ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
-    ##
-    tolerations: []
-    ## @param cronjobs.archive.nodeSelector Node labels for CronJob pod assignment. Evaluated as a template.
-    ## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
-    ##
-    nodeSelector: {}
-    ## @param cronjobs.archive.command Override default container command (useful when using custom images)
-    ##
-    command: []
-    ## @param cronjobs.archive.args Override default container args (useful when using custom images)
-    ##
-    args: []
-    ## @param
-    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
-    ## @param cronjobs.archive.containerSecurityContext.enabled Enabled containers' Security Context
-    ## @param cronjobs.archive.containerSecurityContext.seLinuxOptions [object,nullable] Set SELinux options in container
-    ## @param cronjobs.archive.containerSecurityContext.runAsUser Set containers' Security Context runAsUser
-    ## @param cronjobs.archive.containerSecurityContext.runAsGroup Set containers' Security Context runAsGroup
-    ## @param cronjobs.archive.containerSecurityContext.runAsNonRoot Set container's Security Context runAsNonRoot
-    ## @param cronjobs.archive.containerSecurityContext.privileged Set container's Security Context privileged
-    ## @param cronjobs.archive.containerSecurityContext.readOnlyRootFilesystem Set container's Security Context readOnlyRootFilesystem
-    ## @param cronjobs.archive.containerSecurityContext.allowPrivilegeEscalation Set container's Security Context allowPrivilegeEscalation
-    ## @param cronjobs.archive.containerSecurityContext.capabilities.drop List of capabilities to be dropped
-    ## @param cronjobs.archive.containerSecurityContext.seccompProfile.type Set container's Security Context seccomp profile
-    ##
-    containerSecurityContext:
-      enabled: true
-      seLinuxOptions: {}
-      runAsUser: 1001
-      runAsGroup: 0
-      runAsNonRoot: true
-      privileged: false
-      readOnlyRootFilesystem: false
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop: ["ALL"]
-      seccompProfile:
-        type: "RuntimeDefault"
-    ## @param cronjobs.archive.podAnnotations Additional pod annotations
-    ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-    ##
-    podAnnotations: {}
-    ## @param cronjobs.archive.podLabels Additional pod labels
-    ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
-    ##
-    podLabels: {}
-
-    ## @param cronjobs.archive.resources Set container requests and limits for different resources like CPU or memory (essential for production workloads)
-    # NOTE: If not defined, this will fallback to the main resources request/limit to preserve backwards compatibility. This behaviour might be DEPRECATED
-    # in upcoming versions of the chart
-    ## Example:
-    ## resources:
-    ##   requests:
-    ##     cpu: 2
-    ##     memory: 512Mi
-    ##   limits:
-    ##     cpu: 3
-    ##     memory: 1024Mi
-    ##
-    resources: {}
-
-    ## Persistence using Persistent Volume Claims for the archive CronJob
-    ## ref: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
-    ## @param cronjobs.archive.persistence.enabled Enable persistence using Persistent Volume Claims
-    ## @param cronjobs.archive.persistence.existingClaim A manually managed Persistent Volume Claim
-    ##
-    persistence:
-      enabled: true
-      existingClaim: ""
-
-    ## Configure Pods Security Context for the archive CronJob
-    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
-    ## @param cronjobs.archive.podSecurityContext.enabled Enable Archive cronjob pods' Security Context
-    ## @param cronjobs.archive.podSecurityContext.fsGroupChangePolicy Set filesystem group change policy
-    ## @param cronjobs.archive.podSecurityContext.sysctls Set kernel settings using the sysctl interface
-    ## @param cronjobs.archive.podSecurityContext.supplementalGroups Set filesystem extra groups
-    ## @param cronjobs.archive.podSecurityContext.fsGroup Archive cronjob pods' group ID
-    ##
-    podSecurityContext:
-      enabled: true
-      fsGroupChangePolicy: Always
-      sysctls: []
-      supplementalGroups: []
-      fsGroup: 1001
-
-    ## @param cronjobs.archive.extraEnvVars Extra environment variables for the archive CronJob
-    extraEnvVars: []
-
-    ## @param cronjobs.archive.initContainers Additional init containers for the archive CronJob
-    ##
-    initContainers: []
+# -- Tolerations for pod assignment
+tolerations: []

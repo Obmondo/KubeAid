@@ -1,0 +1,67 @@
+{{- if and .Values.matomo.gatewayApi.enabled .Values.matomo.tracker.enabled }}
+{{- $backend := "matomo-tracker" }}
+{{- $port := 8080 }}
+{{- if .Values.matomo.tracker.loadbalancer }}
+{{- $backend = "matomo-tracker-lb" }}
+{{- $port = 80 }}
+{{- end }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: matomo-tracker
+  namespace: {{.Values.namespace}}
+  labels:
+    app: matomo-tracker
+{{- if .Values.matomo.gatewayApi.extralabels }}
+{{ toYaml .Values.matomo.gatewayApi.extralabels | indent 4 }}
+{{- end }}
+spec:
+  parentRefs:
+{{ toYaml .Values.matomo.gatewayApi.parentRefs | indent 4 }}
+  hostnames:
+    - {{.Values.matomo.tracker.hostname}}
+  rules:
+    # tracking endpoints (same paths as the tracker Ingress)
+    - matches:
+        - path:
+            type: Exact
+            value: /index.php
+        - path:
+            type: Exact
+            value: /piwik.php
+        - path:
+            type: Exact
+            value: /piwik.js
+        - path:
+            type: Exact
+            value: /matomo.php
+        - path:
+            type: Exact
+            value: /matomo.js
+      backendRefs:
+        - name: {{ $backend }}
+          port: {{ $port }}
+    # static assets served by the tracker
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /js
+        - path:
+            type: PathPrefix
+            value: /plugins/HeatmapSessionRecording
+        - path:
+            type: PathPrefix
+            value: /plugins/Overlay/client
+        - path:
+            type: PathPrefix
+            value: /node_modules/jquery/dist
+        - path:
+            type: PathPrefix
+            value: /plugins/UserFeedback/lib
+        - path:
+            type: PathPrefix
+            value: /plugins/UserFeedback/css
+      backendRefs:
+        - name: {{ $backend }}
+          port: {{ $port }}
+{{- end }}

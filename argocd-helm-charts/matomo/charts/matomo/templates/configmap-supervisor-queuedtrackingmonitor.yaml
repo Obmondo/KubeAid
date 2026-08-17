@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: matomo-supervisor-queuedtrackingmonitor
+  namespace: {{.Values.namespace}}
+data:
+  queuedtracking-monitor.ini: |
+    [unix_http_server]
+    file = /home/www-data/supervisord.sock
+
+    [program:queuedtracking-monitor]
+    startretries=100
+    process_name=%(program_name)s_%(process_num)02d
+    command=sh -c 'while ( php /var/www/html/console queuedtracking:monitor --iterations=1 );do sleep 2; done'
+    autostart=true
+    autorestart=true
+    user=www-data
+    numprocs=1
+    redirect_stderr=true
+    stdout_events_enabled=true
+    stderr_events_enabled=true
+    stdout_logfile_maxbytes=0
+    stderr_logfile_maxbytes=0
+    stdout_logfile=/dev/stdout
+    stderr_logfile=/dev/stderr

@@ -1,80 +1,26 @@
-{{- /*
-Copyright Broadcom, Inc. All Rights Reserved.
-SPDX-License-Identifier: APACHE-2.0
-*/}}
-
 {{- if .Values.networkPolicy.enabled }}
+{{- $components := list }}
+{{- if .Values.matomo.dashboard.enabled }}{{- $components = append $components "matomo-dashboard" }}{{- end }}
+{{- if .Values.matomo.tracker.enabled }}{{- $components = append $components "matomo-tracker" }}{{- end }}
+{{- if .Values.matomo.cli.enabled }}{{- $components = append $components "matomo-cli" }}{{- end }}
+{{- if .Values.matomo.queuedTrackingMonitor.enabled }}{{- $components = append $components "matomo-queuedtracking-monitor" }}{{- end }}
+{{- if .Values.matomo.queuedTrackingProcess.enabled }}{{- $components = append $components "matomo-queuedtracking-process" }}{{- end }}
+{{- range $app := $components }}
+---
+apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
-apiVersion: {{ include "common.capabilities.networkPolicy.apiVersion" . }}
 metadata:
-  name: {{ template "common.names.fullname" . }}
-  namespace: {{ include "common.names.namespace" . | quote }}
-  labels: {{- include "common.labels.standard" ( dict "customLabels" .Values.commonLabels "context" $ ) | nindent 4 }}
-  {{- if .Values.commonAnnotations }}
-  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
-  {{- end }}
+  name: {{ $app }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    app: {{ $app }}
 spec:
-  {{- $podLabels := include "common.tplvalues.merge" ( dict "values" ( list .Values.podLabels .Values.commonLabels ) "context" . ) }}
   podSelector:
-    matchLabels: {{- include "common.labels.matchLabels" ( dict "customLabels" $podLabels "context" $ ) | nindent 6 }}
+    matchLabels:
+      app: {{ $app }}
   policyTypes:
     - Ingress
-    - Egress
-  {{- if .Values.networkPolicy.allowExternalEgress }}
-  egress:
-    - {}
-  {{- else }}
-  egress:
-    # Allow dns resolution
-    - ports:
-        - port: 53
-          protocol: UDP
-        - port: 53
-          protocol: TCP
-    # Allow outbound connections to MariaDB
-    - ports:
-        - port: {{ include "matomo.databasePort" . }}
-      {{- if .Values.mariadb.enabled }}
-      to: 
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: mariadb
-              app.kubernetes.io/instance: {{ .Release.Name }}
-      {{- end }}
-    {{- if .Values.networkPolicy.extraEgress }}
-    {{- include "common.tplvalues.render" ( dict "value" .Values.networkPolicy.extraEgress "context" $ ) | nindent 4 }}
-    {{- end }}
-  {{- end }}
   ingress:
-    - ports:
-        - port: {{ .Values.containerPorts.http }}
-        - port: {{ .Values.containerPorts.https }}
-        {{- range .Values.extraContainerPorts }}
-        - port: {{ .containerPort }}
-        {{- end }}
-      {{- if not .Values.networkPolicy.allowExternal }}
-      from:
-        - podSelector:
-            matchLabels: {{- include "common.labels.matchLabels" ( dict "customLabels" .Values.commonLabels "context" $ ) | nindent 14 }}
-        - podSelector:
-            matchLabels:
-              {{ template "common.names.fullname" . }}-client: "true"
-        {{- if .Values.networkPolicy.ingressNSMatchLabels }}
-        - namespaceSelector:
-            matchLabels:
-              {{- range $key, $value := .Values.networkPolicy.ingressNSMatchLabels }}
-              {{ $key | quote }}: {{ $value | quote }}
-              {{- end }}
-          {{- if .Values.networkPolicy.ingressNSPodMatchLabels }}
-          podSelector:
-            matchLabels:
-              {{- range $key, $value := .Values.networkPolicy.ingressNSPodMatchLabels }}
-              {{ $key | quote }}: {{ $value | quote }}
-              {{- end }}
-          {{- end }}
-        {{- end }}
-      {{- end }}
-    {{- if .Values.networkPolicy.extraIngress }}
-    {{- include "common.tplvalues.render" ( dict "value" .Values.networkPolicy.extraIngress "context" $ ) | nindent 4 }}
-    {{- end }}
+{{ toYaml $.Values.networkPolicy.ingress | indent 4 }}
+{{- end }}
 {{- end }}

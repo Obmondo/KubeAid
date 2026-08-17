@@ -1,0 +1,186 @@
+{{- if .Values.matomo.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  labels:
+    app: matomo-tracker
+{{- if .Values.matomo.ingress.extralabels }}
+{{ toYaml .Values.matomo.ingress.extralabels | indent 4 }}
+{{- end }}
+  name: matomo-tracker
+  namespace: {{.Values.namespace}}
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    {{- if .Values.matomo.ingress.annotations }}
+      {{- with .Values.matomo.ingress.annotations }}
+        {{- toYaml . | nindent 4 }}
+      {{- end }}
+    {{- end }}
+    {{- if .Values.matomo.tracker.ingress.annotations }}
+      {{- with .Values.matomo.tracker.ingress.annotations }}
+        {{- toYaml . | nindent 4 }}
+      {{- end }}
+    {{- end }}
+spec:
+  {{- if .Values.matomo.tracker.ingressClassName }}
+  ingressClassName: {{.Values.matomo.tracker.ingressClassName}}
+  {{- end }}
+  rules:
+  - host: {{.Values.matomo.tracker.hostname}}
+    http:
+      paths:
+      - path: /index.php
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            {{- if .Values.matomo.tracker.loadbalancer }}
+            name: matomo-tracker-lb
+            port:
+              number: 80
+              {{ else }}
+            name: matomo-tracker
+            port:
+              number: 8080
+            {{- end }}
+      - path: /piwik.php
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            {{- if .Values.matomo.tracker.loadbalancer }}
+            name: matomo-tracker-lb
+            port:
+              number: 80
+              {{ else }}
+            name: matomo-tracker
+            port:
+              number: 8080
+            {{- end }}
+      - path: /piwik.js
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            {{- if .Values.matomo.tracker.loadbalancer }}
+            name: matomo-tracker-lb
+            port:
+              number: 80
+              {{ else }}
+            name: matomo-tracker
+            port:
+              number: 8080
+            {{- end }}
+      - path: /matomo.php
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            {{- if .Values.matomo.tracker.loadbalancer }}
+            name: matomo-tracker-lb
+            port:
+              number: 80
+              {{ else }}
+            name: matomo-tracker
+            port:
+              number: 8080
+            {{- end }}
+      - path: /matomo.js
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            {{- if .Values.matomo.tracker.loadbalancer }}
+            name: matomo-tracker-lb
+            port:
+              number: 80
+              {{ else }}
+            name: matomo-tracker
+            port:
+              number: 8080
+            {{- end }}
+      - path: /js/.*
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            {{- if .Values.matomo.tracker.loadbalancer }}
+            name: matomo-tracker-lb
+            port:
+              number: 80
+              {{ else }}
+            name: matomo-tracker
+            port:
+              number: 8080
+            {{- end }}
+      - path: /plugins/HeatmapSessionRecording/.*
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            {{- if .Values.matomo.tracker.loadbalancer }}
+            name: matomo-tracker-lb
+            port:
+              number: 80
+              {{ else }}
+            name: matomo-tracker
+            port:
+              number: 8080
+            {{- end }}
+      - path: /plugins/Overlay/client/.*
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            {{- if .Values.matomo.tracker.loadbalancer }}
+            name: matomo-tracker-lb
+            port:
+              number: 80
+              {{ else }}
+            name: matomo-tracker
+            port:
+              number: 8080
+            {{- end }}
+      - path: /node_modules/jquery/dist/.*
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            {{- if .Values.matomo.tracker.loadbalancer }}
+            name: matomo-tracker-lb
+            port:
+              number: 80
+              {{ else }}
+            name: matomo-tracker
+            port:
+              number: 8080
+            {{- end }}
+
+      - path: /plugins/UserFeedback/lib/.*
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            {{- if .Values.matomo.tracker.loadbalancer }}
+            name: matomo-tracker-lb
+            port:
+              number: 80
+              {{ else }}
+            name: matomo-tracker
+            port:
+              number: 8080
+            {{- end }}
+
+      - path: /plugins/UserFeedback/css/.*
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            {{- if .Values.matomo.tracker.loadbalancer }}
+            name: matomo-tracker-lb
+            port:
+              number: 80
+              {{ else }}
+            name: matomo-tracker
+            port:
+              number: 8080
+            {{- end }}
+
+  {{- if .Values.matomo.tracker.tls }}
+  tls:
+  - hosts:
+    - {{.Values.matomo.tracker.hostname}}
+    {{- if .Values.matomo.tracker.secretName }}
+    secretName: {{.Values.matomo.tracker.secretName}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}

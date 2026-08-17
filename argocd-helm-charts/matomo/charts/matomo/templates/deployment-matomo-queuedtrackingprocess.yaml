@@ -1,0 +1,95 @@
+---
+{{- if .Values.matomo.queuedTrackingProcess.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: matomo-queuedtracking-process
+  namespace: {{.Values.namespace}}
+  labels:
+    app: matomo-queuedtracking-process
+{{- if .Values.matomo.extralabels }}
+{{ toYaml .Values.matomo.extralabels | indent 4 }}
+{{- end }}
+spec:
+  replicas: {{.Values.matomo.queuedTrackingProcess.replicas}}
+  selector:
+    matchLabels:
+      app: matomo-queuedtracking-process
+  template:
+    metadata:
+      labels:
+        app: matomo-queuedtracking-process
+{{- if .Values.matomo.extralabels }}
+{{ toYaml .Values.matomo.extralabels | indent 8 }}
+{{- end }}
+      annotations:
+{{ include "matomo.podAnnotations" . | indent 8 }}
+    spec:
+      automountServiceAccountToken: {{ .Values.matomo.automountServiceAccountToken }}
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+{{ include "matomo.init" . | nindent 6 }}
+      containers:
+      - name: matomo
+        image: {{.Values.matomo.image}}
+        {{- if .Values.matomo.queuedTrackingProcess.resources }}
+        resources:
+{{ toYaml .Values.matomo.queuedTrackingProcess.resources | indent 10 }}
+        {{- end }}
+        securityContext:
+          runAsUser: {{.Values.matomo.runAsUser}}
+          privileged: false
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          capabilities:
+            drop:
+              - ALL
+        imagePullPolicy: Always
+        livenessProbe: {{- include "matomo.probe" (dict "override" .Values.matomo.queuedTrackingProcess.livenessProbe "default" (include "matomo.probe.default.supervisord.liveness" .)) | nindent 10 }}
+        readinessProbe: {{- include "matomo.probe" (dict "override" .Values.matomo.queuedTrackingProcess.readinessProbe "default" (include "matomo.probe.default.supervisord.readiness" .)) | nindent 10 }}
+        env:
+        - name: MATOMO_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.db.password.secretKeyRef.name }}
+              key: {{ .Values.db.password.secretKeyRef.key }}
+        {{- range .Values.matomo.env }}
+        {{- if .valueFromSecret }}
+        - name: {{ .name }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .valueFromSecret.secretName | quote }}
+              key: {{ .valueFromSecret.key | quote }}
+        {{- else if .value }}
+        - name: {{ .name }}
+          value: {{ .value | quote }}
+        {{- end }}
+        {{- end }}
+{{- include "matomo.license" . | nindent 8 }}
+        command: [ 'sh' , '-c' , 'supervisord -n' ]
+        volumeMounts:
+          - name: static-data
+            mountPath: /var/www/html
+          - name: matomo-supervisor-queuedtrackingprocess
+            mountPath: /etc/supervisor.d
+            readOnly: true
+{{ include "matomo.images.pullSecrets" ( dict "images" (list .Values.matomo) "global" .Values.global) | nindent 6 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+      - name: matomo-configuration
+        configMap:
+          name: matomo-configuration
+      - name: static-data
+        emptyDir: {}
+      - name: matomo-supervisor-queuedtrackingprocess
+        configMap:
+          name: matomo-supervisor-queuedtrackingprocess
+{{- end -}}

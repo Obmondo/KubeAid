@@ -1,0 +1,130 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: matomo-configuration
+  namespace: {{.Values.namespace}}
+{{- if .Values.matomo.config }}
+data:
+  install.json: |-
+      {{ .Values.matomo.config | toJson }}
+{{ else }}
+data:
+  install.json: |
+      {
+        "PluginsInstalled": [
+          "Diagnostics",
+          "DBStats",
+          "Login",
+          "CoreAdminHome",
+          "UsersManager",
+          "SitesManager",
+          "Installation",
+          "Monolog",
+          "Intl",
+          "CorePluginsAdmin",
+          "CoreHome",
+          "WebsiteMeasurable",
+          "CoreVisualizations",
+          "Proxy",
+          "API",
+          "Transitions",
+          "Actions",
+          "Referrers",
+          "UserLanguage",
+          "DevicesDetection",
+          "Goals",
+          "SEO",
+          "Events",
+          "UserCountry",
+          "GeoIp2",
+          "VisitsSummary",
+          "VisitFrequency",
+          "VisitTime",
+          "VisitorInterest",
+          "CoreUpdater",
+          "CoreConsole",
+          "UserCountryMap",
+          "Live",
+          "ImageGraph",
+          "Annotations",
+          "Insights",
+          "Morpheus",
+          "Contents",
+          "DevicePlugins",
+          "UserId",
+          "CustomJsTracker",
+          "ExtraTools",
+          "LanguagesManager",
+          "SegmentEditor",
+          "Dashboard",
+          "ScheduledReports",
+          "PrivacyManager",
+          "CustomVariables",
+          "IntranetMeasurable",
+          "Widgetize",
+          "MultiSites",
+          "Ecommerce",
+          "RssWidget",
+          "Feedback",
+          "TwoFactorAuth",
+          "MobileMessaging",
+          "Overlay",
+          "BulkTracking",
+          "Resolution",
+          "Heartbeat",
+          "Marketplace",
+          "ProfessionalServices",
+          "UserConsole"
+        ],
+        "Site": {
+          "name": "Localhost",
+          "url": "https://localhost"
+        },
+        "Config": {
+          "log": {
+            "log_level": "ERROR"
+          },
+          "General": {
+            "show_update_notification_to_superusers_only": 1,
+            "noreply_email_address": "noreply@digitalistgroup.com",
+            "enable_framed_pages": 1,
+            "enable_framed_settings": 1,
+            "enable_trusted_host_check": 0,
+            "enable_plugin_update_communication": 0,
+            "enable_auto_update": 0,
+            "enable_installer": 0,
+            "enable_internet_features": 0,
+            "enable_plugins_admin": 0,
+            "enable_plugin_upload": 0,
+            "enable_geolocation_admin": 1,
+            "proxy_client_headers[]": "HTTP_X_FORWARDED_FOR",
+            "browser_archiving_disabled_enforce": 1,
+            "enable_browser_archiving_triggering": 0,
+            "archiving_range_force_on_browser_request": 0,
+            "enable_sql_optimize_queries": 0,
+            "enabled_periods_UI": "day,week,month,year,range",
+            "enabled_periods_API": "day,week,month,year,range",
+            "session_save_handler": "dbtable",
+            "enable_marketplace": 0,
+            "enable_general_settings_admin": 0,
+            "piwik_pro_ads_enabled": 0,
+            "assume_secure_protocol": 1,
+            "cors_domains[]": "*",
+            "datatable_archiving_maximum_rows_referrers": 2000,
+            "datatable_archiving_maximum_rows_subtable_referrers": 2000,
+            "datatable_archiving_maximum_rows_actions": 2000,
+            "datatable_archiving_maximum_rows_subtable_actions": 2000,
+            "datatable_archiving_maximum_rows_events": 2000,
+            "datatable_archiving_maximum_rows_subtable_events": 2000,
+            "datatable_archiving_maximum_rows_custom_variables": 2000,
+            "datatable_archiving_maximum_rows_subtable_custom_variables": 2000,
+            "time_before_today_archive_considered_outdated": 2700,
+            "time_before_week_archive_considered_outdated": 10800,
+            "time_before_month_archive_considered_outdated": 32400,
+            "time_before_year_archive_considered_outdated": 64800,
+            "time_before_range_archive_considered_outdated": 10800
+          }
+        }
+      }
+
+{{ end }}

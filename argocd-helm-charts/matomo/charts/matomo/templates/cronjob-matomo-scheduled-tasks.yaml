@@ -1,0 +1,76 @@
+---
+{{- if .Values.matomo.cronJobs.scheduledTasks.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: matomo-jobs-scheduled-tasks
+  namespace: {{.Values.namespace}}
+  {{- template "matomo.labels" .Values.matomo.cronJobs.scheduledTasks.labels }}
+spec:
+  schedule: {{quote .Values.matomo.cronJobs.scheduledTasks.schedule}}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: {{.Values.matomo.cronJobs.scheduledTasks.activeDeadlineSeconds}}
+      template:
+        metadata:
+          annotations:
+{{ include "matomo.podAnnotations" . | indent 12 }}
+        spec:
+          automountServiceAccountToken: {{ .Values.matomo.automountServiceAccountToken }}
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+{{ include "matomo.init" . | nindent 10 }}
+          containers:
+          - name: matomo-jobs-scheduledtasks
+            image: {{.Values.matomo.image}}
+            imagePullPolicy: Always
+            securityContext:
+              runAsUser: {{.Values.matomo.runAsUser}}
+              privileged: false
+              allowPrivilegeEscalation: false
+              runAsNonRoot: true
+              capabilities:
+                drop:
+                  - ALL
+            command: [ 'sh' , '-c' , {{quote .Values.matomo.cronJobs.scheduledTasks.command}} ]
+            env:
+            - name: MARIADB_MATOMO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.db.password.secretKeyRef.name }}
+                  key: {{ .Values.db.password.secretKeyRef.key }}
+{{ include "matomo.license" . | nindent 12 }}
+            {{- if .Values.matomo.cronJobs.scheduledTasks.resources }}
+            resources:
+{{ toYaml .Values.matomo.cronJobs.scheduledTasks.resources | indent 14 }}
+            {{- end }}
+            volumeMounts:
+              - name: static-data
+                mountPath: /var/www/html
+              - name: matomo-scheduledtasks-php
+                mountPath: /usr/local/etc/php/conf.d/zz-global.ini
+                subPath: zz-global.ini
+          restartPolicy: OnFailure
+{{ include "matomo.images.pullSecrets" ( dict "images" (list .Values.matomo) "global" .Values.global) | nindent 10 }}
+      {{- with .Values.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumes:
+          - name: matomo-configuration
+            configMap:
+              name: matomo-configuration
+          - name: static-data
+            emptyDir: {}
+          - name: matomo-scheduledtasks-php
+            configMap:
+              name: matomo-scheduledtasks-php
+{{- end -}}

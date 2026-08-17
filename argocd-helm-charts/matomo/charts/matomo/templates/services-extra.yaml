@@ -1,0 +1,28 @@
+{{- range $service := .Values.extraServices }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: matomo-extra-{{ $service.name }}
+  namespace: {{ $.Values.namespace }}
+spec:
+  type: {{ $service.type }}
+  ports:
+    - port: {{ $service.port }}
+      targetPort: {{ $service.name }}
+      protocol: {{ $service.protocol }}
+      name: {{ $service.name }}
+      {{- if and ( or (eq $service.type "LoadBalancer") (eq $service.type "NodePort") ) ($service.nodePort) }}
+      nodePort: {{ $service.nodePort }}
+      {{- end }}
+  {{- if and (eq $service.type "LoadBalancer") ($service.loadBalancerIP) }}
+  loadBalancerIP: {{ $service.loadBalancerIP }}
+  {{- end }}
+  {{- if $service.clusterIP }}
+  clusterIP: {{ $service.clusterIP }}
+  {{- end }}
+  selector:
+{{- range $index, $content := $service.selector }}
+    {{ $index }}: {{ $content }}
+{{- end }}
+---
+{{- end }}

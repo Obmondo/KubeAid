@@ -1,0 +1,235 @@
+---
+{{- if .Values.matomo.tracker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: matomo-tracker
+  namespace: {{.Values.namespace}}
+  labels:
+    app: matomo-tracker
+{{- if .Values.matomo.extralabels }}
+{{ toYaml .Values.matomo.extralabels | indent 4 }}
+{{- end }}
+spec:
+  replicas: {{.Values.matomo.tracker.replicas}}
+  selector:
+    matchLabels:
+      app: matomo-tracker
+  template:
+    metadata:
+      labels:
+        app: matomo-tracker
+{{- if .Values.matomo.extralabels }}
+{{ toYaml .Values.matomo.extralabels | indent 8 }}
+{{- end }}
+      annotations:
+{{ include "matomo.podAnnotations" . | indent 8 }}
+    spec:
+      automountServiceAccountToken: {{ .Values.matomo.automountServiceAccountToken }}
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+        {{- if .Values.matomo.tagManagerRegenerate.enabled }}
+        # nginx (uid {{ .Values.nginx.runAsUser }}) and matomo (uid {{ .Values.matomo.runAsUser }})
+        # are different UIDs both needing access to the shared TagManager JS
+        # PVC; fsGroup is pod-wide (unlike runAsUser, which is per-container)
+        # so it's what lets both actually share it. Doesn't apply to hostPath
+        # volumes, only to real volume plugins/CSI drivers.
+        fsGroup: {{ .Values.matomo.tagManagerRegenerate.fsGroup | default .Values.matomo.runAsUser }}
+        {{- end }}
+{{ include "matomo.initWithWarmup" . | nindent 6 }}
+      containers:
+      {{- if .Values.matomo.tracker.exporter.enabled }}
+      - name: fpm-metrics
+        securityContext:
+          runAsUser: {{.Values.matomo.runAsUser}}
+          privileged: false
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          capabilities:
+            drop:
+              - ALL
+        {{- if .Values.matomo.tracker.exporter.image }}
+        image: {{.Values.matomo.tracker.exporter.image}}
+        {{- else }}
+        image: {{.Values.matomo.exporterImage}}
+        {{- end }}
+        imagePullPolicy: Always
+        livenessProbe: {{- include "matomo.probe" (dict "override" .Values.matomo.tracker.exporter.livenessProbe "default" (include "matomo.probe.default.exporter.liveness" .)) | nindent 10 }}
+        readinessProbe: {{- include "matomo.probe" (dict "override" .Values.matomo.tracker.exporter.readinessProbe "default" (include "matomo.probe.default.exporter.readiness" .)) | nindent 10 }}
+        {{- if .Values.matomo.tracker.exporter.resources }}
+        resources:
+{{ toYaml .Values.matomo.tracker.exporter.resources | indent 10 }}
+        {{- end }}
+        ports:
+        - name: metrics
+          containerPort: 9253
+      {{- end }}
+      - name: nginx
+        image: {{.Values.nginx.image}}
+        imagePullPolicy: Always
+        {{- if .Values.matomo.tracker.nginx.resources }}
+        resources:
+{{ toYaml .Values.matomo.tracker.nginx.resources | indent 10 }}
+        {{- end }}
+        readinessProbe: {{- include "matomo.probe" (dict "override" .Values.matomo.tracker.nginx.readinessProbe "default" (include "matomo.probe.default.nginx.tracker.readiness" .)) | nindent 10 }}
+        livenessProbe: {{- include "matomo.probe" (dict "override" .Values.matomo.tracker.nginx.livenessProbe "default" (include "matomo.probe.default.nginx.liveness" .)) | nindent 10 }}
+        securityContext:
+          runAsUser: {{.Values.nginx.runAsUser}}
+          privileged: false
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          capabilities:
+            drop:
+              - ALL
+        volumeMounts:
+          - name: nginx-conf
+            mountPath: /etc/nginx/nginx.conf
+            subPath: nginx.conf
+            readOnly: true
+          - name: fastcgi-params
+            mountPath: /etc/nginx/fastcgi_params
+            subPath: fastcgi_params
+            readOnly: true
+          - name: mime-types
+            mountPath: /etc/nginx/mime.types
+            subPath: mime.types
+            readOnly: true
+          - name: static-data
+            mountPath: /var/www/html
+            readOnly: true
+          {{- if .Values.matomo.tagManagerRegenerate.enabled }}
+          - name: tagmanager-js
+            mountPath: /var/www/html/js
+            readOnly: true
+          {{- end }}
+        ports:
+        - containerPort: 8080
+      - name: matomo
+        image: {{.Values.matomo.image}}
+        {{- if .Values.matomo.tracker.resources }}
+        resources:
+{{ toYaml .Values.matomo.tracker.resources | indent 10 }}
+        {{- end }}
+        securityContext:
+          runAsUser: {{.Values.matomo.runAsUser}}
+          privileged: false
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          capabilities:
+            drop:
+              - ALL
+        imagePullPolicy: Always
+        env:
+        - name: MATOMO_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.db.password.secretKeyRef.name }}
+              key: {{ .Values.db.password.secretKeyRef.key }}
+        {{- range .Values.matomo.env }}
+        {{- if .valueFromSecret }}
+        - name: {{ .name }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .valueFromSecret.secretName | quote }}
+              key: {{ .valueFromSecret.key | quote }}
+        {{- else if .value }}
+        - name: {{ .name }}
+          value: {{ .value | quote }}
+        {{- end }}
+        {{- end }}
+        command: [ 'sh' , '-c' , 'supervisord -n' ]
+        volumeMounts:
+          - name: static-data
+            mountPath: /var/www/html
+          - name: matomo-supervisor-tracker
+            mountPath: /etc/supervisor.d
+            readOnly: true
+          - name: matomo-phpfpm-tracker
+            mountPath: /usr/local/etc/php-fpm.d/zz-global.conf
+            subPath: zz-global.conf
+          {{- if .Values.matomo.tagManagerRegenerate.enabled }}
+          - name: tagmanager-js
+            mountPath: /var/www/html/js
+            readOnly: true
+          {{- end }}
+{{- if .Values.extraVolumeMounts }}
+{{ toYaml .Values.extraVolumeMounts | indent 10 }}
+{{- end }}
+        livenessProbe: {{- include "matomo.probe" (dict "override" .Values.matomo.livenessProbe "default" (include "matomo.probe.default.phpfpm.liveness" .)) | nindent 10 }}
+        readinessProbe: {{- include "matomo.probe" (dict "override" .Values.matomo.readinessProbe "default" (include "matomo.probe.default.phpfpm.readiness" .)) | nindent 10 }}
+{{ include "matomo.images.pullSecrets" ( dict "images" (list .Values.matomo) "global" .Values.global) | nindent 6 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+      - name: nginx-conf
+        configMap:
+          name: nginx-matomo-tracker
+          items:
+          - key: nginx.conf
+            path: nginx.conf
+      - name: fastcgi-params
+        configMap:
+          name: nginx-matomo-tracker
+          items:
+          - key: fastcgi_params
+            path: fastcgi_params
+      - name: mime-types
+        configMap:
+          name: nginx-matomo-tracker
+          items:
+          - key: mime.types
+            path: mime.types
+      - name: matomo-configuration
+        configMap:
+          name: matomo-configuration
+      - name: static-data
+        emptyDir: {}
+      - name: matomo-supervisor-tracker
+        configMap:
+          name: matomo-supervisor-tracker
+      - name: matomo-phpfpm-tracker
+        configMap:
+          name: matomo-phpfpm-tracker
+      {{- if .Values.matomo.tagManagerRegenerate.enabled }}
+      - name: tagmanager-js
+        persistentVolumeClaim:
+          claimName: {{ include "matomo.tagManagerJsClaimName" . }}
+      {{- end }}
+{{- if .Values.extraVolumes }}
+{{ toYaml .Values.extraVolumes | indent 6 }}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: matomo-tracker
+  namespace: {{.Values.namespace}}
+  labels:
+    app: matomo-tracker
+  {{- if .Values.matomo.tracker.exporter.enabled }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9253"
+    prometheus.io/path: "/metrics"
+  {{- end }}
+spec:
+  ports:
+    - name: http
+      port: 8080
+      protocol: TCP
+    {{- if .Values.matomo.tracker.exporter.enabled }}
+    - name: metrics
+      port: 9253
+      targetPort: metrics
+      protocol: TCP
+    {{- end }}
+  selector:
+    app: matomo-tracker
+{{- end -}}

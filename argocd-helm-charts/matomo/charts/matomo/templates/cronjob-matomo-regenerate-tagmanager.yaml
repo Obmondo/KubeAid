@@ -1,0 +1,111 @@
+---
+{{- if .Values.matomo.tagManagerRegenerate.enabled }}
+{{- if and (not .Values.matomo.tagManagerRegenerate.volume.create) (not .Values.matomo.tagManagerRegenerate.volume.existingClaim) }}
+{{- fail "matomo.tagManagerRegenerate.volume.existingClaim must be set when matomo.tagManagerRegenerate.volume.create is false" }}
+{{- end }}
+{{- if .Values.matomo.tagManagerRegenerate.volume.create }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: matomo-tagmanager-js
+  namespace: {{ .Values.namespace }}
+  {{- with merge .Values.matomo.tagManagerRegenerate.volume.labels (dict "app" "matomo-jobs-regenerate-tagmanager") }}
+  labels:
+    {{- range $key, $value := . }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+  {{- end }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  {{- if .Values.matomo.tagManagerRegenerate.volume.storageClassName }}
+  storageClassName: {{ .Values.matomo.tagManagerRegenerate.volume.storageClassName | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.matomo.tagManagerRegenerate.volume.size }}
+
+---
+{{- end }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: matomo-jobs-regenerate-tagmanager
+  namespace: {{.Values.namespace}}
+  labels:
+    app: matomo-jobs-regenerate-tagmanager
+spec:
+  schedule: {{ quote .Values.matomo.tagManagerRegenerate.schedule }}
+  concurrencyPolicy: {{ .Values.matomo.tagManagerRegenerate.concurrencyPolicy }}
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: {{ .Values.matomo.tagManagerRegenerate.activeDeadlineSeconds }}
+      template:
+        metadata:
+          annotations:
+{{ include "matomo.podAnnotations" . | indent 12 }}
+        spec:
+          automountServiceAccountToken: {{ .Values.matomo.automountServiceAccountToken }}
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+            # Matches the fsGroup applied to the dashboard/tracker pods when
+            # this feature is enabled, so this Job's writes to the shared PVC
+            # are readable by them regardless of their own container UIDs.
+            fsGroup: {{ .Values.matomo.tagManagerRegenerate.fsGroup | default .Values.matomo.runAsUser }}
+{{ include "matomo.init" . | nindent 10 }}
+          containers:
+          - name: matomo-jobs-regenerate-tagmanager
+            image: {{.Values.matomo.image}}
+            imagePullPolicy: Always
+            securityContext:
+              runAsUser: {{.Values.matomo.runAsUser}}
+              privileged: false
+              allowPrivilegeEscalation: false
+              runAsNonRoot: true
+              capabilities:
+                drop:
+                  - ALL
+            {{- if .Values.matomo.tagManagerRegenerate.resources }}
+            resources:
+{{ toYaml .Values.matomo.tagManagerRegenerate.resources | indent 14 }}
+            {{- end }}
+            # Writes land directly in the shared PVC below, since it's
+            # mounted at /var/www/html/js - the same path
+            # `regenerate-released-containers` writes its generated
+            # container JS files to.
+            command: [ 'sh' , '-c' , './console core:update --yes --no-interaction && {{ include "matomo.tagManagerRegenerateGuarded" . }}' ]
+            env:
+            - name: MARIADB_MATOMO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.db.password.secretKeyRef.name }}
+                  key: {{ .Values.db.password.secretKeyRef.key }}
+{{ include "matomo.license" . | nindent 12 }}
+            volumeMounts:
+              - name: static-data
+                mountPath: /var/www/html
+              - name: tagmanager-js
+                mountPath: /var/www/html/js
+          restartPolicy: OnFailure
+{{ include "matomo.images.pullSecrets" ( dict "images" (list .Values.matomo) "global" .Values.global) | nindent 10 }}
+          {{- with .Values.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumes:
+          - name: matomo-configuration
+            configMap:
+              name: matomo-configuration
+          - name: static-data
+            emptyDir: {}
+          - name: tagmanager-js
+            persistentVolumeClaim:
+              claimName: {{ include "matomo.tagManagerJsClaimName" . }}
+{{- end -}}

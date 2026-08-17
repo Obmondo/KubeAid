@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: matomo-phpfpm
+  namespace: {{.Values.namespace}}
+{{- if .Values.matomo.phpfpm }}
+data:
+  zz-global.conf: |
+    [www]
+    pm = {{ .Values.matomo.phpfpm.type | default "dynamic" }}
+    pm.max_children = {{ .Values.matomo.phpfpm.max_children | default 32 }}
+    pm.start_servers =  {{ .Values.matomo.phpfpm.start_servers | default 5 }}
+    pm.min_spare_servers =  {{ .Values.matomo.phpfpm.min_spare_servers | default 5 }}
+    pm.max_spare_servers =  {{ .Values.matomo.phpfpm.max_spare_servers | default 20 }}
+    pm.max_requests =  {{ .Values.matomo.phpfpm.max_requests | default 500 }}
+    pm.process_idle_timeout = {{ .Values.matomo.phpfpm.process_idle_timeout | default "60s" }}
+    php_admin_value[memory_limit] = {{ .Values.matomo.phpfpm.memory_limit | default "1024M" }}
+    pm.status_path =  {{ .Values.matomo.phpfpm.status_path | default "/status" }}
+    ; Logs a full PHP stack trace for any request running longer than the
+    ; threshold below, to /proc/self/fd/2 (the container's stderr, so it
+    ; shows up in `kubectl logs`). Helps diagnose stuck/hanging requests
+    ; (e.g. a blocked DB call) without needing to strace a worker live.
+    slowlog = /proc/self/fd/2
+    request_slowlog_timeout = {{ .Values.matomo.phpfpm.request_slowlog_timeout | default "120s" }}
+{{ else }}
+data:
+  zz-global.conf: |
+    [www]
+    php_admin_value[memory_limit] = "1024M"
+    pm ="dynamic"
+    pm.max_children = 32
+    pm.start_servers = 5
+    pm.min_spare_servers = 5
+    pm.max_spare_servers = 20
+    pm.max_requests =  500
+    pm.process_idle_timeout = "60s"
+    pm.status_path = "/status"
+    slowlog = /proc/self/fd/2
+    request_slowlog_timeout = "120s"
+{{- end }}
