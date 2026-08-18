@@ -12,7 +12,16 @@ global:
     image:
       # if repository is set, it overrides the namespace part of image.name
       repository: ""
+      # chrislusf/seaweedfs-enterprise for the enterprise edition
       name: chrislusf/seaweedfs
+    # Enterprise license file, held in a Secret in the release namespace and
+    # mounted read-only on the components that run a master. A renewed Secret
+    # reaches the running master without a restart. SEAWEED_LICENSE is reserved
+    # while this is set: an extraEnvironmentVars entry of that name is dropped.
+    license:
+      existingSecret: ""
+      secretKey: seaweed-license.json
+      mountPath: /etc/seaweedfs/license
     imagePullPolicy: IfNotPresent
     restartPolicy: Always
     loggingLevel: 1
@@ -133,8 +142,13 @@ master:
   # You can also use emptyDir storage:
   #  data:
   #    type: "emptyDir"
+  # -mdir holds the Raft log and snapshots, and with them the cluster's
+  # identity (its topology UUID). A hostPath does not follow a rescheduled pod,
+  # so prefer type "persistentVolumeClaim" for new installs. The default stays
+  # hostPath so existing releases keep upgrading; see the README to switch one.
   data:
     type: "hostPath"
+    size: "1Gi"
     storageClass: ""
     hostPathPrefix: /ssd
 
@@ -227,6 +241,10 @@ master:
   # used to assign priority to master pods
   # ref: https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/
   priorityClassName: ""
+
+  # used to specify a custom scheduler for master pods
+  # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/kube-scheduler/
+  schedulerName: ""
 
   # used to assign a service account.
   # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
@@ -521,6 +539,10 @@ volume:
   # ref: https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/
   priorityClassName: ""
 
+  # used to specify a custom scheduler for volume pods
+  # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/kube-scheduler/
+  schedulerName: ""
+
   # used to assign a service account.
   # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
   serviceAccountName: ""
@@ -801,6 +823,10 @@ filer:
   # ref: https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/
   priorityClassName: ""
 
+  # used to specify a custom scheduler for filer pods
+  # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/kube-scheduler/
+  schedulerName: ""
+
   # used to assign a service account.
   # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
   serviceAccountName: ""
@@ -1060,6 +1086,10 @@ s3:
   # ref: https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/
   priorityClassName: ""
 
+  # used to assign a custom scheduler to server pods
+  # ref: https://kubernetes.io/docs/tasks/extend-kubernetes/configure-multiple-schedulers/
+  schedulerName: ""
+
   # used to assign a service account.
   # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
   serviceAccountName: ""
@@ -1213,6 +1243,7 @@ sftp:
   tolerations: ""
   nodeSelector: ""
   priorityClassName: ""
+  schedulerName: ""
   serviceAccountName: ""
   podSecurityContext: {}
   containerSecurityContext: {}
@@ -1337,6 +1368,7 @@ admin:
   tolerations: ""
   nodeSelector: ""
   priorityClassName: ""
+  schedulerName: ""
   serviceAccountName: ""
   podSecurityContext: {}
   containerSecurityContext: {}
@@ -1479,6 +1511,7 @@ worker:
   tolerations: ""
   nodeSelector: ""
   priorityClassName: ""
+  schedulerName: ""
   serviceAccountName: ""
   podSecurityContext: {}
   containerSecurityContext: {}
@@ -1718,6 +1751,10 @@ allInOne:
   # ref: https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/
   priorityClassName: ""
 
+  # Used to assign a custom scheduler to pods
+  # ref: https://kubernetes.io/docs/tasks/extend-kubernetes/configure-multiple-schedulers/
+  schedulerName: ""
+
   # Used to assign a service account.
   # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
   serviceAccountName: ""
@@ -1779,6 +1816,10 @@ cosi:
 
   podSecurityContext: {}
   containerSecurityContext: {}
+
+  # used to assign a custom scheduler to cosi pods
+  # ref: https://kubernetes.io/docs/tasks/extend-kubernetes/configure-multiple-schedulers/
+  schedulerName: ""
 
   extraVolumes: ""
   extraVolumeMounts: ""

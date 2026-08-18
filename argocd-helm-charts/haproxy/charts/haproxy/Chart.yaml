@@ -1,16 +1,19 @@
 annotations:
   artifacthub.io/category: networking
   artifacthub.io/changes: |
-    - Update base image to HAProxy 3.3.10
+    - Update base image to HAProxy 3.4.3
+    - Add support for loadBalancerClass
+    - Add optional trafficDistribution for Services in haproxy chart (#362)
+    - Allow overriding updateStrategy for DaemonSet (#363)
   artifacthub.io/images: |
     - name: haproxy
-      image: docker.io/haproxytech/haproxy-alpine:3.3.6
+      image: docker.io/haproxytech/haproxy-alpine:3.4.3
   artifacthub.io/license: Apache-2.0
   artifacthub.io/links: |
     - name: support
       url: https://github.com/haproxytech/helm-charts/issues
 apiVersion: v2
-appVersion: 3.3.10
+appVersion: 3.4.3
 description: A Helm chart for HAProxy on Kubernetes
 home: https://github.com/haproxytech/helm-charts/tree/main/haproxy
 icon: https://raw.githubusercontent.com/haproxytech/helm-charts/main/haproxy/chart-icon.png
@@ -24,4 +27,4 @@ name: haproxy
 sources:
 - http://www.haproxy.org/
 type: application
-version: 1.29.0
+version: 1.30.1

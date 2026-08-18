@@ -16,7 +16,7 @@ version: 0.13.5
 # before we enable the dependency
 dependencies:
   - name: openobserve
-    version: 0.92.0
+    version: 0.92.2
     repository: https://charts.openobserve.ai/
   - name: openobserve-collector
     version: 0.4.6

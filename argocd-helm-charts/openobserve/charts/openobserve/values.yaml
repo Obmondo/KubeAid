@@ -6,11 +6,11 @@ image:
   oss:
     repository: o2cr.ai/openobserve/openobserve
     # Overrides the image tag whose default is the chart appVersion.
-    tag: "v0.92.0"
+    tag: "v0.92.2"
   enterprise:
     repository: o2cr.ai/openobserve/openobserve-enterprise
     # Overrides the image tag whose default is the chart appVersion.
-    tag: "v0.92.0"
+    tag: "v0.92.2"
   reportserver:
     repository: o2cr.ai/openobserve/report-server
     tag: "v0.11.2-88574bc"
@@ -19,7 +19,7 @@ image:
     tag: 1.36.1
   o2ai:
     repository: ghcr.io/openobserve/o2-ai
-    tag: "v0.91.1"
+    tag: "v0.92.0"
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -337,7 +337,7 @@ config:
   ZO_COMPACT_STRATEGY: "file_time"
   ZO_COMPACT_MAX_FILE_SIZE: "2048"
   ZO_COMPACT_DATA_RETENTION_DAYS: "3650"
-  ZO_COMPACT_DELETE_FILES_DELAY_HOURS: "2"
+  ZO_COMPACT_DELETE_FILES_DELAY_MINUTES: "120"
   ZO_COMPACT_BATCH_SIZE: "0"
   ZO_COMPACT_BLOCKED_ORGS: ""
   ZO_MEMORY_CACHE_ENABLED: "false"

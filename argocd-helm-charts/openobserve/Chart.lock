@@ -1,12 +1,12 @@
 dependencies:
 - name: openobserve
   repository: https://charts.openobserve.ai/
-  version: 0.92.0
+  version: 0.92.2
 - name: openobserve-collector
   repository: https://charts.openobserve.ai/
   version: 0.4.6
 - name: kubeaid-addons
   repository: file://../kubeaid-addons
   version: 0.1.0
-digest: sha256:356975a93d855ef503244d5a81fdc662661568631ce985cf21bf13af0255df70
-generated: "2026-08-10T14:52:59.218548392+05:30"
+digest: sha256:346c4527df957ece5a7c5f119f88352cf51f2673efe6b1756b4491626f2d488b
+generated: "2026-08-18T12:08:15.873144493+05:30"

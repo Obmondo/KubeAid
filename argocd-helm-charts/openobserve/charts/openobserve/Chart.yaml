@@ -7,7 +7,7 @@ annotations:
     - name: Source
       url: https://github.com/openobserve/openobserve-helm-chart
 apiVersion: v2
-appVersion: v0.92.0
+appVersion: v0.92.2
 dependencies:
 - condition: nats.enabled
   name: nats
@@ -38,4 +38,4 @@ sources:
 - https://github.com/openobserve/openobserve
 - https://github.com/openobserve/openobserve-helm-chart
 type: application
-version: 0.92.0
+version: 0.92.2

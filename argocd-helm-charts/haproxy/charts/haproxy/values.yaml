@@ -189,13 +189,20 @@ rawContainerPorts: []
 #   name: custom-http
 #   protocol: TCP
 
-## Deployment strategy definition
+## *Deployment* strategy definition
 ## ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
 strategy: {}
 #  rollingUpdate:
 #    maxSurge: 25%
 #    maxUnavailable: 25%
 #  type: RollingUpdate
+
+## *DaemonSet* update strategy definition
+## ref: https://kubernetes.io/docs/reference/kubernetes-api/apps/daemon-set-v1/#DaemonSetUpdateStrategy
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
 
 ## Pod PriorityClass
 ## ref: https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
@@ -499,6 +506,12 @@ service:
   # ref: https://kubernetes.io/docs/tasks/access-application-cluster/configure-cloud-provider-firewall/
   loadBalancerSourceRanges: []
 
+  ## Class of load balancer implementation, rendered only when type is
+  ## LoadBalancer and Kubernetes is >= 1.21 (GA in 1.24). Immutable while the
+  ## Service stays type LoadBalancer, so helm upgrade cannot change it in place
+  # ref: https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-class
+  loadBalancerClass: null
+
   ## Service ExternalIPs
   # ref: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips
   externalIPs: []
@@ -524,6 +537,11 @@ service:
   ## Service internalTrafficPolicy
   ## ref: https://kubernetes.io/docs/concepts/services-networking/service-traffic-policy/
   # internalTrafficPolicy: Cluster
+
+  ## Traffic distribution policy for the Service
+  ## ref: https://kubernetes.io/docs/reference/networking/virtual-ips/#traffic-distribution
+  ## Supported values depend on Kubernetes version; examples: "PreferSameZone", "PreferSameNode"
+  # trafficDistribution: ""
 
   ## Additional Service ports to use(e.g. port of side container haproxy exporter)
   ## ref: https://kubernetes.io/docs/concepts/services-networking/service/
