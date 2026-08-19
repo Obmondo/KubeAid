@@ -84,6 +84,19 @@ rules:
   - apiGroups: ["operator.kubearmor.com"]
     resources: ["kubearmorconfigs"]
     verbs: ["get", "list"]
+
+  # The only rule here that is not about finding vulnerabilities. ArgoCD
+  # applications carry kubeaid.io/managed-by and kubeaid.io/version, stamped by
+  # kubeaid-cli, and they are the sole in-cluster evidence of who can act on a
+  # finding: an image KubeAid pins moves when KubeAid moves, and one the
+  # cluster's owner deploys does not.
+  #
+  # Without it every workload is unattributable, and the exporter reports that
+  # honestly rather than guessing -- so removing this rule degrades the payload
+  # to "owner unknown" everywhere instead of failing loudly.
+  - apiGroups: ["argoproj.io"]
+    resources: ["applications"]
+    verbs: ["get", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
