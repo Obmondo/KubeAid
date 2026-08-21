@@ -13,15 +13,14 @@ global:
       # Off by default — backups need an operator-supplied destinationPath
       # + schedule; enabling without them renders an invalid ObjectStore.
       enabled: false
-      # cloud: aws
+      # provider: aws
+      # schedule: "0 0 * * *"
       # destinationPath: ""
       # endpointURL: ""
       # secretName: ""
-    logicalbackup:
-      enabled: true
-      schedule: "48 02 * * *"
-      provider: s3
-      retention: "30d"
+      # retentionPolicy: 30d
+      # -- Enable continuous WAL archiving
+      # isWALArchiver: true
 
 externalDatabases:
   netbird:

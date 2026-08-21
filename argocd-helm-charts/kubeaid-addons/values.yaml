@@ -118,6 +118,8 @@ global:
     backups:
       # -- Enable scheduled backups (daily at midnight, 30d retention).
       enabled: false
+      # -- Enable continuous WAL archiving
+      isWALArchiver: true
       # cloud: aws          # "aws" or "azure"
       # destinationPath: "" # e.g. s3://my-bucket/postgres
       # endpointURL: ""     # object store endpoint
