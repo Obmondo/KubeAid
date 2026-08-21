@@ -57,7 +57,7 @@ kubeaid_apps:
   - peertube
   - kube2iam
   - matomo
-  - loki-stack
+  - loki
   - prometheus-adapter
   - haproxy
   - opensearch-dashboards

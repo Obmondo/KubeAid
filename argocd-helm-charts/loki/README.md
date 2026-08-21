@@ -16,11 +16,11 @@ metrics, which is its main advantage over the other log options.
 
 See [Monitoring](../../docs/monitoring.md) for how Loki compares to OpenObserve, Graylog, and OpenSearch + Kibana.
 
-> **Note on the chart name.** The directory is still called `loki-stack` so existing Argo CD applications keep
-> working, but the upstream chart it wraps is no longer `grafana/loki-stack`. That chart was deprecated and
-> abandoned upstream. This chart now wraps
-> [`grafana-community/loki`](https://github.com/grafana-community/helm-charts), which is the maintained
-> replacement and tracks current Loki releases.
+> **Replaces the old `loki-stack` chart.** This chart used to live at `argocd-helm-charts/loki-stack` and wrap
+> `grafana/loki-stack`, which was deprecated and abandoned upstream. It now wraps
+> [`grafana-community/loki`](https://github.com/grafana-community/helm-charts), the maintained replacement that
+> tracks current Loki releases. If you have an Argo CD application pointing at the old path, see
+> [Migrating from the old loki-stack chart](#migrating-from-the-old-loki-stack-chart).
 
 ---
 
@@ -44,7 +44,7 @@ PrometheusRules and dashboards.
 ## Install
 
 Add it as a regular Argo CD application in your `kubeaid-config` repository, pointing at
-`argocd-helm-charts/loki-stack`, and override whatever you need in your cluster's values file.
+`argocd-helm-charts/loki`, and override whatever you need in your cluster's values file.
 
 Set the retention you actually want, the default is 30 days:
 
@@ -103,7 +103,7 @@ data:
       - name: Loki
         type: loki
         access: proxy
-        url: http://loki-stack-gateway.loki.svc.cluster.local
+        url: http://loki-gateway.loki.svc.cluster.local
         isDefault: false
 ```
 
@@ -228,7 +228,9 @@ rendered config, then check the compactor logs in the Loki pod.
 ## Migrating from the old loki-stack chart
 
 There is no in-place upgrade. The Loki 2.x boltdb-shipper index and the Loki 3.x tsdb index are not
-interchangeable, and the values keys are completely different.
+interchangeable, and the values keys are completely different. Do not just repoint your existing Argo CD
+application from `argocd-helm-charts/loki-stack` to `argocd-helm-charts/loki`, that will try to upgrade the
+release in place and fail.
 
 1. Deploy this chart as a **new** Argo CD application with a new release name and namespace.
 2. Repoint your shipper at the new gateway URL.

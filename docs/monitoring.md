@@ -45,7 +45,7 @@ its own - none of them replace Prometheus for metrics.
 | Option | Scope | Log collection | Prometheus integration | Application docs |
 | ------ | ----- | -------------- | ---------------------- | ---------------- |
 | OpenObserve | Logs, metrics, and alerts | OpenTelemetry (`OTLP`) | Pulls metrics and alerts from Prometheus; alerts on logs | [openobserve](../argocd-helm-charts/openobserve/README.md) |
-| Loki | Logs only | Fluent Bit, OpenTelemetry Collector, Grafana Alloy, Promtail | Queried from the same Grafana as Prometheus; optional ServiceMonitor | [loki-stack](../argocd-helm-charts/loki-stack/README.md) |
+| Loki | Logs only | Fluent Bit, OpenTelemetry Collector, Grafana Alloy, Promtail | Queried from the same Grafana as Prometheus; optional ServiceMonitor | [loki](../argocd-helm-charts/loki/README.md) |
 | Graylog | Logs only | Fluent Bit, Fluentd, Beats, Syslog, GELF, etc. | None (metrics stay in kube-prometheus) | [graylog](../argocd-helm-charts/graylog/README.md) |
 | OpenSearch + Kibana | Logs only (ELK-style) | Fluent Bit, Fluentd, OpenTelemetry Collector, etc. | None (metrics stay in kube-prometheus) | [opensearch](../argocd-helm-charts/opensearch/README.md), [opensearch-dashboards](../argocd-helm-charts/opensearch-dashboards/charts/opensearch-dashboards/README.md) |
 
@@ -64,7 +64,7 @@ same Grafana that already serves your Prometheus dashboards. That shared query s
 it. Logs are pushed to Loki by Fluent Bit, the OpenTelemetry Collector, Grafana Alloy, or any client that speaks
 the Loki push API.
 
-- [Loki Helm chart](../argocd-helm-charts/loki-stack/README.md)
+- [Loki Helm chart](../argocd-helm-charts/loki/README.md)
 
 ### Graylog
 
