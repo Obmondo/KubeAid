@@ -1,16 +1,17 @@
 {{- if .Values.global.postgresql.enabled }}
-{{- $postgresql := .Values.global.postgresql }}
+{{- $postgresql := $.Values.global.postgresql }}
 
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
   name: {{ .Values.global.postgresql.instanceName }}-pgsql
-  {{- if or $postgresql.annotations (and $postgresql.backups.enabled (eq (toString ($postgresql.backups.isWALArchiver | default true)) "false")) }}
+  {{- if (or $postgresql.annotations (and $postgresql.backups.enabled (not $postgresql.backups.isWALArchiver))) }}
   annotations:
     {{- with $postgresql.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-    {{- if and $postgresql.backups.enabled (eq (toString ($postgresql.backups.isWALArchiver | default true)) "false") }}
+
+    {{- if and $postgresql.backups.enabled (not $postgresql.backups.isWALArchiver) }}
     cnpg.io/skipWalArchiving: "enabled"
     {{- end }}
   {{- end }}
@@ -63,7 +64,7 @@ spec:
   {{- if $postgresql.backups.enabled }}
   plugins:
     - name: barman-cloud.cloudnative-pg.io
-      isWALArchiver: {{ $postgresql.backups.isWALArchiver | default true }}
+      isWALArchiver: {{ $postgresql.backups.isWALArchiver }}
       parameters:
         barmanObjectName: {{ .Values.global.postgresql.instanceName }}-pgsql-backups
         serverName: "revision-{{ $postgresql.revision }}"
