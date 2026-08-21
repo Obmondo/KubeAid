@@ -45,16 +45,19 @@ After running the config generate command:
         └── secrets.yaml  # Credentials (review this, store in password manager)
 ```
 
-Bootstrap outputs land in your working directory:
+Bootstrap outputs land in the same per-cluster directory:
 
 ```bash
-your-working-directory/
-└── outputs/
-    ├── kubeconfigs/          # Generated after bootstrap
-    │   └── clusters/
-    │       └── main.yaml     # Kubeconfig for your cluster
+~/.config/kubeaid-cli/
+└── <cluster>/
+    ├── configs/              # general.yaml, secrets.yaml
+    ├── kubeconfigs/
+    │   └── main.yaml         # Kubeconfig for your cluster (after bootstrap)
     └── logs/                 # One timestamped log file per run
 ```
+
+(With an explicit `--configs-directory`, outputs keep the historical `./outputs/` layout in your working
+directory instead.)
 
 ## Step 2: Review general.yaml
 

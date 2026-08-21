@@ -112,7 +112,7 @@ kubeaid-cli config generate
 kubeaid-cli cluster bootstrap
 
 # 4. Access cluster
-export KUBECONFIG=./outputs/kubeconfigs/clusters/main.yaml
+export KUBECONFIG=~/.config/kubeaid-cli/<cluster>/kubeconfigs/main.yaml
 kubectl cluster-info
 ```
 
