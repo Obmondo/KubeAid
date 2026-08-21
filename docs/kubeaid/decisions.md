@@ -4,6 +4,9 @@ In this document we've documented the decisions we have made and why.
 These are based on decades of experience with large scale operations by our senior staff - and hopefully helps others
 to understand the experience from real world issues - that these decisions are based on.
 
+Longer decision records live alongside this document - see
+[Why GitOps with ArgoCD, not Pulumi, Terraform, or Ansible](./decisions/gitops.md).
+
 ## Everybody hates Yaml
 
 Everybody hates Yaml because:

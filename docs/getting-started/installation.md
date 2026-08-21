@@ -130,8 +130,11 @@ Run the bootstrap command, pointing it at the configs you generated during
 [pre-configuration](./pre-configuration.md):
 
 ```bash
-kubeaid-cli cluster bootstrap --configs-directory ./outputs/configs/<cluster>/
+kubeaid-cli cluster bootstrap
 ```
+
+The command finds your config under `~/.config/kubeaid-cli/<cluster>/configs/` (pass `--cluster-name <cluster>` to
+pick one non-interactively, or `--configs-directory` if you generated the config somewhere else).
 
 ### What Happens During Bootstrap
 

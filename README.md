@@ -47,6 +47,7 @@ clusters.
 - [How It Works](#how-it-works)
 - [Quick Start](#quick-start)
 - [Features](#features)
+- [Design Decisions](./docs/kubeaid/decisions.md) — why Helm and YAML, and the other choices we've made
 - [Documentation](#documentation)
 - [Contributing](#contributing)
 - [Community and Governance](#community-and-governance)
@@ -62,10 +63,21 @@ KubeAid removes the per-platform relearning: one workflow, one repository layout
 
 It is three pieces that work together:
 
-1. **This repository (KubeAid)** — the platform definition: 100+ maintained Helm chart wrappers in
-   [`argocd-helm-charts/`](./argocd-helm-charts/), with tested default values and automated weekly updates, plus
-   [kube-prometheus](https://github.com/prometheus-operator/kube-prometheus) monitoring generated with
-   [Jsonnet](https://jsonnet.org/). You don't run anything from here directly — it is consumed by the KubeAid CLI,
+1. **This repository (KubeAid)** — the platform definition: an ever-expanding catalogue of 100+ maintained Helm
+   chart wrappers in [`argocd-helm-charts/`](./argocd-helm-charts/), with tested default values and automated weekly
+   updates, plus [kube-prometheus](https://github.com/prometheus-operator/kube-prometheus) monitoring generated with
+   [Jsonnet](https://jsonnet.org/). This makes KubeAid an application platform, not just an installer — each app is
+   extended and integrated beyond its upstream chart:
+   - **Central operators** manage common resources — databases (PostgreSQL, MariaDB, MongoDB), message queues
+     (Kafka, RabbitMQ), Redis, backups — instead of per-app one-off setups.
+   - **Principle of least privilege** — application-level network policies restrict apps to exactly the traffic
+     they need.
+   - **Single sign-on** — [Keycloak](./argocd-helm-charts/keycloakx/) SSO integration documented for supported
+     apps.
+   - **Operational procedures** — documented optimal configuration, backup and restore, and solutions to
+     challenges already encountered.
+
+   You don't run anything from here directly — it is consumed by the KubeAid CLI,
    and later by ArgoCD, straight from upstream by default. For production we recommend mirroring it into your own
    Git platform, so you keep full control even if access to the upstream repository is ever lost.
 2. **[KubeAid CLI](https://github.com/Obmondo/kubeaid-cli)** — the entry point. A command-line tool you run once per
@@ -104,16 +116,21 @@ branch is how updates are delivered to you, so keeping it clean means updating y
 
 ## Quick Start
 
-Install the [KubeAid CLI](https://github.com/Obmondo/kubeaid-cli/releases), then:
-
 ```sh
+# Install the KubeAid CLI (x86_64/arm64, Linux and macOS)
+curl -fsSL https://raw.githubusercontent.com/Obmondo/kubeaid-cli/main/scripts/install.sh | sh
+
 # Interactive prompt walks you through cluster name, platform
 # (local K3D, AWS, Azure, Hetzner, bare metal) and everything else
-kubeaid-cli config generate --configs-directory ./outputs/configs/<cluster>/
+kubeaid-cli config generate
 
 # Review the generated config, then bring the cluster up
-kubeaid-cli cluster bootstrap --configs-directory ./outputs/configs/<cluster>/
+kubeaid-cli cluster bootstrap
 ```
+
+Your answers land under `~/.config/kubeaid-cli/<cluster>/configs` (use `--configs-directory` to choose another
+location). Other install methods (Nix, Homebrew, from source) are in the
+[KubeAid CLI README](https://github.com/Obmondo/kubeaid-cli#installation).
 
 Choosing local K3D gives you a playground on your own machine — the workflow is identical to a production cloud
 cluster. The **[Getting Started Guide](./docs/getting-started/README.md)** walks through prerequisites, configuration, installation,
@@ -171,9 +188,10 @@ Contributions are welcome — bug reports, chart updates, new providers, and doc
 
 ## Support
 
-Community support happens through the issue tracker. Besides that, [Obmondo](https://obmondo.com) (the primary
-developers of this project) offers professional support: we can observe your clusters, react to your alerts, and help
-you develop new features on clusters set up using this project.
+Community support happens through the issue tracker and the `#kubeaid` channel on
+[Kubernetes Slack](https://slack.k8s.io/) (get an invite there if you're not a member yet). Besides that,
+[Obmondo](https://obmondo.com) (the primary developers of this project) offers professional support: we can observe
+your clusters, react to your alerts, and help you develop new features on clusters set up using this project.
 
 There is zero vendor lock-in — KubeAid works the same with or without a support agreement, and any agreement can be
 cancelled at any time.

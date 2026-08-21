@@ -275,11 +275,14 @@ To create a new cluster with the same configuration:
 3. Follow the [Pre-Configuration](./pre-configuration.md) and [Installation](./installation.md) guides
 
 ```bash
+# Place the retrieved files where the CLI looks for them by default
+mkdir -p ~/.config/kubeaid-cli/<cluster>/configs
+cp general.yaml ~/.config/kubeaid-cli/<cluster>/configs/
 # Retrieve secrets from password store (example using pass)
-pass kubeaid/my-cluster/secrets.yaml > outputs/configs/<cluster>/secrets.yaml
+pass kubeaid/my-cluster/secrets.yaml > ~/.config/kubeaid-cli/<cluster>/configs/secrets.yaml
 
 # Bootstrap the cluster
-kubeaid-cli cluster bootstrap --configs-directory ./outputs/configs/<cluster>/
+kubeaid-cli cluster bootstrap --cluster-name <cluster>
 ```
 
 ---

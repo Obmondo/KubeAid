@@ -105,13 +105,14 @@ version of this sequence.
 curl -fsSL https://raw.githubusercontent.com/Obmondo/kubeaid-cli/main/scripts/install.sh | sh
 
 # 2. Generate general.yaml and secrets.yaml via the interactive prompt
-kubeaid-cli config generate --configs-directory ./outputs/configs/<cluster>/
+#    (written to ~/.config/kubeaid-cli/<cluster>/configs/)
+kubeaid-cli config generate
 
 # 3. Review the generated files, then bootstrap
-kubeaid-cli cluster bootstrap --configs-directory ./outputs/configs/<cluster>/
+kubeaid-cli cluster bootstrap
 
 # 4. Access cluster
-export KUBECONFIG=./outputs/kubeconfigs/clusters/main.yaml
+export KUBECONFIG=~/.config/kubeaid-cli/<cluster>/kubeconfigs/main.yaml
 kubectl cluster-info
 ```
 

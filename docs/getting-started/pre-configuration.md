@@ -21,36 +21,43 @@ KubeAid uses two configuration files:
 Run the config generate command:
 
 ```bash
-kubeaid-cli config generate --configs-directory ./outputs/configs/<cluster>/
+kubeaid-cli config generate
 ```
 
 There is no provider argument - the command walks you through an **interactive prompt** that asks which provider
 you're deploying to (AWS, Azure, Hetzner, bare metal or local) and then collects everything required for it:
 cluster basics, provider credentials, Git / KubeAid fork URLs, and so on. It writes the resulting `general.yaml`
-and `secrets.yaml` under the directory given via `--configs-directory`.
+and `secrets.yaml` under `~/.config/kubeaid-cli/<cluster>/configs/`.
 
-> **Note:** Without `--configs-directory`, the prompt asks which cluster you're configuring and writes to
-> `~/.config/kubeaid-cli/<cluster>/configs/` (an existing config in `./outputs/configs/` is offered for reuse).
-> Follow-up commands can then locate that config with `--cluster-name <cluster>` instead of the full path.
+> **Note:** Follow-up commands find that config automatically - pass `--cluster-name <cluster>` to pick a cluster
+> non-interactively. To write and read the config somewhere else entirely, pass `--configs-directory <path>` to
+> both `config generate` and the follow-up commands.
 
 ### Generated Directory Structure
 
-After running the config generate command with `--configs-directory ./outputs/configs/<cluster>/`, your working
-directory will look like:
+After running the config generate command:
 
 ```bash
-your-working-directory/
-├── outputs/
-│   ├── configs/
-│   │   └── <cluster>/
-│   │       ├── general.yaml  # Cluster configuration (review this)
-│   │       └── secrets.yaml  # Credentials (review this, store in password manager)
-│   ├── kubeconfigs/          # Generated after bootstrap
-│   │   └── clusters/
-│   │       └── main.yaml     # Kubeconfig for your cluster
-│   └── logs/                 # One timestamped log file per run
-└── ...
+~/.config/kubeaid-cli/
+└── <cluster>/
+    └── configs/
+        ├── general.yaml  # Cluster configuration (review this)
+        └── secrets.yaml  # Credentials (review this, store in password manager)
 ```
+
+Bootstrap outputs land in the same per-cluster directory:
+
+```bash
+~/.config/kubeaid-cli/
+└── <cluster>/
+    ├── configs/              # general.yaml, secrets.yaml
+    ├── kubeconfigs/
+    │   └── main.yaml         # Kubeconfig for your cluster (after bootstrap)
+    └── logs/                 # One timestamped log file per run
+```
+
+(With an explicit `--configs-directory`, outputs keep the historical `./outputs/` layout in your working
+directory instead.)
 
 ## Step 2: Review general.yaml
 
