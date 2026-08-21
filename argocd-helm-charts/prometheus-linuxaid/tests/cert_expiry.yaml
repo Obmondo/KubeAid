@@ -11,12 +11,16 @@ tests:
         values: 1x1000
       - series: probe_ssl_earliest_cert_expiry{domain="example.com",certname="dev01.example"}
         values: 1036800x100       # Tuesday, January 13, 1970 12:00:00 AM
+      - series: probe_success{domain="example.com",certname="dev01.example"}
+        values: 1x100             # scrape succeeded within last_over_time window
       - series: threshold::monitor::domains::cert_expiry_days{domain="example.com",certname="dev01.example"}
         values: 10x100            # Alert before 10 days
       - series: obmondo_monitoring{certname="dev02.example", alert_id="monitor::domains::cert_expiry"}
         values: 0x1000
       - series: probe_ssl_earliest_cert_expiry{domain="example.com",certname="dev02.example"}
         values: 1036800x100       # Tuesday, January 13, 1970 12:00:00 AM
+      - series: probe_success{domain="example.com",certname="dev02.example"}
+        values: 1x100
       - series: threshold::monitor::domains::cert_expiry_days{domain="example.com",certname="dev02.example"}
         values: 10x100            # Alert before 10 days
 

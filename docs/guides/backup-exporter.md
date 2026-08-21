@@ -34,12 +34,36 @@ not every cluster runs those backups.
 
 It is deployed with the `kubeaid-agent` Argo CD application, but is **off by default** — it needs S3
 credentials for each backend it reports on, and there is no sane default for those. Set
-`backupExporter.enabled: true` along with the credentials below. Key values, all under the
-`backupExporter` key:
+`backup-exporter.enabled: true` along with the credentials below. The Helm dependency condition
+and parent values key are both hyphenated (`backup-exporter`), matching `Chart.yaml`.
+
+Key values, all under the `backup-exporter` key in `values-kubeaid-agent.yaml` (sibling of
+`appConfig`, not nested under it):
 
 ```yaml
-backupExporter:
+backup-exporter:
   enabled: true
+
+  exporter:
+    # Postgres and Velero collectors run when the chart is enabled; fill S3 for each.
+    postgres:
+      s3:
+        secretName: ""            # Secret with access-key-id / secret-access-key (etc.)
+    velero:
+      s3:
+        url: ""                   # S3 endpoint URL
+        secretName: ""            # Or accessKeyId / secretAccessKey / region / bucket
+    # Opt-in backends (default false):
+    mongodb:
+      enabled: false
+      s3:
+        secretName: ""
+    sealedSecrets:
+      enabled: false
+      s3:
+        bucket: ""                # Must match sealed-secrets chart backup.s3Bucket
+        endpoint: ""              # Must match backup.s3Endpoint
+        secretName: ""
 
   # Enable Prometheus alerting rules
   prometheusRule:

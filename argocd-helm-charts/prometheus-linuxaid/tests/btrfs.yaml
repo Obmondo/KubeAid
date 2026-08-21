@@ -60,7 +60,7 @@ tests:
               alert_id: monitor::system::disk::btrfs
             exp_annotations:
               summary: "btrfs filesystem is nearly full"
-              description: "btrfs filesystem '4321' on cert1.abc is 94%\nused and has less than 5% of device space left unallocated, so btrfs can no longer\ncarve new chunks. Free space or add/grow a device.\n"
+              description: "btrfs filesystem '4321' on cert1.abc is 94%\nused and has less than 5% of device space left to allocate more, so btrfs can no longer\ncarve new chunks. Free space or add/grow a device.\n"
 
       - alertname: monitor::system::disk::btrfs::metadata_exhaustion
         eval_time: 30m
@@ -73,4 +73,4 @@ tests:
               alert_id: monitor::system::disk::btrfs::metadata_exhaustion
             exp_annotations:
               summary: "btrfs metadata is nearly exhausted"
-              description: "btrfs metadata on meta.abc (filesystem '5321') is\n90% full and less than 5% of device space is unallocated, so btrfs\ncannot allocate a new metadata chunk and the filesystem risks going read-only. Run\n'btrfs balance start -musage=NN /' or add/grow a device.\n"
+              description: "btrfs metadata on meta.abc (filesystem '5321') is\n90% full and less than 5% of device space is left to allocate more, so btrfs\ncannot allocate a new metadata chunk and the filesystem risks going read-only. Run\n'btrfs balance start -musage=NN /' or add/grow a device.\n"
