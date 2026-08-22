@@ -98,6 +98,8 @@ declare NEW_CHART=false
 declare -a MINOR_UPDATES
 declare -a PATCH_UPDATES
 declare -a MAJOR_UPDATES
+declare -a STALE_CHARTS
+declare -a ERRORED_CHARTS
 
 # Flags to track highest version bump needed
 HAS_MAJOR=false
@@ -107,6 +109,8 @@ HAS_PATCH=false
 MINOR_UPDATES=()
 PATCH_UPDATES=()
 MAJOR_UPDATES=()
+STALE_CHARTS=()
+ERRORED_CHARTS=()
 
 [ $# -eq 0 ] && { ARGFAIL; exit 1; }
 
@@ -404,6 +408,7 @@ function update_helm_chart {
             echo "Adding Helm repository $HELM_REPOSITORY_URL"
             helm repo add "$HELM_CHART_NAME" "$HELM_REPOSITORY_URL" >/dev/null || {
               echo "Failed to add repository $HELM_REPOSITORY_URL for chart $HELM_CHART_NAME. Skipping."
+              ERRORED_CHARTS+=("$HELM_CHART_NAME: failed to add Helm repository $HELM_REPOSITORY_URL")
               continue
             }
           fi
@@ -431,6 +436,7 @@ function update_helm_chart {
           # revert the chart.yaml, since helm dep failed
           yq eval -i ".dependencies[$i].version = \"$HELM_CHART_CURRENT_VERSION\"" "$HELM_CHART_YAML"
 
+          ERRORED_CHARTS+=("$HELM_CHART_NAME: helm dependency update failed while bumping $HELM_CHART_CURRENT_VERSION -> ${HELM_CHART_NEW_VERSION:-not found in repo}")
           continue
         }
 
@@ -440,12 +446,14 @@ function update_helm_chart {
         if ! find "$HELM_CHART_DEP_PATH" -maxdepth 1 -type f -name "${HELM_CHART_NAME}-*.tgz" -print -quit | grep -q .; then
           echo "No tgz found for $HELM_CHART_NAME — download likely failed. Skipping to avoid wiping existing chart."
           yq eval -i ".dependencies[$i].version = \"$HELM_CHART_CURRENT_VERSION\"" "$HELM_CHART_YAML"
+          ERRORED_CHARTS+=("$HELM_CHART_NAME: no .tgz downloaded for $HELM_CHART_NEW_VERSION -- repository likely unreachable or broken")
           continue
         fi
 
         # Deleting old helm before untar
         rm -rf "${HELM_CHART_DEP_PATH:?}/${HELM_CHART_NAME}" || {
           echo "Failed to remove the $HELM_CHART_NAME tar. Skipping."
+          ERRORED_CHARTS+=("$HELM_CHART_NAME: failed to remove old vendored chart directory before extracting $HELM_CHART_NEW_VERSION")
           continue
         }
 
@@ -473,10 +481,33 @@ function update_helm_chart {
         # Untar the tgz file
         tar -C "$HELM_CHART_DEP_PATH" -xvf "$expected_tar_file" >/dev/null || {
           echo "Failed to extract $expected_tar_file. Skipping."
+          ERRORED_CHARTS+=("$HELM_CHART_NAME: failed to extract $expected_tar_file")
           continue
         }
       else
         echo "Helm chart $HELM_CHART_NAME is cached and on latest version $HELM_CHART_CURRENT_VERSION, locally on the filesystem"
+
+        # Chart version hasn't moved -- but that doesn't mean the app inside
+        # it hasn't. Some upstream charts stop getting version bumps while
+        # the wrapped application keeps releasing (traefik-forward-auth: chart
+        # 0.3.10 pinned since 2023 while the app shipped v3.2.0/v3.2.1/v3.3.0),
+        # so `helm search repo` alone can't catch this. Only flag it once it's
+        # been stale for a while -- most "unchanged" charts are genuinely
+        # current, and flagging every one of them (74/125 in an early test
+        # run) is too noisy to act on. The vendored subchart's own Chart.yaml
+        # gets fully rewritten on every real `helm dependency update`, so its
+        # last commit date is a precise signal for "last actually bumped".
+        STALE_DAYS_THRESHOLD=90
+        LAST_BUMPED_EPOCH=$(git log -1 --format=%ct -- "$HELM_CHART_DEP_CHART_YAML" 2>/dev/null || true)
+        if [ -n "$LAST_BUMPED_EPOCH" ]; then
+          DAYS_SINCE_BUMP=$(( ($(date +%s) - LAST_BUMPED_EPOCH) / 86400 ))
+          if [ "$DAYS_SINCE_BUMP" -ge "$STALE_DAYS_THRESHOLD" ]; then
+            LAST_BUMPED_BY=$(git log -1 --format='%an' -- "$HELM_CHART_DEP_CHART_YAML" 2>/dev/null || echo "unknown")
+            # Pipe-delimited so the report writer can render a real table
+            # instead of a wall of prose sentences.
+            STALE_CHARTS+=("$HELM_CHART_NAME|$HELM_CHART_CURRENT_VERSION|${DAYS_SINCE_BUMP}|$(date -d "@$LAST_BUMPED_EPOCH" '+%Y-%m-%d')|$LAST_BUMPED_BY")
+          fi
+        fi
       fi
 
       UPDATE_TYPE=""
@@ -618,6 +649,40 @@ function main (){
         echo ""
       fi
     } > "$COMMIT_MSG_FILE"
+
+    # Stale/errored charts aren't part of the version-bump commit -- write
+    # them to a standalone, uncommitted report file instead so they're
+    # visible without polluting git history with a report that goes stale
+    # the moment it's written.
+    STALE_REPORT_FILE="./STALE_AND_HELM_UPDATE_ERROR_REPORT.md"
+    if [ ${#STALE_CHARTS[@]} -gt 0 ] || [ ${#ERRORED_CHARTS[@]} -gt 0 ]; then
+      {
+        echo "# Stale and Helm Update Error Report"
+        echo ""
+        echo "Generated locally via \`bin/manage-helm-chart.sh --update-all\` on $(date '+%Y-%m-%d')."
+        echo ""
+
+        if [ ${#STALE_CHARTS[@]} -gt 0 ]; then
+          echo "## Stale Charts (chart version unchanged for 90+ days, image may be outdated) - ${#STALE_CHARTS[@]}"
+          echo ""
+          echo "|Chart|Version|Days stale|Last bumped|By|"
+          echo "|---|---|---|---|---|"
+          for entry in "${STALE_CHARTS[@]}"; do
+            IFS='|' read -r name version days date author <<< "$entry"
+            echo "|$name|$version|$days|$date|$author|"
+          done
+          echo ""
+        fi
+
+        if [ ${#ERRORED_CHARTS[@]} -gt 0 ]; then
+          echo "## Helm Update Errors (update failed, left on previous version) - ${#ERRORED_CHARTS[@]}"
+          echo ""
+          printf -- '- %s\n' "${ERRORED_CHARTS[@]}"
+          echo ""
+        fi
+      } > "$STALE_REPORT_FILE"
+      echo "Wrote stale/error report to $STALE_REPORT_FILE"
+    fi
 
     # Update the version file
     # go release script can update with the correct tag
