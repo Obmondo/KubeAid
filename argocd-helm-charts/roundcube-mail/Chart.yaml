@@ -1,0 +1,7 @@
+apiVersion: v2
+name: roundcube-mail
+version: 1.0.0
+dependencies:
+  - name: roundcube-mail
+    version: 1.16.0
+    repository: https://helm-charts.mlohr.com/
