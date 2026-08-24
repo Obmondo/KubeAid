@@ -1,0 +1,7 @@
+apiVersion: v2
+name: stalwart-mail
+version: 1.0.0
+dependencies:
+  - name: stalwart-mail
+    version: 2.0.8
+    repository: oci://codeberg.org/wrenix/helm-charts/stalwart-mail
