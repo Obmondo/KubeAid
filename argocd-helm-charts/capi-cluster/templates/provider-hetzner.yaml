@@ -40,6 +40,20 @@ spec:
             - args:
                 - --leader-elect=true
                 - --namespace={{ $namespace }}
+                # CAPH's built-in CSR approver builds its allow-list from
+                # HetznerBareMetalMachine.status.addresses, which comes from the
+                # hardwareDetails NIC snapshot taken in the rescue system — before
+                # cloud-init creates the vSwitch VLAN. A worker's kubelet advertises
+                # its vSwitch IP (--node-ip=10.0.1.x), so the serving CSR carries an
+                # address CAPH can never know and is Denied ("the IP address ... is
+                # not allowed"). kubelet then has no serving cert and every
+                # apiserver→kubelet call (logs, exec, port-forward, metrics) fails
+                # with "remote error: tls: internal error".
+                # KubeAid ships kubelet-csr-approver, which validates the same CSRs
+                # against providerIpPrefixes (10.0.0.0/16 by default — covering both
+                # the HCloud network and the vSwitch subnet), so CAPH's approver is
+                # redundant here. REFER: https://github.com/syself/cluster-api-provider-hetzner/issues/2095
+                - --disable-csr-approval
               command:
                 - /manager
               image: {{ $image }}
