@@ -1,0 +1,30 @@
+stalwart-mail:
+  replicaCount: 1
+
+  # Internal SQLite-backed bootstrap config - Stalwart manages the rest of its
+  # own config (domains, DKIM, OIDC, routing) at runtime via its admin API/
+  # WebUI once running, not via Helm values. See the chart's own docs for the
+  # "@type" options (RocksDb, SQLite, Postgres, etc.) if a different backend
+  # is needed later.
+  config:
+    "@type": "RocksDb"
+
+  secrets:
+    create: true
+    env:
+      FALLBACK_ADMIN_SECRET: ""  # required: set in cluster values, first-login admin password
+
+  persistence:
+    enabled: true
+
+  # Reuses the cluster's own TLS secret instead of provisioning via
+  # cert-manager - required: set certificate.secretName in cluster values.
+  certificate:
+    certmanager:
+      enabled: false
+
+  service:
+    type: ClusterIP
+
+  ingress:
+    enabled: false  # required: enable + configure hosts/tls in cluster values if HTTP admin/JMAP access is needed
