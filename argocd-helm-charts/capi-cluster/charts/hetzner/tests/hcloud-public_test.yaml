@@ -62,3 +62,10 @@ tests:
     asserts:
       - hasDocuments:
           count: 0
+
+  - it: propagates the hcloud cloud-provider label to control-plane Nodes
+    template: KubeadmControlPlane.yaml
+    asserts:
+      - equal:
+          path: spec.machineTemplate.metadata.labels["node.cluster.x-k8s.io/cloud-provider"]
+          value: hcloud
