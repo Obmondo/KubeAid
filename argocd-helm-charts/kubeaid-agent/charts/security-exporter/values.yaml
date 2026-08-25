@@ -1,0 +1,155 @@
+# Values for the security-exporter subchart.
+#
+# Collects the cluster's security posture and serves it at
+# /api/v1/security-posture, which kubeaid-agent forwards. The parent chart
+# deploys it as its own Deployment with its own ServiceAccount -- not a sidecar,
+# because a pod carries one ServiceAccount and co-locating them would hand the
+# credential-holding workload this one's cluster-wide read.
+
+# -- OFF by default. The exporter holds cluster-wide read across eight API
+# groups, and a chart must not grant that to every cluster that installs the
+# agent -- enabling it is a deliberate per-cluster act.
+#
+# Unlike the backup exporter it needs no credentials, so `enabled: true` is the
+# only thing required to turn it on.
+#
+# The agent tolerates its absence: the poll fails, a metric records it, nothing
+# is submitted.
+enabled: false
+
+# -- Overrides the Service and ServiceAccount name. Leave empty. The default
+# matches kubeaid-agent's appConfig.securityPosture.exporterURL, and changing
+# one without the other leaves the agent polling a host that does not resolve.
+nameOverride: ""
+fullnameOverride: ""
+
+# -- Set false to run the agent alone. The agent tolerates the exporter's
+# absence — the poll fails, a metric records it, nothing is submitted — so
+# this and appConfig.securityPosture.enabled are independent switches.
+
+# -- Overrides the exporter's Service and ServiceAccount name. Leave empty:
+# the default matches appConfig.securityPosture.exporterURL, and changing one
+# without the other leaves the agent polling a host that does not resolve.
+
+exporter:
+  # -- Port the exporter listens on. Serves /healthz, /readyz, /metrics and
+  # /api/v1/security-posture — the last is what the agent GETs.
+  port: 8080
+
+  # -- Cadence of the full posture collection. Trivy refreshes its reports on
+  # a 24h scannerReportTTL, so polling faster re-reads identical data.
+  #
+  # This is also the staleness bound on what the agent forwards: the agent
+  # serves whatever was last collected, it does not trigger a fresh pass.
+  interval: 12h
+
+deployment:
+  replicas: 1
+
+  podLabels: {}
+  podAnnotations: {}
+
+  imagePullSecrets: []
+
+  podSecurityContext:
+    runAsNonRoot: true
+    fsGroup: 65534
+    seccompProfile:
+      type: RuntimeDefault
+
+  image:
+    repository: ghcr.io/obmondo/kubeaid-security-exporter
+
+    # -- Keep the quotes when overriding. A tag matching digits-e-digits is
+    # valid YAML scientific notation, and Go's parser -- the one Helm and Argo
+    # CD use -- resolves it to a float: a commit tag of 75621e3 renders as
+    # 7.5621e+07 and the pod comes up InvalidImageName. PyYAML disagrees and
+    # returns a string, so validating with python yaml does not catch it.
+    tag: "v0.1.0"
+    pullPolicy: IfNotPresent
+
+  env: []
+
+  securityContext:
+    privileged: false
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    capabilities:
+      drop: ["ALL"]
+
+  probes:
+    readiness:
+      httpGet:
+        path: /readyz
+        port: http
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 6
+      successThreshold: 1
+    liveness:
+      httpGet:
+        path: /healthz
+        port: http
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 2
+      successThreshold: 1
+
+  # -- A collection pass holds every VulnerabilityReport in the cluster in
+  # memory at once, so the ceiling scales with image count rather than with
+  # request rate. Raise the limit before lowering it.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+
+  extraVolumes: []
+  extraVolumeMounts: []
+
+  terminationGracePeriodSeconds: 10
+
+  nodeSelector: {}
+  affinity: {}
+  tolerations: []
+
+service:
+  labels: {}
+  annotations: {}
+
+  port: 80
+
+serviceMonitor:
+  enabled: true
+
+  labels: {}
+  annotations: {}
+
+  interval: 30s
+  scrapeTimeout: 10s
+
+prometheusRule:
+  enabled: true
+
+  # -- Extra labels on the PrometheusRule object, for Prometheus selector
+  # matching.
+  additionalLabels: {}
+  additionalAnnotations: {}
+
+  # -- Alert when more than this many images have BOTH a fixable Critical/High
+  # finding and a newer tag upstream. One alert per cluster, not one per image.
+  #
+  # Deliberately high. Every real cluster carries a few of these at any moment,
+  # so a low threshold fires everywhere on day one and gets ignored. The signal
+  # worth acting on is a pile of easy upgrades, not the existence of one.
+  upgradableThreshold: 20
+
+  # -- How long the count must stay above the threshold. Long by design: this
+  # is a backlog to work through, not an incident.
+  upgradableFor: 24h

@@ -19,3 +19,12 @@ groups:
     labels:
       alert_id: ClusterFailedToUpdateNodeCountForOverTenDays
       severity: critical
+  - alert: MissingNodeCountDetected
+    annotations:
+      description: The cluster **{{ .Labels.certname }}** failed to fetch or report its node count to the Obmondo API. Node count data may be missing for the monthly average calculation.
+      summary: The cluster failed to report its node count to the Obmondo API.
+    expr: kubeaid_agent_node_count_report_status == 1
+    for: 1h
+    labels:
+      alert_id: MissingNodeCountDetected
+      severity: critical

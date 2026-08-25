@@ -1,6 +1,31 @@
-# Default values for backup-exporter.
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
+# Values for the backup-exporter subchart.
+#
+# Reports backup health for PostgreSQL, Velero, MongoDB and sealed-secrets. The
+# parent chart deploys it as its own Deployment with its own ServiceAccount.
+
+# -- OFF by default, unlike the security exporter, because this one cannot start
+# without configuration: every backend it reports on needs S3 credentials and a
+# bucket (see exporter.* below), and there is no sane default for those. Enabled
+# on a fresh cluster it would deploy a pod that cannot do its job.
+#
+# kubeaid-cli cannot supply those credentials, so it never turns this on.
+# Enabling it is a deliberate per-cluster act alongside exporter.<backend>.s3.
+enabled: false
+
+# -- OFF by default, unlike the security exporter, because this one cannot
+# start without configuration: every backend it reports on needs S3
+# credentials and a bucket (see exporter.* below), and there is no sane
+# default for those. Enabled on a fresh cluster it would deploy a pod that
+# cannot do its job, so the opt-in is deliberate.
+#
+# Turn it on together with the exporter.<backend>.s3 settings for whichever
+# backups the cluster actually runs. The agent tolerates its absence —
+# discover() returns "not installed" and nothing is submitted.
+
+# -- Overrides the exporter's Deployment/Service name. Leave empty. The agent
+# finds this exporter by the label app.kubernetes.io/name=backup-exporter,
+# which is pinned regardless, but the default name keeps objects readable.
+
 
 # This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
 replicaCount: 1
@@ -16,10 +41,6 @@ image:
 
 # This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 imagePullSecrets: []
-
-# This is to override the chart name.
-nameOverride: ""
-fullnameOverride: ""
 
 # This section builds out the service account more information can be found here: https://kubernetes.io/docs/concepts/security/service-accounts/
 serviceAccount:
@@ -41,15 +62,15 @@ podAnnotations: {}
 podLabels: {}
 
 podSecurityContext: {}
-  # fsGroup: 2000
+# fsGroup: 2000
 
 securityContext: {}
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
+# capabilities:
+#   drop:
+#   - ALL
+# readOnlyRootFilesystem: true
+# runAsNonRoot: true
+# runAsUser: 1000
 
 # This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
 service:
@@ -59,16 +80,16 @@ service:
   port: 8080
 
 resources: {}
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
+# We usually recommend not to specify default resources and to leave this as a conscious
+# choice for the user. This also increases chances charts run on environments with little
+# resources, such as Minikube. If you do want to specify resources, uncomment the following
+# lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+# limits:
+#   cpu: 100m
+#   memory: 128Mi
+# requests:
+#   cpu: 100m
+#   memory: 128Mi
 
 # This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
 livenessProbe:

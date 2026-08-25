@@ -1,6 +1,0 @@
-apiVersion: v2
-name: backup-exporter
-description: A Helm chart for the Obmondo Backup Exporter — reports PostgreSQL (CNPG logical and WAL), Velero, MongoDB and Sealed Secrets backup health by reading object storage directly, as Prometheus metrics and a JSON API.
-type: application
-version: 0.3.5
-appVersion: "v1.2.2"

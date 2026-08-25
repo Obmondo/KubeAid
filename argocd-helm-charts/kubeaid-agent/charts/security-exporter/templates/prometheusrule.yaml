@@ -1,0 +1,49 @@
+{{- if .Values.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "security-exporter.fullname" . }}
+  labels:
+    {{- include "security-exporter.labels" . | nindent 4 }}
+    {{- with .Values.prometheusRule.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.prometheusRule.additionalAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  groups:
+    - name: security-exporter
+      rules:
+        # Images with a fixable Critical/High finding AND a newer tag upstream
+        # — the set worth acting on. The exporter computes the join, because
+        # rebuilding image references in PromQL fails silently.
+        #
+        # A count, so one alert per cluster rather than one per image.
+        - alert: ImageOutdatedAndVulnerable
+          expr: |
+            security_exporter_upgradable_vulnerable_images
+              > {{ .Values.prometheusRule.upgradableThreshold }}
+          for: {{ .Values.prometheusRule.upgradableFor }}
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ "{{ $value }}" }} images have fixable Critical/High CVEs with an upgrade available"
+            description: "These images can be moved to a newer tag today, and doing so clears a known fixable exposure. List them with: kubectl get vulnerabilityreports -A"
+
+        # Collection status is exported as security_exporter_collection
+        # (1 ok, 0 failed, -1 not installed) but deliberately not alerted on —
+        # it is a debugging signal, not something worth waking anyone for.
+    - name: node-count-monthly-status
+      rules:
+        - alert: MissingNodeCountDetected
+          annotations:
+            description: The cluster **{{ .Labels.certname }}** failed to fetch or report its node count to the Obmondo API. Node count data may be missing for the monthly average calculation.
+            summary: The cluster failed to report its node count to the Obmondo API.
+          expr: kubeaid_agent_node_count_report_status == 1
+          for: 1h
+          labels:
+            alert_id: MissingNodeCountDetected
+            severity: critical
+{{- end }}

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: security-exporter
+description: Collects cluster security posture and serves it for kubeaid-agent to forward.
+type: application
+version: 0.3.0
+appVersion: "0.1.0"

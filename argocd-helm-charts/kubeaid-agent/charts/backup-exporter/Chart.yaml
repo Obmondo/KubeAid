@@ -1,0 +1,6 @@
+apiVersion: v2
+name: backup-exporter
+description: Reports backup health for PostgreSQL, Velero, MongoDB and sealed-secrets.
+type: application
+version: 0.3.5
+appVersion: "v1.2.2"

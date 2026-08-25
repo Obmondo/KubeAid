@@ -1,0 +1,119 @@
+{{/*
+     Cluster-scoped read access. Every rule is consumed through a DYNAMIC client,
+     so no Go code references these resource names as imported types — a reader
+     grepping for "vulnerabilityreports" finds only this file.
+
+     Removing any of them does not fail the build, does not fail startup and logs
+     nothing obvious: the collector returns no data and the cluster renders as
+     clean. Same trap already hit in backup-exporter.
+
+     Verbs are exactly what the code calls. The exporter builds no informers, so
+     `watch` is granted nowhere.
+*/}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "security-exporter.fullname" . }}-read
+  labels:
+    {{- include "security-exporter.labels" . | nindent 4 }}
+rules:
+  # Locating version-checker's metrics endpoint by label, which is how image
+  # tags get compared against upstream.
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list"]
+
+  # Trivy Operator — vulnerabilities and least-privilege posture.
+  - apiGroups: ["aquasecurity.github.io"]
+    resources:
+      - vulnerabilityreports
+      - configauditreports
+      - rbacassessmentreports
+      - infraassessmentreports
+    verbs: ["get", "list"]
+
+  # Kubescape — the alternative vulnerability scanner, read only where Trivy is
+  # absent. Served by an AGGREGATED APIService rather than by CRDs, which changes
+  # nothing for RBAC but does mean these resources vanish from discovery whenever
+  # the kubescape storage pod is down, rather than persisting as CRDs would.
+  #
+  # vulnerabilitymanifests carries per-CVE detail; the summaries kind holds only
+  # counters and is deliberately not read. workloadconfigurationscans is the
+  # control-scan equivalent of Trivy's three least-privilege report kinds.
+  - apiGroups: ["spdx.softwarecomposition.kubescape.io"]
+    resources:
+      - vulnerabilitymanifests
+      - workloadconfigurationscans
+    verbs: ["get", "list"]
+
+  # Upstream NetworkPolicy, read alongside CiliumNetworkPolicy to decide whether
+  # an app ships a policy at all.
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list"]
+
+  # CiliumEndpoint carries the realised per-direction enforcement state;
+  # CiliumNetworkPolicy is what an app ships; TracingPolicy is Tetragon's runtime
+  # detection posture. All three live under cilium.io.
+  #
+  # A list error on the policy kinds is swallowed, so omitting either policy rule
+  # reports every app as shipping no network policy — no error, no log, no metric.
+  - apiGroups: ["cilium.io"]
+    resources:
+      - ciliumendpoints
+      - ciliumnetworkpolicies
+      - tracingpolicies
+      - tracingpoliciesnamespaced
+    verbs: ["get", "list"]
+
+  # KubeArmor — the second runtime engine. All four policy kinds: host and
+  # cluster policies are cluster-scoped, the other two namespaced, and an
+  # operator can enforce through any of them.
+  - apiGroups: ["security.kubearmor.com"]
+    resources:
+      - kubearmorpolicies
+      - kubearmorclusterpolicies
+      - kubearmorhostpolicies
+      - kubearmornetworkpolicies
+    verbs: ["get", "list"]
+
+  # KubeArmorConfig carries the cluster-wide default postures (file, network,
+  # capabilities → audit or block). It lives under the OPERATOR's group, not the
+  # policy group, and without it a cluster whose policies all audit is
+  # indistinguishable from one whose defaults block.
+  - apiGroups: ["operator.kubearmor.com"]
+    resources: ["kubearmorconfigs"]
+    verbs: ["get", "list"]
+
+  # Resolving a CiliumEndpoint to the workload that owns it, which is what
+  # apps[] is keyed by. The endpoint is named after its pod; the pod's
+  # controller reference names a ReplicaSet, and the ReplicaSet's names the
+  # Deployment -- the same resolution trivy-operator bakes into its report
+  # labels.
+  #
+  # These are NOT optional. The network collector treats a list failure as an
+  # error rather than as absence, because Cilium is mandatory on a KubeAid
+  # cluster, so removing either rule takes network posture from "collected" to
+  # "failed" for the whole cluster rather than degrading it quietly.
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "security-exporter.fullname" . }}-read
+  labels:
+    {{- include "security-exporter.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "security-exporter.fullname" . }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "security-exporter.fullname" . }}-read
