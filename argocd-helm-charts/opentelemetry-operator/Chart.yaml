@@ -5,6 +5,11 @@ dependencies:
   - name: opentelemetry-operator
     version: 0.122.0
     repository: https://open-telemetry.github.io/opentelemetry-helm-charts
+  # Standalone collector shipped alongside the operator. Anything that already runs a
+  # collector managed through an OpenTelemetryCollector CR (e.g. the openobserve chart's
+  # agent DaemonSet) otherwise ends up with two collectors tailing the same logs.
+  # Defaults to true so existing deployments are unaffected.
   - name: opentelemetry-collector
     version: 0.170.0
     repository: https://open-telemetry.github.io/opentelemetry-helm-charts
+    condition: opentelemetry-collector.enabled

@@ -3,6 +3,9 @@ opentelemetry-operator:
     collectorImage:
       repository: otel/opentelemetry-collector-k8s
 opentelemetry-collector:
+  # Gates the standalone collector DaemonSet (see the `condition` on this dependency in
+  # Chart.yaml). Set to false when collectors are managed via OpenTelemetryCollector CRs.
+  enabled: true
   image:
     repository: otel/opentelemetry-collector-k8s
   mode: daemonset
