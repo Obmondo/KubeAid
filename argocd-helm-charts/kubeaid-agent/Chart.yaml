@@ -5,7 +5,7 @@ icon: https://avatars.githubusercontent.com/u/13882947?s=250&v=4
 
 type: application
 
-version: 0.5.2
+version: 0.5.3
 appVersion: 0.0.3
 
 keywords:
@@ -33,5 +33,5 @@ dependencies:
     condition: security-exporter.enabled
 
   - name: backup-exporter
-    version: 0.4.1
+    version: 0.4.2
     condition: backup-exporter.enabled
