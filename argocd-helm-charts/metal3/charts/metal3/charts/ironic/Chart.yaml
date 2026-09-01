@@ -3,4 +3,4 @@ appVersion: 35.0.0
 description: A Helm chart for Ironic, used by Metal3
 name: ironic
 type: application
-version: 0.13.1
+version: 0.13.2

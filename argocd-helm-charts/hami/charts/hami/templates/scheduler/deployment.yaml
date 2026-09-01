@@ -1,4 +1,3 @@
-{{- if not .Values.dra.enabled -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -195,14 +194,16 @@ spec:
       {{- if .Values.scheduler.leaderElect }}
       affinity:
         podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchExpressions:
-              - key: app.kubernetes.io/component
-                operator: In
-                values:
-                - hami-scheduler
-            topologyKey: "kubernetes.io/hostname"
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app.kubernetes.io/component
+                  operator: In
+                  values:
+                  - hami-scheduler
+              topologyKey: "kubernetes.io/hostname"
       {{- end }}
       volumes:
         {{- if .Values.scheduler.admissionWebhook.enabled }}
@@ -227,4 +228,3 @@ spec:
       {{- if .Values.scheduler.nodeName }}
       nodeName: {{ .Values.scheduler.nodeName }}
       {{- end }}
-{{- end }}

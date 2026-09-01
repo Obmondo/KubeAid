@@ -17,6 +17,18 @@ trivy-operator:
     metricsConfigAuditInfo: true
     builtInTrivyServer: true
     scannerReportTTL: "24h"
+    # SBOMReports are the single largest thing this operator writes to etcd —
+    # one per container image, tens to hundreds of KB each, and they are
+    # regenerated on every scan cycle. On a cluster with ~900 images that is
+    # ~95MB of JSON living in etcd permanently, which shows up as multi-second
+    # LIST/count latency across *every* resource type and, downstream, as
+    # apiserver handler timeouts.
+    #
+    # Nothing in this chart reads them: the alerts below key off
+    # trivy_image_vulnerabilities, which comes from VulnerabilityReport.
+    # Turn this back on only if you actually consume ClusterVulnerabilityReports,
+    # and budget the etcd space before you do.
+    sbomGenerationEnabled: false
 
   trivy:
     # Skip CVEs with no fix available — cuts a lot of noise on base images.

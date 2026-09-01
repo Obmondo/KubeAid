@@ -19,7 +19,6 @@ defaultDeny:
 # global
 # Shared values consumed by all templates and the network-policies subchart.
 global:
-
   # netpol
   netpol:
     # -- Master switch. Set to true to enable any CiliumNetworkPolicy rendering.
@@ -122,6 +121,20 @@ global:
       # destinationPath: "" # e.g. s3://my-bucket/postgres
       # endpointURL: ""     # object store endpoint
       # secretName: ""      # Kubernetes Secret holding cloud credentials
+
+    # -- Logical backup configuration that uses ghcr.io/obmondo/logical-backup.
+    logicalbackup:
+      enabled: false
+
+      # -- Extra environment variables appended to the logical-backup container.
+      # Each entry is a standard core/v1 EnvVar. Useful for S3-compatible stores
+      # that reject the aws-cli v2 default integrity checksums (e.g. s3proxy):
+      #   extraEnv:
+      #     - name: AWS_REQUEST_CHECKSUM_CALCULATION
+      #       value: when_required
+      #     - name: AWS_RESPONSE_CHECKSUM_VALIDATION
+      #       value: when_required
+      extraEnv: []
 
     # -- Client applications allowed to connect on port 5432.
     # Each entry is a map of pod label selectors for the client pod.
@@ -262,7 +275,7 @@ global:
 
     alertmanager:
       # -- FQDN for the Obmondo alerting webhook (egress on port 443).
-      webhookFQDN: ""  # e.g. alerts.obmondo.com
+      webhookFQDN: "" # e.g. alerts.obmondo.com
 
     prometheus:
       # -- Extra namespaces Prometheus should scrape beyond the hardcoded puppetserver namespace.

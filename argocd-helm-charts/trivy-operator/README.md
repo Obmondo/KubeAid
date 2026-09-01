@@ -18,6 +18,7 @@ cluster and writes results as CRs:
 | `RbacAssessmentReport` | RBAC anti-patterns |
 | `InfraAssessmentReport` | control-plane configuration findings |
 | `ClusterComplianceReport` | CIS Benchmark, NSA/CISA Hardening, Pod Security Standards |
+| `SBOMReport` | full image bill-of-materials — **disabled by default**, see below |
 
 A single built-in Trivy server is shared across scans, so there is no per-scan job pulling the
 database. Metrics are exposed for the existing kube-prometheus-stack to scrape.
@@ -62,9 +63,19 @@ See its `values.yaml` for the full surface; these are the knobs that matter here
 | `trivy-operator.trivy.ignoreUnfixed` | Drop CVEs with no fix available | `true` |
 | `trivy-operator.trivy.severity` | Severities to report | `"CRITICAL,HIGH"` |
 | `trivy-operator.trivy.builtInTrivyServer` | Share one in-cluster Trivy server | `true` |
+| `trivy-operator.operator.sbomGenerationEnabled` | Write an `SBOMReport` per image | `false` |
 
 `ignoreUnfixed: true` is deliberate — a CVE with no published fix is not a work item, and including
 them produces a number nobody can act on.
+
+`sbomGenerationEnabled: false` is also deliberate. An `SBOMReport` is written per container image
+and is by far the largest object this operator produces — tens to hundreds of KB each, refreshed
+every scan cycle. On a cluster running ~900 distinct images that is roughly 95MB of JSON held in
+etcd. etcd charges for that on *every* range request, so the cost is not paid by whoever reads
+SBOMs; it is paid by the apiserver's periodic count of every resource type in the cluster, which
+degrades into multi-second `listWithCount` latency and, past a point, apiserver handler timeouts
+and failed liveness probes. Enable it only if something consumes `ClusterVulnerabilityReports`,
+and size etcd for it first.
 
 ### KubeAid additions (`kubeaid.*`)
 

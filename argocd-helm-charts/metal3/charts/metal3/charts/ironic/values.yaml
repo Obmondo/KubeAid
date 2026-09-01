@@ -109,10 +109,19 @@ securityContext:
   runAsNonRoot: true
 
 dnsmasqSecurityContext:
+  # dnsmasq binds privileged ports (DHCP 67, TFTP 69). The container stays
+  # non-root (runAsUser 10475 from podSecurityContext); the ironic image grants
+  # the needed file-caps via
+  #   setcap cap_net_bind_service,cap_net_raw,cap_net_admin+eip /usr/sbin/dnsmasq
+  # but file-caps only take effect when no_new_privs is off, hence
+  # allowPrivilegeEscalation must be true here. NET_BIND_SERVICE must also be in
+  # the bounding set (added below) for the +e file-cap to apply. See issue #256.
+  allowPrivilegeEscalation: true
   capabilities:
     add:
     - NET_ADMIN
     - NET_RAW
+    - NET_BIND_SERVICE
 
 service:
   type: LoadBalancer

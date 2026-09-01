@@ -1,4 +1,0 @@
-*.yaml
-dashboards-out
-vendor
-jsonnetfile.lock.json

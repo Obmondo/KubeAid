@@ -2,6 +2,15 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
+# NOTE: This option is required so that .global.imageRegistry works as an override
+#       for the local image registry values. By default, this option is set to false
+#       and that's to retain backwards compatibility with v4.4.0 where .global.imageRegistry
+#       was introduced as the default and the local options were overrides for the global default.
+#       The other .global options do not work this way, and they are all overrides for their
+#       respective options. If you're not upgrading from v4.4.0, you'll want to enable
+#       this option (set to 'true').
+globalImageRegistryOverride: false
+
 global:
   # Global override for container image registry (when `globalImageRegistryOverride` is set to true)
   imageRegistry: "docker.io"
@@ -13,9 +22,6 @@ global:
   analytics:
     # Global override for analytics
     enabled:
-
-# When set to true, the value of `global.imageRegistry` will override all image registry settings defined at local level
-globalImageRegistryOverride: false
 
 rbac:
   # rbac.create: `true` if rbac resources should be created
@@ -40,10 +46,21 @@ localpv:
     # The number of concurrent worker goroutines for processing PVC create and delete events.
     # Higher values increase provisioning throughput when many PVC events are received simultaneously.
     workers: 4
+    # Client-side rate limits for requests to the Kubernetes API server.
+    client:
+      # Maximum queries per second (QPS) the provisioner sends to the Kubernetes API server.
+      # Leave empty to use the client-go default (5). Raise it alongside `workers` to avoid
+      # client-side throttling when provisioning many volumes concurrently.
+      qps: ""
+      # Maximum burst of queries above `client.qps` the provisioner allows to the Kubernetes
+      # API server. Leave empty to use the client-go default (10). Setting `client.qps`
+      # without `client.burst` leaves burst at the client-go default of 10, which may
+      # throttle bursts well below the configured QPS; prefer setting both together.
+      burst: ""
   image:
     registry: "docker.io/"
     repository: openebs/provisioner-localpv
-    tag: 4.5.1
+    tag: 4.6.0
     pullPolicy: IfNotPresent
   updateStrategy:
     type: RollingUpdate
@@ -55,8 +72,31 @@ localpv:
   podLabels:
     name: openebs-localpv-provisioner
   healthCheck:
-    initialDelaySeconds: 30
-    periodSeconds: 60
+    # Container port the provisioner serves its HTTP health endpoints on:
+    #  /healthz (liveness) and /readyz (readiness).
+    port: 8081
+    liveness:
+      # Enable the liveness probe (httpGet /healthz).
+      enabled: true
+      # No. of failures the liveness probe will tolerate.
+      failureThreshold: 3
+      # No. of seconds of delay before checking the liveness status.
+      initialDelaySeconds: 1
+      # No. of seconds between liveness probe checks.
+      periodSeconds: 30
+      # No. of seconds of timeout tolerance.
+      timeoutSeconds: 5
+    readiness:
+      # Enable the readiness probe (httpGet /readyz).
+      enabled: true
+      # No. of failures the readiness probe will tolerate.
+      failureThreshold: 3
+      # No. of seconds of delay before checking the readiness status.
+      initialDelaySeconds: 1
+      # No. of seconds between readiness probe checks.
+      periodSeconds: 20
+      # No. of seconds of timeout tolerance.
+      timeoutSeconds: 5
   replicas: 1
   enableLeaderElection: true
   basePath: "/var/openebs/local"
@@ -73,6 +113,13 @@ localpv:
     additionalVolumeMounts: []
     # Additional volumes for the provisioner pod
     additionalVolumes: []
+  # Enabling (setting to 'true') this option enables namespaced PVC tenants to be able
+  #  to set the BasePath cas-config value of their hostpath volume via PVC annotations.
+  #  It's reasonable to want to not allow the namespace tenant to decide this for
+  #  themselves, and to only allow setting BasePath via the StorageClass/default env
+  #  (at a cluster admin level). The default value 'false' does not allow namespace tenants
+  #  to set BasePath via PVC cas-config annotations.
+  allowInsecurePvcBasePathOverride: false
   resources:
   # We usually recommend not to specify default resources and to leave this as a conscious
   # choice for the user. This also increases chances charts run on environments with little
@@ -129,6 +176,18 @@ hostpathClass:
   #            - "openebs.io/node-affinity-key-1"
   #            - "openebs.io/node-affinity-key-2"
   nodeAffinityLabels: []
+  # Custom allowedTopologies for the openebs-hostpath StorageClass. Restricts the
+  # set of nodes where volumes of this StorageClass may be provisioned/scheduled,
+  # by matching node labels. See:
+  # https://kubernetes.io/docs/concepts/storage/storage-classes/#allowed-topologies
+  # Example:
+  #          allowedTopologies:
+  #            - matchLabelExpressions:
+  #                - key: kubernetes.io/hostname
+  #                  values:
+  #                    - worker-2
+  #                    - worker-3
+  allowedTopologies: []
   # Prerequisite: XFS Quota requires an XFS filesystem mounted with
   # the 'pquota' or 'prjquota' mount option.
   xfsQuota:
@@ -142,7 +201,7 @@ hostpathClass:
   # Prerequisite: EXT4 Quota requires an EXT4 filesystem mounted with
   # the 'prjquota' mount option.
   ext4Quota:
-    # If true, enables XFS project quota
+    # If true, enables EXT4 project quota
     enabled: false
     # Detailed configuration options for EXT4 project quota.
     # If EXT4 Quota is enabled with the default values, the usage limit
@@ -156,7 +215,7 @@ helperPod:
     repository: openebs/linux-utils
     pullPolicy: IfNotPresent
     # Overrides the image tag whose default is the chart appVersion.
-    tag: 4.5.0
+    tag: 4.6.0
   hostNetwork: false
   # The maximum number of seconds to wait for a helperPod (init, cleanup, quota) to complete before timing out.
   timeoutSecs: 120

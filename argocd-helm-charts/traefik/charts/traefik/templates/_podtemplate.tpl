@@ -258,6 +258,9 @@
            {{- with .defaultRuleSyntax }}
           - "--core.defaultRuleSyntax={{ . }}"
            {{- end }}
+           {{- if .strictTLSOptions }}
+          - "--core.strictTLSOptions=true"
+           {{- end }}
           {{- end }}
 
           {{- if .Values.metrics }}
@@ -500,6 +503,12 @@
            {{- with .Values.providers.kubernetesCRD.crossProviderNamespaces }}
           - "--providers.kubernetescrd.crossProviderNamespaces={{ join "," . }}"
            {{- end }}
+           {{- with .Values.providers.kubernetesCRD.defaultTLSResourcesNamespace }}
+          - "--providers.kubernetescrd.defaultTLSResourcesNamespace={{ . }}"
+           {{- end }}
+           {{- if .Values.providers.kubernetesCRD.safeNaming }}
+          - "--providers.kubernetescrd.safeNaming=true"
+           {{- end }}
            {{- if .Values.providers.kubernetesCRD.allowExternalNameServices }}
           - "--providers.kubernetescrd.allowExternalNameServices=true"
            {{- end }}
@@ -683,6 +692,9 @@
           - "--{{$entryPoints}}.{{ $name }}.http.sanitizePath={{ . }}"
                {{- end }}
               {{- end }}
+              {{- with .aliasHeadersStrategy }}
+          - "--{{$entryPoints}}.{{ $name }}.http.aliasHeadersStrategy={{ . }}"
+              {{- end }}
               {{- with .underscoreHeadersStrategy }}
           - "--{{$entryPoints}}.{{ $name }}.http.underscoreHeadersStrategy={{ . }}"
               {{- end }}
@@ -860,6 +872,9 @@
               {{- end }}
               {{- if .openApi.validateRequestMethodAndPath }}
           - "--hub.apiManagement.openApi.validateRequestMethodAndPath=true"
+              {{- end }}
+              {{- with .openApi.refreshInterval }}
+          - "--hub.apiManagement.openApi.refreshInterval={{ . }}"
               {{- end }}
              {{- end }}
             {{- end }}

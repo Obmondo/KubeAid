@@ -4,3 +4,7 @@ description: A Helm chart for monitoring linux server, which are subscribed on O
 type: application
 version: 0.1.0
 appVersion: "0.1.0"
+dependencies:
+  - name: kubeaid-addons
+    version: 0.1.0
+    repository: file://../kubeaid-addons

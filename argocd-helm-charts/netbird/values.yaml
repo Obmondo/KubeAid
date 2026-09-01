@@ -30,6 +30,12 @@ externalDatabases:
 netbird:
   fullnameOverride: netbird
   management:
+    # Keep at 1: management generates its WireGuard key in-process on startup
+    # (NewTimeBasedAuthSecretsManager -> wgtypes.GeneratePrivateKey) and never persists it.
+    # A second replica has a different key, so a peer that fetched the key from one pod
+    # fails against the other: "error while decrypting peer's message with Wireguard
+    # public key". Upstream HA for management is an enterprise-licensed feature.
+    replicaCount: 1
     configmap: |-
       {
         "Stuns": [
@@ -187,6 +193,10 @@ netbird:
               pathType: ImplementationSpecific
 
   signal:
+    # Keep at 1: signal keeps its connected-peer registry in an in-memory sync.Map with
+    # no shared state, and only looks the destination peer up locally, so peers registered
+    # on different replicas can never exchange offers.
+    replicaCount: 1
     image:
       tag: 0.76.1
     service:
@@ -206,6 +216,10 @@ netbird:
               pathType: ImplementationSpecific
 
   relay:
+    # Keep at 1: each relay keeps its connected peers in an in-memory map and every replica
+    # advertises the same NB_EXPOSED_ADDRESS, so two peers can land on different pods and
+    # never reach each other. A multi-relay setup needs one distinct address per instance.
+    replicaCount: 1
     image:
       tag: 0.76.1
     env:

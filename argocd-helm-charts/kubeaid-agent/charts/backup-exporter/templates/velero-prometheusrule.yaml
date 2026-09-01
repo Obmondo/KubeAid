@@ -14,7 +14,7 @@ spec:
     - name: {{ include "backup-exporter.name" . }}-velero
       rules:
         - alert: VeleroBackupExporterJobFailed
-          expr: max by (type) (backup_exporter_velero_error == 1) > 0
+          expr: max by (type) (backup_exporter_velero_error{type!~"backup_not_enabled"} == 1) > 0
           for: {{ .Values.prometheusRule.velero.alertForDuration | default "5m" }}
           labels:
             severity: {{ .Values.prometheusRule.velero.severity | default "critical" }}

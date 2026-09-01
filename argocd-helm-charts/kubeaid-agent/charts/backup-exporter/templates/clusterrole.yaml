@@ -29,6 +29,16 @@ rules:
     resources: ["mongodbcommunity"]
     verbs: ["get", "list"]
 
+  # MariaDB CRDs. Collection is driven by the MariaDB resources; the Backup
+  # resources carry the S3 coordinates (spec.storage.s3) the dumps are written
+  # to, so both are needed. A cluster with no Backup reports no_backup.
+  #
+  # Note the exporter reads the Backup, not the CronJob the operator renders
+  # from it: that CronJob carries neither the schedule nor the storage config.
+  - apiGroups: ["k8s.mariadb.com"]
+    resources: ["mariadbs", "backups"]
+    verbs: ["get", "list"]
+
   # Velero CRDs
   - apiGroups: ["velero.io"]
     resources: ["schedules"]

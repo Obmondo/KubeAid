@@ -65,7 +65,7 @@ deployment:
     # CD use -- resolves it to a float: a commit tag of 75621e3 renders as
     # 7.5621e+07 and the pod comes up InvalidImageName. PyYAML disagrees and
     # returns a string, so validating with python yaml does not catch it.
-    tag: "v0.1.0"
+    tag: "v0.1.1"
     pullPolicy: IfNotPresent
 
   env: []

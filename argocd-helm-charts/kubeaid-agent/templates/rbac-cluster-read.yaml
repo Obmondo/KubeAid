@@ -33,20 +33,31 @@ rules:
     resources: ["events"]
     verbs: ["list"]
 
-  # Probing for the sealed-secrets controller (sealedsecret/seal.go).
+  # get  — probing for the sealed-secrets controller (sealedsecret/seal.go).
+  # list — the backup-exporter discovery in internal/core/backup/handler.go
+  #        also lists Services by label after finding the Deployment.
   - apiGroups: [""]
     resources: ["services"]
-    verbs: ["get"]
+    verbs: ["get", "list"]
 
   # Owner-ref walk targets and their container specs. ReplicaSet is read to
   # reach the Deployment above it; the rest for their pod templates.
   - apiGroups: ["apps"]
     resources:
       - replicasets
-      - deployments
       - statefulsets
       - daemonsets
     verbs: ["get"]
+
+  # Deployments also need list: the backup exporter's Deployment/Service
+  # name is release-derived, not pinned, so the agent's "Backup monitor"
+  # job discovers it cluster-wide by the app.kubernetes.io/name=backup-exporter
+  # label rather than by a known name (internal/core/backup/handler.go).
+  # Without list this job fails Forbidden every cycle and no backup status
+  # ever reaches Obmondo API.
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list"]
 
   # Job is read to reach its owning CronJob, both for their pod templates.
   - apiGroups: ["batch"]

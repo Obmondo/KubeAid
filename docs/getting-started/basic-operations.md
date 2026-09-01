@@ -39,7 +39,7 @@ Here's a quick reference of the most common `kubeaid-cli` commands:
 ### Check Cluster Health
 
 ```bash
-export KUBECONFIG=./outputs/kubeconfigs/clusters/main.yaml
+export KUBECONFIG=~/.config/kubeaid-cli/<cluster>/kubeconfigs/main.yaml
 
 # Verify cluster info
 kubectl cluster-info
@@ -74,7 +74,7 @@ All applications should show `Healthy` and `Synced` status.
 To upgrade the Kubernetes version of your cluster, edit `cluster.k8sVersion` in your `general.yaml`, then run:
 
 ```bash
-kubeaid-cli cluster upgrade
+kubeaid-cli cluster upgrade --cluster-name <cluster>
 ```
 
 The command upgrades the cluster to the Kubernetes version (and machine images) declared in `general.yaml`. Its
@@ -104,7 +104,7 @@ This section covers how to delete and clean up your KubeAid-managed Kubernetes c
 ### Step 1: Delete the Main Cluster
 
 ```bash
-kubeaid-cli cluster delete main
+kubeaid-cli cluster delete main --cluster-name <cluster>
 ```
 
 This command will:
@@ -125,7 +125,7 @@ of your actual "main" cluster. This management cluster runs the ClusterAPI contr
 that create and manage your cloud infrastructure.
 
 ```bash
-kubeaid-cli cluster delete management
+kubeaid-cli cluster delete management --cluster-name <cluster>
 ```
 
 This command removes the local management cluster used during bootstrapping.
@@ -135,7 +135,7 @@ This command removes the local management cluster used during bootstrapping.
 For ClusterAPI-based installations, a single command cleanup:
 
 ```bash
-kubeaid-cli cluster delete main && kubeaid-cli cluster delete management
+kubeaid-cli cluster delete main --cluster-name <cluster> && kubeaid-cli cluster delete management --cluster-name <cluster>
 ```
 
 ### What Gets Deleted
@@ -181,10 +181,11 @@ After cluster deletion, perform these additional cleanup steps to ensure no reso
 
 ```bash
 # If you need to recreate this cluster at a later time, save general.yaml before deleting
-# cp outputs/configs/general.yaml /path/to/safe/location/
+# cp ~/.config/kubeaid-cli/<cluster>/configs/general.yaml /path/to/safe/location/
 
-# Remove generated outputs (keep if you want to inspect logs)
-rm -rf outputs/
+# Remove the cluster's directory — configs, kubeconfigs and logs
+# (keep it if you want to inspect the logs)
+rm -rf ~/.config/kubeaid-cli/<cluster>/
 
 # Keep your secrets.yaml backup in password store!
 ```
@@ -275,11 +276,14 @@ To create a new cluster with the same configuration:
 3. Follow the [Pre-Configuration](./pre-configuration.md) and [Installation](./installation.md) guides
 
 ```bash
+# Place the retrieved files where the CLI looks for them by default
+mkdir -p ~/.config/kubeaid-cli/<cluster>/configs
+cp general.yaml ~/.config/kubeaid-cli/<cluster>/configs/
 # Retrieve secrets from password store (example using pass)
-pass kubeaid/my-cluster/secrets.yaml > outputs/configs/<cluster>/secrets.yaml
+pass kubeaid/my-cluster/secrets.yaml > ~/.config/kubeaid-cli/<cluster>/configs/secrets.yaml
 
 # Bootstrap the cluster
-kubeaid-cli cluster bootstrap --configs-directory ./outputs/configs/<cluster>/
+kubeaid-cli cluster bootstrap --cluster-name <cluster>
 ```
 
 ---
@@ -293,16 +297,16 @@ kubeaid-cli cluster bootstrap --configs-directory ./outputs/configs/<cluster>/
 | CLI command not found | CLI not installed or not in PATH | Re-run the [CLI installation](./installation.md#installing-kubeaid-cli) |
 | Delete hangs | Resources stuck or network issues | Check cloud provider console for stuck resources |
 | Management cluster already deleted | Running delete twice | This is safe to ignore |
-| Kubeconfig not found | Wrong path or cluster not created | Verify `outputs/kubeconfigs/clusters/main.yaml` exists |
+| Kubeconfig not found | Wrong path or cluster not created | Verify `~/.config/kubeaid-cli/<cluster>/kubeconfigs/main.yaml` exists |
 
 ### Viewing Logs
 
 ```bash
 # List operation logs (one timestamped file per run)
-ls outputs/logs/
+ls ~/.config/kubeaid-cli/<cluster>/logs/
 
 # Follow the latest log in real-time
-tail -f "outputs/logs/$(ls -t outputs/logs | head -1)"
+tail -f "~/.config/kubeaid-cli/<cluster>/logs/$(ls -t ~/.config/kubeaid-cli/<cluster>/logs | head -1)"
 ```
 
 ### Getting Help

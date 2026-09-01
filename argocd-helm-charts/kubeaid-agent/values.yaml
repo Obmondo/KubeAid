@@ -120,9 +120,11 @@ deployment:
       drop: ["ALL"]
 
   probes:
+    # Process-only probes: do not call Obmondo/Prometheus. An API outage must
+    # not restart kubeaid-agent across every cluster. Use GET /ping.
     readiness:
       httpGet:
-        path: /healthz
+        path: /ping
         port: http
       initialDelaySeconds: 5
       periodSeconds: 10
@@ -131,7 +133,7 @@ deployment:
       successThreshold: 1
     liveness:
       httpGet:
-        path: /healthz
+        path: /ping
         port: http
       initialDelaySeconds: 10
       periodSeconds: 10
@@ -168,3 +170,11 @@ serviceMonitor:
 
   interval: 30s
   scrapeTimeout: 10s
+
+prometheusRule:
+  enabled: true
+
+  # -- Extra labels on the PrometheusRule object, for Prometheus selector
+  # matching.
+  additionalLabels: {}
+  additionalAnnotations: {}

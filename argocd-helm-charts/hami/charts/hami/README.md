@@ -8,7 +8,7 @@ This document provides detailed descriptions of all configurable values paramete
 |-----------|-------------|---------------|
 | `global.imageRegistry` | Global Docker image registry | `""` |
 | `global.imagePullSecrets` | Global Docker image pull secrets | `[]` |
-| `global.imageTag` | Image tag | `"v2.8.0"` |
+| `global.imageTag` | Image tag | `"v2.10.0"` |
 | `global.gpuHookPath` | GPU Hook path | `/usr/local` |
 | `global.labels` | Global labels | `{}` |
 | `global.annotations` | Global annotations | `{}` |
@@ -54,8 +54,9 @@ This document provides detailed descriptions of all configurable values paramete
 ### Enflame GCU Resources
 | Parameter | Description | Default Value |
 |-----------|-------------|---------------|
-| `enflameResourceNameVGCU` | vGCU resource name | `"enflame.com/vgcu"` |
-| `enflameResourceNameVGCUPercentage` | vGCU percentage resource name | `"enflame.com/vgcu-percentage"` |
+| `enflameResourceNameDRSGCU` | DRS GCU resource name | `"enflame.com/drs-gcu"` |
+| `enflameResourceNameGCUMemory` | GCU memory request resource name | `"enflame.com/gcu-memory"` |
+| `enflameResourceNameGCUCore` | GCU core request resource name | `"enflame.com/gcu-core"` |
 
 ### Kunlunxin XPU Resources
 | Parameter | Description | Default Value |
@@ -110,6 +111,7 @@ This document provides detailed descriptions of all configurable values paramete
 | `scheduler.admissionWebhook.customURL.host` | Custom URL host | `127.0.0.1` |
 | `scheduler.admissionWebhook.customURL.port` | Custom URL port | `31998` |
 | `scheduler.admissionWebhook.customURL.path` | Custom URL path | `/webhook` |
+| `scheduler.admissionWebhook.manageNamespaceSelector` | Whether the chart renders and manages the webhook namespaceSelector field | `true` |
 | `scheduler.admissionWebhook.reinvocationPolicy` | Reinvocation policy | `Never` |
 | `scheduler.admissionWebhook.failurePolicy` | Failure policy | `Ignore` |
 
@@ -174,7 +176,7 @@ This document provides detailed descriptions of all configurable values paramete
 | `devicePlugin.passDeviceSpecsEnabled` | Whether to enable passing device specs | `false` |
 | `devicePlugin.extraArgs` | Device plugin extra arguments | `["-v=4"]` |
 | `devicePlugin.nodeConfiguration.config` | Node configuration for device plugin by json | An example of default configuration. |
-| `devicePlugin.nodeConfiguration.externalConfigName` | Node configuration for device plugin by external congimap | `""` |
+| `devicePlugin.nodeConfiguration.externalConfigName` | Node configuration for device plugin by external configmap | `""` |
 | `devicePlugin.extraEnvs` | Device plugin extra environments | `{}` |
 
 ### Device Plugin Service Configuration
@@ -205,7 +207,12 @@ This document provides detailed descriptions of all configurable values paramete
 | Parameter | Description | Default Value |
 |-----------|-------------|---------------|
 | `devices.kunlun.enabled` | Whether to enable | `true` |
-| `devices.kunlun.customresources` | Custom resources | `["kunlunxin.com/xpu"]` |
+| `devices.kunlun.customresources` | Custom resources | `["kunlunxin.com/xpu", "kunlunxin.com/vxpu", "kunlunxin.com/vxpu-memory"]` |
+
+### Enflame
+| Parameter | Description | Default Value |
+|-----------|-------------|---------------|
+| `devices.enflame.customresources` | Custom resources | `["enflame.com/drs-gcu", "enflame.com/gcu-memory", "enflame.com/gcu-core", "enflame.com/gcu"]` |
 
 ### Mthreads
 | Parameter | Description | Default Value |

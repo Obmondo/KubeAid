@@ -185,3 +185,33 @@ tests:
             exp_annotations:
               summary: 'Velero backup missing'
               description: 'No backup found for puppetserver-enableit/code-claim (pvc, method: )'
+
+  # A PVC outside every schedule's included namespaces is exporter bookkeeping,
+  # not a collector failure: backup_not_enabled must not fire
+  # VeleroBackupExporterJobFailed either, the same way it does not fire
+  # VeleroBackupMissing.
+  - interval: 1m
+    input_series:
+      - series: 'backup_exporter_velero_error{namespace="not-scheduled-ns",resource_name="some-pvc",resource_type="pvc",type="backup_not_enabled"}'
+        values: '1x6'
+    alert_rule_test:
+      - alertname: VeleroBackupExporterJobFailed
+        eval_time: 6m
+        exp_alerts: []
+
+  # A genuine failure type must still fire VeleroBackupExporterJobFailed.
+  - interval: 1m
+    input_series:
+      - series: 'backup_exporter_velero_error{namespace="monitoring",resource_name="prometheus-k8s-db-prometheus-k8s-0",resource_type="pvc",type="s3_connection_failed"}'
+        values: '1x6'
+    alert_rule_test:
+      - alertname: VeleroBackupExporterJobFailed
+        eval_time: 6m
+        exp_alerts:
+          - exp_labels:
+              alertname: VeleroBackupExporterJobFailed
+              severity: critical
+              type: s3_connection_failed
+            exp_annotations:
+              summary: 'Velero backup exporter job failed'
+              description: 'Velero backup exporter error (type: s3_connection_failed)'

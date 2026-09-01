@@ -5,5 +5,5 @@ version: 1.0.0
 # (upstream: https://github.com/cilium/tetragon)
 dependencies:
   - name: tetragon
-    version: 1.7.0
+    version: 1.7.1
     repository: https://helm.cilium.io/

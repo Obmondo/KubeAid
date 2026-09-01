@@ -1,6 +1,6 @@
 dependencies:
 - name: mongodb-kubernetes
   repository: https://mongodb.github.io/helm-charts
-  version: 1.10.0
-digest: sha256:37920bafdddbe22fa5c65292d8a0214facb2c35c98adb1ee6d6345e1f57f96a1
-generated: "2026-08-15T19:29:26.67703807Z"
+  version: 1.11.0
+digest: sha256:31b865bba8b46ee056fa3d2337592f52a9f3c69dc1bf18c83b2e0ac1c0b7f09c
+generated: "2026-08-31T13:19:56.347457733Z"

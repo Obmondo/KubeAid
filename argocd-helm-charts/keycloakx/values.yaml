@@ -48,7 +48,6 @@ keycloakx:
     enabled: true
 
 global:
-
   netpol:
     enabled: false
     releaseName: ""
@@ -62,6 +61,7 @@ global:
   blackbox:
     netpol: false
     namespace: ""
+    probe: true
 
   postgresql:
     enabled: true
@@ -100,6 +100,12 @@ global:
       enabled: false
       revision: 0
 
+    logicalbackup:
+      enabled: true
+      schedule: "13 02 * * *"
+      provider: s3
+      retention: "30 days"
+
     backups:
       enabled: true
 
@@ -113,6 +119,3 @@ global:
         # Whether to enable Kube2IAM integration, instead of providing static AWS credentials
         # from a Kubernetes Secret.
         enableKube2IAMIntegration: true
-
-  blackbox:
-    probe: true

@@ -14,7 +14,7 @@ Ensure you have completed:
 Make sure :
 
 - Docker is running locally
-- Your configuration files are in `outputs/configs/<cluster>/` (or `~/.config/kubeaid-cli/<cluster>/configs/`)
+- Your configuration files are in `~/.config/kubeaid-cli/<cluster>/configs/`
 - Your `secrets.yaml` is backed up in your password store
 
 ## Installing KubeAid CLI
@@ -130,8 +130,12 @@ Run the bootstrap command, pointing it at the configs you generated during
 [pre-configuration](./pre-configuration.md):
 
 ```bash
-kubeaid-cli cluster bootstrap --configs-directory ./outputs/configs/<cluster>/
+kubeaid-cli cluster bootstrap
 ```
+
+Your only saved cluster is picked automatically. Once several clusters have a saved config, pass
+`--cluster-name <cluster>` to say which one (running without it lists them). If you generated the config
+somewhere else, pass `--configs-directory <path>` instead — outputs then land in that directory too.
 
 ### What Happens During Bootstrap
 
@@ -173,24 +177,20 @@ flowchart TB
 ### Monitoring Progress
 
 - Logs are streamed to your terminal in real-time
-- All logs are saved to `outputs/logs/` (one timestamped file per run) for later review
+- All logs are saved to `~/.config/kubeaid-cli/<cluster>/logs/` (one timestamped file per run) for later review
 - The process typically takes 10-30 minutes (depending on provider and cluster size)
 
 ### Bootstrap Output
 
-Upon successful completion, you'll see:
-
-```text
-✓ Cluster bootstrap complete!
-  Kubeconfig saved to: outputs/kubeconfigs/clusters/main.yaml
-```
+Upon successful completion, the CLI prints a summary panel that ends with the exact
+`export KUBECONFIG=...` line for your platform and provider.
 
 ## Access the Cluster
 
-Set your kubeconfig and verify access:
+Copy the export line from the bootstrap output (on Linux it looks like the one below) and verify access:
 
 ```bash
-export KUBECONFIG=./outputs/kubeconfigs/clusters/main.yaml
+export KUBECONFIG=~/.config/kubeaid-cli/<cluster>/kubeconfigs/main.yaml
 kubectl cluster-info
 ```
 
@@ -230,7 +230,7 @@ kubectl get applications -n argocd
 
 | Issue | Cause | Solution |
 | ------- | ------- | ---------- |
-| Bootstrap hangs | Network issues or resource constraints | Check logs in `outputs/logs/` |
+| Bootstrap hangs | Network issues or resource constraints | Check logs in `~/.config/kubeaid-cli/<cluster>/logs/` |
 | Management cluster fails to create | Docker not running | Start Docker and retry |
 | Cloud resources fail to provision | Invalid credentials | Verify `secrets.yaml` credentials |
 | SSH connection fails (bare metal) | SSH key issues | Verify SSH key permissions and host connectivity |
@@ -240,10 +240,10 @@ kubectl get applications -n argocd
 
 ```bash
 # List bootstrap logs (one timestamped file per run)
-ls outputs/logs/
+ls ~/.config/kubeaid-cli/<cluster>/logs/
 
 # Follow the latest log in real-time (if bootstrap is running)
-tail -f "outputs/logs/$(ls -t outputs/logs | head -1)"
+tail -f "~/.config/kubeaid-cli/<cluster>/logs/$(ls -t ~/.config/kubeaid-cli/<cluster>/logs | head -1)"
 ```
 
 ### Retry Bootstrap
@@ -252,10 +252,10 @@ If bootstrap fails partway through, you can retry:
 
 ```bash
 # Clean up partial state
-kubeaid-cli cluster delete management
+kubeaid-cli cluster delete management --cluster-name <cluster>
 
 # Retry bootstrap
-kubeaid-cli cluster bootstrap
+kubeaid-cli cluster bootstrap --cluster-name <cluster>
 ```
 
 ## Provider-Specific Notes

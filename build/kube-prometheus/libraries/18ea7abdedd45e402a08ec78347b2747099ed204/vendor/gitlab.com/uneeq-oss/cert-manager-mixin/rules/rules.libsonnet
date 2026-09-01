@@ -1,5 +1,0 @@
-{
-  prometheusRules+:: {
-    groups+: [],
-  },
-}

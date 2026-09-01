@@ -2,7 +2,7 @@
 
 OpenCost and OpenCost UI
 
-![Version: 2.5.29](https://img.shields.io/badge/Version-2.5.29-informational?style=flat-square)
+![Version: 2.5.30](https://img.shields.io/badge/Version-2.5.30-informational?style=flat-square)
 ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
 ![AppVersion: 1.121.1](https://img.shields.io/badge/AppVersion-1.121.1-informational?style=flat-square)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/opencost)](https://artifacthub.io/packages/search?repo=opencost)
@@ -96,6 +96,7 @@ $ helm install opencost opencost/opencost
 | opencost.exporter.env | list | `[]` | List of additional environment variables to set in the container |
 | opencost.exporter.extraArgs | list | `[]` | List of extra arguments for the command, e.g.: log-format=json |
 | opencost.exporter.extraEnv | object | `{}` | Any extra environment variables you would like to pass on to the pod |
+| opencost.exporter.extraEnvFrom | list | `[]` | Extra environment variables from secrets or configmaps |
 | opencost.exporter.extraVolumeMounts | list | `[]` | A list of volume mounts to be added to the pod |
 | opencost.exporter.image | object | `{"fullImageName":null,"pullPolicy":"IfNotPresent","registry":"ghcr.io","repository":"opencost/opencost","tag":"1.121.1@sha256:50052694785db32174332670920faf7b7f55d32a91ba3caec1e9207a58338ff5"}` | This overrides the above defaultClusterId. Ensure the ConfigMap exists and contains the required CLUSTER_ID key. clusterIdConfigmap: cluster-id-configmap |
 | opencost.exporter.image.fullImageName | string | `nil` | Override the full image name for development purposes |

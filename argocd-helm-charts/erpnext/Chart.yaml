@@ -3,5 +3,5 @@ name: erpnext
 version: 1.0.0
 dependencies:
   - name: erpnext
-    version: 8.0.75
+    version: 8.0.76
     repository: https://helm.erpnext.com

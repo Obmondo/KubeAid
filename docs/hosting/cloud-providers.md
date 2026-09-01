@@ -47,7 +47,7 @@ Provisions a KubeAid-managed Kubernetes cluster in AWS with:
 ```bash
 aws ec2 create-key-pair \
   --key-name kubeaid-demo \
-  --query 'KeyMaterial' --output text --region <aws-region> > ./outputs/<cluster-name>.pem
+  --query 'KeyMaterial' --output text --region <aws-region> > ./<cluster-name>.pem
 ```
 
 ### AWS Setup
@@ -56,13 +56,13 @@ aws ec2 create-key-pair \
 # Generate configuration (interactive prompt; select aws when asked for a provider)
 kubeaid-cli config generate
 
-# Edit outputs/configs/general.yaml and secrets.yaml
+# Edit ~/.config/kubeaid-cli/<cluster>/configs/general.yaml and secrets.yaml
 
 # Bootstrap the cluster
-kubeaid-cli cluster bootstrap
+kubeaid-cli cluster bootstrap --cluster-name <cluster>
 
 # Access the cluster
-export KUBECONFIG=./outputs/kubeconfigs/clusters/main.yaml
+export KUBECONFIG=~/.config/kubeaid-cli/<cluster>/kubeconfigs/main.yaml
 kubectl cluster-info
 ```
 
@@ -78,8 +78,8 @@ for the full field list.
 ### AWS Cleanup
 
 ```bash
-kubeaid-cli cluster delete main
-kubeaid-cli cluster delete management
+kubeaid-cli cluster delete main --cluster-name <cluster>
+kubeaid-cli cluster delete management --cluster-name <cluster>
 ```
 
 ---
@@ -121,13 +121,13 @@ Provisions a KubeAid-managed Kubernetes cluster in Azure with:
 # Generate configuration (interactive prompt; select azure when asked for a provider)
 kubeaid-cli config generate
 
-# Edit outputs/configs/general.yaml and secrets.yaml
+# Edit ~/.config/kubeaid-cli/<cluster>/configs/general.yaml and secrets.yaml
 
 # Bootstrap the cluster
-kubeaid-cli cluster bootstrap
+kubeaid-cli cluster bootstrap --cluster-name <cluster>
 
 # Access the cluster
-export KUBECONFIG=./outputs/kubeconfigs/clusters/main.yaml
+export KUBECONFIG=~/.config/kubeaid-cli/<cluster>/kubeconfigs/main.yaml
 kubectl cluster-info
 ```
 
@@ -146,15 +146,15 @@ There are no `--new-k8s-version` / `--new-image-offer` flags. Edit `cluster.k8sV
 machine image fields) in `general.yaml`, then run:
 
 ```bash
-kubeaid-cli cluster upgrade
+kubeaid-cli cluster upgrade --cluster-name <cluster>
 # --skip-pr-workflow pushes changes directly instead of opening a PR
 ```
 
 ### Azure Cleanup
 
 ```bash
-kubeaid-cli cluster delete main
-kubeaid-cli cluster delete management
+kubeaid-cli cluster delete main --cluster-name <cluster>
+kubeaid-cli cluster delete management --cluster-name <cluster>
 ```
 
 ---
@@ -190,8 +190,8 @@ All modes include:
 ```bash
 # Interactive prompt; select hetzner, then hcloud, when asked
 kubeaid-cli config generate
-# Edit outputs/configs/general.yaml and secrets.yaml
-kubeaid-cli cluster bootstrap
+# Edit ~/.config/kubeaid-cli/<cluster>/configs/general.yaml and secrets.yaml
+kubeaid-cli cluster bootstrap --cluster-name <cluster>
 ```
 
 ---
@@ -229,8 +229,8 @@ Configure further via `installImage.vg0.{size,rootVolumeSize}` and `wipeDisks`. 
 ```bash
 # Interactive prompt; select hetzner, then bare-metal, when asked
 kubeaid-cli config generate
-# Edit outputs/configs/general.yaml and secrets.yaml
-kubeaid-cli cluster bootstrap
+# Edit ~/.config/kubeaid-cli/<cluster>/configs/general.yaml and secrets.yaml
+kubeaid-cli cluster bootstrap --cluster-name <cluster>
 ```
 
 ---
@@ -273,8 +273,8 @@ is the operator's responsibility.
 ```bash
 # Interactive prompt; select hetzner, then hybrid, when asked
 kubeaid-cli config generate
-# Edit outputs/configs/general.yaml and secrets.yaml
-kubeaid-cli cluster bootstrap
+# Edit ~/.config/kubeaid-cli/<cluster>/configs/general.yaml and secrets.yaml
+kubeaid-cli cluster bootstrap --cluster-name <cluster>
 ```
 
 ---
@@ -284,8 +284,8 @@ kubeaid-cli cluster bootstrap
 All modes:
 
 ```bash
-kubeaid-cli cluster delete main
-kubeaid-cli cluster delete management
+kubeaid-cli cluster delete main --cluster-name <cluster>
+kubeaid-cli cluster delete management --cluster-name <cluster>
 ```
 
 ---
@@ -295,11 +295,11 @@ kubeaid-cli cluster delete management
 ### Access Cluster
 
 ```bash
-export KUBECONFIG=./outputs/kubeconfigs/clusters/main.yaml
+export KUBECONFIG=~/.config/kubeaid-cli/<cluster>/kubeconfigs/main.yaml
 kubectl cluster-info
 ```
 
-Logs are saved in `outputs/logs`. Access the ArgoCD and Grafana dashboards for monitoring.
+Logs are saved in `~/.config/kubeaid-cli/<cluster>/logs`. Access the ArgoCD and Grafana dashboards for monitoring.
 
 ## See Also
 

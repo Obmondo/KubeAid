@@ -129,6 +129,35 @@ spec:
             {{- end }}
             {{- end }}
             {{- end }}
+            {{- if (.Values.exporter.mariadb).enabled }}
+            - name: MARIADB_BACKUP_ENABLED
+              value: "true"
+            - name: MARIADB_EXPORTER_MAX_RPO
+              value: {{ .Values.exporter.mariadb.max_rpo | default "26h" | quote }}
+            - name: MARIADB_EXPORTER_INTERVAL_RATE
+              value: {{ .Values.exporter.mariadb.interval_rate | default "0.25" | quote }}
+            {{- with .Values.exporter.mariadb.s3.secretName }}
+            - name: MARIADB_S3_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . }}
+                  key: access-key-id
+            - name: MARIADB_S3_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . }}
+                  key: secret-access-key
+            {{- else }}
+            {{- with .Values.exporter.mariadb.s3.accessKeyId }}
+            - name: MARIADB_S3_ACCESS_KEY_ID
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.exporter.mariadb.s3.secretAccessKey }}
+            - name: MARIADB_S3_SECRET_ACCESS_KEY
+              value: {{ . | quote }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
             {{- if (.Values.exporter.sealedSecrets).enabled }}
             - name: SEALED_SECRETS_BACKUP_ENABLED
               value: "true"

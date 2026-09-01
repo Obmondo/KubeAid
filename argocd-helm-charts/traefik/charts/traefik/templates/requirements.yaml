@@ -39,6 +39,10 @@
   {{- end }}
 {{- end }}
 
+{{- if and (not .Values.rbac.namespaced) (not (empty .Values.rbac.secretResourceNames)) }}
+  {{- fail "ERROR: rbac.secretResourceNames requires rbac.namespaced to be true. Kubernetes RBAC does not support resourceNames on cluster-scoped list/watch rules." }}
+{{- end }}
+
 {{- range $name, $config := .Values.ingressRoute }}
   {{- if regexMatch "[A-Z]" $name }}
     {{- fail (printf "ERROR: ingressRoute key %q contains uppercase characters and would generate an invalid Kubernetes resource name (RFC 1123 requires lowercase)." $name) }}
@@ -122,9 +126,25 @@
   {{- fail "ERROR: providers.kubernetesGateway.qps and .burst are only available for traefik >= v3.7.3." }}
 {{- end }}
 
+{{/* safeNaming=false is the Chart default, so only opting in is an error on older versions. */}}
+{{- if and (semverCompare "<v3.7.11-0" $version) (eq .Values.providers.kubernetesCRD.safeNaming true) }}
+  {{- fail "ERROR: providers.kubernetesCRD.safeNaming is only available for traefik >= v3.7.11." }}
+{{- end }}
+
+{{- if and (semverCompare "<v3.7.11-0" $version) (not (empty .Values.providers.kubernetesCRD.defaultTLSResourcesNamespace)) }}
+  {{- fail "ERROR: providers.kubernetesCRD.defaultTLSResourcesNamespace is only available for traefik >= v3.7.11." }}
+{{- end }}
+
+{{- if and (semverCompare "<v3.7.11-0" $version) .Values.core.strictTLSOptions }}
+  {{- fail "ERROR: core.strictTLSOptions is only available for traefik >= v3.7.11." }}
+{{- end }}
+
 {{- range $name, $config := .Values.ports }}
   {{- if and $config (($config.forwardedHeaders).notAppendXForwardedFor) (semverCompare "<v3.7.0-0" $version) }}
     {{- fail "ERROR: forwardedHeaders.notAppendXForwardedFor is only available for traefik >= v3.7.0." }}
+  {{- end }}
+  {{- if and $config (($config.http).aliasHeadersStrategy) (semverCompare "<v3.7.12-0" $version) }}
+    {{- fail "ERROR: http.aliasHeadersStrategy is only available for traefik >= v3.7.12." }}
   {{- end }}
   {{- if and $config (($config.http).underscoreHeadersStrategy) (semverCompare "<v3.7.6-0" $version) }}
     {{- fail "ERROR: http.underscoreHeadersStrategy is only available for traefik >= v3.7.6." }}
@@ -212,6 +232,10 @@
 
   {{- if and $.Values.hub.hardened (semverCompare "<v3.21.0-ea" $hubVersion) }}
     {{ fail "ERROR: hub.hardened is only available for Traefik Hub >= v3.21.0-ea, set image.tag accordingly." }}
+  {{- end }}
+
+  {{- if and $.Values.hub.apimanagement.openApi.refreshInterval (semverCompare "<v3.21.0-0" $hubVersion) }}
+    {{ fail "ERROR: hub.apimanagement.openApi.refreshInterval is only available for Traefik Hub >= v3.21.0." }}
   {{- end }}
 
   {{- if semverCompare "<v3.20.0-ea.7" $hubVersion }}

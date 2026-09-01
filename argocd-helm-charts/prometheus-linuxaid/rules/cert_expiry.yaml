@@ -5,7 +5,6 @@ groups:
         expr: |
           (last_over_time(probe_ssl_earliest_cert_expiry[1d]) - time()) < on(certname, domain) (86400 * threshold::monitor::domains::cert_expiry_days)
           and on(certname) obmondo_monitoring{alert_id="monitor::domains::cert_expiry"} > 0
-          and on(certname, domain) last_over_time(probe_success[1d]) == 1
         for: 0m
         labels:
           severity: critical

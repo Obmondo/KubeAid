@@ -11,12 +11,16 @@ tests:
         values: 1x1000
       - series: probe_ssl_earliest_cert_expiry{domain="example.com",certname="dev01.example"}
         values: 1036800x100       # Tuesday, January 13, 1970 12:00:00 AM
+      - series: probe_success{domain="example.com",certname="dev01.example"}
+        values: 1x100             # scrape succeeded within last_over_time window
       - series: threshold::monitor::domains::cert_expiry_days{domain="example.com",certname="dev01.example"}
         values: 10x100            # Alert before 10 days
       - series: obmondo_monitoring{certname="dev02.example", alert_id="monitor::domains::cert_expiry"}
         values: 0x1000
       - series: probe_ssl_earliest_cert_expiry{domain="example.com",certname="dev02.example"}
         values: 1036800x100       # Tuesday, January 13, 1970 12:00:00 AM
+      - series: probe_success{domain="example.com",certname="dev02.example"}
+        values: 1x100
       - series: threshold::monitor::domains::cert_expiry_days{domain="example.com",certname="dev02.example"}
         values: 10x100            # Alert before 10 days
 
@@ -37,3 +41,57 @@ tests:
       - alertname: monitor::domains::cert_expiry
         eval_time: 1d
         exp_alerts: []
+
+  # Certificate has ALREADY expired. Blackbox verifies TLS, so probe_success
+  # drops to 0 at exactly the moment the alert matters. The alert must still
+  # fire off the last known probe_ssl_earliest_cert_expiry sample.
+  - interval: 1d
+    input_series:
+      - series: obmondo_monitoring{certname="dev03.example", alert_id="monitor::domains::cert_expiry"}
+        values: 1x1000
+      - series: probe_ssl_earliest_cert_expiry{domain="example.com",certname="dev03.example"}
+        values: 172800x100        # Saturday, January 3, 1970 12:00:00 AM
+      - series: probe_success{domain="example.com",certname="dev03.example"}
+        values: 0x100             # TLS verification fails once the cert expires
+      - series: threshold::monitor::domains::cert_expiry_days{domain="example.com",certname="dev03.example"}
+        values: 10x100
+
+    alert_rule_test:
+      - alertname: monitor::domains::cert_expiry
+        eval_time: 8d
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              certname: dev03.example
+              alert_id: monitor::domains::cert_expiry
+              domain: example.com
+            exp_annotations:
+              summary: "SSL certificate will expire soon for domain **example.com**"
+              description: Blackbox exporter on dev03.example, domain example.com certificate expires in -6d 0h 0m 0s
+
+  # A single failed scrape inside the staleness window must not suppress the
+  # alert - the guard looks for any success in the last day, not the last one.
+  # Note: file-level evaluation_interval is 1d, so eval_time must be a whole day.
+  - interval: 1h
+    input_series:
+      - series: obmondo_monitoring{certname="dev04.example", alert_id="monitor::domains::cert_expiry"}
+        values: 1x1000
+      - series: probe_ssl_earliest_cert_expiry{domain="example.com",certname="dev04.example"}
+        values: 259200x100
+      - series: probe_success{domain="example.com",certname="dev04.example"}
+        values: 1x22 0x2          # most recent scrape failed, earlier ones succeeded
+      - series: threshold::monitor::domains::cert_expiry_days{domain="example.com",certname="dev04.example"}
+        values: 10x100
+
+    alert_rule_test:
+      - alertname: monitor::domains::cert_expiry
+        eval_time: 1d
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              certname: dev04.example
+              alert_id: monitor::domains::cert_expiry
+              domain: example.com
+            exp_annotations:
+              summary: "SSL certificate will expire soon for domain **example.com**"
+              description: Blackbox exporter on dev04.example, domain example.com certificate expires in 2d 0h 0m 0s

@@ -14,10 +14,12 @@ set -euo pipefail
 
 declare -i debug=0 \
   commit=0 \
-  show_versions=0 \
-  ignore_pinned_version=0
+  show_versions=0
 
-declare cluster_dir=''
+declare cluster_dir='' \
+  kubeaid_repo='' \
+  kubeaid_repo_root='' \
+  build_worktree=''
 
 function realpath() {
   [[ $1 = /* ]] && echo "$1" || echo "$PWD/${1#./}"
@@ -26,6 +28,10 @@ function realpath() {
 basedir="$(dirname "$(realpath "${0}")")"
 
 function _exit() {
+  if [ -n "${build_worktree}" ] && [ -d "${build_worktree}" ]; then
+    git -C "${kubeaid_repo_root}" worktree remove --force "${build_worktree}" 2>/dev/null ||
+      { rm -rf "${build_worktree}" && git -C "${kubeaid_repo_root}" worktree prune; }
+  fi
   if ! ((debug)); then
     if [ -n "${tmpdir+x}" ] && [ -d "${tmpdir}" ]; then
       rm -rf "${tmpdir}"
@@ -37,21 +43,24 @@ trap _exit EXIT
 
 function usage() {
   cat <<EOF
-${0} [-d|--debug] [--versions] <CLUSTER>
+${0} [-d|--debug] [--commit] [--kubeaid-repo <path>] [--versions] <CLUSTER>
 
 Compile kube-prometheus manifests from jsonnet template.
+
+The manifests are built from a temporary git worktree at the kubeaid tag
+pinned as spec.source.targetRevision on the cluster's kube-prometheus
+ArgoCD Application (HEAD means master). This checkout is left untouched.
 
 Arguments:
   -d|--debug
     Leave temporary output folder when exiting.
   --commit
     Commit the generated manifests in the kubeaid-config repo.
+  --kubeaid-repo <path>
+    Build from this local kubeaid checkout as-is, skipping the tag check.
+    For testing.
   --versions
     Show the kube-prometheus / Kubernetes compatibility table and exit.
-  --ignore-pinned-version
-    Do not re-exec build from the kubeaid version pinned in the cluster's
-    kube-prometheus ArgoCD Application (kubeaid.io/version label). Use the
-    current kubeaid checkout as-is.
 EOF
 }
 
@@ -82,8 +91,13 @@ while (($# > 0)); do
   --versions)
     show_versions=1
     ;;
-  --ignore-pinned-version)
-    ignore_pinned_version=1
+  --kubeaid-repo)
+    if ! [ -d "${2:-}" ]; then
+      echo "--kubeaid-repo needs a path to a kubeaid checkout"
+      exit 2
+    fi
+    kubeaid_repo="${2}"
+    shift
     ;;
   -h | --help)
     usage
@@ -136,52 +150,41 @@ if ((_version < 18000)); then
   exit 2
 fi
 
-# Honor the kubeaid.io/version label on the cluster's kube-prometheus ArgoCD
-# Application — re-exec from a git worktree at that ref when it's pinned.
-if ! ((ignore_pinned_version)); then
+# Pick the kubeaid checkout to build from. With --kubeaid-repo that checkout
+# is used as-is; otherwise a temporary worktree at the tag the cluster pins as
+# spec.source.targetRevision on its kube-prometheus ArgoCD Application, so
+# this checkout and any local changes in it are left alone.
+if [[ -n "${kubeaid_repo}" ]]; then
+  basedir="$(realpath "${kubeaid_repo%/}")/build/kube-prometheus"
+  if ! [[ -f "${basedir}/common-template.jsonnet" ]]; then
+    echo "ERROR: ${kubeaid_repo} is not a kubeaid checkout (no build/kube-prometheus/common-template.jsonnet)"
+    exit 2
+  fi
+  echo "Building from kubeaid checkout ${kubeaid_repo} as-is"
+else
+  kubeaid_repo_root=$(cd "${basedir}/../.." && pwd)
   argocd_app_file="${cluster_dir%/}/argocd-apps/templates/kube-prometheus.yaml"
-  pinned_version=''
-  if [[ -f "${argocd_app_file}" ]]; then
-    pinned_version=$(gojsontoyaml -yamltojson <"${argocd_app_file}" 2>/dev/null |
-      jq -r '.metadata.labels["kubeaid.io/version"] // ""' 2>/dev/null || echo '')
+  pinned_version=$(gojsontoyaml -yamltojson <"${argocd_app_file}" 2>/dev/null |
+    jq -r '.spec.source.targetRevision // ""' 2>/dev/null || echo '')
+  if [[ -z "${pinned_version}" ]]; then
+    echo "ERROR: kubeaid tag missing in ${argocd_app_file} (spec.source.targetRevision)"
+    exit 2
   fi
 
-  case "${pinned_version}" in
-  '' | HEAD | main | master | null)
-    : # use current kubeaid checkout
-    ;;
-  *)
-    kubeaid_repo_root=$(realpath "${basedir}/../..")
-    if ! pinned_sha=$(git -C "${kubeaid_repo_root}" rev-parse --verify "${pinned_version}^{commit}" 2>/dev/null); then
-      echo "ERROR: Pinned kubeaid version '${pinned_version}' not found locally."
-      echo "Run 'git -C ${kubeaid_repo_root} fetch --tags origin' and retry,"
-      echo "fix the 'kubeaid.io/version' label in ${argocd_app_file},"
-      echo "or pass --ignore-pinned-version to build with the current checkout."
-      exit 2
-    fi
-    current_sha=$(git -C "${kubeaid_repo_root}" rev-parse HEAD)
-    if [[ "${current_sha}" == "${pinned_sha}" ]]; then
-      echo "kubeaid already at pinned version ${pinned_version} (${pinned_sha:0:8})"
-    else
-      worktree_dir="${basedir}/.worktrees/${pinned_version}"
-      if [[ ! -d "${worktree_dir}" ]]; then
-        mkdir -p "$(dirname "${worktree_dir}")"
-        echo "Creating worktree at ${worktree_dir} for kubeaid ${pinned_version}..."
-        git -C "${kubeaid_repo_root}" worktree add -f "${worktree_dir}" "${pinned_version}"
-      fi
+  # HEAD on the Application means the tip of master.
+  pinned_ref="${pinned_version}"
+  if [[ "${pinned_version}" == HEAD ]]; then
+    pinned_ref=master
+  fi
+  if ! pinned_sha=$(git -C "${kubeaid_repo_root}" rev-parse --verify "${pinned_ref}^{commit}" 2>/dev/null); then
+    echo "ERROR: kubeaid ref '${pinned_ref}' not found in ${kubeaid_repo_root}; run 'git -C ${kubeaid_repo_root} fetch --tags origin'"
+    exit 2
+  fi
 
-      abs_cluster_dir=$(realpath "${cluster_dir}")
-
-      reexec_args=()
-      ((debug)) && reexec_args+=(--debug)
-      ((commit)) && reexec_args+=(--commit)
-      reexec_args+=("${abs_cluster_dir}")
-
-      echo "Re-executing build from kubeaid ${pinned_version} (${pinned_sha:0:8})..."
-      exec "${worktree_dir}/build/kube-prometheus/build.sh" "${reexec_args[@]}"
-    fi
-    ;;
-  esac
+  build_worktree=$(mktemp -d -t kubeaid-build.XXXXXX)
+  git -C "${kubeaid_repo_root}" worktree add -q --detach "${build_worktree}" "${pinned_sha}"
+  basedir="${build_worktree}/build/kube-prometheus"
+  echo "Building from kubeaid ${pinned_version} (${pinned_sha:0:8}) in a temporary worktree"
 fi
 
 # Make sure to use project tooling

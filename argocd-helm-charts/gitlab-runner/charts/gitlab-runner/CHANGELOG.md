@@ -1,3 +1,16 @@
+## v0.92.1 (2026-08-25)
+
+### New features
+
+- Update GitLab Runner version to v19.3.1
+
+## v0.92.0 (2026-08-19)
+
+### New features
+
+- Update GitLab Runner version to v19.3.0
+- feat: add support for initContainers in deployment. [!537](https://gitlab.com/gitlab-org/charts/gitlab-runner/-/merge_requests/537) (David Steinkopff @zeitiger)
+
 ## v0.91.2 (2026-08-13)
 
 ### New features
@@ -15,6 +28,12 @@
 - Add optional PodDisruptionBudget for the runner manager Deployment [!553](https://gitlab.com/gitlab-org/charts/gitlab-runner/-/merge_requests/553)
 - Add optional startupProbe to the runner Deployment [!551](https://gitlab.com/gitlab-org/charts/gitlab-runner/-/merge_requests/551)
 
+## v0.90.2 (2026-07-30)
+
+### New features
+
+- Update GitLab Runner version to v19.1.2
+
 ## v0.90.1 (2026-06-25)
 
 ### New features
@@ -26,6 +45,12 @@
 ### New features
 
 - Update GitLab Runner version to v19.1.0
+
+## v0.89.3 (2026-07-31)
+
+### New features
+
+- Update GitLab Runner version to v19.0.3
 
 ## v0.89.2 (2026-06-29)
 

@@ -6,4 +6,4 @@ dependencies:
   repository: https://ceph.github.io/ceph-csi-operator
   version: 1.0.4
 digest: sha256:0fac8772862dfd838925c4bd68d07bdabbca5df95496c76110c867d5f06be1ad
-generated: "2026-08-13T20:10:29.912578955Z"
+generated: "2026-08-20T21:09:16.833382062Z"

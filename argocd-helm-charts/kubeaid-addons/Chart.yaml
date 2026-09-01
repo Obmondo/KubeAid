@@ -1,4 +1,4 @@
-apiVersion: v1
+apiVersion: v2
 name: kubeaid-addons
 description: KubeAid addons chart for per-namespace infrastructure primitives
 # A chart can be either an 'application' or a 'library' chart.
@@ -15,3 +15,9 @@ type: application
 # to the chart and its templates, including the app version.
 # Versions are expected to follow Semantic Versioning (https://semver.org/)
 version: 0.1.0
+
+dependencies:
+  - name: mongodb
+    version: 1.0.0
+  - name: network-policies
+    version: 1.0.0

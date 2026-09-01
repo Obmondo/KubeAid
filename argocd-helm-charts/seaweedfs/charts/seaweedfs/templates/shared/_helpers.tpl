@@ -76,6 +76,18 @@ Inject extra environment vars in the format key:value, if populated
 {{- end }}
 {{- end -}}
 
+{{/* Whether the mysql filer store is selected; a flag the chart cannot read counts as selected. */}}
+{{- define "seaweedfs.filer.mysqlEnabled" -}}
+{{- $merged := dict -}}
+{{- $_ := include "seaweedfs.mergeExtraEnvironmentVars" (dict "global" .Values.global.seaweedfs "component" .Values.filer "target" $merged) -}}
+{{- $enabled := index $merged "WEED_MYSQL_ENABLED" -}}
+{{- if or (kindIs "map" $enabled) (hasKey (.Values.filer.secretExtraEnvironmentVars | default dict) "WEED_MYSQL_ENABLED") -}}
+true
+{{- else if and $enabled (eq (lower (toString $enabled)) "true") -}}
+true
+{{- end -}}
+{{- end -}}
+
 {{/* Return the proper filer image */}}
 {{- define "seaweedfs.filer.image" -}}
 {{- if .Values.filer.imageOverride -}}
@@ -494,6 +506,39 @@ true
       (.Values.global.seaweedfs.license.mountPath | default "/etc/seaweedfs/license")
       (.Values.global.seaweedfs.license.secretKey | default "seaweed-license.json") | quote }}
 {{- end }}
+{{- end -}}
+
+{{/* Name of the environment variable carrying one generated S3 credential
+     field, e.g. SEAWEEDFS_S3_ADMIN_ACCESS_KEY_ID. The generated identities file
+     names it in place of the key when the key lives in an existing Secret.
+     Usage: include "seaweedfs.s3.credentialEnvName" (list "admin" "accessKey") */}}
+{{- define "seaweedfs.s3.credentialEnvName" -}}
+{{- $identity := index . 0 -}}
+{{- $field := index . 1 -}}
+{{- printf "SEAWEEDFS_S3_%s_%s" (upper $identity) (ternary "ACCESS_KEY_ID" "SECRET_ACCESS_KEY" (eq $field "accessKey")) -}}
+{{- end -}}
+
+{{/* Environment for the S3 identities the chart generates from an existing
+     Secret. The gateway resolves the ${VAR} references the identities file
+     carries, so the keys never enter the rendered manifests and a dry run
+     renders the same as an install. */}}
+{{- define "seaweedfs.s3.credentialEnv" -}}
+{{- $creds := $.Values.s3.credentials | default dict -}}
+{{- range $identity := list "admin" "read" -}}
+{{- $identityCreds := index $creds $identity | default dict -}}
+{{- if $identityCreds.existingSecret }}
+- name: {{ include "seaweedfs.s3.credentialEnvName" (list $identity "accessKey") }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ $identityCreds.existingSecret | quote }}
+      key: {{ default (printf "%s_access_key_id" $identity) $identityCreds.accessKeyKey | quote }}
+- name: {{ include "seaweedfs.s3.credentialEnvName" (list $identity "secretKey") }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ $identityCreds.existingSecret | quote }}
+      key: {{ default (printf "%s_secret_access_key" $identity) $identityCreds.secretKeyKey | quote }}
+{{- end -}}
+{{- end -}}
 {{- end -}}
 
 {{/* Generate a compatible trafficDistribution value due to "PreferClose" fast deprecation in k8s v1.35.

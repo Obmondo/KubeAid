@@ -1,6 +1,7 @@
 # Values for the backup-exporter subchart.
 #
-# Reports backup health for PostgreSQL, Velero, MongoDB and sealed-secrets. The
+# Reports backup health for PostgreSQL, Velero, MongoDB, MariaDB and
+# sealed-secrets. The
 # parent chart deploys it as its own Deployment with its own ServiceAccount.
 
 # -- OFF by default, unlike the security exporter, because this one cannot start
@@ -211,6 +212,34 @@ exporter:
       # Direct values for testing (used when secretName is empty).
       accessKeyId: ""
       secretAccessKey: ""
+  mariadb:
+    # The MariaDB dump exporter is opt-in like the MongoDB one. It reads the
+    # mariadb-operator Backup resources for their S3 coordinates and dates the
+    # dumps they wrote, so a cluster with no S3-backed Backup has nothing to
+    # report. A Backup with spec.schedule.suspend=true is not monitored: a
+    # schedule switched off on purpose is not a missing backup.
+    enabled: false
+
+    # Maximum acceptable Recovery Point Objective (RPO) for MariaDB dumps.
+    # Supported formats: "24h", "6h", "30m", "1d", "7d"
+    max_rpo: 26h
+
+    # Rate at which the exporter checks backup health, expressed as a fraction
+    # of max_rpo. Must be between 0 and 1. Defaults to 0.25.
+    interval_rate: 0.25
+
+    # Credentials for listing the dump bucket. Required when enabled: the
+    # exporter uses its own read-only keys and never follows the Backup's
+    # secretKeyRef, which would need "get" on secrets in every namespace.
+    # Everything else -- bucket, prefix, region, endpoint -- is read off
+    # Backup.spec.storage.s3. These keys must be able to list that bucket.
+    s3:
+      # Name of the Kubernetes Secret containing S3 credentials.
+      # Expected secret keys: access-key-id, secret-access-key
+      secretName: ""
+      # Direct values for testing (used when secretName is empty).
+      accessKeyId: ""
+      secretAccessKey: ""
   sealedSecrets:
     # The sealed-secrets master key backup. Opt-in: a cluster whose
     # sealed-secrets chart has backup.enabled=false has nothing to report.
@@ -260,6 +289,14 @@ prometheusRule:
     namespace: monitoring
   mongodb:
     # Follows exporter.mongodb.enabled -- rules for an exporter that is not
+    # running would alert on series that never appear.
+    enabled: false
+    labels: {}
+    severity: critical
+    alertForDuration: 5m
+    namespace: monitoring
+  mariadb:
+    # Follows exporter.mariadb.enabled -- rules for an exporter that is not
     # running would alert on series that never appear.
     enabled: false
     labels: {}

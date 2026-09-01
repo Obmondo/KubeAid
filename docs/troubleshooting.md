@@ -5,7 +5,7 @@ Platform-level problems on a running KubeAid cluster, in symptom → cause → f
 > **Bootstrap or provisioning failing?** Failures during `kubeaid-cli cluster bootstrap` (Hetzner capacity errors,
 > immutable machine templates, stuck control planes, NAT gateway issues, and more) are covered in the
 > [kubeaid-cli troubleshooting guide](https://github.com/Obmondo/kubeaid-cli/blob/main/docs/troubleshooting.md) -
-> start there, not here. Bootstrap logs live in `outputs/logs/` (one timestamped file per run).
+> start there, not here. Bootstrap logs live in `~/.config/kubeaid-cli/<cluster>/logs/` (one timestamped file per run).
 
 ## ArgoCD application OutOfSync or stuck syncing
 
@@ -61,12 +61,16 @@ original plaintext against the new cluster.
 **Cause:** Wrong path, the cluster was never created, or the cluster is VPN-type (where the generic kubeconfig flow
 doesn't apply).
 
-**Fix:** The kubeconfig is written to `outputs/kubeconfigs/clusters/main.yaml` relative to where you ran the CLI:
+**Fix:** The kubeconfig is written into the cluster's directory under the per-user config root — the exact
+`export KUBECONFIG=...` line is printed at the end of `cluster bootstrap`. On Linux:
 
 ```bash
-export KUBECONFIG=./outputs/kubeconfigs/clusters/main.yaml
+export KUBECONFIG=~/.config/kubeaid-cli/<cluster>/kubeconfigs/main.yaml
 kubectl cluster-info
 ```
+
+(On macOS the per-user root is `~/Library/Application Support/kubeaid-cli/` instead, and a local K3D
+cluster's kubeconfig is `kubeconfigs/management/host.yaml`.)
 
 For **VPN-type clusters** (`cluster.type: vpn`), the public kube-apiserver load balancer is disabled after bootstrap
 and API access moves to the NetBird mesh - follow the

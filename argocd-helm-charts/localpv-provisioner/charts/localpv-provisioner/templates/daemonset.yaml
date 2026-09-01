@@ -1,5 +1,6 @@
 {{- if .Values.localpv.enabled }}
 {{- if .Values.localpv.nodeDeployment.enabled }}
+{{- $healthPort := default 8081 .Values.localpv.healthCheck.port }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -109,11 +110,17 @@ spec:
           # leader-election; it is not managed by Helm.
         - name: OPENEBS_IO_ANALYTICS_LEASE
           value: {{ include "localpv.analyticsLease.name" . | quote }}
-        {{- if .Values.analytics.gaId }}
+        {{- if .Values.global.analytics.gaId }}
+        - name: GA_ID
+          value: {{ .Values.global.analytics.gaId | quote }}
+        {{- else if .Values.analytics.gaId }}
         - name: GA_ID
           value: {{ .Values.analytics.gaId | quote }}
         {{- end }}
-        {{- if .Values.analytics.gaKey }}
+        {{- if .Values.global.analytics.gaKey }}
+        - name: GA_KEY
+          value: {{ .Values.global.analytics.gaKey | quote }}
+        {{- else if .Values.analytics.gaKey }}
         - name: GA_KEY
           value: {{ .Values.analytics.gaKey | quote }}
         {{- end }}
@@ -121,8 +128,18 @@ spec:
           value: "{{ .Values.localpv.basePath }}"
         - name: OPENEBS_IO_WORKER_THREADS
           value: {{ .Values.localpv.controller.workers | quote }}
+        {{- if .Values.localpv.controller.client.qps }}
+        - name: OPENEBS_IO_CLIENT_QPS
+          value: {{ .Values.localpv.controller.client.qps | quote }}
+        {{- end }}
+        {{- if .Values.localpv.controller.client.burst }}
+        - name: OPENEBS_IO_CLIENT_BURST
+          value: {{ .Values.localpv.controller.client.burst | quote }}
+        {{- end }}
         - name: OPENEBS_IO_HELPER_IMAGE
           value: "{{ include "localpv.common.image" (dict "imageRoot" .Values.helperPod.image "global" .Values.global "override" .Values.globalImageRegistryOverride) }}"
+        - name: OPENEBS_IO_IMAGE_PULL_POLICY
+          value: "{{ default .Values.helperPod.image.pullPolicy .Values.global.imagePullPolicy }}"
         - name: OPENEBS_IO_HELPER_POD_HOST_NETWORK
           value: "{{ .Values.helperPod.hostNetwork }}"
         - name: OPENEBS_IO_INSTALLER_TYPE
@@ -136,23 +153,40 @@ spec:
         # Enable node deployment mode
         - name: NODE_DEPLOYMENT
           value: "true"
+        # OPENEBS_IO_HEALTH_PROBE_BIND_ADDRESS is the address the health-probe
+        # HTTP server binds to. /healthz serves liveness, /readyz serves readiness.
+        - name: OPENEBS_IO_HEALTH_PROBE_BIND_ADDRESS
+          value: ":{{ $healthPort }}"
 {{- include "localpv.helper.pullSecrets" . | indent 8 }}
         args:
         - "--node-deployment=true"
-        # Process name used for matching is limited to the 15 characters
-        # present in the pgrep output.
-        # So fullname can't be used here with pgrep (>15 chars).A regular expression
-        # that matches the entire command name has to specified.
-        # Anchor `^` : matches any string that starts with `provisioner-loc`
-        # `.*`: matches any string that has `provisioner-loc` followed by zero or more char
+        {{- if .Values.localpv.allowInsecurePvcBasePathOverride }}
+        - "--allow-insecure-pvc-basepath-override"
+        {{- end }}
+        ports:
+        - name: healthz
+          containerPort: {{ $healthPort }}
+          protocol: TCP
+        {{- if .Values.localpv.healthCheck.liveness.enabled }}
         livenessProbe:
-          exec:
-            command:
-            - sh
-            - -c
-            - test `pgrep -c "^provisioner-loc.*"` = 1
-          initialDelaySeconds: {{ .Values.localpv.healthCheck.initialDelaySeconds }}
-          periodSeconds: {{ .Values.localpv.healthCheck.periodSeconds }}
+          httpGet:
+            path: /healthz
+            port: healthz
+          initialDelaySeconds: {{ .Values.localpv.healthCheck.liveness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.localpv.healthCheck.liveness.periodSeconds }}
+          timeoutSeconds: {{ .Values.localpv.healthCheck.liveness.timeoutSeconds }}
+          failureThreshold: {{ .Values.localpv.healthCheck.liveness.failureThreshold }}
+        {{- end }}
+        {{- if .Values.localpv.healthCheck.readiness.enabled }}
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: healthz
+          initialDelaySeconds: {{ .Values.localpv.healthCheck.readiness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.localpv.healthCheck.readiness.periodSeconds }}
+          timeoutSeconds: {{ .Values.localpv.healthCheck.readiness.timeoutSeconds }}
+          failureThreshold: {{ .Values.localpv.healthCheck.readiness.failureThreshold }}
+        {{- end }}
         volumeMounts:
         - name: host-root
           mountPath: /host

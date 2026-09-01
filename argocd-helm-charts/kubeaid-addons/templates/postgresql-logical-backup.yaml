@@ -1,0 +1,118 @@
+{{- if (((.Values.global).postgresql).logicalbackup).enabled }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Values.global.postgresql.instanceName }}-pgsql-logical-backup
+spec:
+  concurrencyPolicy: Forbid
+  suspend: false
+  failedJobsHistoryLimit: 1
+  schedule: {{ (((.Values.global).postgresql).logicalbackup).schedule | default "30 00 * * *" | quote }}
+  successfulJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: {{ .Values.global.postgresql.instanceName }}-logical-backup
+          {{- with (((.Values.global).postgresql).logicalbackup).podAnnotations }}
+          annotations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        spec:
+          containers:
+            - name: logical-backup
+              image: "{{ (((((.Values.global).postgresql).logicalbackup).image)).repository | default "ghcr.io/obmondo/postgres-logical-backup" }}:{{ (((((.Values.global).postgresql).logicalbackup).image)).tag | default "26.8.0" }}"
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: POD_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      apiVersion: v1
+                      fieldPath: metadata.namespace
+                - name: PGHOST
+                  value: {{ (((.Values.global).postgresql).logicalbackup).host | default (printf "%s-rw" ((.Values.global).postgresql).instanceName) | quote }}
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ (((.Values.global).postgresql).logicalbackup).secretName | default (printf "%s-app" ((.Values.global).postgresql).instanceName) }}
+                      key: password
+                - name: PGPORT
+                  value: {{ (((.Values.global).postgresql).logicalbackup).port | default "5432" | quote }}
+                - name: PGUSER
+                  value: {{ (((.Values.global).postgresql).logicalbackup).user | default ((.Values.global).postgresql).owner | default "postgres" | quote }}
+                - name: PGDATABASE
+                  value: {{ (((.Values.global).postgresql).logicalbackup).db | default ((.Values.global).postgresql).database | default "postgres" | quote }}
+                - name: CLUSTER_NAME_LABEL
+                  value: {{ (((.Values.global).postgresql).logicalbackup).pgOperatorClusterName | default ((.Values.global).postgresql).instanceName | quote }}
+
+              {{- if eq (((.Values.global).postgresql).logicalbackup).provider "az" }}
+                - name: LOGICAL_BACKUP_PROVIDER
+                  value: "az"
+                - name: LOGICAL_BACKUP_AZURE_STORAGE_ACCOUNT_NAME
+                  value: {{ (((.Values.global).postgresql).logicalbackup).storeageaccount | quote }}
+                - name: LOGICAL_BACKUP_AZURE_STORAGE_CONTAINER
+                  value: {{ (((.Values.global).postgresql).logicalbackup).azurecontainer | quote }}
+                - name: LOGICAL_BACKUP_AZURE_STORAGE_ACCOUNT_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      key: LOGICAL_BACKUP_AZURE_STORAGE_ACCOUNT_KEY
+                      name: {{ ((.Values.global).postgresql).instanceName }}-postgres-pod-env
+                - name: LOGICAL_BACKUP_S3_BUCKET
+                  value: {{ (((.Values.global).postgresql).logicalbackup).azurecontainer | quote }}
+                - name: LOGICAL_BACKUP_S3_BUCKET_SCOPE_SUFFIX
+                  value: {{ (((.Values.global).postgresql).logicalbackup).s3bucketscopesuffix | default "logicalbackup" | quote }}
+
+              {{- else if eq (((.Values.global).postgresql).logicalbackup).provider "s3" }}
+                - name: LOGICAL_BACKUP_PROVIDER
+                  value: "s3"
+                {{- if not (((.Values.global).postgresql).logicalbackup).enableKube2IAMIntegration }}
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      key: AWS_ACCESS_KEY_ID
+                      name: {{ ((.Values.global).postgresql).instanceName }}-postgres-pod-env
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      key: AWS_SECRET_ACCESS_KEY
+                      name: {{ ((.Values.global).postgresql).instanceName }}-postgres-pod-env
+                {{- end }}
+                - name: LOGICAL_BACKUP_S3_ENDPOINT
+                  value: {{ (((.Values.global).postgresql).logicalbackup).s3endpoint | quote }}
+                - name: LOGICAL_BACKUP_S3_BUCKET_SCOPE_SUFFIX
+                  value: {{ (((.Values.global).postgresql).logicalbackup).s3bucketscopesuffix | default "logicalbackup" | quote }}
+                - name: LOGICAL_BACKUP_S3_REGION
+                  value: {{ (((.Values.global).postgresql).logicalbackup).s3region | quote }}
+                - name: LOGICAL_BACKUP_S3_BUCKET
+                  value: {{ (((.Values.global).postgresql).logicalbackup).s3bucket | quote }}
+                - name: LOGICAL_BACKUP_S3_RETENTION_TIME
+                  value: {{ (((.Values.global).postgresql).logicalbackup).retention | quote }}
+              {{- end }}
+
+                - name: PG_VERSION
+                  value: {{ (((.Values.global).postgresql).logicalbackup).pgversion | default "16" | quote }}
+                - name: USE_PG_DUMP
+                  value: {{ (((.Values.global).postgresql).logicalbackup).usePgDump | default false | quote }}
+                - name: POSTGRES_OPERATOR
+                  value: cnpg
+              {{- with (((.Values.global).postgresql).logicalbackup).extraEnv }}
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              resources:
+                limits:
+                  memory: 500Mi
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+              securityContext:
+                allowPrivilegeEscalation: true
+                privileged: false
+                readOnlyRootFilesystem: false
+              terminationMessagePath: /dev/termination-log
+              terminationMessagePolicy: File
+          dnsPolicy: ClusterFirst
+          restartPolicy: Never
+          terminationGracePeriodSeconds: 300
+{{- end }}

@@ -1,0 +1,27 @@
+{{- if .Values.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "kubeaid-agent.fullname" . }}
+  labels:
+    {{- include "kubeaid-agent.labels" . | nindent 4 }}
+    {{- with .Values.prometheusRule.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.prometheusRule.additionalAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  groups:
+    - name: node-count-monthly-status
+      rules:
+        - alert: MissingNodeCountDetected
+          annotations:
+            description: The cluster **{{ "{{ $labels.certname }}" }}** failed to fetch or report its node count to the Obmondo API. Node count data may be missing for the monthly average calculation.
+          expr: kubeaid_agent_node_count_report_status == 1
+          for: 1h
+          labels:
+            alert_id: MissingNodeCountDetected
+            severity: critical
+{{- end }}

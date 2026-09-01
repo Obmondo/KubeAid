@@ -1,5 +1,109 @@
 # Change Log
 
+## 41.4.0  ![AppVersion: v3.7.12](https://img.shields.io/static/v1?label=AppVersion&message=v3.7.12&color=success&logo=) ![Kubernetes: >=1.25.0-0](https://img.shields.io/static/v1?label=Kubernetes&message=%3E%3D1.25.0-0&color=informational&logo=kubernetes) ![Helm: v3](https://img.shields.io/static/v1?label=Helm&message=v3&color=informational&logo=helm)
+
+**Release date:** 2026-08-27
+
+* fix: :bug: hub/proxy mapping
+* fix(rbac): restore secretResourceNames for namespaced role
+* feat: deprecate `underscoreHeadersStrategy` value
+* feat: add `aliasHeadersStrategy` value
+* feat(hub): :sparkles: support apiManagement OpenAPI refresh interval
+* feat(deps): update traefik docker tag to v3.7.12
+* feat(deps): update ghcr.io/traefik/traefik-hub docker tag to v3.20.12
+* chore(release): 🚀 publish 41.4.0
+
+### Default value changes
+
+```diff
+diff --git a/traefik/values.yaml b/traefik/values.yaml
+index 54a55eb..6bef216 100644
+--- a/traefik/values.yaml
++++ b/traefik/values.yaml
+@@ -1044,9 +1044,13 @@ ports:
+       middlewares: []  # @schema type: [array, null]
+       # -- (bool) See [upstream documentation](https://doc.traefik.io/traefik/security/request-path/#path-sanitization)
+       sanitizePath:  # @schema type:[boolean, null]
+-      # -- Defines how request headers with underscores in their names are handled (v3.7.6+).
++      # -- Defines how request headers with non-alphanumeric characters in their names are handled (v3.7.12+).
++      # See [upstream documentation](https://doc.traefik.io/traefik/reference/install-configuration/entrypoints/#aliasheadersstrategy)
++      aliasHeadersStrategy:  # @schema enum:[keep, delete, reject, null]; type:[string, null]
++      # -- Defines how request headers with underscores in their names are handled (v3.7.6-v3.7.11).
++      # Replaced by the aliasHeadersStrategy option for Traefik v3.7.12+.
+       # See [upstream documentation](https://doc.traefik.io/traefik/reference/install-configuration/entrypoints/#underscoreheadersstrategy)
+-      underscoreHeadersStrategy:  # @schema enum:[keep, delete, reject, null]; type:[string, null]
++      underscoreHeadersStrategy:  # @schema deprecated; enum:[keep, delete, reject, null]; type:[string, null]
+       tls:
+         # -- See [upstream documentation](https://doc.traefik.io/traefik/reference/install-configuration/entrypoints/#opt-http-tls)
+         # @default -- true
+@@ -1207,6 +1211,8 @@ rbac:  # @schema additionalProperties: false
+   # -- Enable user-facing roles
+   # https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles
+   aggregateTo: []
++  # -- List of Kubernetes secrets that are accessible for Traefik when `rbac.namespaced` is true. If empty, then access is granted to every secret. Ignored when `rbac.namespaced` is false (ClusterRole), since Kubernetes RBAC does not support `resourceNames` on cluster-scoped list/watch rules.
++  secretResourceNames: []
+ 
+ # -- The service account the pods will use to interact with the Kubernetes API
+ serviceAccount:  # @schema additionalProperties: false
+@@ -1327,6 +1333,9 @@ hub:  # @schema additionalProperties: false
+     openApi:
+       # -- When set to true, it will only accept paths and methods that are explicitly defined in its OpenAPI specification
+       validateRequestMethodAndPath: false
++      # -- Interval to refresh the OpenAPI specification, as a Go duration. Must be at least `1m`.
++      # @default -- `1m` when unset
++      refreshInterval: ""
+ 
+   mcpgateway:
+     # -- Set to true in order to enable AI MCP Gateway. Requires a valid license token.
+```
+
+
+## 41.3.0  ![AppVersion: v3.7.11](https://img.shields.io/static/v1?label=AppVersion&message=v3.7.11&color=success&logo=) ![Kubernetes: >=1.25.0-0](https://img.shields.io/static/v1?label=Kubernetes&message=%3E%3D1.25.0-0&color=informational&logo=kubernetes) ![Helm: v3](https://img.shields.io/static/v1?label=Helm&message=v3&color=informational&logo=helm)
+
+**Release date:** 2026-08-19
+
+* feat: add new options for traefik v3.7.11
+* feat(deps): ✨ update traefik-hub to v3.20.11
+* feat(deps): update traefik to v3.7.11 and traefik-hub to v3.20.10
+* chore(release): 🚀 publish 41.3.0
+
+### Default value changes
+
+```diff
+diff --git a/traefik/values.yaml b/traefik/values.yaml
+index 86ab414..54a55eb 100644
+--- a/traefik/values.yaml
++++ b/traefik/values.yaml
+@@ -133,6 +133,8 @@ core:  # @schema additionalProperties: false
+   # -- Can be used to use globally v2 router syntax. Deprecated since v3.4 /!\.
+   # See https://doc.traefik.io/traefik/v3.0/migration/v2-to-v3/#new-v3-syntax-notable-changes
+   defaultRuleSyntax: ""
++  # -- Disables the unsafe fallback to default TLS options on conflict, mitigating [GHSA-g55h-rg46-x9c5](https://github.com/traefik/traefik/security/advisories/GHSA-g55h-rg46-x9c5). Requires traefik v3.7.11+.
++  strictTLSOptions: false
+ 
+ # Traefik experimental features
+ experimental:
+@@ -316,6 +318,8 @@ providers:
+     allowEmptyServices: true
+     # -- List of namespaces from which IngressRoute, IngressRouteTCP, IngressRouteUDP, and TraefikService are allowed to declare cross-provider references. Requires traefik v3.7.1+.
+     crossProviderNamespaces: []
++    # -- Restricts the namespace where the cluster-wide TLSOption and TLSStore named `default` can be defined. When empty, any namespace is allowed. Requires traefik v3.7.11+.
++    defaultTLSResourcesNamespace: ""
+     # -- When the parameter is set, only resources containing an annotation with the same value are processed. Otherwise, resources missing the annotation, having an empty value, or the value traefik are processed. It will also set required annotation on Dashboard and Healthcheck IngressRoute when enabled.
+     ingressClass: ""
+     # -- See [upstream documentation](https://doc.traefik.io/traefik/reference/install-configuration/providers/kubernetes/kubernetes-ingress/#opt-providers-kubernetesIngress-labelselector)
+@@ -324,6 +328,8 @@ providers:
+     namespaces: []
+     # -- Defines whether to use Native Kubernetes load-balancing mode by default.
+     nativeLBByDefault: false
++    # -- Enables collision-safe naming. ⚠️ It can be breaking, see [upstream documentation](https://doc.traefik.io/traefik/reference/install-configuration/providers/kubernetes/kubernetes-crd/#safenaming). Requires traefik v3.7.11+.
++    safeNaming: false
+ 
+   # @schema additionalProperties: false
+   kubernetesIngress:
+```
+
+
 ## 41.2.0  ![AppVersion: v3.7.10](https://img.shields.io/static/v1?label=AppVersion&message=v3.7.10&color=success&logo=) ![Kubernetes: >=1.25.0-0](https://img.shields.io/static/v1?label=Kubernetes&message=%3E%3D1.25.0-0&color=informational&logo=kubernetes) ![Helm: v3](https://img.shields.io/static/v1?label=Helm&message=v3&color=informational&logo=helm)
 
 **Release date:** 2026-08-07

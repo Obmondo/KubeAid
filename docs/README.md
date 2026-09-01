@@ -83,8 +83,8 @@ Concept and design docs — why KubeAid works the way it does:
 | [GitOps Drift Detection](./kubeaid/gitops-drift-detection.md) | ArgoCD sync status, orphaned resources, and alerting |
 | [Security Design](./kubeaid/security-design.md) | The security goals behind the platform's defaults |
 | [Cluster Design](./cluster-design.md) | Control plane, storage, and database HA design principles |
-| [Architecture Decisions](../decisions.md) | Technical choices and architectural evolution |
-| [GitOps Decision Record](../decisions/gitops.md) | Real-world GitOps patterns and incident lessons |
+| [Design Decisions](./kubeaid/decisions.md) | Technical choices and architectural evolution |
+| [GitOps Decision Record](./kubeaid/decisions/gitops.md) | Real-world GitOps patterns and incident lessons |
 
 ## Maintainer Docs
 

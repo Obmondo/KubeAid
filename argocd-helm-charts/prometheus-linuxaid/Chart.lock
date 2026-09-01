@@ -1,0 +1,6 @@
+dependencies:
+- name: kubeaid-addons
+  repository: file://../kubeaid-addons
+  version: 0.1.0
+digest: sha256:bdb24e06cf50b4e684a392bbe22e8b3f19d6e204311d0926882500ecf66b9f4c
+generated: "2026-08-21T20:04:45.424286408+05:30"

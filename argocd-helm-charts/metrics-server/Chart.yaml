@@ -3,7 +3,7 @@ name: metrics-server
 version: 0.5.0
 dependencies:
   - name: metrics-server
-    version: 3.13.1
+    version: 3.14.0
     repository: https://kubernetes-sigs.github.io/metrics-server/
     #repository: "oci://ghcr.io/Obmondo"
     # NB. This needs to be changed to pull from new location once this issue is resolved/merged: https://github.com/kubernetes-sigs/metrics-server/pull/670

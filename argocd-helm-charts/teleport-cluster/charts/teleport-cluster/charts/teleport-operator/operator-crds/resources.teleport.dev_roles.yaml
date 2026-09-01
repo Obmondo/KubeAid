@@ -1,6 +1,8 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    resources.teleport.dev/scoped: "false"
   name: teleportroles.resources.teleport.dev
 spec:
   group: resources.teleport.dev
@@ -308,6 +310,23 @@ spec:
                       type: string
                     nullable: true
                     type: array
+                  linux_desktop_labels:
+                    additionalProperties:
+                      x-kubernetes-preserve-unknown-fields: true
+                    description: LinuxDesktopLabels are used in the RBAC system to
+                      allow/deny access to Linux desktops.
+                    type: object
+                  linux_desktop_labels_expression:
+                    description: LinuxDesktopLabelsExpression is a predicate expression
+                      used to allow/deny access to Linux desktops.
+                    type: string
+                  linux_desktop_logins:
+                    description: LinuxDesktopLogins is a list of desktop login names
+                      allowed/denied for Linux desktops.
+                    items:
+                      type: string
+                    nullable: true
+                    type: array
                   logins:
                     description: Logins is a list of *nix system logins.
                     items:
@@ -547,6 +566,15 @@ spec:
                         type: array
                       roles:
                         description: Roles is the name of roles which may be reviewed.
+                        items:
+                          type: string
+                        nullable: true
+                        type: array
+                      submit_for_users:
+                        description: SubmitForUsers is used by Teleport plugins to
+                          indicate they can submit reviews on behalf of other users.
+                          Reviews submitted for a user are evaluated against that
+                          user's own RBAC permissions. Supports wildcard (*).
                         items:
                           type: string
                         nullable: true
@@ -935,6 +963,23 @@ spec:
                       type: string
                     nullable: true
                     type: array
+                  linux_desktop_labels:
+                    additionalProperties:
+                      x-kubernetes-preserve-unknown-fields: true
+                    description: LinuxDesktopLabels are used in the RBAC system to
+                      allow/deny access to Linux desktops.
+                    type: object
+                  linux_desktop_labels_expression:
+                    description: LinuxDesktopLabelsExpression is a predicate expression
+                      used to allow/deny access to Linux desktops.
+                    type: string
+                  linux_desktop_logins:
+                    description: LinuxDesktopLogins is a list of desktop login names
+                      allowed/denied for Linux desktops.
+                    items:
+                      type: string
+                    nullable: true
+                    type: array
                   logins:
                     description: Logins is a list of *nix system logins.
                     items:
@@ -1174,6 +1219,15 @@ spec:
                         type: array
                       roles:
                         description: Roles is the name of roles which may be reviewed.
+                        items:
+                          type: string
+                        nullable: true
+                        type: array
+                      submit_for_users:
+                        description: SubmitForUsers is used by Teleport plugins to
+                          indicate they can submit reviews on behalf of other users.
+                          Reviews submitted for a user are evaluated against that
+                          user's own RBAC permissions. Supports wildcard (*).
                         items:
                           type: string
                         nullable: true
@@ -1864,6 +1918,23 @@ spec:
                       type: string
                     nullable: true
                     type: array
+                  linux_desktop_labels:
+                    additionalProperties:
+                      x-kubernetes-preserve-unknown-fields: true
+                    description: LinuxDesktopLabels are used in the RBAC system to
+                      allow/deny access to Linux desktops.
+                    type: object
+                  linux_desktop_labels_expression:
+                    description: LinuxDesktopLabelsExpression is a predicate expression
+                      used to allow/deny access to Linux desktops.
+                    type: string
+                  linux_desktop_logins:
+                    description: LinuxDesktopLogins is a list of desktop login names
+                      allowed/denied for Linux desktops.
+                    items:
+                      type: string
+                    nullable: true
+                    type: array
                   logins:
                     description: Logins is a list of *nix system logins.
                     items:
@@ -2103,6 +2174,15 @@ spec:
                         type: array
                       roles:
                         description: Roles is the name of roles which may be reviewed.
+                        items:
+                          type: string
+                        nullable: true
+                        type: array
+                      submit_for_users:
+                        description: SubmitForUsers is used by Teleport plugins to
+                          indicate they can submit reviews on behalf of other users.
+                          Reviews submitted for a user are evaluated against that
+                          user's own RBAC permissions. Supports wildcard (*).
                         items:
                           type: string
                         nullable: true
@@ -2491,6 +2571,23 @@ spec:
                       type: string
                     nullable: true
                     type: array
+                  linux_desktop_labels:
+                    additionalProperties:
+                      x-kubernetes-preserve-unknown-fields: true
+                    description: LinuxDesktopLabels are used in the RBAC system to
+                      allow/deny access to Linux desktops.
+                    type: object
+                  linux_desktop_labels_expression:
+                    description: LinuxDesktopLabelsExpression is a predicate expression
+                      used to allow/deny access to Linux desktops.
+                    type: string
+                  linux_desktop_logins:
+                    description: LinuxDesktopLogins is a list of desktop login names
+                      allowed/denied for Linux desktops.
+                    items:
+                      type: string
+                    nullable: true
+                    type: array
                   logins:
                     description: Logins is a list of *nix system logins.
                     items:
@@ -2730,6 +2827,15 @@ spec:
                         type: array
                       roles:
                         description: Roles is the name of roles which may be reviewed.
+                        items:
+                          type: string
+                        nullable: true
+                        type: array
+                      submit_for_users:
+                        description: SubmitForUsers is used by Teleport plugins to
+                          indicate they can submit reviews on behalf of other users.
+                          Reviews submitted for a user are evaluated against that
+                          user's own RBAC permissions. Supports wildcard (*).
                         items:
                           type: string
                         nullable: true

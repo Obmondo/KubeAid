@@ -1,5 +1,0 @@
-drivers:
-  nvidia:
-    enabled: false
-  fake:
-    enabled: true

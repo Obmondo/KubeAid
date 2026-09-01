@@ -24,7 +24,7 @@ spec:
             fsGroup: 10001
           containers:
             - name: cleanup
-              image: "{{ (.Values.backupCleanup.image).repository | default "ghcr.io/obmondo/s3-backup-cleanup" }}:{{ (.Values.backupCleanup.image).tag | default "v1.0.0" }}"
+              image: "{{ (.Values.backupCleanup.image).repository | default "ghcr.io/obmondo/s3-backup-cleanup" }}:{{ (.Values.backupCleanup.image).tag | default "v1.0.3" }}"
               imagePullPolicy: IfNotPresent
               env:
                 - name: ENDPOINT

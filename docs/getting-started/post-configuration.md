@@ -8,7 +8,7 @@ These steps are **the same for all providers**.
 ### Check Cluster Status
 
 ```bash
-export KUBECONFIG=./outputs/kubeconfigs/clusters/main.yaml
+export KUBECONFIG=~/.config/kubeaid-cli/<cluster>/kubeconfigs/main.yaml
 
 # Verify cluster info
 kubectl cluster-info
@@ -204,6 +204,9 @@ kubectl get pods -n kube-system -l app=kube2iam
 
 ### Log Locations
 
-- **Bootstrap logs:** `outputs/logs/` (one timestamped file per run)
-- **Kubeconfig:** `outputs/kubeconfigs/clusters/main.yaml`
-- **Configuration files:** `outputs/configs/<cluster>/` (or `~/.config/kubeaid-cli/<cluster>/configs/`)
+Everything the CLI produces lives in the cluster's directory under `~/.config/kubeaid-cli/<cluster>/`
+(on macOS: `~/Library/Application Support/kubeaid-cli/<cluster>/`):
+
+- **Bootstrap logs:** `<cluster>/logs/` (one timestamped file per run)
+- **Kubeconfig:** `<cluster>/kubeconfigs/main.yaml`
+- **Configuration files:** `<cluster>/configs/`

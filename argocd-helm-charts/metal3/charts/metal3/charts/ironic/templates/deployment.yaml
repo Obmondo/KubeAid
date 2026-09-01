@@ -152,7 +152,10 @@ spec:
         image: {{ .Values.images.ironic.repository }}:{{ .Values.images.ironic.tag }}
         imagePullPolicy: {{ .Values.images.ironic.pullPolicy }}
         securityContext:
-          {{- merge .Values.securityContext .Values.dnsmasqSecurityContext | toYaml | nindent 10 }}
+          # dnsmasqSecurityContext takes precedence: `merge` favours the first
+          # dict, so per-container overrides (e.g. allowPrivilegeEscalation) must
+          # win over the shared securityContext. See issue #256.
+          {{- merge .Values.dnsmasqSecurityContext .Values.securityContext | toYaml | nindent 10 }}
         command:
         - /bin/rundnsmasq
         envFrom:

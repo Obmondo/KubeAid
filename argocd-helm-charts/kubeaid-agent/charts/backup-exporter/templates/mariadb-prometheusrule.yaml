@@ -1,0 +1,42 @@
+{{- if and .Values.prometheusRule.enabled (hasKey .Values.prometheusRule "mariadb") ( .Values.prometheusRule.mariadb.enabled ) }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "backup-exporter.fullname" . }}-mariadb
+  namespace: {{ .Values.prometheusRule.mariadb.namespace | default "monitoring" }}
+  labels:
+    {{- include "backup-exporter.labels" . | nindent 4 }}
+    {{- if .Values.prometheusRule.mariadb.labels }}
+    {{- toYaml .Values.prometheusRule.mariadb.labels | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: {{ include "backup-exporter.name" . }}-mariadb
+      rules:
+        - alert: MariaDBBackupExporterJobFailed
+          expr: max by (namespace, cluster_name, backup, type) (backup_exporter_mariadb_error == 1) > 0
+          for: {{ .Values.prometheusRule.mariadb.alertForDuration | default "5m" }}
+          labels:
+            severity: {{ .Values.prometheusRule.mariadb.severity | default "critical" }}
+          annotations:
+            summary: 'MariaDB backup exporter job failed'
+            description: 'MariaDB dump check failed for {{ `{{ $labels.namespace }}` }}/{{ `{{ $labels.cluster_name }}` }} (type: {{ `{{ $labels.type }}` }})'
+        - alert: MariaDBDumpBackupExceededRPO
+          expr: mariadb_latest_dump_backup_age > {{ include "backup-exporter.durationToSeconds" .Values.exporter.mariadb.max_rpo }}
+          for: {{ .Values.prometheusRule.mariadb.alertForDuration | default "5m" }}
+          labels:
+            severity: {{ .Values.prometheusRule.mariadb.severity | default "critical" }}
+          annotations:
+            summary: 'MariaDB dump backup exceeded RPO'
+            description: 'Dump for {{ `{{ $labels.namespace }}` }}/{{ `{{ $labels.cluster_name }}` }} exceeded RPO (age: {{ `{{ $value }}` }})'
+        # Age 0 is the exporter's "no backup" sentinel, not a fresh backup: a
+        # dump taken this second still reports a positive age.
+        - alert: MariaDBDumpBackupMissing
+          expr: mariadb_latest_dump_backup_age == 0
+          for: {{ .Values.prometheusRule.mariadb.alertForDuration | default "5m" }}
+          labels:
+            severity: {{ .Values.prometheusRule.mariadb.severity | default "critical" }}
+          annotations:
+            summary: 'MariaDB dump backup missing'
+            description: 'No dump found for {{ `{{ $labels.namespace }}` }}/{{ `{{ $labels.cluster_name }}` }}'
+{{- end }}

@@ -17,4 +17,3 @@ build/jsonnetfile.json
 build/jsonnetfile.lock.json
 
 # Worktrees created by build/kube-prometheus/build.sh for pinned versions.
-build/kube-prometheus/.worktrees/

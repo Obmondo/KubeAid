@@ -111,6 +111,7 @@ zfsController:
       tag: v8.2.0
     extraArgs: []
   snapshotController:
+    enabled: true
     name: "snapshot-controller"
     image:
       # Make sure that registry name end with a '/'.
@@ -164,7 +165,7 @@ zfsPlugin:
     repository: openebs/zfs-driver
     pullPolicy: IfNotPresent
     # Overrides the image tag whose default is the chart appVersion.
-    tag: 2.10.1
+    tag: 2.11.0
 role: openebs-zfs
 
 serviceAccount:

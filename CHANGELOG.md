@@ -2,6 +2,125 @@
 
 All releases and the changes included in them (pulled from git commits added since last release) will be detailed in this file.
 
+## KubeAid Release Version 32.7.0
+
+### Minor Version Upgrades
+
+- a115befaf Updated aws-ebs-csi-driver from version 2.64.0 to 2.65.0
+- a115befaf Updated hcloud-cloud-controller-manager from version 1.35.0 to 1.36.0
+- a115befaf Updated cluster-api-operator from version 0.28.0 to 0.29.0
+- a115befaf Updated keycloakx from version 7.2.3 to 7.3.0
+- a115befaf Updated mongodb-kubernetes from version 1.10.0 to 1.11.0
+- a115befaf Updated opentelemetry-collector from version 0.170.0 to 0.172.0
+- a115befaf Updated teleport-cluster from version 18.10.7 to 18.11.0
+- a115befaf Updated teleport-kube-agent from version 18.10.7 to 18.11.0
+- a115befaf Updated traefik from version 41.3.0 to 41.4.0
+- a115befaf Updated trivy-operator from version 0.35.0 to 0.36.0
+
+### Patch Version Upgrades
+
+- a115befaf Updated argo-cd from version 10.4.0 to 10.4.2
+- a115befaf Updated erpnext from version 8.0.75 to 8.0.76
+- a115befaf Updated gatekeeper from version 3.23.0 to 3.23.1
+- a115befaf Updated gitlab-runner from version 0.92.0 to 0.92.1
+- a115befaf Updated metal3 from version 0.15.1 to 0.15.2
+- a115befaf Updated opencost from version 2.5.29 to 2.5.30
+- a115befaf Updated tetragon from version 1.7.0 to 1.7.1
+- a115befaf Updated tigera-operator from version v3.32.1 to v3.32.2
+- a115befaf Updated yetibot from version 1.0.226 to 1.0.230
+
+### Features
+
+- 70ed8c7e3 feat(backup-exporter): alert on MariaDB dump backups
+- b32902c12 feat(backup-exporter): configure the MariaDB dump exporter
+- e55842845 feat(backup-exporter): grant read on the MariaDB CRDs
+
+### Bug Fixes
+
+- 985e04fb0 fix(security-exporter): take the v0.1.1 image with snake_case wire keys
+- c19be7284 fix(rustfs): pull s3-backup-cleanup v1.0.3
+- b10c50788 fix(backup-exporter): stop alerting on Velero backup_not_enabled
+- 8a987e62d fix(netbird): pin management, signal and relay to a single replica
+- c630cfe5f fix(rustfs): pull the batching s3-backup-cleanup image
+- 86930bc9a fix(kubeaid-addons): correct POSTGRES_OPERATOR typo and bump logical-backup default tag
+- 8c2b815a5 fix(trivy-operator): disable SBOM report generation
+- 6f728ba2a fix(prometheus): drop probe_success guard from cert expiry alert
+
+### Configuration Changes
+
+- 2ece19cbd chore(backup-exporter): bump the chart to 0.4.0
+
+### Other Changes
+
+- 558d59a0d docs(backup-exporter): document MariaDB monitoring
+
+## KubeAid Release Version 32.6.2
+
+### Other Changes
+
+- 4ef91758f removed terraform and terragrunt obsolete files
+
+## KubeAid Release Version 32.6.1
+
+### Other Changes
+
+- 127679d67 removed v0.13.0 and v0.16.0 kube-prom
+- c9368b15f docs: every output lands in the cluster's home, bootstrap needs no flag
+- ceb30f588 docs: apply readme feedback - inline install, app integration, decisions under docs
+
+## KubeAid Release Version 32.6.0
+
+### Minor Version Upgrades
+
+- 6d226d6fa Updated aws-ebs-csi-driver from version 2.63.1 to 2.64.0
+- 6d226d6fa Updated crossplane from version 2.3.4 to 2.4.0
+- 6d226d6fa Updated gitlab-runner from version 0.91.2 to 0.92.0
+- 6d226d6fa Updated hami from version 2.9.0 to 2.10.0
+- 6d226d6fa Updated kyverno from version 3.8.2 to 3.9.0
+- 6d226d6fa Updated localpv-provisioner from version 4.5.1 to 4.6.0
+- 6d226d6fa Updated metrics-server from version 3.13.1 to 3.14.0
+- 6d226d6fa Updated opentelemetry-operator from version 0.121.0 to 0.122.0
+- 6d226d6fa Updated redis-operator from version 0.25.0 to 0.26.1
+- 6d226d6fa Updated seaweedfs from version 4.42.0 to 4.44.0
+- 6d226d6fa Updated strimzi-kafka-operator from version 1.1.0 to 1.2.0
+- 6d226d6fa Updated traefik from version 41.2.0 to 41.3.0
+- 6d226d6fa Updated zfs-localpv from version 2.10.1 to 2.11.0
+
+### Patch Version Upgrades
+
+- 6d226d6fa Updated aws-efs-csi-driver from version 4.4.1 to 4.4.2
+- 6d226d6fa Updated graylog from version 3.0.28 to 3.0.29
+- 6d226d6fa Updated postgres-operator from version 2.0.1 to 2.0.2
+- 6d226d6fa Updated rook-ceph from version v1.20.4 to v1.20.6
+- 6d226d6fa Updated rook-ceph-cluster from version v1.20.4 to v1.20.6
+- 6d226d6fa Updated teleport-cluster from version 18.10.4 to 18.10.7
+- 6d226d6fa Updated teleport-kube-agent from version 18.10.4 to 18.10.7
+- 6d226d6fa Updated yetibot from version 1.0.220 to 1.0.226
+
+### Features
+
+- 349c54cb0 feat: revive cnpg logical backup via kubeaid addons
+- cde4bf81c feat: add missing node count alert in kubeaid-agent chart
+- ac76181d5 feat(security-exporter): default enabled to false
+
+### Bug Fixes
+
+- 0ca2a91c7 fix(kubeaid-agent): grant list on deployments+services for backup-exporter discovery
+- ee06c732b fix(kube-prometheus): build from the kubeaid tag pinned in targetRevision
+- 91dd6d278 fix(prometheus-linuxaid): declare kubeaid-addons chart dependency
+- c7b6f4f36 fix(prometheus-linuxaid): sync btrfs and cert_expiry rule tests
+- 5cb55dd51 fix(keycloakx): merge duplicate global.blackbox keys
+
+### Configuration Changes
+
+- 8b3e768e8 chore: update the api version to v2 since chart type is invalid in v1
+- 0a0209525 chore(kubeaid-agent): point liveness and readiness probes at /ping
+
+### Other Changes
+
+- 35d01b4c6 docs: add wiki for taking mariadb backups and restoring from it
+- 8d837fe8d docs: backup exporter docs update
+
 ## KubeAid Release Version 32.5.0
 
 ### Minor Version Upgrades

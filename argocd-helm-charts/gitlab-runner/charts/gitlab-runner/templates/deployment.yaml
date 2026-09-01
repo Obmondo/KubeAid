@@ -61,6 +61,10 @@ spec:
       priorityClassName: {{ .Values.priorityClassName | quote }}
       {{- end }}
       serviceAccountName: {{ include "gitlab-runner.serviceAccountName" . }}
+      {{- if .Values.deploymentInitContainers }}
+      initContainers:
+      {{ toYaml .Values.deploymentInitContainers | nindent 6 }}
+      {{- end }}
       containers:
       - name: {{ include "gitlab-runner.fullname" . }}
         image: {{ include "gitlab-runner.image" . }}

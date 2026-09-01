@@ -34,4 +34,4 @@ backupCleanup:
   secretSecretAccessKeyKey: RUSTFS_SECRET_KEY
   image:
     repository: ghcr.io/obmondo/s3-backup-cleanup
-    tag: v1.0.0
+    tag: v1.0.3
