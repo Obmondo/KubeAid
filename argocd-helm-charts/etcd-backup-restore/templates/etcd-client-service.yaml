@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-etcd-client
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: etcd
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  type: ClusterIP
+  sessionAffinity: None
+  selector:
+    app.kubernetes.io/name: etcd
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+  - name: client
+    protocol: TCP
+    port: {{ .Values.servicePorts.etcd.client }}
+    targetPort: {{ .Values.servicePorts.etcd.client }}
+  - name: peer
+    protocol: TCP
+    port: {{ .Values.servicePorts.etcd.peer }}
+    targetPort: {{ .Values.servicePorts.etcd.peer }}
+  - name: backuprestore
+    protocol: TCP
+    port: {{ .Values.servicePorts.etcdBackupRestore.server }}
+    targetPort: {{ .Values.servicePorts.etcdBackupRestore.server }}
+    
