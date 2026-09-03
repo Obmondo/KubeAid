@@ -181,7 +181,8 @@ spec:
     - |
       {{- include "hetzner.efiBootOrderScript" . | nindent 6 }}
 
-    - export NETWORK_INTERFACE=$(ip route get 8.8.8.8 | awk '{print $5; exit}')
+    - |
+      {{- include "hetzner.detectNetworkInterfaceScript" . | nindent 6 }}
 
     {{- if or (eq $.Values.mode "hybrid") (and (eq $.Values.mode "bare-metal") $.Values.bareMetal.vSwitch) }}
     {{/* Bring up the VLAN sub-interface for the Hetzner vSwitch.
