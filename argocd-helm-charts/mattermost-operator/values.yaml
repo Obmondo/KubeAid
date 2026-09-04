@@ -1,3 +1,13 @@
+# Present so `helm lint` can render mattermost-installation.yaml, whose fields all
+# carry their own defaults. Real values come from the per-cluster values file.
+mattermost:
+  ingress: {}
+  database:
+    external: {}
+  fileStore:
+    external: {}
+    local: {}
+
 global:
   netpol:
     enabled: false
