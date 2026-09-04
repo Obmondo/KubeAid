@@ -7,8 +7,8 @@ metadata:
   name: webchat-mattermost-team-edition
   annotations:
     kubernetes.io/tls-acme: "true"
-    cert-manager.io/cluster-issuer: letsencrypt
-    kubernetes.io/ingress.class: traefik-cert-manager
+    cert-manager.io/cluster-issuer: {{ .Values.matternelle.clusterIssuer | default "letsencrypt-prod" }}
+    kubernetes.io/ingress.class: {{ .Values.matternelle.ingressClass | default "traefik" }}
 spec:
   rules:
 
