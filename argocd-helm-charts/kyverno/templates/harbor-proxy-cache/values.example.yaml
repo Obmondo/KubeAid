@@ -1,0 +1,42 @@
+harborProxyCache:
+  # Turns the whole policy on/off. Every other key below is a no-op while this
+  # is false.
+  enabled: true
+
+  # Required. The Harbor host that owns the proxy-cache projects, no scheme.
+  registry: harbor.example.com
+
+  # Docker Hub proxy-cache project. Two accepted keys for historical reasons --
+  # dockerHubProject is preferred, project is the older alias. If neither is
+  # set, defaults to "docker-hub-proxy-cache". Only one is needed; shown here
+  # for reference, don't set both in a real values file.
+  dockerHubProject: docker-hub-proxy-cache
+  # project: docker-hub-proxy-cache   # legacy alias for dockerHubProject
+
+  # Optional. Unset (default "") means ghcr.io images are left untouched --
+  # setting a project name is what turns the ghcr.io mutate blocks on at all.
+  ghcrProject: ghcr-proxy-cache
+
+  # Optional. Same on/off-by-presence behavior as ghcrProject, for
+  # registry.k8s.io images.
+  k8sProject: k8s-proxy-cache
+
+  # imagePullSecret names the policy attaches per registry. All three default
+  # to the values shown here if omitted -- only set these if your cluster uses
+  # different Secret names.
+  imagePullSecretName: harbor-proxy-cache
+  ghcrImagePullSecretName: harbor-ghcr-proxy-cache
+  k8sImagePullSecretName: harbor-registry-k8s-proxy-cache
+
+  # Default false. When true, a policy update also re-mutates already-running
+  # Pods/Deployments/etc (background scan), not just newly-created ones. Off
+  # by default because retroactively rewriting live workloads' images is a
+  # bigger blast radius than most clusters want from a Helm upgrade.
+  mutateExistingOnPolicyUpdate: false
+
+  # Optional, empty by default (policy applies cluster-wide). Namespaces
+  # listed here are fully skipped -- useful for kube-system or anything that
+  # must keep pulling directly from the original registry.
+  excludeNamespaces:
+    - kube-system
+    - cert-manager
