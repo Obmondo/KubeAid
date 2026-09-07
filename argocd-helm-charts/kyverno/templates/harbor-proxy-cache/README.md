@@ -28,6 +28,47 @@ amount of logic repeated along three independent axes, multiplied together:
 nothing in YAML enforces the copies stay in sync, and a partial edit is the
 most likely source of a bug here.
 
+## v2: values-driven registries (opt-in, not yet the default)
+
+`harbor-proxy-cache-mutate-v2.yaml` collapses axis 2 above (the registry-pattern
+blocks) into a loop over a `$registries` list built from
+`harborProxyCache.registry`/`dockerHubProject`/`ghcrProject`/`k8sProject` and
+the matching secret-name keys, using a `stripPrefixes` helper in
+`_helpers.tpl` to build the chained `replace_all(...)` call per registry.
+Adding a registry (e.g. `quay.io`) becomes one list entry instead of 6
+hand-written blocks. It's gated behind its own `harborProxyCache.v2Enabled`
+(default `false`) rather than reusing `harborProxyCache.enabled`, so both
+files can sit in the repo without v2 silently going live in a cluster
+alongside v1.
+
+**Why it's still ~600 lines and not ~150** — axes 1 and 3 are deliberately
+left hand-written:
+
+- **Axis 1 (3 resource shapes)** stays as-is because `patchStrategicMerge`
+  needs a fully different nested YAML shape per kind (`spec.containers` vs
+  `spec.template.spec.containers` vs
+  `spec.jobTemplate.spec.template.spec.containers`), and generating that
+  generically means conditional indentation in Go templates — assessed as too
+  fragile to risk without a working `kyverno test` CLI available to verify
+  against (correctness here was instead checked by rendering the chart and
+  re-implementing Kyverno's precondition/patch evaluation in a throwaway
+  Python script, comparing v1 and v2's output image/secret for a battery of
+  test image strings across every registry shape).
+- **Axis 3 (containers vs initContainers)** stays hand-written for the same
+  reason — `foreach.list` targets exactly one array path per entry, so each
+  resource shape still needs two near-identical call sites.
+- **The 2 "implicit Docker Hub" fallback blocks per call site** (bare
+  `org/repo`, bare official image) were deliberately kept out of the
+  `$registries` loop — they match via `regex_match` instead of a prefix
+  `contains`, and the official case additionally inserts a `library/`
+  segment into the rewritten path. Folding them in would mean giving every
+  registry entry an `isImplicit`/`insertLibrary` flag for behavior that only
+  ever applies to Docker Hub — more template complexity to save two blocks.
+
+Net effect: 36 hand-authored block-equivalents (v1) down to 18 (v2) — the 6
+registry-pattern blocks per call site collapsed to 1 loop each, the 12
+implicit blocks (2 per call site × 6 call sites) untouched.
+
 ## Known limitations
 
 - **No fallback if Harbor is unreachable.** A Pod's `image:` field holds exactly
