@@ -87,8 +87,13 @@ spec:
                   value: {{ (((.Values.global).postgresql).logicalbackup).s3region | quote }}
                 - name: LOGICAL_BACKUP_S3_BUCKET
                   value: {{ (((.Values.global).postgresql).logicalbackup).s3bucket | quote }}
+                {{- with (((.Values.global).postgresql).logicalbackup).retention }}
+                # Only set when a cluster explicitly opts in. Retention is owned by the
+                # cleanup job on the cluster that runs the object store, so that backup
+                # credentials here stay write-only and cannot delete backups.
                 - name: LOGICAL_BACKUP_S3_RETENTION_TIME
-                  value: {{ (((.Values.global).postgresql).logicalbackup).retention | quote }}
+                  value: {{ . | quote }}
+                {{- end }}
               {{- end }}
 
                 - name: PG_VERSION
