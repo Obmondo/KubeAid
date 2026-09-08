@@ -43,3 +43,14 @@ groups:
         for: 2h
         labels:
           severity: warning
+  - name: argocd-container-restarting-frequently
+    rules:
+      - alert: ContainerRestartingFrequently
+        annotations:
+          description: Namespace **{{ .Labels.namespace }}** has {{ .Value }} total container restarts across its pods.
+          summary: Containers in a namespace are restarting frequently.
+        expr: sum by (namespace) (kube_pod_container_status_restarts_total{job="kube-state-metrics"}) > 5
+        for: 15m
+        labels:
+          alert_id: ContainerRestartingFrequently
+          severity: warning

@@ -71,6 +71,24 @@
           },
         ],
       },
+      {
+        name: 'argocd-container-restarting-frequently',
+        rules: [
+          {
+            alert: 'ContainerRestartingFrequently',
+            expr: 'sum by (namespace) (kube_pod_container_status_restarts_total{job="kube-state-metrics"}) > 5',
+            'for': '15m',
+            labels: {
+              severity: 'warning',
+              alert_id: 'ContainerRestartingFrequently',
+            },
+            annotations: {
+              summary: 'Containers in a namespace are restarting frequently.',
+              description: 'Namespace **{{ .Labels.namespace }}** has {{ .Value }} total container restarts across its pods.',
+            },
+          },
+        ],
+      },
     ],
   },
 }
