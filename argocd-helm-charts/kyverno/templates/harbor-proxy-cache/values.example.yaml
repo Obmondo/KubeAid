@@ -21,12 +21,26 @@ harborProxyCache:
   # registry.k8s.io images.
   k8sProject: k8s-proxy-cache
 
-  # imagePullSecret names the policy attaches per registry. All three default
-  # to the values shown here if omitted -- only set these if your cluster uses
+  # Optional. Same on/off-by-presence behavior as ghcrProject, for
+  # quay.io images. v2 only (harborProxyCache.v2Enabled) -- v1 doesn't cover quay.io.
+  quayProject: quay-proxy-cache
+
+  # imagePullSecret names the policy attaches per registry. All default to the
+  # values shown here if omitted -- only set these if your cluster uses
   # different Secret names.
   imagePullSecretName: harbor-proxy-cache
   ghcrImagePullSecretName: harbor-ghcr-proxy-cache
   k8sImagePullSecretName: harbor-registry-k8s-proxy-cache
+  quayImagePullSecretName: harbor-quay-proxy-cache
+
+  # v2 only. Any registry beyond the named ones above, no template change
+  # needed -- one list entry per registry. secretName is optional, defaults
+  # to imagePullSecretName.
+  extraRegistries:
+    - prefixes:
+        - gcr.io/
+      project: gcr-proxy-cache
+      secretName: harbor-gcr-proxy-cache
 
   # Default false. When true, a policy update also re-mutates already-running
   # Pods/Deployments/etc (background scan), not just newly-created ones. Off

@@ -1,8 +1,65 @@
 # Harbor Proxy-Cache Policy Notes
 
 See the chart-level `README.md` for install/test instructions and `values.example.yaml`
-(this folder) for every available key. This file covers the policy's internal
-structure and a known limitation worth knowing before relying on it.
+(this folder) for every available key. This file covers what the policy does,
+its internal structure, and known limitations worth knowing before relying on it.
+
+## What this policy does
+
+**The problem:** starting a pod means pulling its container image, usually from
+Docker Hub. Docker Hub rate-limits pulls, and a busy cluster can hit that limit
+fast, causing pods to fail to start.
+
+**The fix:** route those pulls through Harbor (a private registry you run
+yourself) instead. Harbor caches each image the first time and serves it
+locally after that, so Docker Hub never sees repeat traffic.
+
+**How:** this is a Kyverno *mutating* policy — it watches every pod as it's
+created and silently rewrites the image reference before the pod starts, so
+no one has to hand-edit every Deployment's YAML. You write a normal image
+reference and never mention Harbor:
+
+```yaml
+containers:
+  - name: nginx
+    image: nginx:1.27.1
+```
+
+Kyverno intercepts it on the way in and rewrites it to:
+
+```yaml
+containers:
+  - name: nginx
+    image: harbor.example.com/docker-hub-proxy-cache/library/nginx:1.27.1
+imagePullSecrets:
+  - name: harbor-proxy-cache
+```
+
+### What gets rewritten today
+
+| You write | Becomes | Always on? |
+|---|---|---|
+| `index.docker.io/library/nginx:1.27.1` | `harbor.example.com/docker-hub-proxy-cache/library/nginx:1.27.1` | Yes |
+| `registry-1.docker.io/library/nginx:1.27.1` | same as above | Yes |
+| `docker.io/library/nginx:1.27.1` | same as above | Yes |
+| `graylog/graylog:6.3.1` (implicit org/repo) | `harbor.example.com/docker-hub-proxy-cache/graylog/graylog:6.3.1` | Yes |
+| `nginx:1.27.1` (implicit official) | `harbor.example.com/docker-hub-proxy-cache/library/nginx:1.27.1` | Yes |
+| `ghcr.io/obmondo/backup-exporter:v1.2.6` | `harbor.example.com/ghcr-proxy-cache/obmondo/backup-exporter:v1.2.6` | Only if `ghcrProject` is set |
+| `registry.k8s.io/pause:3.9` | `harbor.example.com/k8s-proxy-cache/pause:3.9` | Only if `k8sProject` is set |
+| `quay.io/prometheus/node-exporter:v1.7.0` | `harbor.example.com/quay-proxy-cache/prometheus/node-exporter:v1.7.0` | v2 only, if `quayProject` is set |
+
+Applies to `Pod`, `Deployment`, `StatefulSet`, `DaemonSet`, `Job`, `CronJob` —
+and it's smart enough to skip an image that's already routed through Harbor
+(won't double-rewrite), and to leave already-running pods alone (only affects
+new pods being created).
+
+### What's NOT covered yet
+
+- Any registry beyond the ones above and not listed in `extraRegistries`
+  (see [v2](#v2-values-driven-registries-opt-in-not-yet-the-default) below) —
+  untouched, pulled directly.
+- Digest-pinned images (`image@sha256:...`) — unverified; not explicitly
+  tested against this policy.
 
 ## Policy structure
 
@@ -35,8 +92,11 @@ blocks) into a loop over a `$registries` list built from
 `harborProxyCache.registry`/`dockerHubProject`/`ghcrProject`/`k8sProject` and
 the matching secret-name keys, using a `stripPrefixes` helper in
 `_helpers.tpl` to build the chained `replace_all(...)` call per registry.
-Adding a registry (e.g. `quay.io`) becomes one list entry instead of 6
-hand-written blocks. It's gated behind its own `harborProxyCache.v2Enabled`
+`quay.io` is a named entry the same way, via `quayProject`. Anything beyond
+those four goes in `harborProxyCache.extraRegistries` — a list of
+`{prefixes, project, secretName}`, no template change needed. Either way it's
+one values entry instead of 6 hand-written blocks. It's gated behind its own
+`harborProxyCache.v2Enabled`
 (default `false`) rather than reusing `harborProxyCache.enabled`, so both
 files can sit in the repo without v2 silently going live in a cluster
 alongside v1.
