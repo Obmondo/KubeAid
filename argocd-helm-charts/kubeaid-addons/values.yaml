@@ -78,6 +78,9 @@ global:
     # -- Name of the CNPG Cluster resource
     instanceName: ""
 
+    # -- Additional labels added to the CNPG Cluster resource metadata.
+    labels: {}
+
     # -- Number of PostgreSQL instances in the cluster
     instances: 1
 

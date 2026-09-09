@@ -5,6 +5,10 @@ apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
   name: {{ .Values.global.postgresql.instanceName }}-pgsql
+  {{- with $postgresql.labels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   {{- with $postgresql.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
