@@ -1,45 +1,27 @@
 groups:
-  - name: argocd-sync-state
-    rules:
-      - alert: WhiteListedApplicationOutOfSync
-        annotations:
-          description: The application **{{ .Labels.argocd_application_name }}**/**{{ .Labels.application_namespace }}** has been out of sync for more than 30 minutes.
-          summary: Kubernetes version is close to end of support.
-        expr: argocd_application_sync_state{argocd_application_name!="", application_namespace!="", whitelisted="true", result="waiting"} == 1
-        for: 30m
-        labels:
-          alert_id: WhiteListedApplicationOutOfSync
-          severity: critical
-      - alert: CronSyncFailed
-        annotations:
-          description: Argo CD WhiteListed Application **{{ .Labels.argocd_application_name }}**/**{{ .Labels.application_namespace }}** sync failed.
-          summary: The application has been out of sync for more than 15 minutes.
-        expr: argocd_application_sync_state{argocd_application_name!="", application_namespace!="", whitelisted="true", result="failed"} == 1
-        for: 15m
-        labels:
-          alert_id: CronSyncFailed
-          severity: critical
-      - alert: ArgoCdAppOutOfSync
-        annotations:
-          description: |
-            The following applications under project '{{ .Labels.project }}' are out of sync (status: {{ .Labels.sync_status }}):
-            {{- range query (printf "sum by (name, project) (argocd_app_info{project='%s', sync_status='%s'}) and on(name, project) kubeaidManagedApps" .Labels.project .Labels.sync_status) }}
-            - {{ .Labels.name }}
-            {{- end }}
-          summary: ArgoCD Application is Out Of Sync.
-        expr: count by (project, sync_status) ((sum by (name, job, dest_server, project, sync_status) (argocd_app_info{job=~".*",sync_status!="Synced"}) >= 1) + on (name, project) group_left kubeaidManagedApps)
-        for: 2h
-        labels:
-          severity: warning
-      - alert: ArgoCdAppUnhealthy
-        annotations:
-          description: |
-            The following applications under project '{{ .Labels.project }}' are not healthy (status: {{ .Labels.health_status }}):
-            {{- range query (printf "sum by (name, project) (argocd_app_info{project='%s', health_status='%s'}) and on(name, project) kubeaidManagedApps" .Labels.project .Labels.health_status) }}
-            - {{ .Labels.name }}
-            {{- end }}
-          summary: ArgoCD Application is not healthy.
-        expr: count by (health_status,project) ((sum by (name, job, dest_server, project, health_status) (argocd_app_info{health_status!~"Healthy|Progressing"}) >= 1) + on (name, project) group_left kubeaidManagedApps)
-        for: 2h
-        labels:
-          severity: warning
+- name: argocd-sync-state
+  rules:
+  - alert: ArgoCdAppOutOfSync
+    annotations:
+      description: |
+        The following applications under project '{{ .Labels.project }}' are out of sync (status: {{ .Labels.sync_status }}):
+        {{- range query (printf "sum by (name, project) (argocd_app_info{project='%s', sync_status='%s'}) and on(name, project) kubeaidManagedApps" .Labels.project .Labels.sync_status) }}
+        - {{ .Labels.name }}
+        {{- end }}
+      summary: ArgoCD Application is Out Of Sync.
+    expr: count by (project, sync_status) ((sum by (name, job, dest_server, project, sync_status) (argocd_app_info{job=~".*",sync_status!="Synced"}) >= 1) + on (name, project) group_left kubeaidManagedApps)
+    for: 2h
+    labels:
+      severity: warning
+  - alert: ArgoCdAppUnhealthy
+    annotations:
+      description: |
+        The following applications under project '{{ .Labels.project }}' are not healthy (status: {{ .Labels.health_status }}):
+        {{- range query (printf "sum by (name, project) (argocd_app_info{project='%s', health_status='%s'}) and on(name, project) kubeaidManagedApps" .Labels.project .Labels.health_status) }}
+        - {{ .Labels.name }}
+        {{- end }}
+      summary: ArgoCD Application is not healthy.
+    expr: count by (health_status,project) ((sum by (name, job, dest_server, project, health_status) (argocd_app_info{health_status!~"Healthy|Progressing"}) >= 1) + on (name, project) group_left kubeaidManagedApps)
+    for: 2h
+    labels:
+      severity: warning
