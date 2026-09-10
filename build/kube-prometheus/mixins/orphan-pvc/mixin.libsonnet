@@ -17,7 +17,7 @@
     + 'kube_persistentvolumeclaim_status_phase{phase=\\"Bound\\",cluster=\\"%s\\"} == 1'
     + ' unless on(persistentvolumeclaim, namespace) kube_pod_spec_volumes_persistentvolumeclaims_info'
     + ') and on(namespace) ' + kubeaidAppsFilterEscaped
-    + ')" $labels.cluster) | sortByLabel "persistentvolumeclaim" | sortByLabel "namespace" }}'
+    + '" $labels.cluster) | sortByLabel "persistentvolumeclaim" | sortByLabel "namespace" }}'
     + '{{ if $i }}, {{ end }}`{{ $r.Labels.namespace }}/{{ $r.Labels.persistentvolumeclaim }}`'
     + '{{ end }}',
 
