@@ -1,0 +1,91 @@
+{{- /*
+cert-manager chain for MongoDBCommunity's `security.tls` (wired in
+mongodb.yaml): selfSigned Issuer -> CA Certificate -> CA-backed Issuer ->
+leaf Certificate, per instance.
+
+Kept separate from the generic global.tlsChains helper
+(templates/certmanager-tls.yaml) because a replica set needs SANs that
+helper doesn't emit: a wildcard for the per-member pod DNS names that
+clients connect to during replica-set discovery
+(<instance>-0.<instance>-svc.<ns>.svc.cluster.local, -1, -2 ...) plus
+localhost for in-pod probes. Deriving the secret names from instanceName
+also keeps them matching the CR's certificateKeySecretRef /
+caCertificateSecretRef automatically, so `tls.enabled: true` is the only
+knob a consumer has to set.
+
+Shape follows the pattern already proven in kilroy-config's own
+kint-websites / flights-location charts.
+*/ -}}
+{{- range (include "kubeaid-addons.mongodb.instances" . | fromJsonArray) }}
+{{- if (.tls).enabled }}
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ .instanceName }}-selfsigned
+  namespace: {{ $.Release.Namespace }}
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .instanceName }}-ca
+  namespace: {{ $.Release.Namespace }}
+spec:
+  isCA: true
+  commonName: {{ .instanceName }}-ca
+  secretName: {{ .tls.caSecretName | default (printf "%s-ca" .instanceName) }}
+  {{- /*
+  Long-lived CA on purpose: without an explicit duration the CA renews on
+  cert-manager's 90-day default, generating a fresh CA keypair while the
+  1-year leaf cert keeps chaining to the old one -- every client then fails
+  with UntrustedRoot (this took kint-websites down in production on
+  2026-08-27). A 5-year CA lets the leaf renew several times under one
+  stable CA instead.
+  */}}
+  {{- /*
+  Key algorithm deliberately left to cert-manager's default (RSA 2048)
+  rather than pinned: changing it on an existing instance rotates the CA
+  keypair, which is the same UntrustedRoot window described above. Apps
+  migrating onto this chart from a hand-rolled Certificate keep their
+  current CA untouched -- override the durations below for the same reason
+  when an existing Certificate used different ones.
+  */}}
+  duration: {{ .tls.caDuration | default "43800h" }}
+  renewBefore: {{ .tls.caRenewBefore | default "2160h" }}
+  issuerRef:
+    name: {{ .instanceName }}-selfsigned
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ .instanceName }}-ca-issuer
+  namespace: {{ $.Release.Namespace }}
+spec:
+  ca:
+    secretName: {{ .tls.caSecretName | default (printf "%s-ca" .instanceName) }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .instanceName }}-tls
+  namespace: {{ $.Release.Namespace }}
+spec:
+  secretName: {{ .tls.certSecretName | default (printf "%s-tls" .instanceName) }}
+  {{- /* No commonName: SANs below are what clients validate against, and
+         adding a CN to an existing Certificate forces a needless reissue. */}}
+  dnsNames:
+    - {{ .instanceName }}-svc
+    - {{ .instanceName }}-svc.{{ $.Release.Namespace }}
+    - {{ .instanceName }}-svc.{{ $.Release.Namespace }}.svc.cluster.local
+    - "*.{{ .instanceName }}-svc.{{ $.Release.Namespace }}.svc.cluster.local"
+    - localhost
+  duration: {{ .tls.certDuration | default "8760h" }}
+  renewBefore: {{ .tls.certRenewBefore | default "720h" }}
+  issuerRef:
+    name: {{ .instanceName }}-ca-issuer
+    kind: Issuer
+{{- end }}
+{{- end }}

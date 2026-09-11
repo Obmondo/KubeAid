@@ -1,16 +1,18 @@
-{{ if .Values.global.mongodb.enabled }}
+{{- /* One per distinct ServiceAccount name in use -- see
+       kubeaid-addons.mongodb.serviceAccountNames for why an unset
+       serviceAccountName still has to render "mongodb-kubernetes-appdb". */ -}}
+{{- range (include "kubeaid-addons.mongodb.serviceAccountNames" . | fromJsonArray) }}
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: {{ .Values.global.mongodb.serviceAccountName }}
-  namespace: {{ .Release.Namespace }}
+  name: {{ . }}
+  namespace: {{ $.Release.Namespace }}
 subjects:
   - kind: ServiceAccount
-    name: {{ .Values.global.mongodb.serviceAccountName }}
+    name: {{ . }}
 roleRef:
   kind: Role
-  name: {{ .Values.global.mongodb.serviceAccountName }}
+  name: {{ . }}
   apiGroup: rbac.authorization.k8s.io
----
-{{ end }}
+{{- end }}

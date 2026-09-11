@@ -1,16 +1,17 @@
-{{- if and ((.Values.global).netpol).enabled ((.Values.global).mongodb.logicalbackup).enabled }}
+{{- if ((.Values.global).netpol).enabled }}
+{{- range (include "kubeaid-addons.mongodb.backupTargets" . | fromJsonArray) }}
 ---
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
-  name: {{ .Values.global.mongodb.instanceName }}-backup-networkpolicy
-  namespace: {{ .Release.Namespace }}
+  name: {{ .instanceName }}-backup-networkpolicy
+  namespace: {{ $.Release.Namespace }}
   labels:
     app.kubernetes.io/component: cilium-networkpolicy
 spec:
   endpointSelector:
     matchLabels:
-      app: {{ .Values.global.mongodb.instanceName }}-backup
+      app: {{ .instanceName }}-backup
 
   egress:
     # MongoDB (mongodump)
@@ -18,14 +19,14 @@ spec:
     # Cilium enforces at the pod level via eBPF — `toEndpoints` matches pod identity, not Kubernetes Services.
     - toEndpoints:
         - matchLabels:
-            k8s:io.kubernetes.pod.namespace: {{ .Release.Namespace }}
-            app: {{ .Values.global.mongodb.instanceName }}-svc
+            k8s:io.kubernetes.pod.namespace: {{ $.Release.Namespace }}
+            app: {{ .instanceName }}-svc
       toPorts:
         - ports:
             - port: "27017"
               protocol: TCP
 
-    {{- if eq .Values.global.mongodb.logicalbackup.provider "az" }}
+    {{- if eq .logicalbackup.provider "az" }}
     # Azure Blob Storage
     - toFQDNs:
         - matchPattern: "*.blob.core.windows.net"
@@ -33,11 +34,11 @@ spec:
         - ports:
             - port: "443"
               protocol: TCP
-    {{- else if eq .Values.global.mongodb.logicalbackup.provider "s3" }}
+    {{- else if eq .logicalbackup.provider "s3" }}
     # S3 object storage
-    {{- if .Values.global.mongodb.logicalbackup.s3endpoint }}
+    {{- if .logicalbackup.s3endpoint }}
     - toFQDNs:
-        - matchName: {{ .Values.global.mongodb.logicalbackup.s3endpoint | trimPrefix "https://" | trimPrefix "http://" | quote }}
+        - matchName: {{ .logicalbackup.s3endpoint | trimPrefix "https://" | trimPrefix "http://" | quote }}
         - matchPattern: "*.amazonaws.com"
         - matchPattern: "*.s3.amazonaws.com"
         - matchPattern: "*.s3.*.amazonaws.com"
@@ -56,4 +57,5 @@ spec:
               protocol: TCP
     {{- end }}
     {{- end }}
+{{- end }}
 {{- end }}

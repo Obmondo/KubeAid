@@ -151,7 +151,11 @@ global:
   # Provisions a MongoDBCommunity resource.
   # Requires the MongoDB Community operator to be installed in the cluster.
   mongodb:
-    # -- Provision a MongoDBCommunity resource.
+    # -- Provision a MongoDBCommunity resource. For more than one independent
+    # replica set in the same release (e.g. one app needing several
+    # databases), leave this false and use `instances` below instead — or set
+    # both; every enabled instance (this one plus every enabled entry of
+    # `instances`) is provisioned side by side.
     enabled: false
 
     # -- Enable the MongoDB CiliumNetworkPolicy (requires global.netpol.enabled)
@@ -160,30 +164,72 @@ global:
     # -- Name of the MongoDBCommunity resource / replica set.
     instanceName: ""
 
-    # -- Name of the ServiceAccount/Role/RoleBinding used by the MongoDB pods.
+    # -- Name of the ServiceAccount the MongoDB pods run as. Defaults to
+    # "mongodb-kubernetes-appdb" if unset — the MCK (mongodb-kubernetes)
+    # operator re-applies that exact name to the StatefulSet on every
+    # reconcile regardless of what's requested here, so this chart always
+    # provisions that ServiceAccount/Role/RoleBinding for you. Only set this
+    # to something else if you also provide your own RBAC for that name.
     serviceAccountName: ""
 
     # -- Number of MongoDB replica set members.
     replicas: 2
 
     # -- MongoDB server version.
-    version: "4.4.1"
+    version: "7.0.28"
 
-    # -- Database created for the application user.
-    database: app
+    # -- PVC for the mongod data directory. `size` is required — there is no
+    # default, since the right size depends entirely on your workload.
+    # `storageClass` is optional; omit it to use the cluster default.
+    dataVolume:
+      size: 5Gi
+      # storageClass: ""
 
-    # -- Application user created by the operator.
-    user: app-user
+    # -- Optional second PVC for the mongod logs directory, same shape as
+    # dataVolume. Omit `logsVolume` entirely to keep mongod logging to the
+    # data volume (or stdout) instead of provisioning a dedicated one.
+    # logsVolume:
+    #   size: 1Gi
 
-    # -- Secret containing the application user password.
-    passwordSecretName: ""
+    # -- TLS for client connections, backed by cert-manager (a self-signed CA
+    # scoped to this instance, not the generic global.tlsChains helper).
+    # Requires cert-manager installed in the cluster.
+    tls:
+      enabled: false
+      # optional: false            # allow non-TLS connections during a rollout/migration
+      # caSecretName: ""           # optional — defaults to <instanceName>-ca
+      # certSecretName: ""         # optional — defaults to <instanceName>-tls
+      # -- Certificate lifetimes. The CA is deliberately long-lived: on
+      # cert-manager's 90-day default it would rotate its keypair while the
+      # leaf still chains to the old one, and every client fails with
+      # UntrustedRoot. Override these to match an existing Certificate when
+      # migrating an already-running instance onto this chart, so the CA
+      # isn't reissued underneath it.
+      # caDuration: 43800h         # default 5 years
+      # caRenewBefore: 2160h       # default 90 days
+      # certDuration: 8760h        # default 1 year
+      # certRenewBefore: 720h      # default 30 days
+
+    # -- Application users/databases created by the operator on this replica
+    # set. Each entry needs its own generated-password Secret — see the
+    # `mongodb-secret.yaml` pattern (secret-generator.v1.mittwald.de) in
+    # consumer charts, or point passwordSecretRef at a Secret you manage
+    # yourself. passwordSecretRef.key defaults to "password" (matching the
+    # mittwald generator's own default key) if omitted.
+    # users:
+    #   - name: app-user
+    #     db: app
+    #     passwordSecretRef:
+    #       name: my-app-mongodb-credentials
+    #       # key: password
+    #     roles:
+    #       - name: readWrite
+    #         db: app
+    #     scramCredentialsSecretName: app-user-scram
+    users: []
 
     # -- Additional labels added to MongoDB pods. Built-in labels are also added.
     podLabels: {}
-
-    # -- Additional database roles granted to the application user.
-    # Each entry is { db: "<database>", name: "<role>" }.
-    additionalRoles: []
 
     agent:
       # -- MongoDB operator agent log level.
@@ -220,6 +266,26 @@ global:
       #     - name: AWS_RESPONSE_CHECKSUM_VALIDATION
       #       value: when_required
       extraEnv: []
+
+    # -- Additional, independent MongoDBCommunity replica sets provisioned in
+    # this same release — e.g. an app that needs a separate database per
+    # microservice. Each entry takes every field documented above for the
+    # single `mongodb` block (instanceName, replicas, version, dataVolume,
+    # logsVolume, tls, users, resources, podLabels, clients, operator,
+    # logicalbackup, netpol) plus its own `enabled` flag; entries are fully
+    # self-contained and do NOT inherit unset fields from the block above.
+    # instances:
+    #   - enabled: true
+    #     instanceName: my-app-orders-db
+    #     dataVolume: { size: 5Gi }
+    #     logsVolume: { size: 1Gi }
+    #     users: [...]
+    #   - enabled: true
+    #     instanceName: my-app-search-db
+    #     dataVolume: { size: 10Gi }
+    #     logsVolume: { size: 1Gi }
+    #     users: [...]
+    instances: []
 
   # rabbitmq
   # Provisions a RabbitmqCluster resource.

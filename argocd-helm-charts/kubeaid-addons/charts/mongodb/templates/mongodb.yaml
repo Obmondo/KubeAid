@@ -1,47 +1,70 @@
-{{ if .Values.global.mongodb.enabled }}
+{{- range (include "kubeaid-addons.mongodb.instances" . | fromJsonArray) }}
 ---
 apiVersion: mongodbcommunity.mongodb.com/v1
 kind: MongoDBCommunity
 metadata:
-  name: {{ .Values.global.mongodb.instanceName }}
-  namespace: {{ .Release.Namespace }}
+  name: {{ .instanceName }}
+  namespace: {{ $.Release.Namespace }}
 spec:
-  members: {{ .Values.global.mongodb.replicas | default 2 }}
+  members: {{ .replicas | default 2 }}
   type: ReplicaSet
-  version: {{ .Values.global.mongodb.version | default "7.0.28" }}
+  version: {{ .version | default "7.0.28" | quote }}
   security:
     authentication:
       modes: ["SCRAM"]
+    {{- if (.tls).enabled }}
+    tls:
+      enabled: true
+      {{- if .tls.optional }}
+      optional: true
+      {{- end }}
+      certificateKeySecretRef:
+        name: {{ .tls.certSecretName | default (printf "%s-tls" .instanceName) }}
+      caCertificateSecretRef:
+        name: {{ .tls.caSecretName | default (printf "%s-ca" .instanceName) }}
+    {{- end }}
   statefulSet:
     spec:
       template:
         metadata:
           labels:
             app.kubernetes.io/name: mongodb
-            app.kubernetes.io/instance: {{ .Values.global.mongodb.instanceName }}
+            app.kubernetes.io/instance: {{ .instanceName }}
             app.kubernetes.io/component: database
-            {{- range $key, $val := .Values.global.mongodb.podLabels }}
+            {{- range $key, $val := .podLabels }}
             {{ $key }}: {{ $val }}
             {{- end }}
         spec:
-          serviceAccountName: {{ .Values.global.mongodb.serviceAccountName }}
+          {{- /*
+          The MCK (mongodb-kubernetes) operator re-applies its own
+          "mongodb-kubernetes-appdb" ServiceAccount to this StatefulSet on
+          every reconcile regardless of what's requested here, so that is the
+          default -- it keeps the rendered manifest truthful about what
+          actually ends up running. Whatever name resolves here, the RBAC
+          templates render a matching ServiceAccount/Role/RoleBinding for it.
+          */}}
+          serviceAccountName: {{ .serviceAccountName | default "mongodb-kubernetes-appdb" }}
+          {{- if .resources }}
           containers:
             - name: mongod
-              {{- if .Values.global.mongodb.resources }}
               resources:
-                  {{- toYaml .Values.global.mongodb.resources | nindent 16 }}
-              {{- end }}
+                {{- toYaml .resources | nindent 16 }}
+          {{- end }}
       volumeClaimTemplates:
         - metadata:
             name: data-volume
             labels:
               velero.io/exclude-from-backup: "true"
-            spec:
-              accessModes:
-                - ReadWriteOnce
-              resources:
-                requests:
-                  storage: {{ .Values.global.mongodb.dataVolume.size}}
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            {{- if .dataVolume.storageClass }}
+            storageClassName: {{ .dataVolume.storageClass }}
+            {{- end }}
+            resources:
+              requests:
+                storage: {{ .dataVolume.size }}
+        {{- if .logsVolume }}
         - metadata:
             name: logs-volume
             labels:
@@ -49,16 +72,21 @@ spec:
           spec:
             accessModes:
               - ReadWriteOnce
+            {{- if .logsVolume.storageClass }}
+            storageClassName: {{ .logsVolume.storageClass }}
+            {{- end }}
             resources:
               requests:
-                storage: {{ .Values.global.mongodb.logsVolume.size}}
-  {{- if .Values.global.mongodb.users }}
+                storage: {{ .logsVolume.size }}
+        {{- end }}
+  {{- if .users }}
   users:
-    {{- range .Values.global.mongodb.users }}
+    {{- range .users }}
     - db: {{ .db }}
       name: {{ .name }}
       passwordSecretRef:
         name: {{ .passwordSecretRef.name }}
+        key: {{ .passwordSecretRef.key | default "password" }}
       roles:
         {{- range .roles }}
         - db: {{ .db }}
@@ -68,6 +96,5 @@ spec:
     {{- end }}
   {{- end }}
   agent:
-    logLevel: INFO
----
-{{ end }}
+    logLevel: {{ (.agent).logLevel | default "INFO" }}
+{{- end }}

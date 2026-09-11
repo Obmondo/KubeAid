@@ -1,12 +1,14 @@
-{{- /* Gated on logicalbackup.enabled alone so backups can target an EXISTING,
-       externally-managed MongoDBCommunity without this chart provisioning one
-       (global.mongodb.enabled stays false). */ -}}
-{{- if (((.Values.global).mongodb).logicalbackup).enabled }}
+{{- /* Gated on each target's own logicalbackup.enabled, independent of that
+       target's `enabled` -- see kubeaid-addons.mongodb.backupTargets -- so
+       backups can target an EXISTING, externally-managed MongoDBCommunity
+       without this chart provisioning one. */ -}}
+{{- range (include "kubeaid-addons.mongodb.backupTargets" . | fromJsonArray) }}
 ---
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: {{ printf "%s-backup" .Values.global.mongodb.instanceName }}
+  name: {{ printf "%s-backup" .instanceName }}
+  namespace: {{ $.Release.Namespace }}
   labels:
     # How backup-exporter finds this job. The value is fixed, unlike the
     # per-instance "app" label on the pod template below, so one selector
@@ -15,18 +17,18 @@ metadata:
 spec:
   concurrencyPolicy: Forbid
   failedJobsHistoryLimit: 1
-  schedule: {{ .Values.global.mongodb.logicalbackup.schedule | default "45 03 * * *" | quote }}
+  schedule: {{ .logicalbackup.schedule | default "45 03 * * *" | quote }}
   successfulJobsHistoryLimit: 3
   jobTemplate:
     spec:
       template:
         metadata:
-          {{- if .Values.global.mongodb.logicalbackup.annotations }}
+          {{- if .logicalbackup.annotations }}
           annotations:
-            {{- toYaml .Values.global.mongodb.logicalbackup.annotations | nindent 12 }}
+            {{- toYaml .logicalbackup.annotations | nindent 12 }}
           {{- end }}
           labels:
-            app: {{ printf "%s-backup" .Values.global.mongodb.instanceName }}
+            app: {{ printf "%s-backup" .instanceName }}
         spec:
           containers:
             - name: mongodb-backup
@@ -36,62 +38,62 @@ spec:
                 - name: MONGO_URI
                   valueFrom:
                     secretKeyRef:
-                      name: {{ .Values.global.mongodb.logicalbackup.secretName }}
+                      name: {{ .logicalbackup.secretName }}
                       key: MONGO_URI
                 - name: MONGO_COMPLETE
                   valueFrom:
                     secretKeyRef:
-                      name: {{ .Values.global.mongodb.logicalbackup.secretName }}
+                      name: {{ .logicalbackup.secretName }}
                       key: MONGO_COMPLETE
                 - name: BACKUP_PROVIDER
-                  value: {{ .Values.global.mongodb.logicalbackup.provider | default "az" | quote }}
-              {{- if eq .Values.global.mongodb.logicalbackup.provider "s3" }}
+                  value: {{ .logicalbackup.provider | default "az" | quote }}
+              {{- if eq .logicalbackup.provider "s3" }}
                 - name: S3_BUCKET
-                  value: {{ .Values.global.mongodb.logicalbackup.s3bucket | quote }}
+                  value: {{ .logicalbackup.s3bucket | quote }}
                 - name: S3_PATH
-                  value: {{ .Values.global.mongodb.logicalbackup.s3backuppath | quote }}
-              {{- if not .Values.global.mongodb.logicalbackup.useiamrole }}
+                  value: {{ .logicalbackup.s3backuppath | quote }}
+              {{- if not .logicalbackup.useiamrole }}
                 - name: BACKUP_S3_REGION
-                  value: {{ .Values.global.mongodb.logicalbackup.s3region | default "us-east-1" | quote }}
+                  value: {{ .logicalbackup.s3region | default "us-east-1" | quote }}
                 - name: AWS_DEFAULT_REGION
-                  value: {{ .Values.global.mongodb.logicalbackup.s3region | default "us-east-1" | quote }}
+                  value: {{ .logicalbackup.s3region | default "us-east-1" | quote }}
                 - name: AWS_REGION
-                  value: {{ .Values.global.mongodb.logicalbackup.s3region | default "us-east-1" | quote }}
+                  value: {{ .logicalbackup.s3region | default "us-east-1" | quote }}
                 # NOTE: the backup image reads AWS_S3_ENDPOINT (not BACKUP_S3_ENDPOINT)
                 # to pass --endpoint-url; without it uploads go to real AWS.
                 - name: AWS_S3_ENDPOINT
-                  value: {{ .Values.global.mongodb.logicalbackup.s3endpoint | quote }}
+                  value: {{ .logicalbackup.s3endpoint | quote }}
                 - name: AWS_ACCESS_KEY_ID
                   valueFrom:
                     secretKeyRef:
-                      name: {{ .Values.global.mongodb.logicalbackup.awsAccessKeyIdSecretName }}
+                      name: {{ .logicalbackup.awsAccessKeyIdSecretName }}
                       key: AWS_ACCESS_KEY_ID
                 - name: AWS_SECRET_ACCESS_KEY
                   valueFrom:
                     secretKeyRef:
-                      name: {{ .Values.global.mongodb.logicalbackup.secretName }}
+                      name: {{ .logicalbackup.secretName }}
                       key: AWS_SECRET_ACCESS_KEY
               {{- end }}
-              {{- else if eq .Values.global.mongodb.logicalbackup.provider "az" }}
+              {{- else if eq .logicalbackup.provider "az" }}
                 - name: AZ_BACKUP_PATH
-                  value: {{ .Values.global.mongodb.logicalbackup.azbackuppath | default "mongodb-backup/graylog-mongodb" | quote }}
+                  value: {{ .logicalbackup.azbackuppath | default "mongodb-backup/graylog-mongodb" | quote }}
                 - name: AZURE_STORAGE_ACCOUNT_NAME
                   valueFrom:
                     secretKeyRef:
-                      name: {{ .Values.global.mongodb.logicalbackup.secretName }}
+                      name: {{ .logicalbackup.secretName }}
                       key: AZURE_STORAGE_ACCOUNT_NAME
                 - name: AZURE_STORAGE_ACCOUNT_KEY
                   valueFrom:
                     secretKeyRef:
-                      name: {{ .Values.global.mongodb.logicalbackup.secretName }}
+                      name: {{ .logicalbackup.secretName }}
                       key: AZURE_STORAGE_ACCOUNT_KEY
                 - name: AZURE_STORAGE_CONTAINER
                   valueFrom:
                     secretKeyRef:
-                      name: {{ .Values.global.mongodb.logicalbackup.secretName }}
+                      name: {{ .logicalbackup.secretName }}
                       key: AZURE_STORAGE_CONTAINER
               {{- end }}
-              {{- with (((.Values.global).mongodb).logicalbackup).extraEnv }}
+              {{- with .logicalbackup.extraEnv }}
                 {{- toYaml . | nindent 16 }}
               {{- end }}
               resources:

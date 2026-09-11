@@ -135,8 +135,24 @@ global:
   mongodb:
     enabled: false
     instanceName: my-app-mongodb
-    passwordSecretName: my-app-mongodb-user-password
+    dataVolume: { size: 5Gi }
+    logsVolume: { size: 1Gi }
+    users:
+      - name: app-user
+        db: app
+        passwordSecretRef:
+          name: my-app-mongodb-user-password
+        roles:
+          - name: readWrite
+            db: app
+        scramCredentialsSecretName: app-user-scram
 ```
+
+MongoDB TLS (cert-manager, self-signed CA scoped to the instance) is opt-in via
+`global.mongodb.tls.enabled: true`. More than one independent replica set in
+the same release — e.g. one app needing several databases — goes under
+`global.mongodb.instances: [...]`, one full instance config per entry; see
+`values.yaml` for the complete shape of both.
 
 ### 3. From outside this repository (OCI)
 
@@ -149,7 +165,7 @@ preferred - pick whichever suits the consumer.
 ```yaml
 dependencies:
   - name: kubeaid-addons
-    version: "1.0.0"
+    version: "1.1.0"
     repository: oci://ghcr.io/obmondo/charts
 ```
 
