@@ -154,4 +154,6 @@ implicit blocks (2 per call site × 6 call sites) untouched.
   bump each component's `replicas` to 2+ first — the PDB entries use
   `maxUnavailable: 1`, which blocks voluntary node drains entirely on a
   single replica. Add `topologySpreadConstraints` per component and a
-  blackbox probe on top for full coverage.
+  blackbox probe on top for full coverage. See [Harbor: Acting as
+  Air-Gapped Ops](../../../../docs/guides/harbor-air-gap.md) for this plus
+  the cross-cluster failover design for when Harbor itself is lost.
