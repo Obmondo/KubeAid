@@ -170,7 +170,7 @@ spec:
             - --worker-threads={{ .Values.controller.workerThreads }}
             {{- end }}
             {{- if hasKey .Values.controller "timeout" }}
-            - --timeout={{ .Values.controller.timeout }}
+            - {{ printf "--timeout=%s" .Values.controller.timeout | quote }}
             {{- end }}
             {{- range .Values.sidecars.csiProvisioner.additionalArgs }}
             - {{ . }}
@@ -178,6 +178,9 @@ spec:
           env:
             - name: ADDRESS
               value: /var/lib/csi/sockets/pluginproxy/csi.sock
+            {{- with .Values.sidecars.csiProvisioner.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           volumeMounts:
             - name: socket-dir
               mountPath: /var/lib/csi/sockets/pluginproxy/

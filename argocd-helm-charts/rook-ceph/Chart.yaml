@@ -11,5 +11,5 @@ dependencies:
     repository: https://charts.rook.io/release
     #repository: "oci://ghcr.io/Obmondo"
   - name: ceph-csi-drivers
-    version: "1.0.4"
+    version: "1.0.5"
     repository: https://ceph.github.io/ceph-csi-operator

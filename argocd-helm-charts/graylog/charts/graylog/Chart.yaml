@@ -1,5 +1,5 @@
 apiVersion: v2
-appVersion: 7.2.0-beta.1-1
+appVersion: 7.2.0-beta.2-1
 dependencies:
 - name: community-operator
   repository: https://mongodb.github.io/helm-charts
@@ -10,7 +10,7 @@ dependencies:
   repository: https://opensearch-project.github.io/helm-charts
   tags:
   - install-opensearch
-  version: 2.37.0
+  version: 2.38.0
 description: Graylog is the centralized log management solution built to open standards
   for capturing, storing, and enabling real-time analysis of terabytes of machine
   data.
@@ -31,4 +31,4 @@ name: graylog
 sources:
 - https://github.com/KongZ/charts
 type: application
-version: 3.0.30
+version: 3.0.32

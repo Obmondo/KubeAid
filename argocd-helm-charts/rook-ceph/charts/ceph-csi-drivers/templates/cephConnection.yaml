@@ -1,6 +1,7 @@
 {{- $root := . -}}
 {{- range $cephConnection := .Values.cephConnections -}}
 {{- if $cephConnection.name -}}
+---
 apiVersion: csi.ceph.io/v1
 kind: CephConnection
 metadata:

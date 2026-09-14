@@ -63,7 +63,7 @@ graylog:
   ##
   image:
     repository: "graylog/graylog"
-    tag: "7.2.0-beta.1-1"
+    tag: "7.2.0-beta.2-1"
     pullPolicy: "IfNotPresent"
 
   ## Graylog default Java option
@@ -241,6 +241,7 @@ graylog:
   ## Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-startup-probes
   ##
   startupProbe:
+    initialDelaySeconds: 60
     periodSeconds: 60
     failureThreshold: 3
     successThreshold: 1

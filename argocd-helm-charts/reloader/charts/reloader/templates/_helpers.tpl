@@ -189,16 +189,6 @@ the rule set is defined once. Expects the root context ($) as its argument.
       - delete
       - list
       - get
-{{- if .Values.reloader.enableHA }}
-  - apiGroups:
-      - "coordination.k8s.io"
-    resources:
-      - leases
-    verbs:
-      - create
-      - get
-      - update
-{{- end}}
 {{- if .Values.reloader.enableCSIIntegration }}
   - apiGroups:
       - "secrets-store.csi.x-k8s.io"

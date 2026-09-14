@@ -1,6 +1,6 @@
 # garage
 
-![Version: 0.7.1](https://img.shields.io/badge/Version-0.7.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v2.3.0](https://img.shields.io/badge/AppVersion-v2.3.0-informational?style=flat-square)
+![Version: 0.8.0](https://img.shields.io/badge/Version-0.8.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v2.4.1](https://img.shields.io/badge/AppVersion-v2.4.1-informational?style=flat-square)
 
 S3-compatible object store for small self-hosted geo-distributed deployments.
 
@@ -15,22 +15,22 @@ S3-compatible object store for small self-hosted geo-distributed deployments.
 ## Source Code
 
 * <https://git.deuxfleurs.fr/Deuxfleurs/garage.git>
-* <https://github.com/datahub-local/garage-helm/garage>
+* <https://github.com/deuxfleurs-org/garage>
+* <https://github.com/datahub-local/garage-helm>
 
 ## Values
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` |  |
-| clusterConfig | object | `{"affinity":{},"buckets":[],"configureImage":{"pullPolicy":"IfNotPresent","repository":"busybox","tag":"latest"},"enabled":false,"extraCommands":[],"image":{"pullPolicy":"IfNotPresent","repository":"","tag":""},"imagePullSecrets":[],"keys":{},"layout":{"capacity":"","enabled":true,"zone":"dc1"},"nodeSelector":{},"podAnnotations":{},"podSecurityContext":{"fsGroup":1000,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":1000,"runAsNonRoot":true,"runAsUser":1000},"resources":{},"securityContext":{"capabilities":{"drop":["ALL"]},"readOnlyRootFilesystem":true},"tolerations":[],"toolsImage":{"pullPolicy":"IfNotPresent","repository":"busybox","tag":"musl"}}` | Garage Cluster configuration |
+| clusterConfig | object | `{"affinity":{},"buckets":[],"configureImage":{"pullPolicy":"IfNotPresent","repository":"busybox","tag":"latest"},"enabled":false,"extraCommands":[],"helmSync":{"asHook":true,"ttlSecondsAfterFinished":300},"image":{"pullPolicy":"IfNotPresent","repository":"","tag":""},"imagePullSecrets":[],"keys":{},"layout":{"capacity":"","enabled":true,"zone":"dc1"},"nodeSelector":{},"podAnnotations":{},"podSecurityContext":{"fsGroup":1000,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":1000,"runAsNonRoot":true,"runAsUser":1000},"resources":{},"securityContext":{"capabilities":{"drop":["ALL"]},"readOnlyRootFilesystem":true},"tolerations":[],"toolsImage":{"pullPolicy":"IfNotPresent","repository":"busybox","tag":"musl"}}` | Garage Cluster configuration |
 | clusterConfig.affinity | object | `{}` | Affinity |
-| clusterConfig.helmSync | object | `{"asHook":true,"ttlSecondsAfterFinished":300}` | Change sync behaviour with helm (helm install or helm upgrade) |
-| clusterConfig.helmSync.asHook | bool | `true` | If true, the configure job runs as a post-install/post-upgrade hook (waits for all resources to be ready first). Set to false to run the job as a regular resource alongside other pods. |
-| clusterConfig.helmSync.ttlSecondsAfterFinished | int | `300` | Time in seconds to keep the completed job before automatic cleanup (only applies when asHook is false) |
 | clusterConfig.buckets | list | `[]` | List of buckets to create |
 | clusterConfig.configureImage.repository | string | `"busybox"` | Image to use for the configure task for the configuration job |
 | clusterConfig.enabled | bool | `false` | Enable the cluster configuration job |
 | clusterConfig.extraCommands | list | `[]` | Extra commands to run |
+| clusterConfig.helmSync.asHook | bool | `true` | If true, the configure job runs as a post-install/post-upgrade hook (waits for all resources to be ready first). Set to false to run the job as a regular resource alongside other pods. Recommended when startup of other pods depends on readiness of the garage container. |
+| clusterConfig.helmSync.ttlSecondsAfterFinished | int | `300` | Time in seconds to keep the completed job before automatic cleanup (only applies when asHook is false) |
 | clusterConfig.image.repository | string | `""` | Image to use for the configuration job (defaults to the same as garage) |
 | clusterConfig.imagePullSecrets | list | `[]` | Image pull secrets |
 | clusterConfig.keys | object | `{}` | Dict of keys to create keyId format: must start with 'GK' followed by 24 hex-encoded characters (12 bytes) secretKey format: must be 64 hex-encoded characters (32 bytes) |

@@ -198,6 +198,9 @@ spec:
             {{- if .Values.graylog.tls.enabled }}
               scheme: HTTPS
             {{- end }}
+            {{- if .Values.graylog.startupProbe.initialDelaySeconds }}
+            initialDelaySeconds: {{ .Values.graylog.startupProbe.initialDelaySeconds }}
+            {{- end }}
             periodSeconds: {{ .Values.graylog.startupProbe.periodSeconds }}
             failureThreshold: {{ .Values.graylog.startupProbe.failureThreshold }}
             successThreshold: {{ .Values.graylog.startupProbe.successThreshold }}
