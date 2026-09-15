@@ -1,0 +1,12 @@
+version: 2
+secret:
+  ignored-paths:
+    # Unpacked third-party Helm chart dependencies (helm dependency build
+    # output, vendored per this repo's convention - e.g.
+    # argocd-helm-charts/roundcube-mail/charts/roundcube/). These are
+    # upstream source we don't author or modify; any "secret" here is an
+    # upstream example/placeholder value (e.g. roundcube's default
+    # smtp.username/password: "%u"/"%p" template placeholders, flagged as
+    # SMTP credentials in PR #245 - not a real credential), not something
+    # in our control to remediate by editing.
+    - "argocd-helm-charts/*/charts/**"
