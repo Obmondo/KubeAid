@@ -1,0 +1,11 @@
+
+Congratulations!
+Your {{ include "common.names.fullname" . }} instance has successfully been installed!
+
+You can access roundcube now at
+
+  https://{{ .Values.ingress.host }}{{ .Values.ingress.path }}
+
+
+For support or feature requests raise an issue here:
+  https://gitlab.com/MatthiasLohr/roundcube-helm-chart

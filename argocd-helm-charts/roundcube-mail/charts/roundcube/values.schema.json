@@ -1,0 +1,562 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "https://gitlab.com/MatthiasLohr/roundcube-helm-chart/-/raw/main/values.schema.json",
+  "title": "Values",
+  "type": "object",
+  "properties": {
+    "image": {
+      "description": "Roundcube Docker image (with template support)",
+      "type": "string"
+    },
+    "imagePullPolicy": {
+      "description": "ImagePullPolicy for Roundcube Docker image",
+      "type": "string",
+      "enum": ["Always", "Never", "IfNotPresent"]
+    },
+    "rbac": {
+      "type": "object",
+      "properties": {
+        "create": {
+          "type": "boolean",
+          "description": "Specifies whether RBAC resources should be created"
+        },
+        "rules": {
+          "type": "array",
+          "description": "List of rules to create",
+          "items": {
+            "type": "object"
+          }
+        }
+      },
+      "required": [
+        "create"
+      ]
+    },
+    "serviceAccount": {
+      "type": "object",
+      "properties": {
+        "create": {
+          "type": "boolean",
+          "description": "Specifies whether ServiceAccount resource should be created"
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The name of the ServiceAccount to use. If not set and create is true, a name is generated using a template"
+        },
+        "additionalAnnotations": {
+          "type": "object",
+          "description": "Additional annotations for the ServiceAccount resource"
+        },
+        "additionalLabels": {
+          "type": "object",
+          "description": "Additional labels for the ServiceAccount resource"
+        }
+      },
+      "required": [
+        "create"
+      ]
+    },
+    "config": {
+      "description": "Roundcube Core Configuration",
+      "type": "object",
+      "properties": {
+        "desKey": {
+          "description": "DES Key for session encryption. Will be generated randomly if not set.",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "defaultLanguage": {
+          "description": "User interface default language",
+          "type": "string"
+        },
+        "skins": {
+          "description": "Skin configuration",
+          "type": "object"
+        },
+        "defaultSkin": {
+          "description": "User interface default skin",
+          "type": "string"
+        },
+        "plugins": {
+          "description": "Plugin configuration",
+          "type": "object"
+        },
+        "uploadMaxFilesize": {
+          "description": "Maximum allowed upload file size (e.g., for attachmentes)",
+          "type": "string"
+        },      
+        "customRoundcubeConfig": {
+          "description": "Custom Roundcube configuration parameters",
+          "type": "string"
+        },
+        "customPhpConfig": {
+          "description": "Custom configuration for PHP interpreter",
+          "type": "string"
+        },
+        "customPhpFpmConfig": {
+          "description": "Custom configuration for PHP-FPM",
+          "type": "string"
+        }
+      },
+      "required": [
+        "defaultLanguage",
+        "defaultSkin",
+        "uploadMaxFilesize",
+        "plugins"
+      ]
+    },
+    "database": {
+      "description": "Configure database creation/usage",
+      "type": "object",
+      "properties": {
+        "source": {
+          "description": "Which database source should be used",
+          "type": "string",
+          "enum": ["external", "zalando-postgres"]
+        },
+        "instances": {
+          "description": "Number of database cluster instances to be launched",
+          "type": "integer"
+        },
+        "volumeSize": {
+          "description": "Size of the volume to be created for the database",
+          "type": "string"
+        },
+        "storageClassName": {
+          "description": "Name of the StorageClass to be used for the volume",
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "externalDatabase": {
+      "description": "Configuration for an external database (not deployed within this chart)",
+      "type": "object",
+      "properties": {
+        "type": {
+          "description": "Type of the external database",
+          "type": "string",
+          "enum": ["mysql", "pgsql", "sqlite"]
+        },
+        "host": {
+          "description": "Hostname of the external database server",
+          "type": ["string", "null"]
+        },
+        "port": {
+          "description": "Port number of the external database server",
+          "type": "integer"
+        },
+        "name": {
+          "description": "Database name",
+          "type": "string"
+        },
+        "user": {
+          "description": "Username for the external database server",
+          "type": "string"
+        },
+        "password": {
+          "description": "Password for the external database server"
+        }
+      }
+    },
+    "imap": {
+      "description": "IMAP settings",
+      "type": "object",
+      "properties": {
+        "host": {
+          "description": "Hostname or IP address of your IMAP server",
+          "type": "string"
+        },
+        "port": {
+          "description": "IMAP port",
+          "type": "number",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "encryption": {
+          "description": "Transport encryption",
+          "type": "string",
+          "enum": ["none", "starttls", "ssltls"]
+        }
+      },
+      "required": [
+        "host",
+        "port"
+      ]
+    },
+    "smtp": {
+      "description": "SMTP settings",
+      "type": "object",
+      "properties": {
+        "host": {
+          "description": "Hostname or IP address of your SMTP server",
+          "type": "string"
+        },
+        "port": {
+          "description": "SMTP port",
+          "type": "number",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "encryption": {
+          "description": "Transport encryption",
+          "type": "string",
+          "enum": [
+            "none",
+            "starttls",
+            "ssltls"
+          ]
+        },
+        "username": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "host",
+        "port",
+        "username",
+        "password"
+      ]
+    },
+    "configMap": {
+      "description": "Additional configuration for the ConfigMap resource",
+      "type": "object",
+      "properties": {
+        "additionalLabels": {
+          "description": "Additional labels for the ConfigMap resource",
+          "type": "object"
+        },
+        "additionalAnnotations": {
+          "description": "Additional annotations for the ConfigMap resource",
+          "type": "object"
+        }
+      }
+    },
+    "secret": {
+      "description": "Additional configuration for the Secret resource",
+      "type": "object",
+      "properties": {
+        "additionalLabels": {
+          "description": "Additional labels for the Secret resource",
+          "type": "object"
+        },
+        "additionalAnnotations": {
+          "description": "Additional annotations for the Secret resource",
+          "type": "object"
+        }
+      }
+    },
+    "deployment": {
+      "description": "Additional configuration for the Deployment resource",
+      "type": "object",
+      "properties": {
+        "replicas": {
+          "description": "Number of instances of Roundcube to be started",
+          "type": "number"
+        },
+        "strategy": {
+          "description": "Deployment strategy to use",
+          "type": "object",
+          "properties": {
+            "type": {
+              "description": "Deployment strategy type",
+              "type": "string",
+              "enum": ["RollingUpdate", "Recreate"]
+            }
+          },
+          "required": [
+            "type"
+          ]
+        },
+        "port": {
+          "description": "Roundcube container's HTTP port",
+          "type": "number",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "imagePullSecrets": {
+          "description": "Define additional ImagePullSecrets",
+          "type": ["null", "array"],
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "description": "Name of the ImagePullSecret",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name"
+            ]
+          }
+        },
+        "additionalLabels": {
+          "description": "Additional labels for the Deployment resource",
+          "type": "object"
+        },
+        "additionalAnnotations": {
+          "description": "Additional annotations for the Deployment resource",
+          "type": "object"
+        },
+        "podAffinityPreset": {
+          "description": "Pod affinity rule preset (see https://docs.bitnami.com/tutorials/assign-pod-nodes-helm-affinity-rules/)",
+          "type": ["string", "null"],
+          "enum": [null, "", "soft", "hard"]
+        },
+        "podAntiAffinityPreset": {
+          "description": "Pod anti affinity rule preset (see https://docs.bitnami.com/tutorials/assign-pod-nodes-helm-affinity-rules/)",
+          "type": ["string", "null"],
+          "enum": [null, "", "soft", "hard"]
+        },
+        "affinity": {
+          "description": "Custom affinity rules (overrides podAffinityPreset and podAntiAffinityPreset)",
+          "type": "object"
+        },
+        "resources": {
+          "description": "Configure resource allocation and limits",
+          "type": "object",
+          "properties": {
+            "requests": {
+              "description": "Resources requested by roundcube",
+              "type": "object",
+              "properties": {
+                "memory": {
+                  "description": "Requested amount of memory",
+                  "type": "string"
+                },
+                "cpu": {
+                  "description": "Requested amount of CPU time",
+                  "type": "string"
+                }
+              }
+            },
+            "limits": {
+              "description": "Resource limitations for roundcube",
+              "type": "object",
+              "properties": {
+                "memory": {
+                  "description": "Memory limitation",
+                  "type": "string"
+                },
+                "cpu": {
+                  "description": "CPU time limitation",
+                  "type": "string"
+                }
+              }
+            }
+          } 
+        },
+        "initContainers": {
+          "description": "Additional custom actions to be executed before deploying main container (e.g.: to prepare database)",
+          "type": "array"
+        },
+        "additionalVolumeMounts": {
+          "description": "Additional volume mounts that are added to the main container (e.g.: to set custom CA certificates)",
+          "type": "array"
+        },
+        "additionalVolumes": {
+          "description": "Additional volumes that are added to the main container (e.g.: to set custom CA certificates)",
+          "type": "array"
+        },
+        "additionalEnv": {
+          "description": "Additional environment variables that are added to the main container",
+          "type": "array"
+        },
+        "containers": {
+          "description": "Container-specific configuration",
+          "type": "object",
+          "properties": {
+            "nginx": {
+              "description": "Settings for the nginx container",
+              "type": "object",
+              "properties": {
+                "image": {
+                  "description": "Image used for the nginx container",
+                  "type": "string"
+                },
+                "imagePullPolicy": {
+                  "description": "ImagePullPolicy for the nginx image",
+                  "type": "string",
+                  "enum": ["Always", "Never", "IfNotPresent"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "replicas",
+        "port"
+      ]
+    },
+    "service": {
+      "description": "Additional configuration for the Service resource",
+      "type": "object",
+      "properties": {
+        "port": {
+          "description": "Service port for HTTP",
+          "type": "number",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "additionalLabels": {
+          "description": "Additional labels for the Service resource",
+          "type": "object"
+        },
+        "additionalAnnotations": {
+          "description": "Additional annotations for the Service resource",
+          "type": "object"
+        },
+        "ipFamilyPolicy": {}
+      },
+      "required": [
+        "port"
+      ]
+    },
+    "ingress": {
+      "description": "Ingress resource configuration",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Enable Ingress resource",
+          "type": "boolean"
+        },
+        "useTLS": {
+          "description": "Deploy HTTPS ingress",
+          "type": "boolean"
+        },
+        "host": {},
+        "path": {},
+        "class": {},
+        "ingressClassName": {
+          "description": "Name for the used ingress class",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "additionalLabels": {
+          "description": "Additional labels for the Ingress resource",
+          "type": "object"
+        },
+        "additionalAnnotations": {
+          "description": "Additional annotations for the Ingress resource",
+          "type": "object"
+        }
+      },
+      "required": [
+        "enabled",
+        "host",
+        "path"
+      ]
+    },
+    "pdb": {
+      "description": "PodDisruptionBudget configuration",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Enable PodDisruptionBudget",
+          "type": "boolean"
+        },
+        "minAvailable": {},
+        "maxUnavailable": {},
+        "additionalLabels": {
+          "description": "Additional labels for the PodDisruptionBudget resource",
+          "type": "object"
+        },
+        "additionalAnnotations": {
+          "description": "Additional annotations for the PodDisruptionBudget resource",
+          "type": "object"
+        }
+      },
+      "required": [
+        "enabled"
+      ]
+    },
+    "networkPolicy": {
+      "description": "NetworkPolicy configuration",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Create a NetworkPolicy resource",
+          "type": "boolean"
+        },
+        "egress": {
+          "description": "Egress policies for Roundcube environment",
+          "type": "object",
+          "properties": {
+            "imap": {
+              "description": "IMAP related Egress policies",
+              "type": "object",
+              "properties": {
+                "peers": {}
+              },
+              "required": [
+                "peers"
+              ]
+            },
+            "smtp": {
+              "description": "SMTP related Egress policies",
+              "type": "object",
+              "properties": {
+                "peers": {}
+              },
+              "required": [
+                "peers"
+              ]
+            },
+            "managesieve": {
+              "description": "anagesieve related Egress policies",
+              "type": "object",
+              "properties": {
+                "peers": {}
+              },
+              "required": [
+                "peers"
+              ]
+            },
+            "additionalRules": {
+              "description": "Add additional, custom egress rules",
+              "type": "array"
+            }
+          },
+          "required": [
+            "imap",
+            "smtp"
+          ]
+        },
+        "additionalLabels": {
+          "description": "Additional labels for the NetworkPolicy resource",
+          "type": "object"
+        },
+        "additionalAnnotations": {
+          "description": "Additional annotations for the NetworkPolicy resource",
+          "type": "object"
+        }
+      },
+      "required": [
+        "enabled"
+      ]
+    }
+  },
+  "required": [
+    "image",
+    "config",
+    "imap",
+    "smtp",
+    "configMap",
+    "secret",
+    "deployment",
+    "service",
+    "ingress",
+    "pdb",
+    "networkPolicy"
+  ]
+}
