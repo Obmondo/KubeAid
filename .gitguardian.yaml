@@ -1,6 +1,6 @@
 version: 2
 secret:
-  ignored-paths:
+  ignored_paths:
     # Unpacked third-party Helm chart dependencies (helm dependency build
     # output, vendored per this repo's convention - e.g.
     # argocd-helm-charts/roundcube-mail/charts/roundcube/). These are
