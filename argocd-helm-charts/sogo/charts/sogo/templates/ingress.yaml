@@ -1,0 +1,46 @@
+{{- if .Values.ingress.enabled }}
+---
+apiVersion: {{ include "sogo.ingress.apiVersion" . }}
+kind: Ingress
+metadata:
+  name: {{ template "sogo.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "sogo.name" . }}
+    helm.sh/chart: {{ include "sogo.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/component: app
+    {{- with .Values.ingress.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.sogo.host }}
+      http:
+        paths:
+          - path: {{ .Values.ingress.path }}
+            {{- if (eq (include "sogo.ingress.apiVersion" $) "networking.k8s.io/v1") }}
+            pathType: {{ .Values.ingress.pathType }}
+            {{- end }}
+            backend:
+              {{- if (eq (include "sogo.ingress.apiVersion" $) "networking.k8s.io/v1") }}
+              service:
+                name: {{ template "sogo.fullname" . }}
+                port:
+                  number: {{ .Values.service.port }}
+              {{- else }}
+              serviceName: {{ template "sogo.fullname" . }}
+              servicePort: {{ .Values.service.port }}
+              {{- end }}
+  {{- with .Values.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

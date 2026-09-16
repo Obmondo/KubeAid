@@ -1,0 +1,440 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "sogo.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "sogo.name" . }}
+    helm.sh/chart: {{ include "sogo.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/component: app
+    {{- with .Values.deploymentLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.deploymentAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    {{- toYaml .Values.sogo.strategy | nindent 4 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "sogo.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: app
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "sogo.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: app
+        {{- if .Values.memcached.enabled }}
+        {{ template "sogo.memcached.fullname" . }}-client: "true"
+        {{- end }}
+        {{- if .Values.mariadb.enabled }}
+        {{ template "sogo.mariadb.fullname" . }}-client: "true"
+        {{- else if .Values.postgresql.enabled }}
+        {{ template "sogo.postgresql.fullname" . }}-client: "true"
+        {{- end }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        sogo-config-hash: {{ print (toJson .Values.sogo.configs) | sha256sum }}
+    spec:
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- range . }}
+        - name: {{ . }}
+        {{- end}}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: {{ include "sogo.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.lifecycle }}
+          lifecycle:
+            {{- with .postStartCommand }}
+            postStart:
+              exec:
+                command:
+                  {{- toYaml . | nindent 18 }}
+            {{- end }}
+            {{- with .preStopCommand }}
+            preStop:
+              exec:
+                command:
+                  {{- toYaml . | nindent 18 }}
+            {{- end }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.sogo.containerPort }}
+              protocol: TCP
+          {{- with .Values.livenessProbe }}
+          {{- if .enabled }}
+          livenessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "curl -s -o /dev/null -w \"%{http_code}\" http://localhost/SOGo | grep -E \"^(2|3)[0-9]{2}$\""]
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            successThreshold: {{ .successThreshold }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          {{- if .enabled }}
+          readinessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "curl -s -o /dev/null -w \"%{http_code}\" http://localhost/SOGo | grep -E \"^(2|3)[0-9]{2}$\""]
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            successThreshold: {{ .successThreshold }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- end }}
+          {{- with .Values.startupProbe }}
+          {{- if .enabled }}
+          startupProbe:
+            exec:
+              command: ["/bin/sh", "-c", "curl -s -o /dev/null -w \"%{http_code}\" http://localhost/SOGo | grep -E \"^(2|3)[0-9]{2}$\""]
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            successThreshold: {{ .successThreshold }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- with .Values.sogo.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            {{- include "sogo.volumeMounts" . | trim | nindent 12 }}
+            {{- if .Values.sogo.configs }}
+            - name: sogo-configs
+              mountPath: /etc/sogo/sogo.conf.d/99-helm.yaml
+              subPath: configs
+              readOnly: true
+            {{- end }}
+            {{- if .Values.sogo.vacationExpiration.enabled }}
+            - name: sogo-sieve-creds
+              mountPath: /etc/sogo/sieve.creds
+              subPath: creds
+              readOnly: true
+            - name: sogo-vacation-cron
+              mountPath: /etc/cron.d/sogo-vacation
+              subPath: cron
+              readOnly: true
+            {{- end }}
+            {{- if .Values.sogo.emailAlarms.enabled }}
+            - name: sogo-smtp-creds
+              mountPath: /etc/sogo/smtp.creds
+              subPath: creds
+              readOnly: true
+            - name: sogo-email-alarms-cron
+              mountPath: /etc/cron.d/sogo-email-alarms
+              subPath: cron
+              readOnly: true
+            {{- end }}
+            {{- if .Values.sogo.sessionCleanup.enabled }}
+            - name: sogo-session-cron
+              mountPath: /etc/cron.d/sogo-session-cleanup
+              subPath: cron
+              readOnly: true
+            - name: sogo-oidc-cron
+              mountPath: /etc/cron.d/sogo-oidc-cleanup
+              subPath: cron
+              readOnly: true
+            {{- end }}
+            {{- if .Values.sogo.backup.enabled }}
+            - name: sogo-backups
+              mountPath: /home/sogo/backups
+            - name: sogo-backup-cron
+              mountPath: /etc/cron.d/sogo-backup
+              subPath: cron
+              readOnly: true
+            {{- end }}
+            {{- if .Values.sogo.autoSubscribeAllUsers.enabled }}
+            - name: sogo-subscribe-users-cron
+              mountPath: /etc/cron.d/sogo-subscribe-users
+              subPath: cron
+              readOnly: true
+            {{- end }}
+            {{- if .Values.sogo.theme.js }}
+            - name: sogo-custom-theme
+              mountPath: /usr/local/lib/GNUstep/SOGo/WebServerResources/js/helm-theme.js
+              subPath: theme.js
+              readOnly: true
+            {{- end }}
+            {{- if .Values.sogo.theme.css }}
+            - name: {{ template "sogo.fullname" . }}-customizations
+              mountPath: /usr/local/lib/GNUstep/SOGo/WebServerResources/js/theme-default.css
+              subPath: helm.css
+              readOnly: true
+            {{- end }}
+            {{- if .Values.sogo.theme.logo }}
+            - name: {{ template "sogo.fullname" . }}-customizations
+              mountPath: /usr/local/lib/GNUstep/SOGo/WebServerResources/img/sogo-full.svg
+              subPath: helm.svg
+              readOnly: true
+            {{- end }}
+            {{- if .Values.sogo.theme.favicon }}
+            - name: {{ template "sogo.fullname" . }}-customizations
+              mountPath: /usr/local/lib/GNUstep/SOGo/WebServerResources/img/sogo.ico
+              subPath: helm.ico
+              readOnly: true
+            {{- end }}
+            {{- if .Values.sogo.secrets }}
+            - name: sogo-secrets
+              mountPath: /etc/sogo/sogo.conf.d/99-secrets.yaml
+              subPath: secrets
+              readOnly: true
+            {{- end }}
+            {{- if .Values.sogo.existingSecrets }}
+            - name: {{ template "sogo.fullname" . }}-tmp
+              mountPath: /etc/sogo/sogo.conf.d/99-existing-secrets.yaml
+              subPath: existing-secrets.yaml
+              readOnly: true
+            {{- end }}
+            {{- if or .Values.mariadb.enabled .Values.postgresql.enabled }}
+            - name: sogo-configs
+              mountPath: /etc/sogo/sogo.conf.d/98-internal-db.yaml
+              subPath: internal-db
+              readOnly: true
+            {{- end }}
+            {{- if .Values.memcached.enabled }}
+            - name: sogo-configs
+              mountPath: /etc/sogo/sogo.conf.d/98-internal-memcached.yaml
+              subPath: internal-memcached
+              readOnly: true
+            {{- end }}
+        {{- with .Values.sogo.extraSidecarContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        {{- if .Values.sogo.extraInitContainers }}
+        {{- with .Values.sogo.extraInitContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- end }}
+        - name: {{ .Chart.Name }}-ext-secrets
+          image: {{ include "sogo.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: CSS_URL
+              value: {{ .Values.sogo.theme.css }}
+            - name: LOGO_URL
+              value: {{ .Values.sogo.theme.logo }}
+            - name: FAVICON_URL
+              value: {{ .Values.sogo.theme.favicon }}
+          volumeMounts:
+            - name: {{ template "sogo.fullname" . }}-tmp
+              mountPath: /secrets
+            - name: {{ template "sogo.fullname" . }}-customizations
+              mountPath: /customizations
+            {{- if .Values.sogo.existingSecrets }}
+            {{- range .Values.sogo.existingSecrets }}
+            - name: {{ printf "existing-secrets-%s" (kebabcase .) }}
+              mountPath: {{ printf "/existing-secrets/%s" (kebabcase .) }}
+              readOnly: true
+            {{- end }}
+            {{- end }}
+          command:
+            - "sh"
+            - "-c"
+            - |
+              mkdir -p /existing-secrets
+              tmp_script=/tmp/generate_yaml.sh
+              touch "$tmp_script"
+              
+              cat << 'EOF' > "$tmp_script"
+              #!/bin/bash
+
+              output_file="/secrets/existing-secrets.yaml"
+              > "$output_file"
+
+              # Loop through each file in the directory
+              # Find all files within the existing-secrets directory and its subdirectories
+              find /existing-secrets -type f | while read -r file; do
+                is_yaml=false
+
+                # Get the filename without the directory path
+                filename=$(basename "$file")
+                if [[ $filename == *"__yaml" ]]; then
+                  is_yaml=true
+                  filename="${filename/__yaml/}"
+                fi
+
+                # Read the content of the file and indent each line with two spaces
+                content=$(cat "$file")
+                # Append the filename and content to the YAML file if the content is not empty
+                if [ -n "$content" ]; then
+                  if [ "$is_yaml" = true ]; then
+                    echo "$filename:" >> "$output_file"
+                  else
+                    echo "$filename: |-" >> "$output_file"
+                  fi
+                  while IFS= read -r line; do
+                    echo "  $line" >> "$output_file"
+                  done <<< "$content"
+                fi
+              done
+              EOF
+
+              chmod +x "$tmp_script"
+
+              # Generation of config file
+              bash "$tmp_script"
+
+              if [ -n "$CSS_URL" ]; then
+                curl -L -o /customizations/helm.css "$CSS_URL"
+              fi
+              if [ -n "$LOGO_URL" ]; then
+                curl -L -o /customizations/helm.svg "$LOGO_URL"
+              fi
+              if [ -n "$FAVICON_URL" ]; then
+                curl -L -o /customizations/helm.ico "$FAVICON_URL"
+              fi
+
+        {{- if or .Values.mariadb.enabled (eq (include "sogo.db.parsed.type" .) "mysql") }}
+        - name: mariadb-isalive
+          image: {{ .Values.mariadb.image.registry | default "docker.io" }}/{{ .Values.mariadb.image.repository }}:{{ .Values.mariadb.image.tag }}
+          env:
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ printf "%s-db" .Release.Name }}
+                  key: db-username
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ printf "%s-db" .Release.Name }}
+                  key: db-password
+            - name: MYSQL_HOST
+              value: {{ include "sogo.mariadb.fullname" . }}
+            - name: MYSQL_PORT
+              value: {{ include "sogo.db.parsed.port" . | default (ternary "3306" "" .Values.mariadb.enabled) | quote }}
+          command:
+            - "sh"
+            - "-c"
+            - "until mariadb --host=${MYSQL_HOST} --port=${MYSQL_PORT} --user=${MYSQL_USER} --password=${MYSQL_PASSWORD} --execute=\"SELECT 1;\"; do echo waiting for mysql; sleep 2; done;"
+        {{- else if or .Values.postgresql.enabled (eq (include "sogo.db.parsed.type" .) "postgresql") }}
+        - name: postgresql-isready
+          image: {{ .Values.postgresql.image.registry | default "docker.io"  }}/{{ .Values.postgresql.image.repository }}:{{ .Values.postgresql.image.tag }}
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ printf "%s-db" .Release.Name }}
+                  key: db-username
+            - name: POSTGRES_HOST
+              value: {{ include "sogo.postgresql.fullname" . }}
+            - name: POSTGRES_PORT
+              value: {{ include "sogo.db.parsed.port" . | default (ternary "5432" "" .Values.postgresql.enabled) | quote }}
+          command:
+            - "sh"
+            - "-c"
+            - "until pg_isready -h ${POSTGRES_HOST} -p ${POSTGRES_PORT} -U ${POSTGRES_USER} ; do sleep 2 ; done"
+        {{- end }}{{/* end-if any database-initContainer */}}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        {{- if .Values.sogo.backup.enabled }}
+        - name: sogo-backups
+          persistentVolumeClaim:
+            claimName: {{ if .Values.sogo.backup.persistence.existingClaim }}{{ .Values.sogo.backup.persistence.existingClaim }}{{- else }}{{ template "sogo.fullname" . }}-backups{{- end }}
+        {{- end }}
+        {{- if .Values.sogo.vacationExpiration.enabled }}
+        - name: sogo-sieve-creds
+          secret:
+            secretName: {{ if .Values.sogo.vacationExpiration.sieve.existingSecret }}{{ .Values.sogo.vacationExpiration.sieve.existingSecret }}{{- else }}{{ template "sogo.fullname" . }}-sieve-creds{{- end }}
+        - name: sogo-vacation-cron
+          configMap:
+            name: {{ template "sogo.fullname" . }}-vacation-cron
+        {{- end }}
+        {{- if .Values.sogo.emailAlarms.enabled }}
+        - name: sogo-smtp-creds
+          secret:
+            secretName: {{ if .Values.sogo.emailAlarms.smtp.existingSecret }}{{ .Values.sogo.emailAlarms.smtp.existingSecret }}{{- else }}{{ template "sogo.fullname" . }}-smtp-creds{{- end }}
+        - name: sogo-email-alarms-cron
+          configMap:
+            name: {{ template "sogo.fullname" . }}-email-alarms-cron
+        {{- end }}
+        {{- if .Values.sogo.sessionCleanup.enabled }}
+        - name: sogo-session-cron
+          configMap:
+            name: {{ template "sogo.fullname" . }}-session-cron
+        - name: sogo-oidc-cron
+          configMap:
+            name: {{ template "sogo.fullname" . }}-oidc-cron
+        {{- end }}
+        {{- if .Values.sogo.autoSubscribeAllUsers.enabled }}
+        - name: sogo-subscribe-users-cron
+          configMap:
+            name: {{ template "sogo.fullname" . }}-subscribe-users-cron
+        {{- end }}
+        {{- if .Values.sogo.backup.enabled }}
+        - name: sogo-backup-cron
+          configMap:
+            name: {{ template "sogo.fullname" . }}-backup-cron
+        {{- end }}
+        {{- if .Values.sogo.configs }}
+        - name: sogo-configs
+          configMap:
+            name: {{ template "sogo.fullname" . }}-config
+        {{- end }}
+        {{- if or .Values.sogo.theme.js .Values.sogo.theme.css }}
+        - name: sogo-custom-theme
+          configMap:
+            name: {{ template "sogo.fullname" . }}-theme
+        {{- end }}
+        {{- if .Values.sogo.secrets }}
+        - name: sogo-secrets
+          secret:
+            secretName: {{ template "sogo.fullname" . }}-secret
+        {{- end }}
+        {{- if .Values.sogo.existingSecrets }}
+        {{- range .Values.sogo.existingSecrets }}
+        - name: {{ printf "existing-secrets-%s" (kebabcase .) }}
+          secret:
+            secretName: {{ . }}
+        {{- end }}
+        {{- end }}
+        - name: {{ template "sogo.fullname" . }}-tmp
+          emptyDir: {}
+        - name: {{ template "sogo.fullname" . }}-customizations
+          emptyDir: {}
+        {{- with .Values.sogo.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      securityContext:
+        {{- with .Values.securityContext }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.sogo.podSecurityContext }}
+        {{- toYaml . | nindent 8 }}
+        {{- else }}
+        # Will mount configuration files as www-data (id: 33) for sogo
+        fsGroup: 33
+        {{- end }}{{/* end-with podSecurityContext */}}
+      {{- if .Values.rbac.enabled }}
+      serviceAccountName: {{ .Values.rbac.serviceaccount.name }}
+      {{- end }}

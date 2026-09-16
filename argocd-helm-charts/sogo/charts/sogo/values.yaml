@@ -1,0 +1,374 @@
+## docker-sogo image version
+## ref: https://hub.docker.com/r/sonroyaalmerol/docker-sogo/tags/
+##
+image:
+  repository: sonroyaalmerol/docker-sogo
+  tag:
+  revision:
+  pullPolicy: IfNotPresent
+  # pullSecrets:
+  #   - myRegistrKeySecretName
+
+nameOverride: ""
+fullnameOverride: ""
+podAnnotations: {}
+deploymentAnnotations: {}
+deploymentLabels: {}
+
+# Number of replicas to be deployed
+replicaCount: 1
+
+## Allowing use of ingress controllers
+## ref: https://kubernetes.io/docs/concepts/services-networking/ingress/
+##
+ingress:
+  enabled: false
+  # className: nginx
+  annotations: {}
+  #  kubernetes.io/tls-acme: "true"
+  #  cert-manager.io/cluster-issuer: letsencrypt-prod
+  #  nginx.ingress.kubernetes.io/server-snippet: |-
+  #    ## requirement to create new calendars in Thunderbird ##
+  #    proxy_http_version 1.1;
+  #    proxy_hide_header X-Powered-By;
+  #
+  #    location = / {
+  #      rewrite ^(.*)$ /SOGo;
+  #      allow all;
+  #    }
+
+  # tls:
+  #   - secretName: sogo-tls
+  #     hosts:
+  #       - sogo.kube.home
+  labels: {}
+  path: /
+  pathType: Prefix
+
+# Allow configuration of lifecycle hooks
+# ref: https://kubernetes.io/docs/tasks/configure-pod-container/attach-handler-lifecycle-event/
+lifecycle: {}
+  # postStartCommand: []
+  # preStopCommand: []
+
+sogo:
+  host: sogo.kube.home
+
+  # If web server is not binding default port, you can define it
+  containerPort: 80
+
+  # Enable all logs from SOGo
+  enableVerboseLogs: false
+
+  # SOGo configuration options
+  # ref: https://www.sogo.nu/files/docs/SOGoInstallationGuide.html
+  configs:
+    WOWorkersCount: 5
+    SOGoPageTitle: SOGo
+    SOGoVacationEnabled: true
+    SOGoForwardEnabled: true
+    SOGoSieveScriptsEnabled: true
+    SOGoMailAuxiliaryUserAccountsEnabled: true
+    SOGoTrustProxyAuthentication: false
+    SOGoXSRFValidationEnabled: false
+    SOGoLanguage: English
+    SOGoTimeZone: America/Montreal
+
+  # Follows the same format as .sogo.config but will be kept as a Secret
+  secrets: {}
+    # SOGoProfileURL: "mysql://sogo:pass@db:3306/sogo/sogo_user_profile"
+    # OCSFolderInfoURL: "mysql://sogo:pass@db:3306/sogo/sogo_folder_info"
+    # OCSSessionsFolderURL: "mysql://sogo:pass@db:3306/sogo/sogo_sessions_folder"
+    # OCSCacheFolderURL: "mysql://sogo:pass@db:3306/sogo/sogo_cache_folder"
+    # OCSStoreURL: "mysql://sogo:pass@db:3306/sogo/sogo_store"
+    # OCSAclURL: "mysql://sogo:pass@db:3306/sogo/sogo_acl"
+
+  # Array of secret names containing the configurations
+  # All secret values will be parsed as a string by default
+  # To parse a secret value as a YAML, you must append "__yaml" to the secret key
+  # NOTE: All keys in the secrets will be imported as a SOGo configuration.
+  existingSecrets: []
+    # - secretName1
+    # - secretName2
+
+  ## SOGo Custom Theming
+  ## NOTE: SOGoUIxDebugEnabled is automatically set to YES when only .sogo.theme.js is set
+  ## Setting .sogo.theme.js is only meant for debugging. Using .sogo.theme.css is preferred.
+  ## ref: https://www.sogo.nu/support/faq/how-to-change-the-color-theme.html
+  theme: {}
+    # js: |
+    #  $mdThemingProvider.theme('default')
+    #  .primaryPalette('green-cow', {
+    #    'default': '400',  // background color of top toolbars
+    #    'hue-1': '400',
+    #    'hue-2': '600',    // background color of sidebar toolbar
+    #    'hue-3': 'A700'
+    #  })
+    #  .accentPalette('green', {
+    #    'default': '600',  // background color of fab buttons and login screen
+    #    'hue-1': '300',    // background color of center list toolbar
+    #    'hue-2': '300',    // highlight color for selected mail and current day calendar
+    #    'hue-3': 'A700'
+    #  })
+    #  .backgroundPalette('frost-grey');
+    # css: <http url for css file (.css)>
+    # logo: <http url for logo file (.svg)>
+    # favicon: <http url for favicon file (.ico)>
+
+  # Vacation messages expiration
+  vacationExpiration:
+    enabled: false
+    schedule: "*/5 * * * *"
+    sieve: {}
+      # username: 'sieve-admin-username'
+      # password: 'sieve-admin-password'
+      ## existingSecret should contain the sieve admin credentials (username:passwd) in the "creds" key.
+      # existingSecret: ''
+
+  # Session cleanup - runs every minute
+  #   - Adjust the maxInactivity (in minutes) parameter to suit your needs
+  #   - Adjust the durationLimit (in minutes) parameter to suit your needs
+  # Default: Sessions without activity since 60 minutes will be dropped:
+  sessionCleanup:
+    enabled: false
+    maxInactivity: 60
+    durationLimit: 480
+
+  # Email alarms - runs every minutes
+  # If you need to use SMTP AUTH for outgoing mails, specify credentials to use
+  emailAlarms:
+    enabled: false
+    smtp: {}
+      # username: 'smtp-username'
+      # password: 'smtp-password'
+      ## existingSecret should contain the smtp admin credentials (username:passwd) in the "creds" key.
+      # existingSecret: ''
+
+  # Daily backups
+  #   - will keep 31 days worth of backups by default
+  #   - runs once a day by default, but can run more frequently
+  backup:
+    enabled: false
+    schedule: 30 0 * * *
+    persistence:
+      annotations: {}
+      ## SOGo Backups Persistent Volume Storage Class
+      ## If defined, storageClassName: <storageClass>
+      ## If set to "-", storageClassName: "", which disables dynamic provisioning
+      ## If undefined (the default) or set to null, no storageClassName spec is
+      ##   set, choosing the default provisioner.  (gp2 on AWS, standard on
+      ##   GKE, AWS & OpenStack)
+      ##
+      # storageClass: "-"
+
+      ## A manually managed Persistent Volume and Claim
+      ## Requires persistence.enabled: true
+      ## If defined, PVC must be created manually before volume will be bound
+      # existingClaim:
+
+      accessMode: ReadWriteOnce
+      size: 8Gi
+
+  # Auto subscribe all users to collections they have access to
+  # Mainly for calendars
+  autoSubscribeAllUsers:
+    enabled: false
+    schedule: "*/5 * * * *"
+
+  ## Strategy used to replace old pods
+  ## ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+
+  ##
+  ## Extra environment variables
+  extraEnv:
+  #  - name: SOME_SECRET_ENV
+  #    valueFrom:
+  #      secretKeyRef:
+  #        name: sogo
+  #        key: secret_key
+
+  # Extra init containers that runs before pods start.
+  extraInitContainers: []
+  #  - name: do-something
+  #    image: busybox
+  #    command: ['do', 'something']
+
+  # Extra sidecar containers.
+  extraSidecarContainers: []
+  #  - name: sogo-logger
+  #    image: busybox
+  #    command: [/bin/sh, -c, 'while ! test -f "/run/sogo/data/sogo.log"; do sleep 1; done; tail -n+1 -f /run/sogo/data/sogo.log']
+  #    volumeMounts:
+  #    - name: sogo-data
+  #      mountPath: /run/sogo/data
+
+  # Extra mounts for the pods. Example shown is for connecting a legacy NFS volume
+  # to SOGo pods in Kubernetes. This can then be configured in External Storage
+  extraVolumes:
+  #  - name: nfs
+  #    nfs:
+  #      server: "10.0.0.1"
+  #      path: "/sogo_data"
+  #      readOnly: false
+  extraVolumeMounts:
+  #  - name: nfs
+  #    mountPath: "/legacy_data"
+
+  # Set securityContext parameters for the sogo CONTAINER only (will not affect nginx container).
+  # For example, you may need to define runAsNonRoot directive
+  securityContext: {}
+  #   runAsUser: 33
+  #   runAsGroup: 33
+  #   runAsNonRoot: true
+  #   readOnlyRootFilesystem: false
+
+  # Set securityContext parameters for the entire pod. For example, you may need to define runAsNonRoot directive
+  podSecurityContext: {}
+  #   runAsUser: 33
+  #   runAsGroup: 33
+  #   runAsNonRoot: true
+  #   readOnlyRootFilesystem: false
+
+service:
+  type: ClusterIP
+  port: 8080
+  loadBalancerIP: ""
+  nodePort: nil
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #  cpu: 100m
+  #  memory: 128Mi
+  # requests:
+  #  cpu: 100m
+  #  memory: 128Mi
+
+## Liveness and readiness probe values
+## Ref: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-probes
+##
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+startupProbe:
+  enabled: false
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 30
+  successThreshold: 1
+
+##
+## PostgreSQL chart configuration
+## for more options see https://github.com/bitnami/charts/tree/main/bitnami/postgresql
+##
+postgresql:
+  ## Only enable this if you don't have an external database
+  ## When enabled, all database URLs will default to using this database
+  enabled: false
+  global:
+    postgresql:
+      # global.postgresql.auth overrides postgresql.auth
+      auth:
+        username: sogo
+        password: changeme
+        database: sogo
+        # Name of existing secret to use for PostgreSQL credentials.
+        # auth.postgresPassword, auth.password, and auth.replicationPassword will be ignored and picked up from this secret.
+        # secret might also contains the key ldap-password if LDAP is enabled.
+        # ldap.bind_password will be ignored and picked from this secret in this case.
+        existingSecret: ""
+        # Names of keys in existing secret to use for PostgreSQL credentials
+        secretKeys:
+          adminPasswordKey: ""
+          userPasswordKey: ""
+          replicationPasswordKey: ""
+  primary:
+    persistence:
+      enabled: false
+      # Use an existing Persistent Volume Claim (must be created ahead of time)
+      # existingClaim: ""
+      # storageClass: ""
+
+##
+## MariaDB chart configuration
+## ref: https://github.com/bitnami/charts/tree/main/bitnami/mariadb
+##
+mariadb:
+  ## Only enable this if you don't have an external database
+  ## When enabled, all database URLs will default to using this database
+  enabled: false
+
+  auth:
+    database: sogo
+    username: sogo
+    password: changeme
+    # Use existing secret (auth.rootPassword, auth.password, and auth.replicationPassword will be ignored).
+    # secret must contain the keys mariadb-root-password, mariadb-replication-password and mariadb-password
+    existingSecret: ""
+
+  architecture: standalone
+
+  ## Enable persistence using Persistent Volume Claims
+  ## ref: http://kubernetes.io/docs/user-guide/persistent-volumes/
+  ##
+  primary:
+    persistence:
+      enabled: false
+      # Use an existing Persistent Volume Claim (must be created ahead of time)
+      # existingClaim: ""
+      # storageClass: ""
+      accessMode: ReadWriteOnce
+      size: 8Gi
+
+##
+## Memcached chart configuration
+## ref: https://github.com/bitnami/charts/tree/main/bitnami/memcached
+##
+memcached:
+  ## Only enable this if you don't have an external database
+  enabled: true
+
+## Enable pod autoscaling using HorizontalPodAutoscaler
+## ref: https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+##
+hpa:
+  enabled: false
+  cputhreshold: 60
+  minPods: 1
+  maxPods: 10
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+rbac:
+  enabled: false
+  serviceaccount:
+    create: true
+    name: sogo-serviceaccount
+    annotations: {}
+
+## @param securityContext for sogo pod @deprecated Use `sogo.podSecurityContext` instead
+securityContext: {}
