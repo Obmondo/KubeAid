@@ -9,6 +9,9 @@ metadata:
     {{- with .Values.global.extraLabels }}
     {{ toYaml . | nindent 4 }}
     {{- end }}
+    {{- with .Values.puppetserver.persistence.code.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   annotations:
     {{- if .Values.global.runAsNonRoot }}
     helm.sh/hook: pre-install

@@ -89,6 +89,10 @@ puppetserver:
       size: ""
 
     code:
+      ## Labels to set on the code PVC, in addition to the chart's own.
+      ## Local addition: the upstream chart offers no per-claim labels, only
+      ## global.extraLabels, which cannot single out one volume.
+      labels: {}
       ## If an existing Persistent Volume Claim needs to be used, specify the name here.
       ## If not specified the PVC is created by this chart using the informations below or the `storage` values.
       existingClaim: ''
