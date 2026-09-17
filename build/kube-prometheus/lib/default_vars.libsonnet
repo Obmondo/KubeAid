@@ -5,6 +5,10 @@
   kubeaid_users_apps+: [],
   kube_prometheus_version+: 'v0.17.0',
   kubeaid_apps+: [],
+  // Names from kubeaid_apps/kubeaid_users_apps to exclude from the
+  // ArgoCdAppOutOfSync/ArgoCdAppUnhealthy alerts. Set per-cluster in
+  // <cluster>-vars.jsonnet.
+  kubeaid_apps_ignore_out_of_sync+: [],
   prometheus_operator_resources: {
     limits: { memory: '80Mi' },
     requests: { cpu: '20m', memory: '80Mi' },
