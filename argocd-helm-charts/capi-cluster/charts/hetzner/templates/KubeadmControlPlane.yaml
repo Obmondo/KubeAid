@@ -520,7 +520,7 @@ spec:
           version: 2
           renderer: networkd
           vlans:
-            ${NETWORK_INTERFACE}.{{ .Values.bareMetal.vSwitch.vlanID }}:
+            vswitch.{{ .Values.bareMetal.vSwitch.vlanID }}:
               id: {{ .Values.bareMetal.vSwitch.vlanID }}
               link: ${NETWORK_INTERFACE}
               mtu: 1400
