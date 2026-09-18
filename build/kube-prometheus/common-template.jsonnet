@@ -216,6 +216,7 @@ local kp =
                     name: argocdApps,
                     // TODO: maybe add support for other projects
                     project: 'kubeaid',
+                    ignoreOutOfSync: std.toString(std.member(vars.kubeaid_apps_ignore_out_of_sync, argocdApps)),
                   },
                 }
                 for argocdApps in vars.kubeaid_apps + vars.kubeaid_users_apps
