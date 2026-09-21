@@ -40,7 +40,9 @@ Upstream values live under the `zfs-localpv:` key; the chart adds one KubeAid-sp
   zfs-csi-controller-critical` — dedicated `PriorityClass`es, created by default.
 - `storageClass.enabled` (default `false`, chart-added key) — when `true`, `templates/storageclass.yaml` renders
   a `zfs-localpv` `StorageClass` (and, if `storageClass.shared: true`, also a `zfs-localpv-shared` one) using
-  `storageClass.poolName` (**required** when enabled) and `storageClass.reclaimPolicy` (default `Delete`). See
+  `storageClass.poolName` (**required** when enabled) and `storageClass.reclaimPolicy` (default `Delete`).
+  `storageClass.default: true` additionally marks `zfs-localpv` as the cluster's default StorageClass, for
+  clusters where it is the only storage and PVCs without a `storageClassName` (kube-prometheus) must bind. See
   [examples/values-storageclass.yaml](examples/values-storageclass.yaml) for a worked example; confirm with
   `kubectl get sc` once deployed.
 

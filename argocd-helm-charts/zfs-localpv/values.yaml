@@ -49,3 +49,6 @@ zfs-localpv:
 storageClass:
   enabled: false
   shared: true
+  # Mark the zfs-localpv class as the cluster default, for clusters where it is the
+  # only storage and workloads (kube-prometheus among them) do not set a className.
+  default: false
