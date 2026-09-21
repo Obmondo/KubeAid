@@ -2,6 +2,15 @@ wazuh:
   indexer:
     replicas: 1
     storageSize: 5Gi
+
+  agent:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+
   wazuh:
     master:
       storageSize: 5Gi
