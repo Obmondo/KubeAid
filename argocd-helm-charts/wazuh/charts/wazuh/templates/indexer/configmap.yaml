@@ -1,0 +1,76 @@
+{{- if .Values.indexer.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "wazuh.indexer.fullname" . }}-indexer-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ include "wazuh.indexer.fullname" . }}-indexer
+  annotations:
+    {{- toYaml .Values.indexer.annotations | nindent 4 }}
+data:
+  opensearch.yml: |
+{{- if .Values.indexer.config.opensearch }}
+{{ tpl .Values.indexer.config.opensearch . | indent 4 }}
+{{- else }}
+    cluster.name: ${CLUSTER_NAME}
+    node.name: ${NODE_NAME}
+    network.host: ${NETWORK_HOST}
+    discovery.seed_hosts: {{ include "wazuh.indexer.fullname" . }}-indexer-nodes
+    cluster.initial_master_nodes:
+      - {{ include "wazuh.indexer.fullname" . }}-indexer-0
+
+    node.max_local_storage_nodes: "3"
+    path.data: /var/lib/wazuh-indexer
+    path.logs: /var/log/wazuh-indexer
+    plugins.security.ssl.http.pemcert_filepath: /usr/share/wazuh-indexer/config/certs/node.pem
+    plugins.security.ssl.http.pemkey_filepath: /usr/share/wazuh-indexer/config/certs/node-key.pem
+    plugins.security.ssl.http.pemtrustedcas_filepath: /usr/share/wazuh-indexer/config/certs/root-ca.pem
+    plugins.security.ssl.transport.pemcert_filepath: /usr/share/wazuh-indexer/config/certs/node.pem
+    plugins.security.ssl.transport.pemkey_filepath: /usr/share/wazuh-indexer/config/certs/node-key.pem
+    plugins.security.ssl.transport.pemtrustedcas_filepath: /usr/share/wazuh-indexer/config/certs/root-ca.pem
+    plugins.security.ssl.http.enabled: true
+    plugins.security.ssl.transport.enforce_hostname_verification: false
+    plugins.security.ssl.transport.resolve_hostname: false
+    plugins.security.authcz.admin_dn:
+      - CN=admin,O={{ .Values.certificates.subject.organization }},L={{ .Values.certificates.subject.locality }},C={{ .Values.certificates.subject.country }}
+    plugins.security.check_snapshot_restore_write_privileges: true
+    plugins.security.enable_snapshot_restore_privilege: true
+    plugins.security.nodes_dn:
+      - CN={{ include "wazuh.indexer.fullname" . }}-indexer,O={{ .Values.certificates.subject.organization }},L={{ .Values.certificates.subject.locality }},C={{ .Values.certificates.subject.country }}
+    plugins.security.restapi.roles_enabled:
+    - "all_access"
+    - "security_rest_api_access"
+    plugins.security.allow_default_init_securityindex: true
+    cluster.routing.allocation.disk.threshold_enabled: false
+    compatibility.override_main_response_version: true
+{{- end }}
+  tenants.yml: |-
+{{- if .Values.indexer.config.tenants }}
+{{ tpl .Values.indexer.config.tenants . | indent 4 }}
+{{- else }}
+    _meta:
+      type: "tenants"
+      config_version: 2
+{{- end }}
+  nodes_dn.yml: |-
+{{- if .Values.indexer.config.nodesDn }}
+{{ tpl .Values.indexer.config.nodesDn . | indent 4 }}
+{{- else }}
+    _meta:
+      type: "nodes_dn"
+      config_version: 2
+{{- end }}
+  whitelist.yml: |-
+{{- if .Values.indexer.config.whitelist }}
+{{ tpl .Values.indexer.config.whitelist . | indent 4 }}
+{{- else }}
+    _meta:
+      type: "whitelist"
+      config_version: 2
+{{- end }}
+{{- range $configName, $configYaml := .Values.indexer.additionalConfigs }}
+  {{ $configName }}: |
+    {{-   tpl $configYaml . | nindent 4 }}
+{{- end -}}
+{{- end }}

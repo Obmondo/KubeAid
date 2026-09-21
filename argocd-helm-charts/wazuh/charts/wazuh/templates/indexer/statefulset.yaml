@@ -1,0 +1,321 @@
+{{- if .Values.indexer.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "wazuh.indexer.fullname" . }}-indexer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ include "wazuh.indexer.fullname" . }}-indexer
+  annotations:
+    {{- toYaml .Values.indexer.annotations | nindent 4 }}
+spec:
+  {{- with .Values.indexer.extraSpec.statefulSet }}
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
+  serviceName: {{ include "wazuh.indexer.fullname" . }}-indexer-nodes
+  replicas: {{ .Values.indexer.replicas }}
+  updateStrategy:
+    type: {{ .Values.indexer.updateStrategy }}
+  selector:
+    matchLabels:
+      app: {{ include "wazuh.indexer.fullname" . }}-indexer
+  template:
+    metadata:
+      labels:
+        app: {{ include "wazuh.indexer.fullname" . }}-indexer
+        {{- with .Values.indexer.extraPodLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- if .Values.autoreload.enabled }}
+        checksum/configmap: {{ include (print $.Template.BasePath "/indexer/configmap.yaml") . | sha256sum }}
+        checksum/admin-certificate: {{ include (print $.Template.BasePath "/certs/admin/certificate.yaml") . | sha256sum }}
+        checksum/node-certificate: {{ include (print $.Template.BasePath "/certs/node/certificate.yaml") . | sha256sum }}
+        {{- end }}
+        {{- with .Values.indexer.annotations }}
+            {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "wazuh.indexer.serviceAccountName" . }}
+      {{- with .Values.indexer.extraSpec.pod }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+      {{- with .Values.indexer.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.indexer.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.indexer.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.indexer.securityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.indexer.dnsPolicy }}
+      dnsPolicy: {{ .Values.indexer.dnsPolicy }}
+      {{- end }}
+      {{- if .Values.indexer.dnsConfig }}
+      dnsConfig:
+        {{- toYaml .Values.indexer.dnsConfig | nindent 8 }}
+      {{- end }}
+      {{- if or .Values.indexer.sysctlImage.enabled (gt (len .Values.indexer.initContainers) 0) }}
+      initContainers:
+      {{- if .Values.indexer.sysctlImage.enabled }}
+        ## Image that performs the sysctl operation to modify Kernel settings (needed sometimes to avoid boot errors)
+        - name: sysctl
+          image: "{{ .Values.indexer.sysctlImage.images.repository }}:{{ .Values.indexer.sysctlImage.images.tag }}"
+          imagePullPolicy: {{ .Values.indexer.images.pullPolicy }}
+          command:
+            - /bin/bash
+            - -ec
+            - |
+              {{- include "wazuh.sysctlIfLess" (dict "key" "vm.max_map_count" "value" "262144") | nindent 14 }}
+              {{- include "wazuh.sysctlIfLess" (dict "key" "fs.file-max" "value" "65536") | nindent 14 }}
+          securityContext:
+            privileged: true
+            runAsUser: 0
+          {{- with .Values.indexer.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- end }}
+      {{- range .Values.indexer.initContainers }}
+        - name: {{ .name }}
+        {{- with .image }}
+          image: {{ . }}
+        {{- end }}
+        {{- with .imagePullPolicy }}
+          imagePullPolicy: {{ . }}
+        {{- end }}
+        {{- with .command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+        {{- end }}
+        {{- with .args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+        {{- end }}
+        {{- with .env }}
+          env:
+            {{- toYaml . | nindent 12 }}
+        {{- end }}
+        {{- with .resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+        {{- end }}
+        {{- with .volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+        {{- end }}
+        {{- with .securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+        {{- end }}
+      {{- end }}
+      {{- end }}
+      volumes:
+      - name: indexer-certs
+        secret:
+          secretName: indexer-certs
+          defaultMode: 0600
+      - name: admin-certs
+        secret:
+          secretName: admin-tls
+          defaultMode: 0600
+      - name: node-certs
+        secret:
+          secretName: node-tls
+          defaultMode: 0600
+      - name: indexer-conf
+        configMap:
+          name: {{ include "wazuh.indexer.fullname" . }}-indexer-config
+          defaultMode: 0600
+      - name: indexer-security
+        secret:
+          secretName: {{ include "wazuh.indexer.fullname" . }}-securityconfig
+          defaultMode: 0600
+      {{- if .Values.indexer.snapshot.enabled }}
+      - name: snapshot-repo
+        persistentVolumeClaim:
+          claimName: {{ .Values.indexer.snapshot.fs.existingClaim | default (printf "%s-indexer-snapshots" (include "wazuh.indexer.fullname" .)) }}
+      {{- end }}
+      {{- with .Values.indexer.additionalVolumes }}
+        {{- toYaml . | nindent 6 }}
+      {{- end }}
+      {{- if .Values.indexer.images.imagePullSecrets.enabled }}
+      imagePullSecrets:
+      {{- range .Values.indexer.images.imagePullSecrets.secret }}
+        - name: {{ . }}
+      {{- end }}
+      {{- end }}
+      containers:
+        - name: wazuh-indexer
+          {{- with .Values.indexer.extraSpec.container }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+          imagePullPolicy: {{ .Values.indexer.images.pullPolicy }}
+          image: "{{ .Values.indexer.images.repository }}:{{ .Values.indexer.images.tag }}"
+          envFrom:
+            - secretRef:
+                name: {{ .Values.indexer.cred.existingSecret | default "indexer-cred" }}
+          env:
+            - name: OPENSEARCH_JAVA_OPTS
+              value: {{ .Values.indexer.env.OPENSEARCH_JAVA_OPTS | quote }}
+            - name: CLUSTER_NAME
+              value: {{ .Values.indexer.env.CLUSTER_NAME | quote }}
+            - name: NETWORK_HOST
+              value: {{ .Values.indexer.env.NETWORK_HOST | quote }}
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: DISCOVERY_SERVICE
+              value: {{ include "wazuh.indexer.fullname" . }}-indexer-rest
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: DISABLE_INSTALL_DEMO_CONFIG
+              value: {{ .Values.indexer.env.DISABLE_INSTALL_DEMO_CONFIG | quote }}
+            {{- if .Values.dashboard.sso.oidc.enabled }}
+            - name: OPENSEARCH_OIDC_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "dashboard.sso.oidc.existingSecret is required" .Values.dashboard.sso.oidc.existingSecret }}
+                  key: {{ .Values.dashboard.sso.oidc.clientIdKey }}
+            - name: OPENSEARCH_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "dashboard.sso.oidc.existingSecret is required" .Values.dashboard.sso.oidc.existingSecret }}
+                  key: {{ .Values.dashboard.sso.oidc.clientSecretKey }}
+            {{- end }}
+            {{- if and .Values.indexer.ldap.enabled .Values.indexer.ldap.existingSecret }}
+            - name: OPENSEARCH_LDAP_BIND_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.indexer.ldap.existingSecret }}
+                  key: {{ .Values.indexer.ldap.bindPasswordKey }}
+            {{- end }}
+            {{- if and .Values.indexer.ldap.authz.enabled .Values.indexer.ldap.authz.existingSecret }}
+            - name: OPENSEARCH_LDAP_AUTHZ_BIND_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.indexer.ldap.authz.existingSecret }}
+                  key: {{ .Values.indexer.ldap.authz.bindPasswordKey }}
+            {{- end }}
+          {{- with .Values.indexer.additionalEnv }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.indexer.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.indexer.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.indexer.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            # PVC
+            - mountPath: /var/lib/wazuh-indexer
+              name: wazuh-indexer
+            # Certs
+            - mountPath: /usr/share/wazuh-indexer/config/certs/node-key.pem
+              name: node-certs
+              readOnly: true
+              subPath: tls.key
+            - mountPath: /usr/share/wazuh-indexer/config/certs/node.pem
+              name: node-certs
+              readOnly: true
+              subPath: tls.crt
+            - mountPath: /usr/share/wazuh-indexer/config/certs/root-ca.pem
+              name: node-certs
+              readOnly: true
+              subPath: ca.crt
+            - mountPath: /usr/share/wazuh-indexer/config/certs/admin.pem
+              name: admin-certs
+              readOnly: true
+              subPath: tls.crt
+            - mountPath: /usr/share/wazuh-indexer/config/certs/admin-key.pem
+              name: admin-certs
+              readOnly: true
+              subPath: tls.key
+            # Config
+            - name: indexer-conf
+              mountPath: /usr/share/wazuh-indexer/config/opensearch.yml
+              subPath: opensearch.yml
+              readOnly: true
+            - name: indexer-security
+              mountPath: /usr/share/wazuh-indexer/config/opensearch-security/internal_users.yml
+              subPath: internal_users.yml
+              readOnly: true
+            - name: indexer-security
+              mountPath: /usr/share/wazuh-indexer/config/opensearch-security/roles.yml
+              subPath: roles.yml
+              readOnly: true
+            - name: indexer-security
+              mountPath: /usr/share/wazuh-indexer/config/opensearch-security/roles_mapping.yml
+              subPath: roles_mapping.yml
+              readOnly: true
+            - name: indexer-security
+              mountPath: /usr/share/wazuh-indexer/config/opensearch-security/config.yml
+              subPath: config.yml
+              readOnly: true
+            - name: indexer-conf
+              mountPath: /usr/share/wazuh-indexer/config/opensearch-security/tenants.yml
+              subPath: tenants.yml
+              readOnly: true
+            - name: indexer-conf
+              mountPath: /usr/share/wazuh-indexer/config/opensearch-security/nodes_dn.yml
+              subPath: nodes_dn.yml
+              readOnly: true
+            - name: indexer-conf
+              mountPath: /usr/share/wazuh-indexer/config/opensearch-security/whitelist.yml
+              subPath: whitelist.yml
+              readOnly: true
+            {{- with .Values.indexer.additionalVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+            {{- if .Values.indexer.snapshot.enabled }}
+            - mountPath: {{ .Values.indexer.snapshot.fs.path }}
+              name: snapshot-repo
+            {{- end }}
+          ports:
+            - containerPort: {{ .Values.indexer.service.httpPort }}
+              name: indexer-rest
+            - containerPort: {{ .Values.indexer.service.nodes }}
+              name: indexer-nodes
+  volumeClaimTemplates:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: wazuh-indexer
+        {{- if .Values.indexer.pvc.extraLabels }}
+        labels:
+          {{- with .Values.indexer.pvc.extraLabels }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+        {{- end }}
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.indexer.storageSize }}
+        {{- $storageClass := .Values.indexer.storageClass }}
+        {{- if $storageClass }}
+        {{- if (eq "-" $storageClass) }}
+        storageClassName: ""
+        {{- else }}
+        storageClassName: {{ $storageClass }}
+        {{- end }}
+        {{- end }}
+{{- end }}

@@ -1,0 +1,16 @@
+{{- if .Values.dashboard.enabled }}
+{{- if .Values.dashboard.pdb.enabled }}
+kind: PodDisruptionBudget
+apiVersion: policy/v1
+metadata:
+  name: {{ include "wazuh.fullname" . }}-dashboard
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ include "wazuh.fullname" . }}-dashboard
+  {{- with .Values.dashboard.pdb.maxUnavailable }}
+  maxUnavailable: {{ . }}
+  {{- end }}
+{{- end }}
+{{- end }}

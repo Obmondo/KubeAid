@@ -1,0 +1,161 @@
+{{- if .Values.agent.enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "wazuh.fullname" . }}-agent
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ include "wazuh.fullname" . }}-agent
+    {{- with .Values.agent.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.agent.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.agent.extraSpec.daemonSet }}
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: {{ include "wazuh.fullname" . }}-agent
+      node-type: agent
+  template:
+    metadata:
+      name: {{ include "wazuh.fullname" . }}-agent
+      {{- with .Values.agent.podAnnotations }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+      labels:
+        app: {{ include "wazuh.fullname" . }}-agent
+        node-type: agent
+        {{- with .Values.agent.extraPodLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "wazuh.agent.serviceAccountName" . }}
+      {{- with .Values.agent.extraSpec.pod }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+      {{- with .Values.agent.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.agent.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.agent.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.agent.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.agent.dnsPolicy }}
+      dnsPolicy: {{ .Values.agent.dnsPolicy }}
+      {{- end }}
+      {{- if .Values.agent.dnsConfig }}
+      dnsConfig:
+        {{- toYaml .Values.agent.dnsConfig | nindent 8 }}
+      {{- end }}
+      {{- if .Values.wazuh.images.imagePullSecrets.enabled }}
+      imagePullSecrets:
+      {{- range .Values.wazuh.images.imagePullSecrets.secret }}
+        - name: {{ . }}
+      {{- end }}
+      {{- end }}
+      containers:
+        - name: wazuh-agent
+          {{- with .Values.agent.extraSpec.container }}
+            {{- toYaml . | nindent 10 }}
+          {{- end }}
+          image: {{ .Values.agent.images.repository }}:{{ .Values.agent.images.tag }}
+          imagePullPolicy: {{ .Values.agent.images.pullPolicy }}
+          ports:
+            - name: agent-http
+              containerPort: {{ .Values.agent.service.port }}
+              protocol: TCP
+          {{- with .Values.agent.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          env:
+            - name: WAZUH_MANAGER_SERVER
+              value: {{ or .Values.agent.joinManager.workerHost (printf "%s-manager-worker.%s.svc.cluster.local" (include "wazuh.fullname" .) .Release.Namespace) }}
+            - name: WAZUH_REGISTRATION_SERVER
+              value: {{ or .Values.agent.joinManager.managerHost (printf "%s.%s.svc.cluster.local" (include "wazuh.fullname" .) .Release.Namespace) }}
+            {{- if .Values.wazuh.authd.enabled }}
+            - name: WAZUH_REGISTRATION_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.wazuh.authd.existingSecret | default "wazuh-authd-pass" }}
+                  key: authd.pass
+            {{- end }}
+            - name: JOIN_MANAGER_PROTOCOL
+              value: {{ .Values.agent.joinManager.scheme }}
+            - name: JOIN_MANAGER_MASTER_HOST
+              value: {{ or .Values.agent.joinManager.managerHost (printf "%s.%s.svc.cluster.local" (include "wazuh.fullname" .) .Release.Namespace) }}
+            - name: JOIN_MANAGER_WORKER_HOST
+              value: {{ or .Values.agent.joinManager.workerHost (printf "%s-manager-worker.%s.svc.cluster.local" (include "wazuh.fullname" .) .Release.Namespace) }}
+            - name: JOIN_MANAGER_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.agent.apiCred.existingSecret | default "wazuh-api-cred" }}
+                  key: API_USERNAME
+            - name: JOIN_MANAGER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.agent.apiCred.existingSecret | default "wazuh-api-cred" }}
+                  key: API_PASSWORD
+            - name: JOIN_MANAGER_API_PORT
+              value: {{ .Values.agent.joinManager.apiPort | quote }}
+            - name: JOIN_MANAGER_PORT
+              value: {{ .Values.agent.joinManager.agentsEvents | quote }}
+            - name: K8S_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: NODE_NAME
+              value: "{{ .Values.agent.namePrefix }}$(K8S_NODE_NAME)"
+            - name: WAZUH_GROUPS
+              value: {{ .Values.agent.joinManager.wazuh.group | quote }}
+            {{- if and .Values.wazuh.enabled .Values.wazuh.master.enabled }}
+            - name: HEALTH_CHECK_PROCESSES
+              value: "ossec-execd,ossec-syscheckd,ossec-logcollector,wazuh-modulesd,ossec-authd"
+            {{- end }}
+          {{- with .Values.agent.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: local-internal-options
+              mountPath: /tmp/local_internal_options.conf
+              subPath: local_internal_options.conf
+              readOnly: true
+            {{- with .Values.agent.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          lifecycle:
+            postStart:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 5; cat /tmp/local_internal_options.conf >> /var/ossec/etc/local_internal_options.conf"]
+          {{- with .Values.agent.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- with .Values.agent.extraContainers }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- $indexerFullname := include "wazuh.indexer.fullname" . }}
+      volumes:
+        - name: local-internal-options
+          configMap:
+            name: {{ $indexerFullname }}-agent-local-internal-options
+            defaultMode: 0644
+      {{- with .Values.agent.volumes }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
