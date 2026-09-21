@@ -1,0 +1,10 @@
+wazuh:
+  indexer:
+    replicas: 1
+    storageSize: 5Gi
+  master:
+    storageSize: 5Gi
+  worker:
+    replicas: 1
+    storageSize: 5Gi
+    
