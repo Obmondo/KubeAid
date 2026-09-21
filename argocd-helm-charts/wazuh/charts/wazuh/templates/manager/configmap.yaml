@@ -1,0 +1,23 @@
+{{- if .Values.wazuh.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "wazuh.fullname" . }}-manager-config
+  namespace: {{ .Release.Namespace }}
+data:
+  script.sh: {{ .Values.wazuh.script | default (.Files.Get "files/script.sh") | default "# fallback" | quote }}
+  master.conf: {{ .Values.wazuh.masterConf | default (include "wazuh.ossec_config" (dict "root" . "type" "master")) | quote }}
+  worker.conf: {{ .Values.wazuh.workerConf | default (include "wazuh.ossec_config" (dict "root" . "type" "worker")) | quote }}
+  local_decoder.xml: {{ .Values.wazuh.localDecoder | default (.Files.Get "files/local_decoder.xml") | default "<decoder></decoder>" | quote }}
+  local_rules.xml: {{ .Values.wazuh.localRules | default (.Files.Get "files/local_rules.xml") | default "<group></group>" | quote }}
+  internal_options.conf: {{ .Values.wazuh.internalOptions | default (.Files.Get "files/internal_options.conf") | default "# fallback" | quote }}
+{{- if include "wazuh.filebeat.overridden" . }}
+  filebeat.yml: {{ (.Values.wazuh.filebeat).config | default (include "wazuh.filebeat_config" .) | quote }}
+{{- end }}
+
+{{- if .Values.wazuh.agentGroupConf }}
+{{- range .Values.wazuh.agentGroupConf }}
+  {{ printf "%s-agent.conf" .name | quote }}: {{ .agent | default "" | quote }}
+{{- end }}
+{{- end }}
+{{- end }}

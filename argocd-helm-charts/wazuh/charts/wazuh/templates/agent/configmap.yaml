@@ -1,0 +1,16 @@
+{{- if .Values.agent.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "wazuh.indexer.fullname" . }}-agent-local-internal-options
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ include "wazuh.indexer.fullname" . }}-agent
+data:
+  local_internal_options.conf: |
+    {{- if .Values.agent.debug.enabled }}
+    {{- range .Values.agent.debug.modules }}
+    {{ . }}.debug={{ $.Values.agent.debug.level }}
+    {{- end }}
+    {{- end }}
+{{- end }}
