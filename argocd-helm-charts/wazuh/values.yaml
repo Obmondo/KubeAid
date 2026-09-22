@@ -1,4 +1,16 @@
 wazuh:
+  dashboard:
+    ingress:
+      enabled: true
+      className: traefik-internal
+      tls: 
+      - hosts:
+        - wazuh.kam.obmondo.com                                                                                                                                                                                                                 
+        secretName: wazuh-tls                                                                                                                                                                                                                   
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      host: wazuh.kam.obmondo.com
+
   indexer:
     replicas: 1
     storageSize: 5Gi
