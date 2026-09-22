@@ -1,0 +1,7 @@
+apiVersion: v2
+name: openldap
+version: 1.0.0
+dependencies:
+  - name: openldap-stack-ha
+    version: 4.3.3
+    repository: https://jp-gouin.github.io/helm-openldap/

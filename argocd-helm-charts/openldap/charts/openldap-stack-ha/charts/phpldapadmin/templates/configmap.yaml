@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "phpldapadmin.fullname" . }}
+  labels:
+    app: {{ template "phpldapadmin.name" . }}
+    chart: {{ template "phpldapadmin.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+{{- if .Values.extraLabels }}
+{{ toYaml .Values.extraLabels | indent 4 }}
+{{- end }}
+data:
+{{ toYaml .Values.env | indent 2 }}
+  PHPLDAPADMIN_LDAP_HOSTS: "#PYTHON2BASH:[{ '{{ template "global.server" . }}'  : [{'server': [{'tls': True},{'port':{{ .Values.global.ldapPort }}}]},{'login': [{'bind_id': '{{ template "global.bindDN" . }}'  }]}]}]"

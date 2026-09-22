@@ -1,0 +1,35 @@
+#
+# A ConfigMap spec for openldap slapd that map directly to env variables in the Pod.
+# List of environment variables supported is from the docker image:
+# https://hub.docker.com/r/bitnami/openldap/
+# Note that passwords are defined as secrets
+#
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "openldap.fullname" . }}-env
+  labels:
+    app: {{ template "openldap.name" . }}
+    chart: {{ template "openldap.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+{{- if .Values.extraLabels }}
+{{ toYaml .Values.extraLabels | indent 4 }}
+{{- end }}
+data:
+  LDAP_ROOT: {{ include "global.baseDomain" . }}
+  {{- if .Values.users }}
+  LDAP_USERS: {{ .Values.users }}
+  {{- end }}
+  {{- if .Values.userPasswords }}
+  LDAP_PASSWORDS: "{{ .Values.userPasswords }}"
+  {{- end }}
+  {{- if .Values.group }}
+  LDAP_GROUP: {{ .Values.group }}
+  {{- end }}
+  LDAP_TLS_CERT_FILE: /opt/bitnami/openldap/certs/tls.crt
+  LDAP_TLS_KEY_FILE: /opt/bitnami/openldap/certs/tls.key
+  LDAP_TLS_CA_FILE: /opt/bitnami/openldap/certs/ca.crt
+  LDAP_CONFIG_ADMIN_ENABLED: "yes"
+  LDAP_CONFIG_ADMIN_USERNAME: "{{ .Values.global.configUser }}"
+{{ toYaml .Values.env | indent 2 }}
