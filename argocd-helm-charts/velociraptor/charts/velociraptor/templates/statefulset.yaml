@@ -15,6 +15,15 @@ spec:
     metadata:
       annotations:
         checksum/config: {{ include "velociraptor.configSecretName" . }}-{{ .Values.config.secretKey }}
+        {{- /* Content checksums, so a changed artifact or overlay rolls the pod: the server
+             reads artifact_definitions_directories only at startup, and a ConfigMap-only
+             change would otherwise leave the old definitions running. */}}
+        {{- if and .Values.customArtifacts.enabled (not .Values.customArtifacts.existingConfigMap) }}
+        checksum/custom-artifacts: {{ include (print $.Template.BasePath "/configmap-custom-artifacts.yaml") . | sha256sum }}
+        {{- end }}
+        {{- if eq (include "velociraptor.overlayEnabled" .) "true" }}
+        checksum/config-overlay: {{ include (print $.Template.BasePath "/secret-config-overlay.yaml") . | sha256sum }}
+        {{- end }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
