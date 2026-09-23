@@ -1,0 +1,31 @@
+{{- if and .Values.sogo.backup.enabled (not .Values.sogo.backup.persistence.existingClaim) }}
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ template "sogo.fullname" . }}-backups
+  labels:
+    app.kubernetes.io/name: {{ include "sogo.name" . }}
+    helm.sh/chart: {{ include "sogo.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/component: app
+  annotations:
+    helm.sh/resource-policy: keep
+  {{- with .Values.sogo.backup.persistence.annotations }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  accessModes:
+    - {{ .Values.sogo.backup.persistence.accessMode | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.sogo.backup.persistence.size | quote }}
+  {{- with .Values.sogo.backup.persistence.storageClass }}
+  {{- if (eq "-" .) }}
+  storageClassName: ""
+  {{- else }}
+  storageClassName: "{{ . }}"
+  {{- end }}
+  {{- end }}
+{{- end }}

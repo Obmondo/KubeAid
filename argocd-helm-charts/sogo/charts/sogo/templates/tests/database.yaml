@@ -1,0 +1,40 @@
+{{- if .Values.useTestResourcesDevDatabase }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-postgres
+  labels:
+    app: test-postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-postgres
+  template:
+    metadata:
+      labels:
+        app: test-postgres
+    spec:
+      containers:
+        - name: test-postgres
+          image: postgres:15
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_PASSWORD
+              value: test123
+            - name: POSTGRES_DB
+              value: sogo
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-postgres
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5432
+  selector:
+    app: test-postgres
+{{- end }}
