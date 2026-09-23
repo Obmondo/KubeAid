@@ -1,6 +1,13 @@
 harborProxyCache:
   enabled: false
 
+kyverno:
+  admissionController:
+    container:
+      # Default 10s is too short once this policy has many namespace overrides. 30s is the max allowed.
+      extraArgs:
+        webhookTimeout: "30"
+
 resourceQuotaLimitRangeGenerator:
   enabled: true
   generateExisting: true
@@ -14,11 +21,12 @@ resourceQuotaLimitRangeGenerator:
       pods: "100"
       jobs: "100"
 
+      # 100 cores per namespace is too much once a cluster has many namespaces.
       cpu:
-        request: "100"
+        request: 250m
 
       memory:
-        request: 200Gi
+        request: 0.5Gi
         limit: 400Gi
 
       storage:
