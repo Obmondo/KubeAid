@@ -1,0 +1,360 @@
+# Copyright 2025 Carnegie Mellon University.
+# NO WARRANTY. THIS CARNEGIE MELLON UNIVERSITY AND SOFTWARE ENGINEERING INSTITUTE MATERIAL IS FURNISHED ON AN "AS-IS" BASIS.
+# CARNEGIE MELLON UNIVERSITY MAKES NO WARRANTIES OF ANY KIND, EITHER EXPRESSED OR IMPLIED, AS TO ANY MATTER INCLUDING,
+# BUT NOT LIMITED TO, WARRANTY OF FITNESS FOR PURPOSE OR MERCHANTABILITY, EXCLUSIVITY, OR RESULTS OBTAINED FROM USE OF THE
+# MATERIAL. CARNEGIE MELLON #UNIVERSITY DOES NOT MAKE ANY WARRANTY OF ANY KIND WITH RESPECT TO FREEDOM FROM PATENT, TRADEMARK, OR
+# COPYRIGHT INFRINGEMENT.
+# Licensed under an Apache License v2.0-style license, please see license.txt or contact permission@sei.cmu.edu for full terms.
+# [DISTRIBUTION STATEMENT A] This material has been approved for public release and unlimited distribution.
+# Please see Copyright #notice for non-US Government use and distribution.
+# This Software includes and/or makes use of Third-Party Software each subject to its own license.
+# DM25-1432
+
+global:
+  # -- The global image registry (this will override the registry of all container images defined in this chart)
+  imageRegistry: ""
+  # -- The global image pull secrets (list of secret names)
+  imagePullSecrets: []
+
+# -- String to partially override misp-charts.fullname
+nameOverride: ""
+# -- String to fully override misp-charts.fullname
+fullnameOverride: ""
+# -- Default Kubernetes cluster domain
+clusterDomain: cluster.local
+# -- Common annotations to add to all MISP resources (sub-charts are not considered)
+commonAnnotations: {}
+# -- Common labels to add to all MISP resources (sub-charts are not considered)
+commonLabels: {}
+
+serviceAccount:
+  # -- Create a service account for misp
+  create: true
+  # -- Whether to automount the service account token
+  automount: false
+  # -- Annotations to add to the service account
+  annotations: {}
+  # -- Name of an existing service account to use (if create: false)
+  name: ""
+
+instanceEnv:
+  # -- If you are exposing MISP on a non-standard port (i.e., the port is part of the URL you would use to access it, e.g., https://192.168.0.1:4433) you need to include the port in the variable
+  mispBaseurl: http://localhost:80   # This is the value you need to modify if you are experiencing issues with redirects when port-forwarding a pod
+  mispUuid: 8370cb21-4e96-48d4-b43a-c14b97022f7e
+  ingressHostName: localhost
+env:
+  # -- Email used for notifications.
+  mispEmail: info@sei.cmu.edu
+  # -- The URL to connect to the misp-modules service.
+  mispModuleUrl: http://misp-modules
+  mispDebug: "no"
+  # -- The MySQL database to use.
+  mysqlDatabase: misp
+  # -- The hostname of the MySQL database service.
+  mysqlHost: mariadb
+  # -- The client secret based OAuth client authentication method.
+  oidcAuthenticationMethod: client_secret_jwt
+  oidcCheckUserValidity: "600"
+  oidcClientCryptoPass: LKJHsfd798LKDHSFkljSF*_7lkjhDF&*&JKHSF87FSKLJh@
+  oidcCodeChallengeMethod: S256
+  # -- Whether to enable OIDC authentication, according to https://github.com/MISP/MISP/blob/2.4/app/Plugin/OidcAuth/README.md
+  oidcEnable: false
+  oidcOfflineAccess: "yes"
+  # -- The location of the OIDC password reset form.
+  oidcPasswordReset: https://sso.myorg.org/reset
+  # -- The location of the OIDC provider.
+  oidcProviderUrl: https://sso.myorg.org/realms/Fusion
+  oidcRolesProperty: "roles"
+  # -- If user has multiple roles from OIDC provider, the first role that matches will be assigned to the user.
+  oidcRolesMapping: '{"misp-admin": "1","misp-org-admin": "2","misp-sync-user":
+    "5","misp-publisher": "4","misp-api-user": "User with API access","misp-user":
+    "3"}'
+  # -- The default organization.
+  oidcDefaultOrg: CERT
+  # -- The location of the OIDC logout URL.
+  oidcLogoutUrl: ""
+  # -- The location for adding custom scopes.
+  oidcScopes: ""
+  # -- The hostname of the redis service.
+  redisHost: valkey
+  # -- The port for the redis service.
+  redisPort: 6379
+  # -- The password for the redis service.
+  redisPassword: "redispassword"    # checkov:skip=CKV_SECRET_6:Ignore default redis PW as it should be overwritten by users
+  securitySalt: E038741A-3646-4525-BFC9-77500D25F1F6
+  zeromqEnabled: "yes"
+  disableSSLRedirect: "true"
+misp:
+  misp:
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      seccompProfile:
+        type: RuntimeDefault
+      capabilities:
+        drop:
+        - NET_RAW
+        - SYS_CHROOT
+        - MKNOD
+        - SETFCAP
+    image:
+      # -- misp-core container image registry
+      registry: ghcr.io
+      # -- misp-core container image repository
+      repository: misp/misp-docker/misp-core
+      # -- misp-core container image pull policy (Always, IfNotPresent, Never)
+      pullPolicy: Always
+      tag: latest
+      # -- misp-core container list of image pull secrets (for private registries)
+      imagePullSecrets: []
+    resources:
+      limits:
+        cpu: "0.5"
+        memory: 1Gi
+    containerStartupProbe:
+      httpGet:
+        path: /users/heartbeat
+        port: 80
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      failureThreshold: 90
+      timeoutSeconds: 5
+    containerLivenessProbe:
+      httpGet:
+        path: /users/heartbeat
+        port: 80
+      periodSeconds: 20
+      failureThreshold: 5
+    containerReadinessProbe:
+      httpGet:
+        path: /users/heartbeat
+        port: 80
+      periodSeconds: 10
+      failureThreshold: 3
+  # -- Service settings for misp-core
+  service:
+    # -- Supported types: ClusterIP, NodePort, LoadBalancer
+    type: ClusterIP
+    port: 80
+    # -- target port will be set to port if not set
+    targetPort: ""
+    # -- nodePort is optional and only used when service.type is NodePort or LoadBalancer
+    nodePort: ""
+  replicas: 1
+  # -- Kubernetes Ingress Settings
+  ingress:
+    # -- Whether to enable Kubernetes Ingress for external access
+    enabled: true
+    # -- Ingress Class name
+    className: nginx
+     # -- Annotations for the ingress resource
+    annotations:
+      kubernetes.io/ingress.class: "nginx"
+  # Ref: https://gateway-api.sigs.k8s.io/api-types/httproute/
+  # -- Gateway API HTTPRoute configuration
+  httproute:
+    # -- Enable HTTPRoute resource (Gateway API)
+    enabled: false
+    # -- namespace to deploy httproute in. Chart will not create the namespace.
+    namespace: ""
+    # -- Gateway API parentRefs for the HTTPRoute
+    # Must reference an existing Gateway resource
+    parentRefs: []
+      # - name: example-gateway
+      #   namespace: example-gateway-namespace
+      #   sectionName: https
+    # -- List of hostnames for the HTTPRoute
+    hostnames: []
+      # - misp.example.com
+    # -- HTTPRoute rules configuration
+    rules:
+      - matches:
+          - path:
+              type: PathPrefix
+              value: /
+        # filters: []
+        #   - type: RequestHeaderModifier
+        #     requestHeaderModifier:
+        #       add:
+        #         - name: X-Custom-Header
+        #           value: custom-value
+        # timeouts:
+        #   request: 10s
+        #   backendRequest: 2s
+
+modules:
+  mispModules:
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      seccompProfile:
+        type: RuntimeDefault
+      runAsUser: 10001
+      capabilities:
+        drop:
+        - NET_RAW
+        - SYS_CHROOT
+        - MKNOD
+        - NET_BIND_SERVICE
+        - AUDIT_WRITE
+        - SETFCAP
+    image:
+      # -- misp-modules container image registry
+      registry: ghcr.io
+      # -- misp-modules container image repository
+      repository: misp/misp-docker/misp-modules
+      # -- misp-modules container image pull policy (Always, IfNotPresent, Never)
+      pullPolicy: Always
+      tag: latest
+      # -- misp-modules container list of image pull secrets (for private registries)
+      imagePullSecrets: []
+    resources:
+      limits:
+        cpu: "0.5"
+        memory: 1Gi
+    containerLivenessProbe:
+      tcpSocket:
+        port: 6666
+      periodSeconds: 20
+      failureThreshold: 5
+    containerReadinessProbe:
+      tcpSocket:
+        port: 6666
+      periodSeconds: 10
+      failureThreshold: 3
+  ports:
+  - name: misp-modules
+    port: 6666
+    targetPort: 6666
+  replicas: 1
+  type: ClusterIP
+modulesEnv:
+  redisBackend: valkey
+  redisPort: 6379
+# -- Whether to handle k8s secrets with helm chart.
+setk8sSecrets: false
+# -- MySQL default credentials. Only used if setk8sSecrets is set to true.
+mysqlCredentials:
+  username: "^M1SP+User$"
+  password: "misp"
+# -- OIDC default credentials. Only used if setk8sSecrets is set to true.
+oidcCredentials:
+  username: "test"
+  password: "test"
+# -- Admin user API key. Only used if setAPIKey & setk8sSecrets is set to true.
+apiKeyCredentials:
+  key: "kzcuoh9tujovgbgcjrgbyaop8msodti4p9vjxyhp"
+# -- Kubernetes Secret Name for MySQL admin credentials. Secret has to contain `username` and `password` literals.
+mysqlCredentialsSecretName: "mysql-credentials"
+# -- Kubernetes Secret Name for OIDC credentials. Secret has to contain `username` and `password` literals.
+oidcCredentialsSecretName: "oidc-credentials"
+# -- Whether to handle setting the MISP admin API key automatically.
+setAPIKey: true
+# -- Kubernetes Secret Name for MISP admin user api key.
+apiKeySecretValue: "misp-api-key"   # checkov:skip=CKV_SECRET_6:Checkov false positive, this references a secret object
+pvc:
+  attachments:
+    storageClass: ""
+    storageRequest: 1Gi
+
+# -- Optionally specify extra list of additional volumes
+extraVolumes: []
+#  - name: hostpath-volume
+#    hostPath:
+#      path: /opt/valkey/hostpath-volume/
+#      type: DirectoryOrCreate
+# -- Optionally specify extra list of additional volumeMounts
+extraVolumeMounts: []
+#  - mountPath: /some/path/
+#    name: hostpath-volume
+
+## Valkey helm chart values
+## See https://github.com/valkey-io/valkey-helm/tree/main/valkey for full configuration options
+valkey:
+  # -- Whether to have the helm chart handle deploying a valkey message queue. Enabled by default.
+  enabled: true
+  # -- Override the full name of resources
+  fullnameOverride: valkey
+  # -- Deploy a standalone (single-node) Valkey instance.
+  replica:
+    enabled: false
+
+  ## See https://github.com/valkey-io/valkey-helm/tree/main/valkey#authentication
+  # -- Authentication is enabled by default. To disable, set auth.enabled: true
+  auth:
+    enabled: true
+    aclUsers:
+      default:
+        permissions: "~* &* +@all"
+        password: "redispassword"  # checkov:skip=CKV_SECRET_6:Chart users should overwrite with an existing secret
+
+  # -- Persistent storage configuration (standalone deployment only). 8Gi by default.
+  dataStorage:
+    enabled: true
+    requestedSize: 8Gi
+    # -- Name of the storage class to use
+    className: ""
+
+  service:
+    # -- Type of Kubernetes service (ClusterIP, NodePort, LoadBalancer)
+    type: ClusterIP
+    # -- Port on which Valkey will be exposed
+    port: 6379
+
+  serviceAccount:
+    # -- Create a service account for Valkey
+    create: true
+    # -- Name of an existing service account to use (if create: false)
+    name: ""
+
+  # -- Resource limits/requests for the main Valkey container
+  resources:
+    limits:
+      cpu: "0.5"
+      memory: 1Gi
+  # -- Whether to add additonal volumes to the valkey container.
+  extraVolumes: []
+  # - name: secrets-store-inline
+  #   csi:
+  #     driver: secrets-store.csi.k8s.io
+  #     readOnly: true
+  #     volumeAttributes:
+  #       secretProviderClass: example
+  # -- Whether to mount additonal volumes to the valkey container.
+  extraVolumeMounts: []
+  # - name: secrets-store-inline
+  # mountPath: example
+  # readOnly: true
+
+tls:
+  # -- Whether to have the helm chart handle TLS settings for the ingress.
+  useTLS: false
+  tlsSecretName: "squirrel"
+mariadb:
+  # -- Whether to have the helm chart handle deploying a MySQL database. Disabled by default.
+  enabled: false
+  fullnameOverride: "mariadb"
+  image:
+    repository: bitnamilegacy/mariadb
+    tag: latest
+  volumePermissions:
+    enabled: true
+    image:
+      repository: bitnamilegacy/os-shell
+  auth:
+    database: "misp"
+    username: "^M1SP+User$"
+    password: "misp"
+    rootPassword: "misp"
+
+smtp:
+  # -- Whether to have the helm chart handle deploying the optional mail forwarding container.
+  enabled: false
+  config:
+  # See documentation at https://github.com/ix-ai/smtp#readme
+  # SMARTHOST_ADDRESS: mail.example.com
+  # SMARTHOST_PORT: "587"
+  # SMARTHOST_USER: myuser
+  # SMARTHOST_PASSWORD: secret
+  # SMARTHOST_ALIASES: "*.example.com"
+
+  # colon separated, must start with : !
+  RELAY_NETWORKS: :10.42.0.0/17

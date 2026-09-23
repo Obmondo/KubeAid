@@ -1,0 +1,120 @@
+{{/*
+  MISP -> Wazuh CDB list export.
+
+  Why this exists: Wazuh matches events against CDB lists, and 4.14 ships a
+  ready-made IoC rule pack (ruleset/rules/0999-malicious-ioc-rules.xml, rules
+  99901-99920: FIM hashes, sshd/web/apache/dovecot/sqlserver/suricata/windows
+  source IPs, suricata domains). Those rules point at three list files that the
+  package never fills, so out of the box they are all silently ignored.
+
+  MISP 2.5 dropped the feed CLI and has no push to Wazuh; Wazuh has no pull
+  from MISP. This CronJob is the join: every `schedule` tick it
+
+    1. asks MISP's restSearch for actionable attributes (to_ids=1, not deleted,
+       not on a warninglist) of the types mapped to each list,
+    2. writes each list through the manager API, PUT /lists/files/{name}
+       (files land in etc/lists/ on the master; the cluster syncs them to
+       the workers),
+    3. calls PUT /cluster/analysisd/reload so every node picks the content up
+       without a restart.
+
+  The list names are flat on purpose: the API's filename format is
+  ^[-\w]+$, so it cannot write into the malicious-ioc/ subdirectory the stock
+  rules reference. The Wazuh side therefore registers the flat names in
+  <ruleset> and overrides rules 99901-99920 with overwrite="yes" pointing at
+  them - see the chart README. Expiry is free: an attribute MISP decays or
+  un-flags drops out of the next export and the reload takes it out of Wazuh.
+
+  Stdlib-only python in a stock image, nothing installed, nothing built.
+*/}}
+{{- if .Values.wazuhCdbExport.enabled }}
+{{- $x := .Values.wazuhCdbExport }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-wazuh-cdb-export
+  namespace: {{ .Release.Namespace }}
+data:
+  export.py: |
+{{ .Files.Get "files/wazuh-cdb-export.py" | indent 4 }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Release.Name }}-wazuh-cdb-export
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: {{ $x.schedule | quote }}
+  # A run that overlaps the next tick would upload the same lists twice and
+  # reload twice; Forbid keeps one at a time, a late finish is harmless.
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            # The Wazuh manager's NetworkPolicy admits the API port from pods
+            # carrying this label (wazuh.master.networkPolicy.extraIngresses).
+            app.kubernetes.io/name: misp-wazuh-cdb-export
+            app.kubernetes.io/instance: {{ .Release.Name }}
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: export
+              image: {{ $x.image.repository }}:{{ $x.image.tag }}
+              imagePullPolicy: IfNotPresent
+              command: ["python3", "/scripts/export.py"]
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              env:
+                - name: MISP_URL
+                  value: {{ $x.misp.url | default (printf "http://%s" .Release.Name) | quote }}
+                - name: MISP_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ $x.misp.apiKeySecret }}
+                      key: {{ $x.misp.apiKeySecretKey }}
+                - name: MISP_PUBLISHED_ONLY
+                  value: {{ $x.misp.publishedOnly | quote }}
+                - name: MISP_PAGE_SIZE
+                  value: {{ $x.misp.pageSize | quote }}
+                - name: WAZUH_URL
+                  value: {{ required "wazuhCdbExport.wazuh.url is required (https://<manager service>:55000)" $x.wazuh.url | quote }}
+                - name: WAZUH_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ required "wazuhCdbExport.wazuh.credentialsSecret is required" $x.wazuh.credentialsSecret }}
+                      key: {{ $x.wazuh.usernameKey }}
+                - name: WAZUH_PASS
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ $x.wazuh.credentialsSecret }}
+                      key: {{ $x.wazuh.passwordKey }}
+                - name: WAZUH_VERIFY_TLS
+                  value: {{ $x.wazuh.verifyTls | quote }}
+                - name: MAX_PER_LIST
+                  value: {{ $x.maxEntriesPerList | quote }}
+                - name: LISTS
+                  value: {{ $x.lists | toJson | quote }}
+              resources:
+                {{- toYaml $x.resources | nindent 16 }}
+              volumeMounts:
+                - name: script
+                  mountPath: /scripts
+                  readOnly: true
+          volumes:
+            - name: script
+              configMap:
+                name: {{ .Release.Name }}-wazuh-cdb-export
+{{- end }}

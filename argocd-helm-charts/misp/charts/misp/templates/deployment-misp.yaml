@@ -1,0 +1,118 @@
+# Copyright 2025 Carnegie Mellon University.
+# NO WARRANTY. THIS CARNEGIE MELLON UNIVERSITY AND SOFTWARE ENGINEERING INSTITUTE MATERIAL IS FURNISHED ON AN "AS-IS" BASIS. 
+# CARNEGIE MELLON UNIVERSITY MAKES NO WARRANTIES OF ANY KIND, EITHER EXPRESSED OR IMPLIED, AS TO ANY MATTER INCLUDING, 
+# BUT NOT LIMITED TO, WARRANTY OF FITNESS FOR PURPOSE OR MERCHANTABILITY, EXCLUSIVITY, OR RESULTS OBTAINED FROM USE OF THE 
+# MATERIAL. CARNEGIE MELLON #UNIVERSITY DOES NOT MAKE ANY WARRANTY OF ANY KIND WITH RESPECT TO FREEDOM FROM PATENT, TRADEMARK, OR 
+# COPYRIGHT INFRINGEMENT.
+# Licensed under an Apache License v2.0-style license, please see license.txt or contact permission@sei.cmu.edu for full terms.
+# [DISTRIBUTION STATEMENT A] This material has been approved for public release and unlimited distribution.  
+# Please see Copyright #notice for non-US Government use and distribution.
+# This Software includes and/or makes use of Third-Party Software each subject to its own license.
+# DM25-1432
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: misp
+  labels:
+    app: misp
+  {{- include "misp-charts.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.misp.replicas }}
+  selector:
+    matchLabels:
+      app: misp
+    {{- include "misp-charts.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: misp
+      {{- include "misp-charts.selectorLabels" . | nindent 8 }}
+      {{- with .Values.commonLabels }}
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+      annotations:
+        {{- with .Values.commonAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- (include "misp-charts.misp.misp.image.imagePullSecrets" .) | indent 6 }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automount }}
+      serviceAccountName: {{ include "misp-charts.serviceAccountName" . }}
+      containers:
+      - env:
+        - name: MYSQL_USER
+          valueFrom:
+            secretKeyRef:
+              key: username
+              name: {{ .Values.mysqlCredentialsSecretName}}
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: {{ .Values.mysqlCredentialsSecretName}}
+        - name: OIDC_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              key: username
+              name: {{ .Values.oidcCredentialsSecretName}}
+        - name: OIDC_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: {{ .Values.oidcCredentialsSecretName}}
+        {{- if .Values.setAPIKey }}
+        - name: MISP_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: key
+              name: {{ .Values.apiKeySecretValue}}
+        {{- end }}
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.clusterDomain }}
+        envFrom:
+        - configMapRef:
+            name: {{ include "misp-charts.fullname" . }}-env
+        image: {{ include "misp-charts.misp.misp.image" . }}
+        name: misp
+        ports:
+        - containerPort: 8080
+        resources: {{- toYaml .Values.misp.misp.resources | nindent 10 }}
+        imagePullPolicy: {{ .Values.misp.misp.image.pullPolicy }}
+        securityContext: {{- toYaml .Values.misp.misp.containerSecurityContext | nindent 10 }}
+        livenessProbe: {{- toYaml .Values.misp.misp.containerLivenessProbe | nindent 10 }}
+        startupProbe: {{- toYaml .Values.misp.misp.containerStartupProbe | nindent 10 }}
+        readinessProbe: {{- toYaml .Values.misp.misp.containerReadinessProbe | nindent 10 }}
+        volumeMounts:
+        - mountPath: /var/www/MISP/app/attachments
+          name: misp-attachments
+        - mountPath: /tmp
+          name: misp-tmpfs0
+      {{- if .Values.setAPIKey }}
+        - name: customize-misp
+          mountPath: /custom/files/customize_misp.sh
+          subPath: customize_misp.sh
+      {{- end}}
+        {{- with .Values.extraVolumeMounts }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      restartPolicy: Always
+      volumes:
+      {{- with .Values.extraVolumes }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+      - name: misp-attachments
+        persistentVolumeClaim:
+          claimName: {{ include "misp-charts.fullname" . }}-attachments
+      - emptyDir:
+          medium: Memory
+        name: misp-tmpfs0
+      {{- if .Values.setAPIKey }}
+      - name: customize-misp
+        configMap:
+          name: {{ include "misp-charts.fullname" . }}-customize-misp
+          defaultMode: 0777
+      {{- end}}
