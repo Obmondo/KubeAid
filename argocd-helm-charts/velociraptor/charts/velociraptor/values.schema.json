@@ -1,0 +1,194 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "velociraptor chart values",
+  "type": "object",
+  "properties": {
+    "nameOverride": { "type": "string" },
+    "fullnameOverride": { "type": "string" },
+    "replicaCount": { "type": "integer", "minimum": 1, "maximum": 1,
+      "description": "Filesystem datastore is single-writer; must stay 1." },
+    "image": {
+      "type": "object",
+      "properties": {
+        "registry": { "type": "string" },
+        "repository": { "type": "string" },
+        "tag": { "type": "string" },
+        "digest": { "type": "string" },
+        "pullPolicy": { "type": "string", "enum": ["Always", "IfNotPresent", "Never"] }
+      },
+      "required": ["repository"]
+    },
+    "imagePullSecrets": { "type": "array" },
+    "config": {
+      "type": "object",
+      "properties": {
+        "existingSecret": { "type": "string" },
+        "secretKey": { "type": "string" },
+        "mountPath": { "type": "string" },
+        "inline": { "type": "string" },
+        "initializeServer": { "type": "boolean" },
+        "overlay": {
+          "type": "object",
+          "properties": {
+            "image": {
+              "type": "object",
+              "properties": {
+                "repository": { "type": "string" },
+                "tag": { "type": "string" },
+                "digest": { "type": "string" },
+                "pullPolicy": { "type": "string", "enum": ["Always", "IfNotPresent", "Never"] }
+              }
+            }
+          }
+        }
+      }
+    },
+    "frontend": {
+      "type": "object",
+      "properties": {
+        "containerPort": { "type": "integer" },
+        "apiPort": { "type": "integer" },
+        "minions": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "replicas": { "type": "integer", "minimum": 1 },
+            "resources": { "type": "object" },
+            "podAnnotations": { "type": "object" },
+            "nodeSelector": { "type": "object" },
+            "tolerations": { "type": "array" },
+            "affinity": { "type": "object" }
+          }
+        },
+        "service": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "enum": ["ClusterIP", "NodePort", "LoadBalancer"] },
+            "port": { "type": "integer" },
+            "annotations": { "type": "object" },
+            "loadBalancerIP": { "type": "string" },
+            "loadBalancerSourceRanges": { "type": "array" },
+            "externalTrafficPolicy": { "type": "string", "enum": ["Cluster", "Local"] }
+          }
+        }
+      }
+    },
+    "gui": {
+      "type": "object",
+      "properties": {
+        "containerPort": { "type": "integer" },
+        "publicUrl": { "type": "string" },
+        "oidc": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "name": { "type": "string" },
+            "issuer": { "type": "string" },
+            "clientId": { "type": "string" },
+            "avatar": { "type": "string" },
+            "existingSecret": { "type": "string" },
+            "existingSecretKey": { "type": "string" },
+            "clientSecret": { "type": "string" }
+          }
+        },
+        "service": { "type": "object" },
+        "ingress": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "className": { "type": "string" },
+            "annotations": { "type": "object" },
+            "hosts": { "type": "array" },
+            "tls": { "type": "array" }
+          }
+        }
+      }
+    },
+    "persistence": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "existingClaim": { "type": "string",
+          "description": "Externally-provisioned PVC (NFS/EFS RWX) for the datastore; disables the chart-managed volumeClaimTemplate." },
+        "storageClass": { "type": "string" },
+        "accessModes": { "type": "array" },
+        "size": { "type": "string" },
+        "annotations": { "type": "object" },
+        "mountPath": { "type": "string" }
+      }
+    },
+    "serviceAccount": {
+      "type": "object",
+      "properties": {
+        "create": { "type": "boolean" },
+        "name": { "type": "string" },
+        "annotations": { "type": "object" },
+        "automountServiceAccountToken": { "type": "boolean" }
+      }
+    },
+    "podSecurityContext": { "type": "object" },
+    "securityContext": { "type": "object" },
+    "resources": { "type": "object" },
+    "nodeSelector": { "type": "object" },
+    "tolerations": { "type": "array" },
+    "affinity": { "type": "object" },
+    "topologySpreadConstraints": { "type": "array" },
+    "networkPolicy": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "frontendAllowedCIDRs": { "type": "array", "items": { "type": "string" } },
+        "guiAllowedFrom": { "type": "array" },
+        "metricsAllowedFrom": { "type": "array" },
+        "oidcEgressCIDRs": { "type": "array", "items": { "type": "string" } },
+        "oidcEgressPort": { "type": "integer" },
+        "extraEgress": { "type": "array" }
+      }
+    },
+    "podDisruptionBudget": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "minAvailable": { "type": ["string", "integer"] },
+        "maxUnavailable": { "type": ["string", "integer"] }
+      }
+    },
+    "monitoring": {
+      "type": "object",
+      "properties": {
+        "containerPort": { "type": "integer" }
+      }
+    },
+    "serviceMonitor": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "interval": { "type": "string" },
+        "scrapeTimeout": { "type": "string" },
+        "port": { "type": "string" },
+        "path": { "type": "string" },
+        "scheme": { "type": "string", "enum": ["http", "https"] }
+      }
+    },
+    "customArtifacts": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "path": { "type": "string" },
+        "existingConfigMap": { "type": "string" },
+        "files": { "type": "object" }
+      }
+    },
+    "tmpDir": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "sizeLimit": { "type": "string" }
+      }
+    },
+    "extraEnv": { "type": "array" },
+    "extraVolumes": { "type": "array" },
+    "extraVolumeMounts": { "type": "array" },
+    "extraArgs": { "type": "array" }
+  }
+}

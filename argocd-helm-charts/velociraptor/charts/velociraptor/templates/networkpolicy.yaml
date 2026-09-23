@@ -1,0 +1,78 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "velociraptor.fullname" . }}
+  labels:
+    {{- include "velociraptor.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "velociraptor.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Frontend: endpoint clients (gRPC/mTLS). Often external => CIDR-gated.
+    - from:
+        {{- range .Values.networkPolicy.frontendAllowedCIDRs }}
+        - ipBlock:
+            cidr: {{ . | quote }}
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.frontend.containerPort }}
+    # GUI: restricted to declared sources (e.g. ingress controller). If empty, GUI
+    # is only reachable in-cluster via explicit peers added here.
+    {{- with .Values.networkPolicy.guiAllowedFrom }}
+    - from:
+        {{- toYaml . | nindent 8 }}
+      ports:
+        - protocol: TCP
+          port: {{ $.Values.gui.containerPort }}
+    {{- end }}
+    {{- if .Values.frontend.minions.enabled }}
+    # Multi-frontend: minions reach the master API (gRPC) for RemoteFileDataStore.
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "velociraptor.selectorLabels" . | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.frontend.apiPort }}
+    {{- end }}
+    {{- if .Values.serviceMonitor.enabled }}
+    # Metrics: allow Prometheus to scrape the monitoring port.
+    - from:
+        {{- with .Values.networkPolicy.metricsAllowedFrom }}
+        {{- toYaml . | nindent 8 }}
+        {{- else }}
+        []
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: {{ $.Values.monitoring.containerPort }}
+    {{- end }}
+  egress:
+    # DNS
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    {{- if .Values.gui.oidc.enabled }}
+    # OIDC: reach the IdP issuer (discovery fetched at server boot).
+    - to:
+        {{- range .Values.networkPolicy.oidcEgressCIDRs }}
+        - ipBlock:
+            cidr: {{ . | quote }}
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.networkPolicy.oidcEgressPort }}
+    {{- end }}
+    {{- with .Values.networkPolicy.extraEgress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}

@@ -1,0 +1,153 @@
+{{- if .Values.frontend.minions.enabled }}
+{{- if not .Values.persistence.existingClaim }}
+{{- fail "frontend.minions.enabled requires persistence.existingClaim: a ReadWriteMany shared filestore (NFS/EFS) mounted by the master and all minions." }}
+{{- end }}
+# Headless Service backing the minion StatefulSet (stable pod DNS / --node identity).
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "velociraptor.fullname" . }}-minion
+  labels:
+    {{- include "velociraptor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: minion
+spec:
+  clusterIP: None
+  selector:
+    {{- include "velociraptor.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: minion
+  ports:
+    - name: frontend
+      port: {{ .Values.frontend.containerPort }}
+      targetPort: frontend
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "velociraptor.fullname" . }}-minion
+  labels:
+    {{- include "velociraptor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: minion
+spec:
+  replicas: {{ .Values.frontend.minions.replicas }}
+  serviceName: {{ include "velociraptor.fullname" . }}-minion
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      {{- include "velociraptor.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: minion
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include "velociraptor.configSecretName" . }}-{{ .Values.config.secretKey }}
+        {{- with .Values.frontend.minions.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "velociraptor.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: minion
+    spec:
+      serviceAccountName: {{ include "velociraptor.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- $init := include "velociraptor.overlayInitContainer" . }}
+      {{- if trim $init }}
+      initContainers:
+        {{- $init | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: velociraptor
+          image: {{ include "velociraptor.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # --node selects this minion's ExtraFrontends entry. Velociraptor's
+          # GetNodeName() builds the id as "<Hostname>-<BindPort>" (hyphen, NOT
+          # the colon shown in its error output). The pod name must equal the
+          # ExtraFrontends hostname; the bind_port is appended with a hyphen.
+          args:
+            - --config
+            - {{ .Values.config.mountPath }}
+            - frontend
+            - --minion
+            - --node
+            - $(POD_NAME)-{{ .Values.frontend.containerPort }}
+            - -v
+            {{- with .Values.extraArgs }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: frontend
+              containerPort: {{ .Values.frontend.containerPort }}
+              protocol: TCP
+            {{- if .Values.serviceMonitor.enabled }}
+            - name: metrics
+              containerPort: {{ .Values.monitoring.containerPort }}
+              protocol: TCP
+            {{- end }}
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          resources:
+            {{- toYaml .Values.frontend.minions.resources | nindent 12 }}
+          volumeMounts:
+            {{- include "velociraptor.configVolumeMount" . | nindent 12 }}
+            {{- include "velociraptor.customArtifactsVolumeMount" . | nindent 12 }}
+            - name: datastore
+              mountPath: {{ .Values.persistence.mountPath }}
+            {{- if .Values.tmpDir.enabled }}
+            - name: tmp
+              mountPath: /tmp
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        {{- include "velociraptor.configVolumes" . | nindent 8 }}
+        {{- include "velociraptor.customArtifactsVolume" . | nindent 8 }}
+        - name: datastore
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim }}
+        {{- if .Values.tmpDir.enabled }}
+        - name: tmp
+          emptyDir:
+            sizeLimit: {{ .Values.tmpDir.sizeLimit }}
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.frontend.minions.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.frontend.minions.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.frontend.minions.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
