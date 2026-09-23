@@ -1,0 +1,50 @@
+# Values for the vendored `sogo` dependency (charts/sogo) go straight through
+# under a `sogo:` key - see README.md point 1 for why that nesting is two
+# levels deep (`sogo.sogo.*`), not one.
+#
+# Everything below is first-party to this wrapper chart, not passed through
+# to any dependency.
+
+openldap:
+  # Optional bundled LDAP directory for SOGo's SOGoUserSources (see README's
+  # "Optional: bundled OpenLDAP" section). Off by default - SOGo's SQL auth
+  # (sogo_view) works fine without it.
+  enabled: false
+
+  image:
+    repository: docker.io/bitnamilegacy/openldap
+    tag: 2.6.10-debian-12-r4
+
+  ldapRoot: "dc=example,dc=org"
+  extraSchemas: "cosine,inetorgperson,nis"
+
+  # Secret with LDAP_ADMIN_PASSWORD and LDAP_CONFIG_ADMIN_PASSWORD keys.
+  # Required when openldap.enabled is true - this chart never generates or
+  # stores that password itself.
+  existingSecret: ""
+
+  persistence:
+    size: 2Gi
+
+  tls:
+    enabled: true
+    certManager:
+      enabled: true
+      # Set name (and optionally kind, default ClusterIssuer) to sign off an
+      # issuer you already have instead of the self-signed one this chart
+      # creates by default.
+      issuerRef: {}
+    # Bring your own TLS secret (tls.crt/tls.key/ca.crt) instead of
+    # cert-manager. Takes priority over certManager.enabled when set.
+    existingSecret: ""
+    # Extra DNS SANs beyond the in-cluster service hostname, e.g. a public
+    # LDAPS hostname you're exposing via ingressRouteTCP below.
+    dnsNames: []
+
+  ingressRouteTCP:
+    # Traefik CRD, SNI-passthrough TCP route for exposing LDAPS outside the
+    # cluster. Needed for a directory shared across clusters (e.g. an IdP on
+    # a different cluster than this one) - skip it for in-cluster-only use.
+    enabled: false
+    host: ""
+    entryPoint: websecure

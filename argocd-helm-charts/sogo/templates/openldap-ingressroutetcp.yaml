@@ -1,0 +1,16 @@
+{{- if and .Values.openldap.enabled .Values.openldap.ingressRouteTCP.enabled }}
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: {{ include "sogo.openldap.name" . }}-ldaps
+spec:
+  entryPoints:
+    - {{ .Values.openldap.ingressRouteTCP.entryPoint }}
+  routes:
+    - match: "HostSNI(`{{ required "openldap.ingressRouteTCP.host is required when openldap.ingressRouteTCP.enabled is true" .Values.openldap.ingressRouteTCP.host }}`)"
+      services:
+        - name: {{ include "sogo.openldap.name" . }}
+          port: 636
+  tls:
+    passthrough: true
+{{- end }}
