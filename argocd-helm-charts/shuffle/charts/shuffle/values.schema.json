@@ -1,0 +1,3848 @@
+{
+    "title": "Chart Values",
+    "type": "object",
+    "properties": {
+        "global": {
+            "type": "object",
+            "properties": {
+                "imageRegistry": {
+                    "type": "string",
+                    "description": "Global Docker image registry",
+                    "default": ""
+                },
+                "imagePullSecrets": {
+                    "type": "array",
+                    "description": "Global Docker registry secret names as an array",
+                    "default": [],
+                    "items": {}
+                },
+                "defaultStorageClass": {
+                    "type": "string",
+                    "description": "Global default StorageClass for Persistent Volume(s)",
+                    "default": ""
+                },
+                "compatibility": {
+                    "type": "object",
+                    "properties": {
+                        "openshift": {
+                            "type": "object",
+                            "properties": {
+                                "adaptSecurityContext": {
+                                    "type": "string",
+                                    "description": "Adapt the securityContext sections of the deployment to make them compatible with Openshift restricted-v2 SCC: remove runAsUser, runAsGroup and fsGroup and let the platform use their allowed default IDs. Possible values: auto (apply if the detected running cluster is Openshift), force (perform the adaptation always), disabled (do not perform adaptation)",
+                                    "default": "auto"
+                                }
+                            }
+                        },
+                        "omitEmptySeLinuxOptions": {
+                            "type": "boolean",
+                            "description": "If set to true, removes the seLinuxOptions from the securityContexts when it is set to an empty object",
+                            "default": false
+                        }
+                    }
+                }
+            }
+        },
+        "kubeVersion": {
+            "type": "string",
+            "description": "Override Kubernetes version",
+            "default": ""
+        },
+        "nameOverride": {
+            "type": "string",
+            "description": "String to partially override common.names.name",
+            "default": ""
+        },
+        "fullnameOverride": {
+            "type": "string",
+            "description": "String to fully override common.names.fullname",
+            "default": ""
+        },
+        "namespaceOverride": {
+            "type": "string",
+            "description": "String to fully override common.names.namespace",
+            "default": ""
+        },
+        "commonLabels": {
+            "type": "object",
+            "description": "Labels to add to all deployed objects",
+            "default": {}
+        },
+        "commonAnnotations": {
+            "type": "object",
+            "description": "Annotations to add to all deployed objects",
+            "default": {}
+        },
+        "clusterDomain": {
+            "type": "string",
+            "description": "Kubernetes cluster domain name",
+            "default": "cluster.local"
+        },
+        "extraDeploy": {
+            "type": "array",
+            "description": "Array of extra objects to deploy with the release",
+            "default": [],
+            "items": {}
+        },
+        "diagnosticMode": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable diagnostic mode (all probes will be disabled and the command will be overridden)",
+                    "default": false
+                },
+                "command": {
+                    "type": "array",
+                    "description": "Command to override all containers in the chart release",
+                    "default": [
+                        "sleep"
+                    ],
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "args": {
+                    "type": "array",
+                    "description": "Args to override all containers in the chart release",
+                    "default": [
+                        "infinity"
+                    ],
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "shuffle": {
+            "type": "object",
+            "properties": {
+                "baseUrl": {
+                    "type": "string",
+                    "description": "The external base URL under which Shuffle is reachable.",
+                    "default": ""
+                },
+                "org": {
+                    "type": "string",
+                    "description": "Default shuffle organization",
+                    "default": "Shuffle"
+                },
+                "appRegistry": {
+                    "type": "string",
+                    "description": "The registry from / to which shuffle apps are pulled / pushed",
+                    "default": "docker.io"
+                },
+                "appBaseImageName": {
+                    "type": "string",
+                    "description": "The base image used for shuffle apps. The final image for an app is <appRegistr>/<appBaseImageName>/<appName>:<appVersion>",
+                    "default": "frikky"
+                },
+                "timezone": {
+                    "type": "string",
+                    "description": "The timezone used by Shuffle",
+                    "default": "Europe/Berlin"
+                }
+            }
+        },
+        "backend": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "registry": {
+                            "type": "string",
+                            "description": "backend image registry",
+                            "default": "ghcr.io"
+                        },
+                        "repository": {
+                            "type": "string",
+                            "description": "backend image repository",
+                            "default": "shuffle/shuffle-backend"
+                        },
+                        "tag": {
+                            "type": "string",
+                            "description": "backend image tag (immutable tags are recommended, defaults to appVersion)",
+                            "default": ""
+                        },
+                        "digest": {
+                            "type": "string",
+                            "description": "backend image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag image tag (immutable tags are recommended)",
+                            "default": ""
+                        },
+                        "pullPolicy": {
+                            "type": "string",
+                            "description": "backend image pull policy",
+                            "default": "IfNotPresent"
+                        },
+                        "pullSecrets": {
+                            "type": "array",
+                            "description": "backend image pull secrets",
+                            "default": [],
+                            "items": {}
+                        }
+                    }
+                },
+                "replicaCount": {
+                    "type": "number",
+                    "description": "Number of backend replicas to deploy",
+                    "default": 1
+                },
+                "containerPorts": {
+                    "type": "object",
+                    "properties": {
+                        "http": {
+                            "type": "number",
+                            "description": "backend HTTP container port",
+                            "default": 5001
+                        }
+                    }
+                },
+                "extraContainerPorts": {
+                    "type": "array",
+                    "description": "Optionally specify extra list of additional ports for backend containers",
+                    "default": [],
+                    "items": {}
+                },
+                "livenessProbe": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enable livenessProbe on backend containers",
+                            "default": false
+                        },
+                        "initialDelaySeconds": {
+                            "type": "number",
+                            "description": "Initial delay seconds for livenessProbe",
+                            "default": 0
+                        },
+                        "periodSeconds": {
+                            "type": "number",
+                            "description": "Period seconds for livenessProbe",
+                            "default": 15
+                        },
+                        "timeoutSeconds": {
+                            "type": "number",
+                            "description": "Timeout seconds for livenessProbe",
+                            "default": 1
+                        },
+                        "failureThreshold": {
+                            "type": "number",
+                            "description": "Failure threshold for livenessProbe",
+                            "default": 4
+                        },
+                        "successThreshold": {
+                            "type": "number",
+                            "description": "Success threshold for livenessProbe",
+                            "default": 1
+                        }
+                    }
+                },
+                "readinessProbe": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enable readinessProbe on backend containers",
+                            "default": false
+                        },
+                        "initialDelaySeconds": {
+                            "type": "number",
+                            "description": "Initial delay seconds for readinessProbe",
+                            "default": 0
+                        },
+                        "periodSeconds": {
+                            "type": "number",
+                            "description": "Period seconds for readinessProbe",
+                            "default": 5
+                        },
+                        "timeoutSeconds": {
+                            "type": "number",
+                            "description": "Timeout seconds for readinessProbe",
+                            "default": 1
+                        },
+                        "failureThreshold": {
+                            "type": "number",
+                            "description": "Failure threshold for readinessProbe",
+                            "default": 3
+                        },
+                        "successThreshold": {
+                            "type": "number",
+                            "description": "Success threshold for readinessProbe",
+                            "default": 1
+                        }
+                    }
+                },
+                "startupProbe": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enable startupProbe on backend containers",
+                            "default": false
+                        },
+                        "initialDelaySeconds": {
+                            "type": "number",
+                            "description": "Initial delay seconds for startupProbe",
+                            "default": 0
+                        },
+                        "periodSeconds": {
+                            "type": "number",
+                            "description": "Period seconds for startupProbe",
+                            "default": 1
+                        },
+                        "timeoutSeconds": {
+                            "type": "number",
+                            "description": "Timeout seconds for startupProbe",
+                            "default": 1
+                        },
+                        "failureThreshold": {
+                            "type": "number",
+                            "description": "Failure threshold for startupProbe",
+                            "default": 60
+                        },
+                        "successThreshold": {
+                            "type": "number",
+                            "description": "Success threshold for startupProbe",
+                            "default": 1
+                        }
+                    }
+                },
+                "customLivenessProbe": {
+                    "type": "object",
+                    "description": "Custom livenessProbe that overrides the default one",
+                    "default": {}
+                },
+                "customReadinessProbe": {
+                    "type": "object",
+                    "description": "Custom readinessProbe that overrides the default one",
+                    "default": {}
+                },
+                "customStartupProbe": {
+                    "type": "object",
+                    "description": "Custom startupProbe that overrides the default one",
+                    "default": {}
+                },
+                "resourcesPreset": {
+                    "type": "string",
+                    "description": "Set backend container resources according to one common preset (allowed values: none, nano, small, medium, large, xlarge, 2xlarge). This is ignored if backend.resources is set (backend.resources is recommended for production).",
+                    "default": "small"
+                },
+                "resources": {
+                    "type": "object",
+                    "description": "Set backend container requests and limits for different resources like CPU or memory (essential for production workloads)",
+                    "default": {}
+                },
+                "podSecurityContext": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enable backend pods' Security Context",
+                            "default": true
+                        },
+                        "fsGroupChangePolicy": {
+                            "type": "string",
+                            "description": "Set filesystem group change policy for backend pods",
+                            "default": "Always"
+                        },
+                        "sysctls": {
+                            "type": "array",
+                            "description": "Set kernel settings using the sysctl interface for backend pods",
+                            "default": [],
+                            "items": {}
+                        },
+                        "supplementalGroups": {
+                            "type": "array",
+                            "description": "Set filesystem extra groups for backend pods",
+                            "default": [],
+                            "items": {}
+                        },
+                        "fsGroup": {
+                            "type": "number",
+                            "description": "Set fsGroup in backend pods' Security Context",
+                            "default": 1001
+                        }
+                    }
+                },
+                "containerSecurityContext": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enabled backend container' Security Context",
+                            "default": true
+                        },
+                        "runAsUser": {
+                            "type": "number",
+                            "description": "Set runAsUser in backend container' Security Context",
+                            "default": 1001
+                        },
+                        "runAsGroup": {
+                            "type": "number",
+                            "description": "Set runAsGroup in backend container' Security Context",
+                            "default": 1001
+                        },
+                        "runAsNonRoot": {
+                            "type": "boolean",
+                            "description": "Set runAsNonRoot in backend container' Security Context",
+                            "default": true
+                        },
+                        "readOnlyRootFilesystem": {
+                            "type": "boolean",
+                            "description": "Set readOnlyRootFilesystem in backend container' Security Context",
+                            "default": true
+                        },
+                        "privileged": {
+                            "type": "boolean",
+                            "description": "Set privileged in backend container' Security Context",
+                            "default": false
+                        },
+                        "allowPrivilegeEscalation": {
+                            "type": "boolean",
+                            "description": "Set allowPrivilegeEscalation in backend container' Security Context",
+                            "default": false
+                        },
+                        "capabilities": {
+                            "type": "object",
+                            "properties": {
+                                "drop": {
+                                    "type": "array",
+                                    "description": "List of capabilities to be dropped in backend container",
+                                    "default": [
+                                        "ALL"
+                                    ],
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        },
+                        "seccompProfile": {
+                            "type": "object",
+                            "properties": {
+                                "type": {
+                                    "type": "string",
+                                    "description": "Set seccomp profile in backend container",
+                                    "default": "RuntimeDefault"
+                                }
+                            }
+                        }
+                    }
+                },
+                "command": {
+                    "type": "array",
+                    "description": "Override default backend container command (useful when using custom images)",
+                    "default": [],
+                    "items": {}
+                },
+                "args": {
+                    "type": "array",
+                    "description": "Override default backend container args (useful when using custom images)",
+                    "default": [],
+                    "items": {}
+                },
+                "automountServiceAccountToken": {
+                    "type": "boolean",
+                    "description": "Mount Service Account token in backend pods",
+                    "default": true
+                },
+                "hostAliases": {
+                    "type": "array",
+                    "description": "backend pods host aliases",
+                    "default": [],
+                    "items": {}
+                },
+                "deploymentAnnotations": {
+                    "type": "object",
+                    "description": "Annotations for backend deployment",
+                    "default": {}
+                },
+                "podLabels": {
+                    "type": "object",
+                    "description": "Extra labels for backend pods",
+                    "default": {}
+                },
+                "podAnnotations": {
+                    "type": "object",
+                    "description": "Annotations for backend pods",
+                    "default": {}
+                },
+                "podAffinityPreset": {
+                    "type": "string",
+                    "description": "Pod affinity preset. Ignored if `backend.affinity` is set. Allowed values: `soft` or `hard`",
+                    "default": ""
+                },
+                "podAntiAffinityPreset": {
+                    "type": "string",
+                    "description": "Pod anti-affinity preset. Ignored if `backend.affinity` is set. Allowed values: `soft` or `hard`",
+                    "default": "soft"
+                },
+                "nodeAffinityPreset": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "description": "Node affinity preset type. Ignored if `backend.affinity` is set. Allowed values: `soft` or `hard`",
+                            "default": ""
+                        },
+                        "key": {
+                            "type": "string",
+                            "description": "Node label key to match. Ignored if `backend.affinity` is set",
+                            "default": ""
+                        },
+                        "values": {
+                            "type": "array",
+                            "description": "Node label values to match. Ignored if `backend.affinity` is set",
+                            "default": [],
+                            "items": {}
+                        }
+                    }
+                },
+                "affinity": {
+                    "type": "object",
+                    "description": "Affinity for backend pods assignment",
+                    "default": {}
+                },
+                "nodeSelector": {
+                    "type": "object",
+                    "description": "Node labels for backend pods assignment",
+                    "default": {}
+                },
+                "tolerations": {
+                    "type": "array",
+                    "description": "Tolerations for backend pods assignment",
+                    "default": [],
+                    "items": {}
+                },
+                "updateStrategy": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "description": "backend deployment strategy type",
+                            "default": "Recreate"
+                        }
+                    }
+                },
+                "priorityClassName": {
+                    "type": "string",
+                    "description": "backend pods' priorityClassName",
+                    "default": ""
+                },
+                "topologySpreadConstraints": {
+                    "type": "array",
+                    "description": "Topology Spread Constraints for backend pod assignment spread across your cluster among failure-domains",
+                    "default": [],
+                    "items": {}
+                },
+                "schedulerName": {
+                    "type": "string",
+                    "description": "Name of the k8s scheduler (other than default) for backend pods",
+                    "default": ""
+                },
+                "terminationGracePeriodSeconds": {
+                    "type": "string",
+                    "description": "Seconds backend pods need to terminate gracefully",
+                    "default": ""
+                },
+                "lifecycleHooks": {
+                    "type": "object",
+                    "description": "for backend containers to automate configuration before or after startup",
+                    "default": {}
+                },
+                "extraEnvVars": {
+                    "type": "array",
+                    "description": "Array with extra environment variables to add to backend containers",
+                    "default": [],
+                    "items": {}
+                },
+                "extraEnvVarsCM": {
+                    "type": "string",
+                    "description": "Name of existing ConfigMap containing extra env vars for backend containers",
+                    "default": ""
+                },
+                "extraEnvVarsSecret": {
+                    "type": "string",
+                    "description": "Name of existing Secret containing extra env vars for backend containers",
+                    "default": ""
+                },
+                "extraVolumes": {
+                    "type": "array",
+                    "description": "Optionally specify extra list of additional volumes for the backend pods",
+                    "default": [],
+                    "items": {}
+                },
+                "extraVolumeMounts": {
+                    "type": "array",
+                    "description": "Optionally specify extra list of additional volumeMounts for the backend containers",
+                    "default": [],
+                    "items": {}
+                },
+                "sidecars": {
+                    "type": "array",
+                    "description": "Add additional sidecar containers to the backend pods",
+                    "default": [],
+                    "items": {}
+                },
+                "initContainers": {
+                    "type": "array",
+                    "description": "Add additional init containers to the backend pods",
+                    "default": [],
+                    "items": {}
+                },
+                "pdb": {
+                    "type": "object",
+                    "properties": {
+                        "create": {
+                            "type": "boolean",
+                            "description": "Enable/disable a Pod Disruption Budget creation",
+                            "default": true
+                        },
+                        "minAvailable": {
+                            "type": "string",
+                            "description": "Minimum number/percentage of pods that should remain scheduled",
+                            "default": ""
+                        },
+                        "maxUnavailable": {
+                            "type": "string",
+                            "description": "Maximum number/percentage of pods that may be made unavailable. Defaults to `1` if both `backend.pdb.minAvailable` and `backend.pdb.maxUnavailable` are empty.",
+                            "default": ""
+                        }
+                    }
+                },
+                "autoscaling": {
+                    "type": "object",
+                    "properties": {
+                        "vpa": {
+                            "type": "object",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean",
+                                    "description": "Enable VPA for backend pods",
+                                    "default": false
+                                },
+                                "annotations": {
+                                    "type": "object",
+                                    "description": "Annotations for VPA resource",
+                                    "default": {}
+                                },
+                                "controlledResources": {
+                                    "type": "array",
+                                    "description": "VPA List of resources that the vertical pod autoscaler can control. Defaults to cpu and memory",
+                                    "default": [],
+                                    "items": {}
+                                },
+                                "maxAllowed": {
+                                    "type": "object",
+                                    "description": "VPA Max allowed resources for the pod",
+                                    "default": {}
+                                },
+                                "minAllowed": {
+                                    "type": "object",
+                                    "description": "VPA Min allowed resources for the pod",
+                                    "default": {}
+                                },
+                                "updatePolicy": {
+                                    "type": "object",
+                                    "properties": {
+                                        "updateMode": {
+                                            "type": "string",
+                                            "description": "Autoscaling update policy",
+                                            "default": "Auto"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "hpa": {
+                            "type": "object",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean",
+                                    "description": "Enable HPA for backend pods",
+                                    "default": false
+                                },
+                                "minReplicas": {
+                                    "type": "string",
+                                    "description": "Minimum number of replicas",
+                                    "default": ""
+                                },
+                                "maxReplicas": {
+                                    "type": "string",
+                                    "description": "Maximum number of replicas",
+                                    "default": ""
+                                },
+                                "targetCPU": {
+                                    "type": "string",
+                                    "description": "Target CPU utilization percentage",
+                                    "default": ""
+                                },
+                                "targetMemory": {
+                                    "type": "string",
+                                    "description": "Target Memory utilization percentage",
+                                    "default": ""
+                                }
+                            }
+                        }
+                    }
+                },
+                "service": {
+                    "type": "object",
+                    "properties": {
+                        "labels": {
+                            "type": "object",
+                            "description": "Extra labels for backend service",
+                            "default": {}
+                        }
+                    }
+                },
+                "serviceAccount": {
+                    "type": "object",
+                    "properties": {
+                        "create": {
+                            "type": "boolean",
+                            "description": "Specifies whether a ServiceAccount should be created",
+                            "default": true
+                        },
+                        "name": {
+                            "type": "string",
+                            "description": "The name of the ServiceAccount to use.",
+                            "default": ""
+                        },
+                        "annotations": {
+                            "type": "object",
+                            "description": "Additional Service Account annotations (evaluated as a template)",
+                            "default": {}
+                        },
+                        "automountServiceAccountToken": {
+                            "type": "boolean",
+                            "description": "Automount service account token for the backend service account",
+                            "default": true
+                        },
+                        "imagePullSecrets": {
+                            "type": "array",
+                            "description": "Add image pull secrets to the backend service account",
+                            "default": [],
+                            "items": {}
+                        }
+                    }
+                },
+                "rbac": {
+                    "type": "object",
+                    "properties": {
+                        "create": {
+                            "type": "boolean",
+                            "description": "Specifies whether RBAC resources should be created",
+                            "default": true
+                        }
+                    }
+                },
+                "networkPolicy": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Specifies whether a NetworkPolicy should be created",
+                            "default": true
+                        },
+                        "allowExternal": {
+                            "type": "boolean",
+                            "description": "Don't require server label for connections",
+                            "default": true
+                        },
+                        "allowExternalEgress": {
+                            "type": "boolean",
+                            "description": "Allow the pod to access any range of port and all destinations.",
+                            "default": true
+                        },
+                        "extraIngress": {
+                            "type": "array",
+                            "description": "Add extra ingress rules to the NetworkPolicy",
+                            "default": [],
+                            "items": {}
+                        },
+                        "extraEgress": {
+                            "type": "array",
+                            "description": "Add extra ingress rules to the NetworkPolicy (ignored if allowExternalEgress=true)",
+                            "default": [],
+                            "items": {}
+                        }
+                    }
+                },
+                "debug": {
+                    "type": "boolean",
+                    "description": "Enable debug mode for backend, which enables extra logging. orborus.debug, worker.debug, and app.debug should be set to identical values, if shuffle manages these deployments.",
+                    "default": false
+                },
+                "autoGOMEMLIMIT": {
+                    "type": "boolean",
+                    "description": "Automatically set GOMEMLIMIT environment variable to 90% of the container memory limit.",
+                    "default": true
+                },
+                "cleanupSchedule": {
+                    "type": "number",
+                    "description": "The interval in seconds at which the cleanup job runs",
+                    "default": 300
+                },
+                "openSearch": {
+                    "type": "object",
+                    "properties": {
+                        "url": {
+                            "type": "string",
+                            "description": "The URL at which OpenSearch is available",
+                            "default": "http://{{ .Release.Name }}-opensearch:9200"
+                        },
+                        "username": {
+                            "type": "string",
+                            "description": "The username that is used for authenticating with OpenSearch",
+                            "default": "admin"
+                        },
+                        "certificateFile": {
+                            "type": "string",
+                            "description": "The path to a custom OpenSearch certificate file",
+                            "default": ""
+                        },
+                        "skipSSLVerify": {
+                            "type": "boolean",
+                            "description": "Skip SSL verification",
+                            "default": false
+                        },
+                        "indexPrefix": {
+                            "type": "string",
+                            "description": "A prefix for OpenSearch indices",
+                            "default": ""
+                        }
+                    }
+                },
+                "apps": {
+                    "type": "object",
+                    "properties": {
+                        "downloadLocation": {
+                            "type": "string",
+                            "description": "The location to a git repository from which default appps are downloaded on startup.",
+                            "default": "https://github.com/shuffle/python-apps"
+                        },
+                        "downloadBranch": {
+                            "type": "string",
+                            "description": "The branch from which apps should be downloaded on startup.",
+                            "default": "master"
+                        },
+                        "forceUpdate": {
+                            "type": "boolean",
+                            "description": "Force an update of apps on startup.",
+                            "default": false
+                        }
+                    }
+                }
+            }
+        },
+        "frontend": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "registry": {
+                            "type": "string",
+                            "description": "frontend image registry",
+                            "default": "ghcr.io"
+                        },
+                        "repository": {
+                            "type": "string",
+                            "description": "frontend image repository",
+                            "default": "shuffle/shuffle-frontend"
+                        },
+                        "tag": {
+                            "type": "string",
+                            "description": "frontend image tag (immutable tags are recommended, defaults to appVersion)",
+                            "default": ""
+                        },
+                        "digest": {
+                            "type": "string",
+                            "description": "frontend image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag image tag (immutable tags are recommended)",
+                            "default": ""
+                        },
+                        "pullPolicy": {
+                            "type": "string",
+                            "description": "frontend image pull policy",
+                            "default": "IfNotPresent"
+                        },
+                        "pullSecrets": {
+                            "type": "array",
+                            "description": "frontend image pull secrets",
+                            "default": [],
+                            "items": {}
+                        }
+                    }
+                },
+                "replicaCount": {
+                    "type": "number",
+                    "description": "Number of frontend replicas to deploy",
+                    "default": 1
+                },
+                "containerPorts": {
+                    "type": "object",
+                    "properties": {
+                        "http": {
+                            "type": "number",
+                            "description": "frontend HTTP container port",
+                            "default": 80
+                        },
+                        "https": {
+                            "type": "number",
+                            "description": "frontend HTTPS container port",
+                            "default": 443
+                        }
+                    }
+                },
+                "extraContainerPorts": {
+                    "type": "array",
+                    "description": "Optionally specify extra list of additional ports for frontend containers",
+                    "default": [],
+                    "items": {}
+                },
+                "livenessProbe": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enable livenessProbe on frontend containers",
+                            "default": false
+                        },
+                        "initialDelaySeconds": {
+                            "type": "number",
+                            "description": "Initial delay seconds for livenessProbe",
+                            "default": 0
+                        },
+                        "periodSeconds": {
+                            "type": "number",
+                            "description": "Period seconds for livenessProbe",
+                            "default": 15
+                        },
+                        "timeoutSeconds": {
+                            "type": "number",
+                            "description": "Timeout seconds for livenessProbe",
+                            "default": 1
+                        },
+                        "failureThreshold": {
+                            "type": "number",
+                            "description": "Failure threshold for livenessProbe",
+                            "default": 4
+                        },
+                        "successThreshold": {
+                            "type": "number",
+                            "description": "Success threshold for livenessProbe",
+                            "default": 1
+                        }
+                    }
+                },
+                "readinessProbe": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enable readinessProbe on frontend containers",
+                            "default": false
+                        },
+                        "initialDelaySeconds": {
+                            "type": "number",
+                            "description": "Initial delay seconds for readinessProbe",
+                            "default": 0
+                        },
+                        "periodSeconds": {
+                            "type": "number",
+                            "description": "Period seconds for readinessProbe",
+                            "default": 5
+                        },
+                        "timeoutSeconds": {
+                            "type": "number",
+                            "description": "Timeout seconds for readinessProbe",
+                            "default": 1
+                        },
+                        "failureThreshold": {
+                            "type": "number",
+                            "description": "Failure threshold for readinessProbe",
+                            "default": 3
+                        },
+                        "successThreshold": {
+                            "type": "number",
+                            "description": "Success threshold for readinessProbe",
+                            "default": 1
+                        }
+                    }
+                },
+                "startupProbe": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enable startupProbe on frontend containers",
+                            "default": false
+                        },
+                        "initialDelaySeconds": {
+                            "type": "number",
+                            "description": "Initial delay seconds for startupProbe",
+                            "default": 0
+                        },
+                        "periodSeconds": {
+                            "type": "number",
+                            "description": "Period seconds for startupProbe",
+                            "default": 1
+                        },
+                        "timeoutSeconds": {
+                            "type": "number",
+                            "description": "Timeout seconds for startupProbe",
+                            "default": 1
+                        },
+                        "failureThreshold": {
+                            "type": "number",
+                            "description": "Failure threshold for startupProbe",
+                            "default": 60
+                        },
+                        "successThreshold": {
+                            "type": "number",
+                            "description": "Success threshold for startupProbe",
+                            "default": 1
+                        }
+                    }
+                },
+                "customLivenessProbe": {
+                    "type": "object",
+                    "description": "Custom livenessProbe that overrides the default one",
+                    "default": {}
+                },
+                "customReadinessProbe": {
+                    "type": "object",
+                    "description": "Custom readinessProbe that overrides the default one",
+                    "default": {}
+                },
+                "customStartupProbe": {
+                    "type": "object",
+                    "description": "Custom startupProbe that overrides the default one",
+                    "default": {}
+                },
+                "resourcesPreset": {
+                    "type": "string",
+                    "description": "Set frontend container resources according to one common preset (allowed values: none, nano, small, medium, large, xlarge, 2xlarge). This is ignored if frontend.resources is set (frontend.resources is recommended for production).",
+                    "default": "nano"
+                },
+                "resources": {
+                    "type": "object",
+                    "description": "Set frontend container requests and limits for different resources like CPU or memory (essential for production workloads)",
+                    "default": {}
+                },
+                "podSecurityContext": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enable frontend pods' Security Context",
+                            "default": false
+                        },
+                        "fsGroupChangePolicy": {
+                            "type": "string",
+                            "description": "Set filesystem group change policy for frontend pods",
+                            "default": "Always"
+                        },
+                        "sysctls": {
+                            "type": "array",
+                            "description": "Set kernel settings using the sysctl interface for frontend pods",
+                            "default": [],
+                            "items": {}
+                        },
+                        "supplementalGroups": {
+                            "type": "array",
+                            "description": "Set filesystem extra groups for frontend pods",
+                            "default": [],
+                            "items": {}
+                        },
+                        "fsGroup": {
+                            "type": "number",
+                            "description": "Set fsGroup in frontend pods' Security Context",
+                            "default": 1001
+                        }
+                    }
+                },
+                "containerSecurityContext": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enabled frontend container' Security Context",
+                            "default": false
+                        },
+                        "runAsUser": {
+                            "type": "number",
+                            "description": "Set runAsUser in frontend container' Security Context",
+                            "default": 1001
+                        },
+                        "runAsGroup": {
+                            "type": "number",
+                            "description": "Set runAsGroup in frontend container' Security Context",
+                            "default": 1001
+                        },
+                        "runAsNonRoot": {
+                            "type": "boolean",
+                            "description": "Set runAsNonRoot in frontend container' Security Context",
+                            "default": true
+                        },
+                        "readOnlyRootFilesystem": {
+                            "type": "boolean",
+                            "description": "Set readOnlyRootFilesystem in frontend container' Security Context",
+                            "default": true
+                        },
+                        "privileged": {
+                            "type": "boolean",
+                            "description": "Set privileged in frontend container' Security Context",
+                            "default": false
+                        },
+                        "allowPrivilegeEscalation": {
+                            "type": "boolean",
+                            "description": "Set allowPrivilegeEscalation in frontend container' Security Context",
+                            "default": false
+                        },
+                        "capabilities": {
+                            "type": "object",
+                            "properties": {
+                                "drop": {
+                                    "type": "array",
+                                    "description": "List of capabilities to be dropped in frontend container",
+                                    "default": [
+                                        "ALL"
+                                    ],
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        },
+                        "seccompProfile": {
+                            "type": "object",
+                            "properties": {
+                                "type": {
+                                    "type": "string",
+                                    "description": "Set seccomp profile in frontend container",
+                                    "default": "RuntimeDefault"
+                                }
+                            }
+                        }
+                    }
+                },
+                "command": {
+                    "type": "array",
+                    "description": "Override default frontend container command (useful when using custom images)",
+                    "default": [],
+                    "items": {}
+                },
+                "args": {
+                    "type": "array",
+                    "description": "Override default frontend container args (useful when using custom images)",
+                    "default": [],
+                    "items": {}
+                },
+                "automountServiceAccountToken": {
+                    "type": "boolean",
+                    "description": "Mount Service Account token in frontend pods",
+                    "default": false
+                },
+                "hostAliases": {
+                    "type": "array",
+                    "description": "frontend pods host aliases",
+                    "default": [],
+                    "items": {}
+                },
+                "deploymentAnnotations": {
+                    "type": "object",
+                    "description": "Annotations for frontend deployment",
+                    "default": {}
+                },
+                "podLabels": {
+                    "type": "object",
+                    "description": "Extra labels for frontend pods",
+                    "default": {}
+                },
+                "podAnnotations": {
+                    "type": "object",
+                    "description": "Annotations for frontend pods",
+                    "default": {}
+                },
+                "podAffinityPreset": {
+                    "type": "string",
+                    "description": "Pod affinity preset. Ignored if `frontend.affinity` is set. Allowed values: `soft` or `hard`",
+                    "default": ""
+                },
+                "podAntiAffinityPreset": {
+                    "type": "string",
+                    "description": "Pod anti-affinity preset. Ignored if `frontend.affinity` is set. Allowed values: `soft` or `hard`",
+                    "default": "soft"
+                },
+                "nodeAffinityPreset": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "description": "Node affinity preset type. Ignored if `frontend.affinity` is set. Allowed values: `soft` or `hard`",
+                            "default": ""
+                        },
+                        "key": {
+                            "type": "string",
+                            "description": "Node label key to match. Ignored if `frontend.affinity` is set",
+                            "default": ""
+                        },
+                        "values": {
+                            "type": "array",
+                            "description": "Node label values to match. Ignored if `frontend.affinity` is set",
+                            "default": [],
+                            "items": {}
+                        }
+                    }
+                },
+                "affinity": {
+                    "type": "object",
+                    "description": "Affinity for frontend pods assignment",
+                    "default": {}
+                },
+                "nodeSelector": {
+                    "type": "object",
+                    "description": "Node labels for frontend pods assignment",
+                    "default": {}
+                },
+                "tolerations": {
+                    "type": "array",
+                    "description": "Tolerations for frontend pods assignment",
+                    "default": [],
+                    "items": {}
+                },
+                "updateStrategy": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "description": "frontend deployment strategy type",
+                            "default": "RollingUpdate"
+                        }
+                    }
+                },
+                "priorityClassName": {
+                    "type": "string",
+                    "description": "frontend pods' priorityClassName",
+                    "default": ""
+                },
+                "topologySpreadConstraints": {
+                    "type": "array",
+                    "description": "Topology Spread Constraints for frontend pod assignment spread across your cluster among failure-domains",
+                    "default": [],
+                    "items": {}
+                },
+                "schedulerName": {
+                    "type": "string",
+                    "description": "Name of the k8s scheduler (other than default) for frontend pods",
+                    "default": ""
+                },
+                "terminationGracePeriodSeconds": {
+                    "type": "string",
+                    "description": "Seconds frontend pods need to terminate gracefully",
+                    "default": ""
+                },
+                "lifecycleHooks": {
+                    "type": "object",
+                    "description": "for frontend containers to automate configuration before or after startup",
+                    "default": {}
+                },
+                "extraEnvVars": {
+                    "type": "array",
+                    "description": "Array with extra environment variables to add to frontend containers",
+                    "default": [],
+                    "items": {}
+                },
+                "extraEnvVarsCM": {
+                    "type": "string",
+                    "description": "Name of existing ConfigMap containing extra env vars for frontend containers",
+                    "default": ""
+                },
+                "extraEnvVarsSecret": {
+                    "type": "string",
+                    "description": "Name of existing Secret containing extra env vars for frontend containers",
+                    "default": ""
+                },
+                "extraVolumes": {
+                    "type": "array",
+                    "description": "Optionally specify extra list of additional volumes for the frontend pods",
+                    "default": [],
+                    "items": {}
+                },
+                "extraVolumeMounts": {
+                    "type": "array",
+                    "description": "Optionally specify extra list of additional volumeMounts for the frontend containers",
+                    "default": [],
+                    "items": {}
+                },
+                "sidecars": {
+                    "type": "array",
+                    "description": "Add additional sidecar containers to the frontend pods",
+                    "default": [],
+                    "items": {}
+                },
+                "initContainers": {
+                    "type": "array",
+                    "description": "Add additional init containers to the frontend pods",
+                    "default": [],
+                    "items": {}
+                },
+                "pdb": {
+                    "type": "object",
+                    "properties": {
+                        "create": {
+                            "type": "boolean",
+                            "description": "Enable/disable a Pod Disruption Budget creation",
+                            "default": true
+                        },
+                        "minAvailable": {
+                            "type": "string",
+                            "description": "Minimum number/percentage of pods that should remain scheduled",
+                            "default": ""
+                        },
+                        "maxUnavailable": {
+                            "type": "string",
+                            "description": "Maximum number/percentage of pods that may be made unavailable. Defaults to `1` if both `frontend.pdb.minAvailable` and `frontend.pdb.maxUnavailable` are empty.",
+                            "default": ""
+                        }
+                    }
+                },
+                "autoscaling": {
+                    "type": "object",
+                    "properties": {
+                        "vpa": {
+                            "type": "object",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean",
+                                    "description": "Enable VPA for frontend pods",
+                                    "default": false
+                                },
+                                "annotations": {
+                                    "type": "object",
+                                    "description": "Annotations for VPA resource",
+                                    "default": {}
+                                },
+                                "controlledResources": {
+                                    "type": "array",
+                                    "description": "VPA List of resources that the vertical pod autoscaler can control. Defaults to cpu and memory",
+                                    "default": [],
+                                    "items": {}
+                                },
+                                "maxAllowed": {
+                                    "type": "object",
+                                    "description": "VPA Max allowed resources for the pod",
+                                    "default": {}
+                                },
+                                "minAllowed": {
+                                    "type": "object",
+                                    "description": "VPA Min allowed resources for the pod",
+                                    "default": {}
+                                },
+                                "updatePolicy": {
+                                    "type": "object",
+                                    "properties": {
+                                        "updateMode": {
+                                            "type": "string",
+                                            "description": "Autoscaling update policy",
+                                            "default": "Auto"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "hpa": {
+                            "type": "object",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean",
+                                    "description": "Enable HPA for frontend pods",
+                                    "default": false
+                                },
+                                "minReplicas": {
+                                    "type": "string",
+                                    "description": "Minimum number of replicas",
+                                    "default": ""
+                                },
+                                "maxReplicas": {
+                                    "type": "string",
+                                    "description": "Maximum number of replicas",
+                                    "default": ""
+                                },
+                                "targetCPU": {
+                                    "type": "string",
+                                    "description": "Target CPU utilization percentage",
+                                    "default": ""
+                                },
+                                "targetMemory": {
+                                    "type": "string",
+                                    "description": "Target Memory utilization percentage",
+                                    "default": ""
+                                }
+                            }
+                        }
+                    }
+                },
+                "service": {
+                    "type": "object",
+                    "properties": {
+                        "labels": {
+                            "type": "object",
+                            "description": "Extra labels for frontend service",
+                            "default": {}
+                        }
+                    }
+                },
+                "serviceAccount": {
+                    "type": "object",
+                    "properties": {
+                        "create": {
+                            "type": "boolean",
+                            "description": "Specifies whether a ServiceAccount should be created",
+                            "default": true
+                        },
+                        "name": {
+                            "type": "string",
+                            "description": "The name of the ServiceAccount to use.",
+                            "default": ""
+                        },
+                        "annotations": {
+                            "type": "object",
+                            "description": "Additional Service Account annotations (evaluated as a template)",
+                            "default": {}
+                        },
+                        "automountServiceAccountToken": {
+                            "type": "boolean",
+                            "description": "Automount service account token for the frontend service account",
+                            "default": true
+                        },
+                        "imagePullSecrets": {
+                            "type": "array",
+                            "description": "Add image pull secrets to the frontend service account",
+                            "default": [],
+                            "items": {}
+                        }
+                    }
+                },
+                "networkPolicy": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Specifies whether a NetworkPolicy should be created",
+                            "default": true
+                        },
+                        "allowExternal": {
+                            "type": "boolean",
+                            "description": "Don't require server label for connections",
+                            "default": true
+                        },
+                        "allowExternalEgress": {
+                            "type": "boolean",
+                            "description": "Allow the pod to access any range of port and all destinations.",
+                            "default": true
+                        },
+                        "extraIngress": {
+                            "type": "array",
+                            "description": "Add extra ingress rules to the NetworkPolicy",
+                            "default": [],
+                            "items": {}
+                        },
+                        "extraEgress": {
+                            "type": "array",
+                            "description": "Add extra ingress rules to the NetworkPolicy (ignored if allowExternalEgress=true)",
+                            "default": [],
+                            "items": {}
+                        }
+                    }
+                }
+            }
+        },
+        "orborus": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "registry": {
+                            "type": "string",
+                            "description": "orborus image registry",
+                            "default": "ghcr.io"
+                        },
+                        "repository": {
+                            "type": "string",
+                            "description": "orborus image repository",
+                            "default": "shuffle/shuffle-orborus"
+                        },
+                        "tag": {
+                            "type": "string",
+                            "description": "orborus image tag (immutable tags are recommended, defaults to appVersion)",
+                            "default": ""
+                        },
+                        "digest": {
+                            "type": "string",
+                            "description": "orborus image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag image tag (immutable tags are recommended)",
+                            "default": ""
+                        },
+                        "pullPolicy": {
+                            "type": "string",
+                            "description": "orborus image pull policy",
+                            "default": "IfNotPresent"
+                        },
+                        "pullSecrets": {
+                            "type": "array",
+                            "description": "orborus image pull secrets",
+                            "default": [],
+                            "items": {}
+                        }
+                    }
+                },
+                "replicaCount": {
+                    "type": "number",
+                    "description": "Number of orborus replicas to deploy",
+                    "default": 1
+                },
+                "extraContainerPorts": {
+                    "type": "array",
+                    "description": "Optionally specify extra list of additional ports for orborus containers",
+                    "default": [],
+                    "items": {}
+                },
+                "livenessProbe": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enable livenessProbe on orborus containers",
+                            "default": false
+                        },
+                        "initialDelaySeconds": {
+                            "type": "number",
+                            "description": "Initial delay seconds for livenessProbe",
+                            "default": 0
+                        },
+                        "periodSeconds": {
+                            "type": "number",
+                            "description": "Period seconds for livenessProbe",
+                            "default": 15
+                        },
+                        "timeoutSeconds": {
+                            "type": "number",
+                            "description": "Timeout seconds for livenessProbe",
+                            "default": 1
+                        },
+                        "failureThreshold": {
+                            "type": "number",
+                            "description": "Failure threshold for livenessProbe",
+                            "default": 4
+                        },
+                        "successThreshold": {
+                            "type": "number",
+                            "description": "Success threshold for livenessProbe",
+                            "default": 1
+                        }
+                    }
+                },
+                "readinessProbe": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enable readinessProbe on orborus containers",
+                            "default": false
+                        },
+                        "initialDelaySeconds": {
+                            "type": "number",
+                            "description": "Initial delay seconds for readinessProbe",
+                            "default": 0
+                        },
+                        "periodSeconds": {
+                            "type": "number",
+                            "description": "Period seconds for readinessProbe",
+                            "default": 5
+                        },
+                        "timeoutSeconds": {
+                            "type": "number",
+                            "description": "Timeout seconds for readinessProbe",
+                            "default": 1
+                        },
+                        "failureThreshold": {
+                            "type": "number",
+                            "description": "Failure threshold for readinessProbe",
+                            "default": 3
+                        },
+                        "successThreshold": {
+                            "type": "number",
+                            "description": "Success threshold for readinessProbe",
+                            "default": 1
+                        }
+                    }
+                },
+                "startupProbe": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enable startupProbe on orborus containers",
+                            "default": false
+                        },
+                        "initialDelaySeconds": {
+                            "type": "number",
+                            "description": "Initial delay seconds for startupProbe",
+                            "default": 0
+                        },
+                        "periodSeconds": {
+                            "type": "number",
+                            "description": "Period seconds for startupProbe",
+                            "default": 1
+                        },
+                        "timeoutSeconds": {
+                            "type": "number",
+                            "description": "Timeout seconds for startupProbe",
+                            "default": 1
+                        },
+                        "failureThreshold": {
+                            "type": "number",
+                            "description": "Failure threshold for startupProbe",
+                            "default": 60
+                        },
+                        "successThreshold": {
+                            "type": "number",
+                            "description": "Success threshold for startupProbe",
+                            "default": 1
+                        }
+                    }
+                },
+                "customLivenessProbe": {
+                    "type": "object",
+                    "description": "Custom livenessProbe that overrides the default one",
+                    "default": {}
+                },
+                "customReadinessProbe": {
+                    "type": "object",
+                    "description": "Custom readinessProbe that overrides the default one",
+                    "default": {}
+                },
+                "customStartupProbe": {
+                    "type": "object",
+                    "description": "Custom startupProbe that overrides the default one",
+                    "default": {}
+                },
+                "resourcesPreset": {
+                    "type": "string",
+                    "description": "Set orborus container resources according to one common preset (allowed values: none, nano, small, medium, large, xlarge, 2xlarge). This is ignored if orborus.resources is set (orborus.resources is recommended for production).",
+                    "default": "nano"
+                },
+                "resources": {
+                    "type": "object",
+                    "description": "Set orborus container requests and limits for different resources like CPU or memory (essential for production workloads)",
+                    "default": {}
+                },
+                "podSecurityContext": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enable orborus pods' Security Context",
+                            "default": true
+                        },
+                        "fsGroupChangePolicy": {
+                            "type": "string",
+                            "description": "Set filesystem group change policy for orborus pods",
+                            "default": "Always"
+                        },
+                        "sysctls": {
+                            "type": "array",
+                            "description": "Set kernel settings using the sysctl interface for orborus pods",
+                            "default": [],
+                            "items": {}
+                        },
+                        "supplementalGroups": {
+                            "type": "array",
+                            "description": "Set filesystem extra groups for orborus pods",
+                            "default": [],
+                            "items": {}
+                        },
+                        "fsGroup": {
+                            "type": "number",
+                            "description": "Set fsGroup in orborus pods' Security Context",
+                            "default": 1001
+                        }
+                    }
+                },
+                "containerSecurityContext": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enabled orborus container' Security Context",
+                            "default": true
+                        },
+                        "runAsUser": {
+                            "type": "number",
+                            "description": "Set runAsUser in orborus container' Security Context",
+                            "default": 1001
+                        },
+                        "runAsGroup": {
+                            "type": "number",
+                            "description": "Set runAsGroup in orborus container' Security Context",
+                            "default": 1001
+                        },
+                        "runAsNonRoot": {
+                            "type": "boolean",
+                            "description": "Set runAsNonRoot in orborus container' Security Context",
+                            "default": true
+                        },
+                        "readOnlyRootFilesystem": {
+                            "type": "boolean",
+                            "description": "Set readOnlyRootFilesystem in orborus container' Security Context",
+                            "default": true
+                        },
+                        "privileged": {
+                            "type": "boolean",
+                            "description": "Set privileged in orborus container' Security Context",
+                            "default": false
+                        },
+                        "allowPrivilegeEscalation": {
+                            "type": "boolean",
+                            "description": "Set allowPrivilegeEscalation in orborus container' Security Context",
+                            "default": false
+                        },
+                        "capabilities": {
+                            "type": "object",
+                            "properties": {
+                                "drop": {
+                                    "type": "array",
+                                    "description": "List of capabilities to be dropped in orborus container",
+                                    "default": [
+                                        "ALL"
+                                    ],
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        },
+                        "seccompProfile": {
+                            "type": "object",
+                            "properties": {
+                                "type": {
+                                    "type": "string",
+                                    "description": "Set seccomp profile in orborus container",
+                                    "default": "RuntimeDefault"
+                                }
+                            }
+                        }
+                    }
+                },
+                "command": {
+                    "type": "array",
+                    "description": "Override default orborus container command (useful when using custom images)",
+                    "default": [],
+                    "items": {}
+                },
+                "args": {
+                    "type": "array",
+                    "description": "Override default orborus container args (useful when using custom images)",
+                    "default": [],
+                    "items": {}
+                },
+                "automountServiceAccountToken": {
+                    "type": "boolean",
+                    "description": "Mount Service Account token in orborus pods",
+                    "default": true
+                },
+                "hostAliases": {
+                    "type": "array",
+                    "description": "orborus pods host aliases",
+                    "default": [],
+                    "items": {}
+                },
+                "deploymentAnnotations": {
+                    "type": "object",
+                    "description": "Annotations for orborus deployment",
+                    "default": {}
+                },
+                "podLabels": {
+                    "type": "object",
+                    "description": "Extra labels for orborus pods",
+                    "default": {}
+                },
+                "podAnnotations": {
+                    "type": "object",
+                    "description": "Annotations for orborus pods",
+                    "default": {}
+                },
+                "podAffinityPreset": {
+                    "type": "string",
+                    "description": "Pod affinity preset. Ignored if `orborus.affinity` is set. Allowed values: `soft` or `hard`",
+                    "default": ""
+                },
+                "podAntiAffinityPreset": {
+                    "type": "string",
+                    "description": "Pod anti-affinity preset. Ignored if `orborus.affinity` is set. Allowed values: `soft` or `hard`",
+                    "default": "soft"
+                },
+                "nodeAffinityPreset": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "description": "Node affinity preset type. Ignored if `orborus.affinity` is set. Allowed values: `soft` or `hard`",
+                            "default": ""
+                        },
+                        "key": {
+                            "type": "string",
+                            "description": "Node label key to match. Ignored if `orborus.affinity` is set",
+                            "default": ""
+                        },
+                        "values": {
+                            "type": "array",
+                            "description": "Node label values to match. Ignored if `orborus.affinity` is set",
+                            "default": [],
+                            "items": {}
+                        }
+                    }
+                },
+                "affinity": {
+                    "type": "object",
+                    "description": "Affinity for orborus pods assignment",
+                    "default": {}
+                },
+                "nodeSelector": {
+                    "type": "object",
+                    "description": "Node labels for orborus pods assignment",
+                    "default": {}
+                },
+                "tolerations": {
+                    "type": "array",
+                    "description": "Tolerations for orborus pods assignment",
+                    "default": [],
+                    "items": {}
+                },
+                "updateStrategy": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "description": "orborus deployment strategy type",
+                            "default": "RollingUpdate"
+                        }
+                    }
+                },
+                "priorityClassName": {
+                    "type": "string",
+                    "description": "orborus pods' priorityClassName",
+                    "default": ""
+                },
+                "topologySpreadConstraints": {
+                    "type": "array",
+                    "description": "Topology Spread Constraints for orborus pod assignment spread across your cluster among failure-domains",
+                    "default": [],
+                    "items": {}
+                },
+                "schedulerName": {
+                    "type": "string",
+                    "description": "Name of the k8s scheduler (other than default) for orborus pods",
+                    "default": ""
+                },
+                "terminationGracePeriodSeconds": {
+                    "type": "string",
+                    "description": "Seconds orborus pods need to terminate gracefully",
+                    "default": ""
+                },
+                "lifecycleHooks": {
+                    "type": "object",
+                    "description": "for orborus containers to automate configuration before or after startup",
+                    "default": {}
+                },
+                "extraEnvVars": {
+                    "type": "array",
+                    "description": "Array with extra environment variables to add to orborus containers",
+                    "default": [],
+                    "items": {}
+                },
+                "extraEnvVarsCM": {
+                    "type": "string",
+                    "description": "Name of existing ConfigMap containing extra env vars for orborus containers",
+                    "default": ""
+                },
+                "extraEnvVarsSecret": {
+                    "type": "string",
+                    "description": "Name of existing Secret containing extra env vars for orborus containers",
+                    "default": ""
+                },
+                "extraVolumes": {
+                    "type": "array",
+                    "description": "Optionally specify extra list of additional volumes for the orborus pods",
+                    "default": [],
+                    "items": {}
+                },
+                "extraVolumeMounts": {
+                    "type": "array",
+                    "description": "Optionally specify extra list of additional volumeMounts for the orborus containers",
+                    "default": [],
+                    "items": {}
+                },
+                "sidecars": {
+                    "type": "array",
+                    "description": "Add additional sidecar containers to the orborus pods",
+                    "default": [],
+                    "items": {}
+                },
+                "initContainers": {
+                    "type": "array",
+                    "description": "Add additional init containers to the orborus pods",
+                    "default": [],
+                    "items": {}
+                },
+                "pdb": {
+                    "type": "object",
+                    "properties": {
+                        "create": {
+                            "type": "boolean",
+                            "description": "Enable/disable a Pod Disruption Budget creation",
+                            "default": true
+                        },
+                        "minAvailable": {
+                            "type": "string",
+                            "description": "Minimum number/percentage of pods that should remain scheduled",
+                            "default": ""
+                        },
+                        "maxUnavailable": {
+                            "type": "string",
+                            "description": "Maximum number/percentage of pods that may be made unavailable. Defaults to `1` if both `orborus.pdb.minAvailable` and `orborus.pdb.maxUnavailable` are empty.",
+                            "default": ""
+                        }
+                    }
+                },
+                "autoscaling": {
+                    "type": "object",
+                    "properties": {
+                        "vpa": {
+                            "type": "object",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean",
+                                    "description": "Enable VPA for orborus pods",
+                                    "default": false
+                                },
+                                "annotations": {
+                                    "type": "object",
+                                    "description": "Annotations for VPA resource",
+                                    "default": {}
+                                },
+                                "controlledResources": {
+                                    "type": "array",
+                                    "description": "VPA List of resources that the vertical pod autoscaler can control. Defaults to cpu and memory",
+                                    "default": [],
+                                    "items": {}
+                                },
+                                "maxAllowed": {
+                                    "type": "object",
+                                    "description": "VPA Max allowed resources for the pod",
+                                    "default": {}
+                                },
+                                "minAllowed": {
+                                    "type": "object",
+                                    "description": "VPA Min allowed resources for the pod",
+                                    "default": {}
+                                },
+                                "updatePolicy": {
+                                    "type": "object",
+                                    "properties": {
+                                        "updateMode": {
+                                            "type": "string",
+                                            "description": "Autoscaling update policy",
+                                            "default": "Auto"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "hpa": {
+                            "type": "object",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean",
+                                    "description": "Enable HPA for orborus pods",
+                                    "default": false
+                                },
+                                "minReplicas": {
+                                    "type": "string",
+                                    "description": "Minimum number of replicas",
+                                    "default": ""
+                                },
+                                "maxReplicas": {
+                                    "type": "string",
+                                    "description": "Maximum number of replicas",
+                                    "default": ""
+                                },
+                                "targetCPU": {
+                                    "type": "string",
+                                    "description": "Target CPU utilization percentage",
+                                    "default": ""
+                                },
+                                "targetMemory": {
+                                    "type": "string",
+                                    "description": "Target Memory utilization percentage",
+                                    "default": ""
+                                }
+                            }
+                        }
+                    }
+                },
+                "serviceAccount": {
+                    "type": "object",
+                    "properties": {
+                        "create": {
+                            "type": "boolean",
+                            "description": "Specifies whether a ServiceAccount should be created",
+                            "default": true
+                        },
+                        "name": {
+                            "type": "string",
+                            "description": "The name of the ServiceAccount to use.",
+                            "default": ""
+                        },
+                        "annotations": {
+                            "type": "object",
+                            "description": "Additional Service Account annotations (evaluated as a template)",
+                            "default": {}
+                        },
+                        "automountServiceAccountToken": {
+                            "type": "boolean",
+                            "description": "Automount service account token for the orborus service account",
+                            "default": true
+                        },
+                        "imagePullSecrets": {
+                            "type": "array",
+                            "description": "Add image pull secrets to the orborus service account",
+                            "default": [],
+                            "items": {}
+                        }
+                    }
+                },
+                "rbac": {
+                    "type": "object",
+                    "properties": {
+                        "create": {
+                            "type": "boolean",
+                            "description": "Specifies whether RBAC resources should be created",
+                            "default": true
+                        }
+                    }
+                },
+                "networkPolicy": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Specifies whether a NetworkPolicy should be created",
+                            "default": true
+                        },
+                        "allowExternal": {
+                            "type": "boolean",
+                            "description": "Don't require server label for connections",
+                            "default": true
+                        },
+                        "allowExternalEgress": {
+                            "type": "boolean",
+                            "description": "Allow the pod to access any range of port and all destinations.",
+                            "default": true
+                        },
+                        "extraIngress": {
+                            "type": "array",
+                            "description": "Add extra ingress rules to the NetworkPolicy",
+                            "default": [],
+                            "items": {}
+                        },
+                        "extraEgress": {
+                            "type": "array",
+                            "description": "Add extra ingress rules to the NetworkPolicy (ignored if allowExternalEgress=true)",
+                            "default": [],
+                            "items": {}
+                        }
+                    }
+                },
+                "debug": {
+                    "type": "boolean",
+                    "description": "Enable debug mode for orborus, which enables extra logging. orborus.debug, worker.debug, and app.debug should be set to identical values, if shuffle manages these deployments.",
+                    "default": false
+                },
+                "autoGOMEMLIMIT": {
+                    "type": "boolean",
+                    "description": "Automatically set GOMEMLIMIT environment variable to 90% of the container memory limit.",
+                    "default": true
+                },
+                "executionConcurrency": {
+                    "type": "number",
+                    "description": "The maximum amount of concurrent workflow executions per worker",
+                    "default": 25
+                },
+                "manageWorkerDeployments": {
+                    "type": "boolean",
+                    "description": "Whether workers are deployed and managed by orborus. When disabled, every worker is expected to be already deployed (see worker.enableHelmDeployment).",
+                    "default": true
+                }
+            }
+        },
+        "worker": {
+            "type": "object",
+            "properties": {
+                "enableHelmDeployment": {
+                    "type": "boolean",
+                    "description": "Deploy worker via helm. By default, workers are deployed by Orborus.",
+                    "default": false
+                },
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "registry": {
+                            "type": "string",
+                            "description": "worker image registry",
+                            "default": "ghcr.io"
+                        },
+                        "repository": {
+                            "type": "string",
+                            "description": "worker image repository",
+                            "default": "shuffle/shuffle-worker"
+                        },
+                        "tag": {
+                            "type": "string",
+                            "description": "worker image tag (immutable tags are recommended, defaults to appVersion)",
+                            "default": ""
+                        },
+                        "digest": {
+                            "type": "string",
+                            "description": "worker image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag image tag (immutable tags are recommended)",
+                            "default": ""
+                        },
+                        "pullPolicy": {
+                            "type": "string",
+                            "description": "worker image pull policy. Only effective with worker.enableHelmDeployment.",
+                            "default": "IfNotPresent"
+                        },
+                        "pullSecrets": {
+                            "type": "array",
+                            "description": "worker image pull secrets. Only effective with worker.enableHelmDeployment.",
+                            "default": [],
+                            "items": {}
+                        }
+                    }
+                },
+                "replicaCount": {
+                    "type": "number",
+                    "description": "Number of worker replicas to deploy. Only effective with worker.enableHelmDeployment.",
+                    "default": 1
+                },
+                "containerPorts": {
+                    "type": "object",
+                    "properties": {
+                        "http": {
+                            "type": "number",
+                            "description": "backend HTTP container port",
+                            "default": 33333
+                        }
+                    }
+                },
+                "extraContainerPorts": {
+                    "type": "array",
+                    "description": "Optionally specify extra list of additional ports for worker containers. Only effective with worker.enableHelmDeployment.",
+                    "default": [],
+                    "items": {}
+                },
+                "livenessProbe": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enable livenessProbe on worker containers. Only effective with worker.enableHelmDeployment.",
+                            "default": false
+                        },
+                        "initialDelaySeconds": {
+                            "type": "number",
+                            "description": "Initial delay seconds for livenessProbe",
+                            "default": 0
+                        },
+                        "periodSeconds": {
+                            "type": "number",
+                            "description": "Period seconds for livenessProbe",
+                            "default": 15
+                        },
+                        "timeoutSeconds": {
+                            "type": "number",
+                            "description": "Timeout seconds for livenessProbe",
+                            "default": 1
+                        },
+                        "failureThreshold": {
+                            "type": "number",
+                            "description": "Failure threshold for livenessProbe",
+                            "default": 4
+                        },
+                        "successThreshold": {
+                            "type": "number",
+                            "description": "Success threshold for livenessProbe",
+                            "default": 1
+                        }
+                    }
+                },
+                "readinessProbe": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enable readinessProbe on worker containers. Only effective with worker.enableHelmDeployment.",
+                            "default": false
+                        },
+                        "initialDelaySeconds": {
+                            "type": "number",
+                            "description": "Initial delay seconds for readinessProbe",
+                            "default": 0
+                        },
+                        "periodSeconds": {
+                            "type": "number",
+                            "description": "Period seconds for readinessProbe",
+                            "default": 5
+                        },
+                        "timeoutSeconds": {
+                            "type": "number",
+                            "description": "Timeout seconds for readinessProbe",
+                            "default": 1
+                        },
+                        "failureThreshold": {
+                            "type": "number",
+                            "description": "Failure threshold for readinessProbe",
+                            "default": 3
+                        },
+                        "successThreshold": {
+                            "type": "number",
+                            "description": "Success threshold for readinessProbe",
+                            "default": 1
+                        }
+                    }
+                },
+                "startupProbe": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enable startupProbe on worker containers. Only effective with worker.enableHelmDeployment.",
+                            "default": false
+                        },
+                        "initialDelaySeconds": {
+                            "type": "number",
+                            "description": "Initial delay seconds for startupProbe",
+                            "default": 0
+                        },
+                        "periodSeconds": {
+                            "type": "number",
+                            "description": "Period seconds for startupProbe",
+                            "default": 1
+                        },
+                        "timeoutSeconds": {
+                            "type": "number",
+                            "description": "Timeout seconds for startupProbe",
+                            "default": 1
+                        },
+                        "failureThreshold": {
+                            "type": "number",
+                            "description": "Failure threshold for startupProbe",
+                            "default": 60
+                        },
+                        "successThreshold": {
+                            "type": "number",
+                            "description": "Success threshold for startupProbe",
+                            "default": 1
+                        }
+                    }
+                },
+                "customLivenessProbe": {
+                    "type": "object",
+                    "description": "Custom livenessProbe that overrides the default one. Only effective with worker.enableHelmDeployment.",
+                    "default": {}
+                },
+                "customReadinessProbe": {
+                    "type": "object",
+                    "description": "Custom readinessProbe that overrides the default one. Only effective with worker.enableHelmDeployment.",
+                    "default": {}
+                },
+                "customStartupProbe": {
+                    "type": "object",
+                    "description": "Custom startupProbe that overrides the default one. Only effective with worker.enableHelmDeployment.",
+                    "default": {}
+                },
+                "resourcesPreset": {
+                    "type": "string",
+                    "description": "Set worker container resources according to one common preset (allowed values: none, nano, small, medium, large, xlarge, 2xlarge). This is ignored if worker.resources is set (worker.resources is recommended for production).",
+                    "default": "nano"
+                },
+                "resources": {
+                    "type": "object",
+                    "description": "Set worker container requests and limits for different resources like CPU or memory (essential for production workloads)",
+                    "default": {}
+                },
+                "podSecurityContext": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enable worker pods' Security Context",
+                            "default": true
+                        },
+                        "fsGroupChangePolicy": {
+                            "type": "string",
+                            "description": "Set filesystem group change policy for worker pods",
+                            "default": "Always"
+                        },
+                        "sysctls": {
+                            "type": "array",
+                            "description": "Set kernel settings using the sysctl interface for worker pods",
+                            "default": [],
+                            "items": {}
+                        },
+                        "supplementalGroups": {
+                            "type": "array",
+                            "description": "Set filesystem extra groups for worker pods",
+                            "default": [],
+                            "items": {}
+                        },
+                        "fsGroup": {
+                            "type": "number",
+                            "description": "Set fsGroup in worker pods' Security Context",
+                            "default": 1001
+                        }
+                    }
+                },
+                "containerSecurityContext": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enabled worker container' Security Context",
+                            "default": true
+                        },
+                        "runAsUser": {
+                            "type": "number",
+                            "description": "Set runAsUser in worker container' Security Context",
+                            "default": 1001
+                        },
+                        "runAsGroup": {
+                            "type": "number",
+                            "description": "Set runAsGroup in worker container' Security Context",
+                            "default": 1001
+                        },
+                        "runAsNonRoot": {
+                            "type": "boolean",
+                            "description": "Set runAsNonRoot in worker container' Security Context",
+                            "default": true
+                        },
+                        "readOnlyRootFilesystem": {
+                            "type": "boolean",
+                            "description": "Set readOnlyRootFilesystem in worker container' Security Context",
+                            "default": true
+                        },
+                        "privileged": {
+                            "type": "boolean",
+                            "description": "Set privileged in worker container' Security Context",
+                            "default": false
+                        },
+                        "allowPrivilegeEscalation": {
+                            "type": "boolean",
+                            "description": "Set allowPrivilegeEscalation in worker container' Security Context",
+                            "default": false
+                        },
+                        "capabilities": {
+                            "type": "object",
+                            "properties": {
+                                "drop": {
+                                    "type": "array",
+                                    "description": "List of capabilities to be dropped in worker container",
+                                    "default": [
+                                        "ALL"
+                                    ],
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        },
+                        "seccompProfile": {
+                            "type": "object",
+                            "properties": {
+                                "type": {
+                                    "type": "string",
+                                    "description": "Set seccomp profile in worker container",
+                                    "default": "RuntimeDefault"
+                                }
+                            }
+                        }
+                    }
+                },
+                "command": {
+                    "type": "array",
+                    "description": "Override default worker container command (useful when using custom images). Only effective with worker.enableHelmDeployment.",
+                    "default": [],
+                    "items": {}
+                },
+                "args": {
+                    "type": "array",
+                    "description": "Override default worker container args (useful when using custom images). Only effective with worker.enableHelmDeployment.",
+                    "default": [],
+                    "items": {}
+                },
+                "automountServiceAccountToken": {
+                    "type": "boolean",
+                    "description": "Mount Service Account token in worker pods. Only effective with worker.enableHelmDeployment.",
+                    "default": true
+                },
+                "hostAliases": {
+                    "type": "array",
+                    "description": "worker pods host aliases. Only effective with worker.enableHelmDeployment.",
+                    "default": [],
+                    "items": {}
+                },
+                "deploymentAnnotations": {
+                    "type": "object",
+                    "description": "Annotations for worker deployment. Only effective with worker.enableHelmDeployment.",
+                    "default": {}
+                },
+                "podLabels": {
+                    "type": "object",
+                    "description": "Extra labels for worker pods. Only effective with worker.enableHelmDeployment.",
+                    "default": {}
+                },
+                "podAnnotations": {
+                    "type": "object",
+                    "description": "Annotations for worker pods. Only effective with worker.enableHelmDeployment.",
+                    "default": {}
+                },
+                "podAffinityPreset": {
+                    "type": "string",
+                    "description": "Pod affinity preset. Ignored if `worker.affinity` is set. Allowed values: `soft` or `hard`. Only effective with worker.enableHelmDeployment.",
+                    "default": ""
+                },
+                "podAntiAffinityPreset": {
+                    "type": "string",
+                    "description": "Pod anti-affinity preset. Ignored if `worker.affinity` is set. Allowed values: `soft` or `hard`. Only effective with worker.enableHelmDeployment.",
+                    "default": "soft"
+                },
+                "nodeAffinityPreset": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "description": "Node affinity preset type. Ignored if `worker.affinity` is set. Allowed values: `soft` or `hard`. Only effective with worker.enableHelmDeployment.",
+                            "default": ""
+                        },
+                        "key": {
+                            "type": "string",
+                            "description": "Node label key to match. Ignored if `worker.affinity` is set",
+                            "default": ""
+                        },
+                        "values": {
+                            "type": "array",
+                            "description": "Node label values to match. Ignored if `worker.affinity` is set",
+                            "default": [],
+                            "items": {}
+                        }
+                    }
+                },
+                "affinity": {
+                    "type": "object",
+                    "description": "Affinity for worker pods assignment. Only effective with worker.enableHelmDeployment.",
+                    "default": {}
+                },
+                "nodeSelector": {
+                    "type": "object",
+                    "description": "Node labels for worker pods assignment. Only effective with worker.enableHelmDeployment.",
+                    "default": {}
+                },
+                "tolerations": {
+                    "type": "array",
+                    "description": "Tolerations for worker pods assignment. Only effective with worker.enableHelmDeployment.",
+                    "default": [],
+                    "items": {}
+                },
+                "updateStrategy": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "description": "worker deployment strategy type. Only effective with worker.enableHelmDeployment.",
+                            "default": "RollingUpdate"
+                        }
+                    }
+                },
+                "priorityClassName": {
+                    "type": "string",
+                    "description": "worker pods' priorityClassName. Only effective with worker.enableHelmDeployment.",
+                    "default": ""
+                },
+                "topologySpreadConstraints": {
+                    "type": "array",
+                    "description": "Topology Spread Constraints for worker pod assignment spread across your cluster among failure-domains. Only effective with worker.enableHelmDeployment.",
+                    "default": [],
+                    "items": {}
+                },
+                "schedulerName": {
+                    "type": "string",
+                    "description": "Name of the k8s scheduler (other than default) for worker pods. Only effective with worker.enableHelmDeployment.",
+                    "default": ""
+                },
+                "terminationGracePeriodSeconds": {
+                    "type": "string",
+                    "description": "Seconds worker pods need to terminate gracefully. Only effective with worker.enableHelmDeployment.",
+                    "default": ""
+                },
+                "lifecycleHooks": {
+                    "type": "object",
+                    "description": "for worker containers to automate configuration before or after startup. Only effective with worker.enableHelmDeployment.",
+                    "default": {}
+                },
+                "extraEnvVars": {
+                    "type": "array",
+                    "description": "Array with extra environment variables to add to worker containers. Only effective with worker.enableHelmDeployment.",
+                    "default": [],
+                    "items": {}
+                },
+                "extraEnvVarsCM": {
+                    "type": "string",
+                    "description": "Name of existing ConfigMap containing extra env vars for worker containers. Only effective with worker.enableHelmDeployment.",
+                    "default": ""
+                },
+                "extraEnvVarsSecret": {
+                    "type": "string",
+                    "description": "Name of existing Secret containing extra env vars for worker containers. Only effective with worker.enableHelmDeployment.",
+                    "default": ""
+                },
+                "extraVolumes": {
+                    "type": "array",
+                    "description": "Optionally specify extra list of additional volumes for the worker pods. Only effective with worker.enableHelmDeployment.",
+                    "default": [],
+                    "items": {}
+                },
+                "extraVolumeMounts": {
+                    "type": "array",
+                    "description": "Optionally specify extra list of additional volumeMounts for the worker containers. Only effective with worker.enableHelmDeployment.",
+                    "default": [],
+                    "items": {}
+                },
+                "sidecars": {
+                    "type": "array",
+                    "description": "Add additional sidecar containers to the worker pods. Only effective with worker.enableHelmDeployment.",
+                    "default": [],
+                    "items": {}
+                },
+                "initContainers": {
+                    "type": "array",
+                    "description": "Add additional init containers to the worker pods. Only effective with worker.enableHelmDeployment.",
+                    "default": [],
+                    "items": {}
+                },
+                "pdb": {
+                    "type": "object",
+                    "properties": {
+                        "create": {
+                            "type": "boolean",
+                            "description": "Enable/disable a Pod Disruption Budget creation. Only effective with worker.enableHelmDeployment.",
+                            "default": true
+                        },
+                        "minAvailable": {
+                            "type": "string",
+                            "description": "Minimum number/percentage of pods that should remain scheduled",
+                            "default": ""
+                        },
+                        "maxUnavailable": {
+                            "type": "string",
+                            "description": "Maximum number/percentage of pods that may be made unavailable. Defaults to `1` if both `worker.pdb.minAvailable` and `worker.pdb.maxUnavailable` are empty.",
+                            "default": ""
+                        }
+                    }
+                },
+                "autoscaling": {
+                    "type": "object",
+                    "properties": {
+                        "vpa": {
+                            "type": "object",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean",
+                                    "description": "Enable VPA for worker pods. Only effective with worker.enableHelmDeployment.",
+                                    "default": false
+                                },
+                                "annotations": {
+                                    "type": "object",
+                                    "description": "Annotations for VPA resource",
+                                    "default": {}
+                                },
+                                "controlledResources": {
+                                    "type": "array",
+                                    "description": "VPA List of resources that the vertical pod autoscaler can control. Defaults to cpu and memory",
+                                    "default": [],
+                                    "items": {}
+                                },
+                                "maxAllowed": {
+                                    "type": "object",
+                                    "description": "VPA Max allowed resources for the pod",
+                                    "default": {}
+                                },
+                                "minAllowed": {
+                                    "type": "object",
+                                    "description": "VPA Min allowed resources for the pod",
+                                    "default": {}
+                                },
+                                "updatePolicy": {
+                                    "type": "object",
+                                    "properties": {
+                                        "updateMode": {
+                                            "type": "string",
+                                            "description": "Autoscaling update policy",
+                                            "default": "Auto"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "hpa": {
+                            "type": "object",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean",
+                                    "description": "Enable HPA for worker pods. Only effective with worker.enableHelmDeployment.",
+                                    "default": false
+                                },
+                                "minReplicas": {
+                                    "type": "string",
+                                    "description": "Minimum number of replicas",
+                                    "default": ""
+                                },
+                                "maxReplicas": {
+                                    "type": "string",
+                                    "description": "Maximum number of replicas",
+                                    "default": ""
+                                },
+                                "targetCPU": {
+                                    "type": "string",
+                                    "description": "Target CPU utilization percentage",
+                                    "default": ""
+                                },
+                                "targetMemory": {
+                                    "type": "string",
+                                    "description": "Target Memory utilization percentage",
+                                    "default": ""
+                                }
+                            }
+                        }
+                    }
+                },
+                "service": {
+                    "type": "object",
+                    "properties": {
+                        "labels": {
+                            "type": "object",
+                            "description": "Extra labels for worker service. Only effective with worker.enableHelmDeployment.",
+                            "default": {}
+                        }
+                    }
+                },
+                "serviceAccount": {
+                    "type": "object",
+                    "properties": {
+                        "create": {
+                            "type": "boolean",
+                            "description": "Specifies whether a ServiceAccount should be created",
+                            "default": true
+                        },
+                        "name": {
+                            "type": "string",
+                            "description": "The name of the ServiceAccount to use.",
+                            "default": ""
+                        },
+                        "annotations": {
+                            "type": "object",
+                            "description": "Additional Service Account annotations (evaluated as a template)",
+                            "default": {}
+                        },
+                        "automountServiceAccountToken": {
+                            "type": "boolean",
+                            "description": "Automount service account token for the worker service account",
+                            "default": true
+                        },
+                        "imagePullSecrets": {
+                            "type": "array",
+                            "description": "Add image pull secrets to the worker service account",
+                            "default": [],
+                            "items": {}
+                        }
+                    }
+                },
+                "rbac": {
+                    "type": "object",
+                    "properties": {
+                        "create": {
+                            "type": "boolean",
+                            "description": "Specifies whether RBAC resources should be created",
+                            "default": true
+                        }
+                    }
+                },
+                "networkPolicy": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Specifies whether a NetworkPolicy should be created",
+                            "default": true
+                        },
+                        "allowExternal": {
+                            "type": "boolean",
+                            "description": "Don't require server label for connections",
+                            "default": true
+                        },
+                        "allowExternalEgress": {
+                            "type": "boolean",
+                            "description": "Allow the pod to access any range of port and all destinations.",
+                            "default": true
+                        },
+                        "extraIngress": {
+                            "type": "array",
+                            "description": "Add extra ingress rules to the NetworkPolicy",
+                            "default": [],
+                            "items": {}
+                        },
+                        "extraEgress": {
+                            "type": "array",
+                            "description": "Add extra ingress rules to the NetworkPolicy (ignored if allowExternalEgress=true)",
+                            "default": [],
+                            "items": {}
+                        }
+                    }
+                },
+                "debug": {
+                    "type": "boolean",
+                    "description": "Enable debug mode for worker, which enables extra logging. orborus.debug, worker.debug, and app.debug should be set to identical values, if shuffle manages these deployments.",
+                    "default": false
+                },
+                "autoGOMEMLIMIT": {
+                    "type": "boolean",
+                    "description": "Automatically set GOMEMLIMIT environment variable to 90% of the container memory limit.",
+                    "default": true
+                },
+                "manageAppDeployments": {
+                    "type": "boolean",
+                    "description": "Whether apps are deployed and managed by worker. When disabled, every used app is expected to to be already deployed (see apps.enabled).",
+                    "default": true
+                }
+            }
+        },
+        "app": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "registry": {
+                            "type": "string",
+                            "description": "app image registry (defaults to shuffle.appRegistry)",
+                            "default": ""
+                        },
+                        "repository": {
+                            "type": "string",
+                            "description": "app image repository (defaults to shuffle.appBaseImageName)",
+                            "default": ""
+                        },
+                        "tag": {
+                            "type": "string",
+                            "description": "app image tag (defaults to the apps version)",
+                            "default": ""
+                        },
+                        "pullPolicy": {
+                            "type": "string",
+                            "description": "default image pull policy for app deployments. Only effective for helm-deployed apps (see apps.enabled).",
+                            "default": "IfNotPresent"
+                        },
+                        "pullSecrets": {
+                            "type": "array",
+                            "description": "default image pull secrets for app deployments. Only effective for helm-deployed apps (see apps.enabled).",
+                            "default": [],
+                            "items": {}
+                        }
+                    }
+                },
+                "replicaCount": {
+                    "type": "number",
+                    "description": "Default number of replicas to deploy for each app. Only effective for helm-deployed apps (see apps.enabled).",
+                    "default": 1
+                },
+                "extraContainerPorts": {
+                    "type": "array",
+                    "description": "Optionally specify extra list of additional ports for app containers. Only effective for helm-deployed apps (see apps.enabled).",
+                    "default": [],
+                    "items": {}
+                },
+                "livenessProbe": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enable livenessProbe on app containers. Only effective for helm-deployed apps (see apps.enabled).",
+                            "default": false
+                        },
+                        "initialDelaySeconds": {
+                            "type": "number",
+                            "description": "Initial delay seconds for livenessProbe",
+                            "default": 0
+                        },
+                        "periodSeconds": {
+                            "type": "number",
+                            "description": "Period seconds for livenessProbe",
+                            "default": 15
+                        },
+                        "timeoutSeconds": {
+                            "type": "number",
+                            "description": "Timeout seconds for livenessProbe",
+                            "default": 1
+                        },
+                        "failureThreshold": {
+                            "type": "number",
+                            "description": "Failure threshold for livenessProbe",
+                            "default": 4
+                        },
+                        "successThreshold": {
+                            "type": "number",
+                            "description": "Success threshold for livenessProbe",
+                            "default": 1
+                        }
+                    }
+                },
+                "readinessProbe": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enable readinessProbe on app containers. Only effective for helm-deployed apps (see apps.enabled).",
+                            "default": false
+                        },
+                        "initialDelaySeconds": {
+                            "type": "number",
+                            "description": "Initial delay seconds for readinessProbe",
+                            "default": 0
+                        },
+                        "periodSeconds": {
+                            "type": "number",
+                            "description": "Period seconds for readinessProbe",
+                            "default": 5
+                        },
+                        "timeoutSeconds": {
+                            "type": "number",
+                            "description": "Timeout seconds for readinessProbe",
+                            "default": 1
+                        },
+                        "failureThreshold": {
+                            "type": "number",
+                            "description": "Failure threshold for readinessProbe",
+                            "default": 3
+                        },
+                        "successThreshold": {
+                            "type": "number",
+                            "description": "Success threshold for readinessProbe",
+                            "default": 1
+                        }
+                    }
+                },
+                "startupProbe": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enable startupProbe on app containers. Only effective for helm-deployed apps (see apps.enabled).",
+                            "default": false
+                        },
+                        "initialDelaySeconds": {
+                            "type": "number",
+                            "description": "Initial delay seconds for startupProbe",
+                            "default": 0
+                        },
+                        "periodSeconds": {
+                            "type": "number",
+                            "description": "Period seconds for startupProbe",
+                            "default": 1
+                        },
+                        "timeoutSeconds": {
+                            "type": "number",
+                            "description": "Timeout seconds for startupProbe",
+                            "default": 1
+                        },
+                        "failureThreshold": {
+                            "type": "number",
+                            "description": "Failure threshold for startupProbe",
+                            "default": 60
+                        },
+                        "successThreshold": {
+                            "type": "number",
+                            "description": "Success threshold for startupProbe",
+                            "default": 1
+                        }
+                    }
+                },
+                "customLivenessProbe": {
+                    "type": "object",
+                    "description": "Custom livenessProbe that overrides the default one. Only effective for helm-deployed apps (see apps.enabled).",
+                    "default": {}
+                },
+                "customReadinessProbe": {
+                    "type": "object",
+                    "description": "Custom readinessProbe that overrides the default one. Only effective for helm-deployed apps (see apps.enabled).",
+                    "default": {}
+                },
+                "customStartupProbe": {
+                    "type": "object",
+                    "description": "Custom startupProbe that overrides the default one. Only effective for helm-deployed apps (see apps.enabled).",
+                    "default": {}
+                },
+                "resourcesPreset": {
+                    "type": "string",
+                    "description": "Set app container resources according to one common preset (allowed values: none, nano, small, medium, large, xlarge, 2xlarge). This is ignored if app.resources is set (app.resources is recommended for production).",
+                    "default": "nano"
+                },
+                "resources": {
+                    "type": "object",
+                    "description": "Set app container requests and limits for different resources like CPU or memory (essential for production workloads)",
+                    "default": {}
+                },
+                "podSecurityContext": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enable app pods' Security Context",
+                            "default": true
+                        },
+                        "fsGroupChangePolicy": {
+                            "type": "string",
+                            "description": "Set filesystem group change policy for app pods",
+                            "default": "Always"
+                        },
+                        "sysctls": {
+                            "type": "array",
+                            "description": "Set kernel settings using the sysctl interface for app pods",
+                            "default": [],
+                            "items": {}
+                        },
+                        "supplementalGroups": {
+                            "type": "array",
+                            "description": "Set filesystem extra groups for app pods",
+                            "default": [],
+                            "items": {}
+                        },
+                        "fsGroup": {
+                            "type": "number",
+                            "description": "Set fsGroup in app pods' Security Context",
+                            "default": 1001
+                        }
+                    }
+                },
+                "containerSecurityContext": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enabled app container' Security Context",
+                            "default": true
+                        },
+                        "runAsUser": {
+                            "type": "number",
+                            "description": "Set runAsUser in app container' Security Context",
+                            "default": 1001
+                        },
+                        "runAsGroup": {
+                            "type": "number",
+                            "description": "Set runAsGroup in app container' Security Context",
+                            "default": 1001
+                        },
+                        "runAsNonRoot": {
+                            "type": "boolean",
+                            "description": "Set runAsNonRoot in app container' Security Context",
+                            "default": true
+                        },
+                        "readOnlyRootFilesystem": {
+                            "type": "boolean",
+                            "description": "Set readOnlyRootFilesystem in app container' Security Context",
+                            "default": true
+                        },
+                        "privileged": {
+                            "type": "boolean",
+                            "description": "Set privileged in app container' Security Context",
+                            "default": false
+                        },
+                        "allowPrivilegeEscalation": {
+                            "type": "boolean",
+                            "description": "Set allowPrivilegeEscalation in app container' Security Context",
+                            "default": false
+                        },
+                        "capabilities": {
+                            "type": "object",
+                            "properties": {
+                                "drop": {
+                                    "type": "array",
+                                    "description": "List of capabilities to be dropped in app container",
+                                    "default": [
+                                        "ALL"
+                                    ],
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        },
+                        "seccompProfile": {
+                            "type": "object",
+                            "properties": {
+                                "type": {
+                                    "type": "string",
+                                    "description": "Set seccomp profile in app container",
+                                    "default": "RuntimeDefault"
+                                }
+                            }
+                        }
+                    }
+                },
+                "command": {
+                    "type": "array",
+                    "description": "Override default app container command (useful when using custom images)",
+                    "default": [],
+                    "items": {}
+                },
+                "args": {
+                    "type": "array",
+                    "description": "Override default app container args (useful when using custom images)",
+                    "default": [],
+                    "items": {}
+                },
+                "automountServiceAccountToken": {
+                    "type": "boolean",
+                    "description": "Mount Service Account token in app pods. Only effective for helm-deployed apps (see apps.enabled).",
+                    "default": false
+                },
+                "hostAliases": {
+                    "type": "array",
+                    "description": "app pods host aliases. Only effective for helm-deployed apps (see apps.enabled).",
+                    "default": [],
+                    "items": {}
+                },
+                "deploymentAnnotations": {
+                    "type": "object",
+                    "description": "Annotations for app deployment. Only effective for helm-deployed apps (see apps.enabled).",
+                    "default": {}
+                },
+                "podLabels": {
+                    "type": "object",
+                    "description": "Extra labels for app pods. Only effective for helm-deployed apps (see apps.enabled).",
+                    "default": {}
+                },
+                "podAnnotations": {
+                    "type": "object",
+                    "description": "Annotations for app pods. Only effective for helm-deployed apps (see apps.enabled).",
+                    "default": {}
+                },
+                "podAffinityPreset": {
+                    "type": "string",
+                    "description": "Pod affinity preset. Ignored if `app.affinity` is set. Allowed values: `soft` or `hard`. Only effective for helm-deployed apps (see apps.enabled).",
+                    "default": ""
+                },
+                "podAntiAffinityPreset": {
+                    "type": "string",
+                    "description": "Pod anti-affinity preset. Ignored if `app.affinity` is set. Allowed values: `soft` or `hard`. Only effective for helm-deployed apps (see apps.enabled).",
+                    "default": "soft"
+                },
+                "nodeAffinityPreset": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "description": "Node affinity preset type. Ignored if `app.affinity` is set. Allowed values: `soft` or `hard`. Only effective for helm-deployed apps (see apps.enabled).",
+                            "default": ""
+                        },
+                        "key": {
+                            "type": "string",
+                            "description": "Node label key to match. Ignored if `app.affinity` is set",
+                            "default": ""
+                        },
+                        "values": {
+                            "type": "array",
+                            "description": "Node label values to match. Ignored if `app.affinity` is set",
+                            "default": [],
+                            "items": {}
+                        }
+                    }
+                },
+                "affinity": {
+                    "type": "object",
+                    "description": "Affinity for app pods assignment. Only effective for helm-deployed apps (see apps.enabled).",
+                    "default": {}
+                },
+                "nodeSelector": {
+                    "type": "object",
+                    "description": "Node labels for app pods assignment. Only effective for helm-deployed apps (see apps.enabled).",
+                    "default": {}
+                },
+                "tolerations": {
+                    "type": "array",
+                    "description": "Tolerations for app pods assignment. Only effective for helm-deployed apps (see apps.enabled).",
+                    "default": [],
+                    "items": {}
+                },
+                "updateStrategy": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "description": "app deployment strategy type. Only effective for helm-deployed apps (see apps.enabled).",
+                            "default": "RollingUpdate"
+                        }
+                    }
+                },
+                "priorityClassName": {
+                    "type": "string",
+                    "description": "app pods' priorityClassName. Only effective for helm-deployed apps (see apps.enabled).",
+                    "default": ""
+                },
+                "topologySpreadConstraints": {
+                    "type": "array",
+                    "description": "Topology Spread Constraints for app pod assignment spread across your cluster among failure-domains. Only effective for helm-deployed apps (see apps.enabled).",
+                    "default": [],
+                    "items": {}
+                },
+                "schedulerName": {
+                    "type": "string",
+                    "description": "Name of the k8s scheduler (other than default) for app pods. Only effective for helm-deployed apps (see apps.enabled).",
+                    "default": ""
+                },
+                "terminationGracePeriodSeconds": {
+                    "type": "string",
+                    "description": "Seconds app pods need to terminate gracefully. Only effective for helm-deployed apps (see apps.enabled).",
+                    "default": ""
+                },
+                "lifecycleHooks": {
+                    "type": "object",
+                    "description": "for app containers to automate configuration before or after startup. Only effective for helm-deployed apps (see apps.enabled).",
+                    "default": {}
+                },
+                "extraEnvVars": {
+                    "type": "array",
+                    "description": "Array with extra environment variables to add to app containers. Only effective for helm-deployed apps (see apps.enabled).",
+                    "default": [],
+                    "items": {}
+                },
+                "extraEnvVarsCM": {
+                    "type": "string",
+                    "description": "Name of existing ConfigMap containing extra env vars for app containers. Only effective for helm-deployed apps (see apps.enabled).",
+                    "default": ""
+                },
+                "extraEnvVarsSecret": {
+                    "type": "string",
+                    "description": "Name of existing Secret containing extra env vars for app containers. Only effective for helm-deployed apps (see apps.enabled).",
+                    "default": ""
+                },
+                "extraVolumes": {
+                    "type": "array",
+                    "description": "Optionally specify extra list of additional volumes for the app pods. Only effective for helm-deployed apps (see apps.enabled).",
+                    "default": [],
+                    "items": {}
+                },
+                "extraVolumeMounts": {
+                    "type": "array",
+                    "description": "Optionally specify extra list of additional volumeMounts for the app containers. Only effective for helm-deployed apps (see apps.enabled).",
+                    "default": [],
+                    "items": {}
+                },
+                "sidecars": {
+                    "type": "array",
+                    "description": "Add additional sidecar containers to the app pods. Only effective for helm-deployed apps (see apps.enabled).",
+                    "default": [],
+                    "items": {}
+                },
+                "initContainers": {
+                    "type": "array",
+                    "description": "Add additional init containers to the app pods. Only effective for helm-deployed apps (see apps.enabled).",
+                    "default": [],
+                    "items": {}
+                },
+                "pdb": {
+                    "type": "object",
+                    "properties": {
+                        "create": {
+                            "type": "boolean",
+                            "description": "Enable/disable a Pod Disruption Budget creation. Only effective for helm-deployed apps (see apps.enabled).",
+                            "default": true
+                        },
+                        "minAvailable": {
+                            "type": "string",
+                            "description": "Minimum number/percentage of pods that should remain scheduled",
+                            "default": ""
+                        },
+                        "maxUnavailable": {
+                            "type": "string",
+                            "description": "Maximum number/percentage of pods that may be made unavailable. Defaults to `1` if both `app.pdb.minAvailable` and `app.pdb.maxUnavailable` are empty.",
+                            "default": ""
+                        }
+                    }
+                },
+                "autoscaling": {
+                    "type": "object",
+                    "properties": {
+                        "vpa": {
+                            "type": "object",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean",
+                                    "description": "Enable VPA for app pods. Only effective for helm-deployed apps (see apps.enabled).",
+                                    "default": false
+                                },
+                                "annotations": {
+                                    "type": "object",
+                                    "description": "Annotations for VPA resource",
+                                    "default": {}
+                                },
+                                "controlledResources": {
+                                    "type": "array",
+                                    "description": "VPA List of resources that the vertical pod autoscaler can control. Defaults to cpu and memory",
+                                    "default": [],
+                                    "items": {}
+                                },
+                                "maxAllowed": {
+                                    "type": "object",
+                                    "description": "VPA Max allowed resources for the pod",
+                                    "default": {}
+                                },
+                                "minAllowed": {
+                                    "type": "object",
+                                    "description": "VPA Min allowed resources for the pod",
+                                    "default": {}
+                                },
+                                "updatePolicy": {
+                                    "type": "object",
+                                    "properties": {
+                                        "updateMode": {
+                                            "type": "string",
+                                            "description": "Autoscaling update policy",
+                                            "default": "Auto"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "hpa": {
+                            "type": "object",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean",
+                                    "description": "Enable HPA for app pods. Only effective for helm-deployed apps (see apps.enabled).",
+                                    "default": false
+                                },
+                                "minReplicas": {
+                                    "type": "string",
+                                    "description": "Minimum number of replicas",
+                                    "default": ""
+                                },
+                                "maxReplicas": {
+                                    "type": "string",
+                                    "description": "Maximum number of replicas",
+                                    "default": ""
+                                },
+                                "targetCPU": {
+                                    "type": "string",
+                                    "description": "Target CPU utilization percentage",
+                                    "default": ""
+                                },
+                                "targetMemory": {
+                                    "type": "string",
+                                    "description": "Target Memory utilization percentage",
+                                    "default": ""
+                                }
+                            }
+                        }
+                    }
+                },
+                "service": {
+                    "type": "object",
+                    "properties": {
+                        "labels": {
+                            "type": "object",
+                            "description": "Extra labels for app service. Only effective for helm-deployed apps (see apps.enabled).",
+                            "default": {}
+                        }
+                    }
+                },
+                "serviceAccount": {
+                    "type": "object",
+                    "properties": {
+                        "create": {
+                            "type": "boolean",
+                            "description": "Specifies whether a ServiceAccount should be created",
+                            "default": true
+                        },
+                        "name": {
+                            "type": "string",
+                            "description": "The name of the ServiceAccount to use.",
+                            "default": ""
+                        },
+                        "annotations": {
+                            "type": "object",
+                            "description": "Additional Service Account annotations (evaluated as a template)",
+                            "default": {}
+                        },
+                        "automountServiceAccountToken": {
+                            "type": "boolean",
+                            "description": "Automount service account token for the app service account",
+                            "default": true
+                        },
+                        "imagePullSecrets": {
+                            "type": "array",
+                            "description": "Add image pull secrets to the app service account",
+                            "default": [],
+                            "items": {}
+                        }
+                    }
+                },
+                "rbac": {
+                    "type": "object",
+                    "properties": {
+                        "create": {
+                            "type": "boolean",
+                            "description": "Specifies whether RBAC resources should be created",
+                            "default": true
+                        }
+                    }
+                },
+                "networkPolicy": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Specifies whether a NetworkPolicy should be created",
+                            "default": true
+                        },
+                        "allowExternal": {
+                            "type": "boolean",
+                            "description": "Don't require server label for connections",
+                            "default": true
+                        },
+                        "allowExternalEgress": {
+                            "type": "boolean",
+                            "description": "Allow the pod to access any range of port and all destinations.",
+                            "default": true
+                        },
+                        "extraIngress": {
+                            "type": "array",
+                            "description": "Add extra ingress rules to the NetworkPolicy",
+                            "default": [],
+                            "items": {}
+                        },
+                        "extraEgress": {
+                            "type": "array",
+                            "description": "Add extra ingress rules to the NetworkPolicy (ignored if allowExternalEgress=true)",
+                            "default": [],
+                            "items": {}
+                        }
+                    }
+                },
+                "debug": {
+                    "type": "boolean",
+                    "description": "Enable debug mode for app, which enables extra logging",
+                    "default": false
+                },
+                "mountTmpVolume": {
+                    "type": "boolean",
+                    "description": "Whether a writable /tmp emptyDir volume should be mounted to the app.",
+                    "default": true
+                },
+                "exposedContainerPort": {
+                    "type": "number",
+                    "description": "The port that shuffle app containers will listen on for new requests.",
+                    "default": 80
+                },
+                "sdkTimeout": {
+                    "type": "number",
+                    "description": "The timeout in seconds for app actions.",
+                    "default": 300
+                },
+                "disableLogs": {
+                    "type": "boolean",
+                    "description": "Do not capture app logs. By default, app logs are captured, so that they are visible in the frontend.",
+                    "default": false
+                }
+            }
+        },
+        "apps": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Whether apps should be deployed using helm.",
+                    "default": false
+                },
+                "shuffleTools": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Whether the shuffle-tools app is enabled",
+                            "default": true
+                        },
+                        "version": {
+                            "type": "string",
+                            "description": "The version of the shuffle-tools app to deploy.",
+                            "default": "1.2.0"
+                        }
+                    }
+                },
+                "shuffleSubflow": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Whether the shuffle-subflow app is enabled",
+                            "default": true
+                        },
+                        "version": {
+                            "type": "string",
+                            "description": "The version of the shuffle-subflow app to deploy.",
+                            "default": "1.1.0"
+                        }
+                    }
+                },
+                "http": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Whether the http app is enabled",
+                            "default": true
+                        },
+                        "version": {
+                            "type": "string",
+                            "description": "The version of the http app to deploy.",
+                            "default": "1.4.0"
+                        }
+                    }
+                }
+            }
+        },
+        "ingress": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable ingress record generation for frontend and backend",
+                    "default": false
+                },
+                "pathType": {
+                    "type": "string",
+                    "description": "Ingress path type for the frontend path",
+                    "default": "Prefix"
+                },
+                "backendPathType": {
+                    "type": "string",
+                    "description": "Ingress path type for the backend path",
+                    "default": "Prefix"
+                },
+                "apiVersion": {
+                    "type": "string",
+                    "description": "Force Ingress API version (automatically detected if not set)",
+                    "default": ""
+                },
+                "hostname": {
+                    "type": "string",
+                    "description": "Default host for the ingress record",
+                    "default": "shuffle.local"
+                },
+                "ingressClassName": {
+                    "type": "string",
+                    "description": "IngressClass that will be be used to implement the Ingress (Kubernetes 1.18+)",
+                    "default": "nginx"
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Ingress path for Shuffle frontend",
+                    "default": "\"/\""
+                },
+                "backendPath": {
+                    "type": "string",
+                    "description": "Ingress path for Shuffle backend",
+                    "default": "\"/api/\""
+                },
+                "annotations": {
+                    "type": "object",
+                    "description": "Additional annotations for the Ingress resource.",
+                    "default": {}
+                },
+                "tls": {
+                    "type": "boolean",
+                    "description": "Enable TLS configuration for the host defined at `ingress.hostname` parameter",
+                    "default": false
+                },
+                "selfSigned": {
+                    "type": "boolean",
+                    "description": "Create a TLS secret for this ingress record using self-signed certificates generated by Helm",
+                    "default": false
+                },
+                "extraHosts": {
+                    "type": "array",
+                    "description": "An array with additional hostname(s) to be covered with the ingress record",
+                    "default": [],
+                    "items": {}
+                },
+                "extraPaths": {
+                    "type": "array",
+                    "description": "An array with additional arbitrary paths that may need to be added to the ingress under the main host",
+                    "default": [],
+                    "items": {}
+                },
+                "extraTls": {
+                    "type": "array",
+                    "description": "TLS configuration for additional hostname(s) to be covered with this ingress record",
+                    "default": [],
+                    "items": {}
+                },
+                "secrets": {
+                    "type": "array",
+                    "description": "Custom TLS certificates as secrets",
+                    "default": [],
+                    "items": {}
+                },
+                "extraRules": {
+                    "type": "array",
+                    "description": "Additional rules to be covered with this ingress record",
+                    "default": [],
+                    "items": {}
+                }
+            }
+        },
+        "istio": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable creation of an Istio Gateway and VirtualService for frontend and backend",
+                    "default": false
+                },
+                "apiVersion": {
+                    "type": "string",
+                    "description": "The istio apiVersion to use for Gateway and VirtualService resources",
+                    "default": "networking.istio.io/v1"
+                },
+                "hosts": {
+                    "type": "array",
+                    "description": "One or more hosts exposed by Istio",
+                    "default": [],
+                    "items": {}
+                },
+                "gateway": {
+                    "type": "object",
+                    "properties": {
+                        "annotations": {
+                            "type": "object",
+                            "description": "Additional annotations for the Gateway resource",
+                            "default": {}
+                        },
+                        "http": {
+                            "type": "object",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean",
+                                    "description": "Enable HTTP server port 80",
+                                    "default": true
+                                },
+                                "httpsRedirect": {
+                                    "type": "boolean",
+                                    "description": "If set to true, a 301 redirect is send for all HTTP connections",
+                                    "default": false
+                                }
+                            }
+                        },
+                        "https": {
+                            "type": "object",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean",
+                                    "description": "Enable HTTPS server on port 443",
+                                    "default": false
+                                },
+                                "tlsCredentialName": {
+                                    "type": "string",
+                                    "description": "The name of the secret that holds the TLS certs including the CA certificates.",
+                                    "default": ""
+                                },
+                                "tlsCipherSuites": {
+                                    "type": "array",
+                                    "description": "If specified, only support the specified cipher list.",
+                                    "default": [],
+                                    "items": {}
+                                }
+                            }
+                        },
+                        "extraServers": {
+                            "type": "array",
+                            "description": "Additional servers for the Gateway resource",
+                            "default": [],
+                            "items": {}
+                        }
+                    }
+                },
+                "virtualService": {
+                    "type": "object",
+                    "properties": {
+                        "annotations": {
+                            "type": "object",
+                            "description": "Additional annotations for the VirtualService resource.",
+                            "default": {}
+                        },
+                        "backendHeaders": {
+                            "type": "object",
+                            "description": "Header manipulation rules for backend traffic",
+                            "default": {}
+                        },
+                        "frontendHeaders": {
+                            "type": "object",
+                            "description": "Header manipulation rules for frontend traffic",
+                            "default": {}
+                        }
+                    }
+                }
+            }
+        },
+        "persistence": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable persistence using Persistent Volume Claims",
+                    "default": true
+                },
+                "apps": {
+                    "type": "object",
+                    "properties": {
+                        "existingClaim": {
+                            "type": "string",
+                            "description": "Name of an existing PVC to use",
+                            "default": ""
+                        },
+                        "storageClass": {
+                            "type": "string",
+                            "description": "PVC Storage Class for shuffle-apps volume",
+                            "default": ""
+                        },
+                        "subPath": {
+                            "type": "string",
+                            "description": "The sub path used in the volume",
+                            "default": ""
+                        },
+                        "accessModes": {
+                            "type": "array",
+                            "description": "The access mode of the volume",
+                            "default": [
+                                "ReadWriteOnce"
+                            ],
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "size": {
+                            "type": "string",
+                            "description": "The size of the volume",
+                            "default": "5Gi"
+                        },
+                        "annotations": {
+                            "type": "object",
+                            "description": "Annotations for the PVC",
+                            "default": {}
+                        },
+                        "selector": {
+                            "type": "object",
+                            "description": "Selector to match an existing Persistent Volume",
+                            "default": {}
+                        }
+                    }
+                },
+                "appBuilder": {
+                    "type": "object",
+                    "properties": {
+                        "storageClass": {
+                            "type": "string",
+                            "description": "PVC Storage Class for backend-apps-claim volume",
+                            "default": ""
+                        },
+                        "accessModes": {
+                            "type": "array",
+                            "description": "The access mode of the volume",
+                            "default": [
+                                "ReadWriteOnce"
+                            ],
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "size": {
+                            "type": "string",
+                            "description": "The size of the volume",
+                            "default": "5Gi"
+                        },
+                        "annotations": {
+                            "type": "object",
+                            "description": "Annotations for the PVC",
+                            "default": {}
+                        },
+                        "selector": {
+                            "type": "object",
+                            "description": "Selector to match an existing Persistent Volume",
+                            "default": {}
+                        }
+                    }
+                },
+                "files": {
+                    "type": "object",
+                    "properties": {
+                        "existingClaim": {
+                            "type": "string",
+                            "description": "Name of an existing PVC to use",
+                            "default": ""
+                        },
+                        "storageClass": {
+                            "type": "string",
+                            "description": "PVC Storage Class for shuffle-files volume",
+                            "default": ""
+                        },
+                        "subPath": {
+                            "type": "string",
+                            "description": "The sub path used in the volume",
+                            "default": ""
+                        },
+                        "accessModes": {
+                            "type": "array",
+                            "description": "The access mode of the volume",
+                            "default": [
+                                "ReadWriteOnce"
+                            ],
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "size": {
+                            "type": "string",
+                            "description": "The size of the volume",
+                            "default": "5Gi"
+                        },
+                        "annotations": {
+                            "type": "object",
+                            "description": "Annotations for the PVC",
+                            "default": {}
+                        },
+                        "selector": {
+                            "type": "object",
+                            "description": "Selector to match an existing Persistent Volume",
+                            "default": {}
+                        }
+                    }
+                }
+            }
+        },
+        "volumePermissions": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable init container that changes the owner/group of the PV mount point to `runAsUser:fsGroup`",
+                    "default": false
+                },
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "registry": {
+                            "type": "string",
+                            "description": "OS Shell + Utility image registry",
+                            "default": "docker.io"
+                        },
+                        "repository": {
+                            "type": "string",
+                            "description": "OS Shell + Utility image repository",
+                            "default": "bitnamilegacy/os-shell"
+                        },
+                        "tag": {
+                            "type": "string",
+                            "description": "OS Shell + Utility image tag (immutable tags are recommended)",
+                            "default": "12-debian-12-r30"
+                        },
+                        "pullPolicy": {
+                            "type": "string",
+                            "description": "OS Shell + Utility image pull policy",
+                            "default": "IfNotPresent"
+                        },
+                        "pullSecrets": {
+                            "type": "array",
+                            "description": "OS Shell + Utility image pull secrets",
+                            "default": [],
+                            "items": {}
+                        }
+                    }
+                },
+                "resourcesPreset": {
+                    "type": "string",
+                    "description": "Set init container resources according to one common preset (allowed values: none, nano, small, medium, large, xlarge, 2xlarge). This is ignored if volumePermissions.resources is set (volumePermissions.resources is recommended for production).",
+                    "default": "nano"
+                },
+                "resources": {
+                    "type": "object",
+                    "description": "Set init container requests and limits for different resources like CPU or memory (essential for production workloads)",
+                    "default": {}
+                },
+                "containerSecurityContext": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enabled init container' Security Context",
+                            "default": true
+                        },
+                        "runAsUser": {
+                            "type": "number",
+                            "description": "Set init container's Security Context runAsUser",
+                            "default": 0
+                        }
+                    }
+                }
+            }
+        },
+        "opensearch": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Switch to enable or disable the opensearch helm chart",
+                    "default": true
+                }
+            }
+        },
+        "vault": {
+            "type": "object",
+            "properties": {
+                "role": {
+                    "type": "string",
+                    "description": "Specify the Vault role, which should be used to get the secret from Vault.",
+                    "default": ""
+                },
+                "secrets": {
+                    "type": "array",
+                    "description": "A list of VaultSecrets to create",
+                    "default": [],
+                    "items": {}
+                }
+            }
+        }
+    }
+}

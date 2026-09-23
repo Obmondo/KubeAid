@@ -1,0 +1,6 @@
+dependencies:
+- name: shuffle
+  repository: oci://ghcr.io/shuffle/charts
+  version: 2.2.1
+digest: sha256:7b3c6009d5b6b8b4a5508c87df9775b679202e1747932a7b03940940703391fe
+generated: "2026-09-21T17:30:39.993076+05:30"
