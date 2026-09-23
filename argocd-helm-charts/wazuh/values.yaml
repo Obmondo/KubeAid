@@ -1,15 +1,16 @@
 wazuh:
   dashboard:
+    # Publish from kubeaid-config: the class and hostname are per-cluster.
     ingress:
-      enabled: true
-      className: traefik-internal
-      tls: 
-      - hosts:
-        - wazuh.kam.obmondo.com                                                                                                                                                                                                                 
-        secretName: wazuh-tls                                                                                                                                                                                                                   
+      enabled: false
+      className: nginx
+      host: wazuh.example.com
       annotations:
         cert-manager.io/cluster-issuer: letsencrypt-prod
-      host: wazuh.kam.obmondo.com
+      tls:
+        - hosts:
+            - wazuh.example.com
+          secretName: wazuh-tls
 
   indexer:
     replicas: 1
@@ -24,11 +25,17 @@ wazuh:
         memory: 128Mi
 
   wazuh:
+    # The managers hold far more than their own queues. Vulnerability detection
+    # unpacks the upstream CTI feed into /var/ossec/queue/vd* and needs ~25 GB on
+    # every manager, master and worker alike, independently of agent count or
+    # retention. Sized at 5Gi both filled within a day and the API then answered
+    # 200 while writing nothing (ENOSPC), so detection silently stopped updating.
+    # 60Gi leaves room for the queue, the CDB lists and logs on top of that.
     master:
-      storageSize: 5Gi
+      storageSize: 60Gi
     worker:
       replicas: 1
-      storageSize: 5Gi
+      storageSize: 60Gi
 
 # Wazuh -> DFIR-IRIS integration (templates/iris-integration.yaml). Places
 # custom-iris and custom-iris.py in the managers' /var/ossec/integrations so an
