@@ -46,3 +46,17 @@ wazuh:
 # the Secret that holds the IRIS API key so it never reaches git.
 irisIntegration:
   enabled: false
+
+# Raw TCP routes for agents outside the cluster (templates/agent-ingressroutetcp.yaml).
+# Service names follow the subchart: `<release>` serves 1515 (authd), the
+# worker Service serves 1514. Each entryPoint must exist in the traefik values.
+agentTcpRoutes:
+  enabled: false
+  enrolment:
+    entryPoint: wazuh-authd
+    serviceName: wazuh
+    port: 1515
+  events:
+    entryPoint: wazuh-agent
+    serviceName: wazuh-manager-worker
+    port: 1514
