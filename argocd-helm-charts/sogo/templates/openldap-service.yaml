@@ -1,0 +1,19 @@
+{{- if .Values.openldap.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "sogo.openldap.name" . }}
+  labels:
+    app: {{ include "sogo.openldap.name" . }}
+spec:
+  clusterIP: None
+  selector:
+    app: {{ include "sogo.openldap.name" . }}
+  ports:
+    - name: ldap
+      port: 389
+      targetPort: ldap
+    - name: ldaps
+      port: 636
+      targetPort: ldaps
+{{- end }}

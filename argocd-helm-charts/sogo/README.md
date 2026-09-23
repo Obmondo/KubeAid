@@ -128,6 +128,41 @@ If it's already happened, either wipe (`kubectl delete pod <name>-mariadb-0 && k
 data-<name>-mariadb-0`) or manually create the missing user via `mariadb -uroot` (socket auth, no
 password needed until one is explicitly set).
 
+## Optional: bundled OpenLDAP
+
+This wrapper chart (not the vendored `sogo` dependency) can also deploy a small OpenLDAP directory
+alongside SOGo, for wiring up a real `SOGoUserSources` LDAP entry instead of hand-populating
+`sogo_view` per account (see "Login: SOGo has no IMAP-bind auth mode" above). Off by default:
+
+```yaml
+openldap:
+  enabled: false
+```
+
+No maintained third-party OpenLDAP chart exists to vendor here — the one that did,
+`jp-gouin/helm-openldap`, was archived in January 2026, and neither Bitnami/Broadcom nor Red Hat nor
+SUSE publish one, only the image. So this is templated directly in this chart against Bitnami's
+image (`docker.io/bitnamilegacy/openldap`, see the Bitnami image note above for why that registry
+and not plain `bitnami/openldap`), rather than a vendored dependency.
+
+```yaml
+openldap:
+  enabled: true
+  existingSecret: openldap-admin-secret   # keys: LDAP_ADMIN_PASSWORD, LDAP_CONFIG_ADMIN_PASSWORD
+  ldapRoot: "dc=example,dc=org"
+```
+
+`existingSecret` is required once `enabled` is true — this chart never generates or stores that
+password itself. TLS is on by default (`openldap.tls.enabled`) and self-signs its own cert via
+cert-manager; point `openldap.tls.certManager.issuerRef` at an existing issuer, or
+`openldap.tls.existingSecret` at your own cert, instead of the default. `openldap.ingressRouteTCP`
+is a Traefik CRD SNI-passthrough route for exposing LDAPS outside the cluster (needed when the
+directory has to be reachable from a different cluster, e.g. an IdP that isn't on this one) — leave
+it off for in-cluster-only use.
+
+Wiring this directory up as SOGo's actual `SOGoUserSources` is a separate step this chart doesn't do
+for you: point `sogo.sogo.SOGoUserSources` at it once it's running.
+
 ## Logging in
 
 Go to the ingress hostname and enter the account's email address and password. Same login screen

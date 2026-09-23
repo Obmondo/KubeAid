@@ -1,0 +1,131 @@
+{{- if .Values.openldap.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "sogo.openldap.name" . }}
+  labels:
+    app: {{ include "sogo.openldap.name" . }}
+spec:
+  serviceName: {{ include "sogo.openldap.name" . }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "sogo.openldap.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "sogo.openldap.name" . }}
+    spec:
+      # Bitnami's image runs as this uid/gid by default; the PVC needs the
+      # same group ownership on mount or slapd fails on first write with a
+      # misleading "No such file or directory" that's actually a permissions
+      # error.
+      securityContext:
+        fsGroup: 1001
+      containers:
+        - name: openldap
+          image: "{{ .Values.openldap.image.repository }}:{{ .Values.openldap.image.tag }}"
+          ports:
+            - name: ldap
+              containerPort: 1389
+            - name: ldaps
+              containerPort: 1636
+          env:
+            - name: LDAP_ROOT
+              value: {{ .Values.openldap.ldapRoot | quote }}
+            - name: LDAP_ADMIN_USERNAME
+              value: "admin"
+            - name: LDAP_CONFIG_ADMIN_ENABLED
+              value: "yes"
+            - name: LDAP_CONFIG_ADMIN_USERNAME
+              value: "admin"
+            - name: LDAP_ALLOW_ANON_BINDING
+              value: "no"
+            - name: LDAP_EXTRA_SCHEMAS
+              value: {{ .Values.openldap.extraSchemas | quote }}
+            {{- if .Values.openldap.tls.enabled }}
+            - name: LDAP_ENABLE_TLS
+              value: "yes"
+            - name: LDAP_REQUIRE_TLS
+              value: "false"
+            - name: LDAP_TLS_CERT_FILE
+              value: "/opt/bitnami/openldap/certs/tls.crt"
+            - name: LDAP_TLS_KEY_FILE
+              value: "/opt/bitnami/openldap/certs/tls.key"
+            - name: LDAP_TLS_CA_FILE
+              value: "/opt/bitnami/openldap/certs/ca.crt"
+            - name: LDAPTLS_REQCERT
+              value: "never"
+            {{- end }}
+            - name: LDAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "openldap.existingSecret is required when openldap.enabled is true" .Values.openldap.existingSecret }}
+                  key: LDAP_ADMIN_PASSWORD
+            - name: LDAP_CONFIG_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.openldap.existingSecret }}
+                  key: LDAP_CONFIG_ADMIN_PASSWORD
+          volumeMounts:
+            - name: data
+              mountPath: /bitnami/openldap
+            {{- if .Values.openldap.tls.enabled }}
+            - name: certs
+              mountPath: /opt/bitnami/openldap/certs
+              readOnly: true
+            {{- end }}
+          {{- if .Values.openldap.tls.enabled }}
+          # Bitnami's own entrypoint sets LDAP_ENABLE_TLS=yes and writes the
+          # cert files, but never applies olcTLSCertificateFile et al to
+          # cn=config on first boot. This waits for slapd to actually accept
+          # connections, then patches cn=config directly if the attributes
+          # aren't already there - idempotent, so it's a no-op on every
+          # restart after the first.
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - /bin/bash
+                  - -c
+                  - |
+                    (
+                      for i in $(seq 1 30); do
+                        ldapwhoami -x -H ldap://localhost:1389 -D "cn=admin,cn=config" -w "$LDAP_CONFIG_ADMIN_PASSWORD" >/dev/null 2>&1 && break
+                        sleep 2
+                      done
+                      HAS_TLS=$(ldapsearch -x -H ldap://localhost:1389 -D "cn=admin,cn=config" -w "$LDAP_CONFIG_ADMIN_PASSWORD" -b "cn=config" -s base olcTLSCertificateFile 2>/dev/null | grep -c olcTLSCertificateFile)
+                      if [ "$HAS_TLS" = "0" ]; then
+                        printf '%s\n' \
+                          'dn: cn=config' \
+                          'changetype: modify' \
+                          'add: olcTLSCACertificateFile' \
+                          'olcTLSCACertificateFile: /opt/bitnami/openldap/certs/ca.crt' \
+                          '-' \
+                          'add: olcTLSCertificateFile' \
+                          'olcTLSCertificateFile: /opt/bitnami/openldap/certs/tls.crt' \
+                          '-' \
+                          'add: olcTLSCertificateKeyFile' \
+                          'olcTLSCertificateKeyFile: /opt/bitnami/openldap/certs/tls.key' \
+                          > /tmp/enable-tls.ldif
+                        ldapmodify -x -H ldap://localhost:1389 -D "cn=admin,cn=config" -w "$LDAP_CONFIG_ADMIN_PASSWORD" -f /tmp/enable-tls.ldif
+                      fi
+                    ) >/tmp/fix-tls.log 2>&1 &
+                    disown
+                    exit 0
+          {{- end }}
+      volumes:
+        {{- if .Values.openldap.tls.enabled }}
+        - name: certs
+          secret:
+            secretName: {{ include "sogo.openldap.tlsSecretName" . }}
+        {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.openldap.persistence.size }}
+{{- end }}

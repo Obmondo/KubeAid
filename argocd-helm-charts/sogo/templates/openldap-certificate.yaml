@@ -1,0 +1,31 @@
+{{- if and .Values.openldap.enabled .Values.openldap.tls.enabled .Values.openldap.tls.certManager.enabled (not .Values.openldap.tls.existingSecret) }}
+{{- if not .Values.openldap.tls.certManager.issuerRef.name }}
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ include "sogo.openldap.name" . }}-selfsigned
+spec:
+  selfSigned: {}
+---
+{{- end }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "sogo.openldap.tlsSecretName" . }}
+spec:
+  secretName: {{ include "sogo.openldap.tlsSecretName" . }}
+  commonName: {{ include "sogo.openldap.name" . }}.{{ .Release.Namespace }}.svc.cluster.local
+  dnsNames:
+    - {{ include "sogo.openldap.name" . }}.{{ .Release.Namespace }}.svc.cluster.local
+    {{- range .Values.openldap.tls.dnsNames }}
+    - {{ . | quote }}
+    {{- end }}
+  issuerRef:
+    {{- if .Values.openldap.tls.certManager.issuerRef.name }}
+    name: {{ .Values.openldap.tls.certManager.issuerRef.name }}
+    kind: {{ .Values.openldap.tls.certManager.issuerRef.kind | default "ClusterIssuer" }}
+    {{- else }}
+    name: {{ include "sogo.openldap.name" . }}-selfsigned
+    kind: Issuer
+    {{- end }}
+{{- end }}
