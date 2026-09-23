@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "dfir-iris.fullname" . }}-worker
+  labels:
+    {{- include "dfir-iris.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "dfir-iris.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        {{- include "dfir-iris.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+    spec:
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if and .Values.persistence.enabled (has "ReadWriteOnce" .Values.persistence.accessModes) (not (has "ReadWriteMany" .Values.persistence.accessModes)) }}
+      # The shared volume is RWO, so the worker must land on the app's node.
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels:
+                  {{- include "dfir-iris.selectorLabels" . | nindent 18 }}
+                  app.kubernetes.io/component: app
+      {{- end }}
+      containers:
+        - name: worker
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - ./wait-for-iriswebapp.sh
+            - "{{ include "dfir-iris.fullname" . }}-app:{{ .Values.service.port }}"
+            - ./iris-entrypoint.sh
+            - iris-worker
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          env:
+            {{- include "dfir-iris.env" . | nindent 12 }}
+            - name: IRIS_WORKER
+              value: "1"
+            - name: NUMBER_OF_CHILD
+              value: {{ .Values.worker.numberOfChild | quote }}
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+          volumeMounts:
+            {{- include "dfir-iris.volumeMounts" . | nindent 12 }}
+      volumes:
+        {{- include "dfir-iris.volumes" . | nindent 8 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

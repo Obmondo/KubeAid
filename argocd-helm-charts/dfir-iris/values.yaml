@@ -1,0 +1,115 @@
+# PostgreSQL and RabbitMQ come from kubeaid-addons (CNPG Cluster + RabbitmqCluster).
+# CNPG exposes the owner's credentials in <instanceName>-pgsql-app and the
+# read-write Service at <instanceName>-pgsql-rw; the RabbitMQ operator writes
+# <instanceName>-default-user with username/password/host/port.
+global:
+  postgresql:
+    enabled: true
+    instanceName: iris
+    instances: 1
+    size: 10Gi
+    database: iris_db
+    owner: raptor
+    monitoring:
+      enablePodMonitor: true
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        memory: 1Gi
+    backups:
+      enabled: false
+    logicalbackup:
+      enabled: false
+  rabbitmq:
+    enabled: true
+    instanceName: iris-rabbitmq
+    replicas: 1
+
+image:
+  repository: ghcr.io/dfir-iris/iriswebapp_app
+  tag: v2.4.20
+  pullPolicy: IfNotPresent
+
+# Connection details. Defaults follow the kubeaid-addons naming above; change
+# them only when pointing at databases you provisioned elsewhere.
+postgres:
+  host: iris-pgsql-rw
+  port: 5432
+  database: iris_db
+  # Secret with keys username and password (CNPG format). IRIS uses the same
+  # role for its "admin" (POSTGRES_USER, creates the database) and its runtime
+  # user (POSTGRES_ADMIN_USER), which is fine when the database already exists.
+  existingSecret: iris-pgsql-app
+rabbitmq:
+  # Secret with keys username and password (RabbitMQ operator format).
+  existingSecret: iris-rabbitmq-default-user
+  host: iris-rabbitmq
+  port: 5672
+
+# Application secrets, sealed in kubeaid-config. Keys:
+#   IRIS_SECRET_KEY, IRIS_SECURITY_PASSWORD_SALT, IRIS_ADM_PASSWORD
+secrets:
+  existingSecret: dfir-iris
+
+admin:
+  username: administrator
+  email: admin@example.com
+
+logLevel: info
+
+app:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      memory: 2Gi
+
+worker:
+  replicas: 1
+  # Celery worker processes per pod
+  numberOfChild: 2
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      memory: 2Gi
+
+# One volume shared by app and worker for downloads, user templates and server
+# data. With ReadWriteOnce the worker is pinned to the app's node by affinity;
+# use ReadWriteMany (rook-ceph CephFS) to lift that.
+persistence:
+  enabled: true
+  existingClaim: ""
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 20Gi
+
+service:
+  type: ClusterIP
+  port: 8000
+
+# TLS terminates at the ingress; the upstream nginx container is not used.
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  host: iris.example.com
+  tls: []
+  #  - secretName: iris-tls
+  #    hosts:
+  #      - iris.example.com
+
+podSecurityContext:
+  fsGroup: 1000
+securityContext:
+  runAsNonRoot: false
+  allowPrivilegeEscalation: false
+
+nodeSelector: {}
+tolerations: []
