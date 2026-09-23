@@ -60,3 +60,32 @@ else
   fi
 fi
 {{- end -}}
+
+{{/* Set NETWORK_INTERFACE to the NIC carrying the default route.
+     cloud-init's runcmd can start before networking is up — `ip route get`
+     then fails with "Network is unreachable" and NETWORK_INTERFACE ends up
+     empty. Callers interpolate it into netplan (`link: ${NETWORK_INTERFACE}`),
+     so an empty value yields "interface '' is not defined", netplan apply
+     fails, the node never gets its vSwitch address, and kubeadm join times
+     out against the private API endpoint. Observed consistently on Ubuntu
+     26.04, which brings networking up later than 24.04 did.
+     So: wait for the default route, and abort loudly rather than write an
+     invalid netplan. */}}
+{{- define "hetzner.detectNetworkInterfaceScript" -}}
+NETWORK_INTERFACE=""
+attempt=0
+while [ "$attempt" -lt 60 ]; do
+  NETWORK_INTERFACE="$(ip route get 8.8.8.8 2>/dev/null | awk '{print $5; exit}')"
+  if [ -n "$NETWORK_INTERFACE" ]; then
+    break
+  fi
+  attempt=$((attempt + 1))
+  sleep 2
+done
+if [ -z "$NETWORK_INTERFACE" ]; then
+  echo "ERROR: no default route after 120s — cannot determine the primary network interface" >&2
+  exit 1
+fi
+export NETWORK_INTERFACE
+echo "detected primary network interface: $NETWORK_INTERFACE"
+{{- end -}}
