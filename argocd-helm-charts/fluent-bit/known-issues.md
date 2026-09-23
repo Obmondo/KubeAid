@@ -72,3 +72,28 @@ so the setting has to be repeated in the override.
 
 The setting only applies to newly tailed files. Lines already shipped stay unlabelled,
 and fluent-bit has to restart for the change to take effect.
+
+## OOMKilled while the output is down
+
+If Loki (or any output) is down for a while, fluent-bit pods get `OOMKilled` over and
+over, and `KubeDaemonSetRolloutStuck` fires. The log is full of:
+
+```
+[error] [output:loki:loki.0] could not flush records to ... HTTP status=500
+[ warn] [engine] failed to flush chunk '...', retry in 455 seconds
+```
+
+With memory buffering, every chunk waiting for a retry is held in memory. `Mem_Buf_Limit`
+only counts the log data, not the overhead per retry, and with `Flush 1` the chunks are
+small, so there can be thousands of them. In one case the buffer sat at 95MB while the pods
+hit 512Mi. Every OOM also throws away what was buffered.
+
+Check `fluentbit_storage_mem_chunks` (thousands) and `fluentbit_input_storage_memory_bytes`
+(stuck at `Mem_Buf_Limit`) in Prometheus.
+
+Raising the memory limit only delays it. This chart uses `storage.type filesystem`, so
+most chunks wait on disk under `/var/log/flb-storage/` and survive a restart. If you
+override `config.service` or `config.inputs`, keep the `storage.*` lines. Set
+`storage.total_limit_size` on your output so the buffer can't fill the node disk.
+
+See [Buffering](https://docs.fluentbit.io/manual/data-pipeline/buffering).
