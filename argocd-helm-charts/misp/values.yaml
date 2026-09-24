@@ -103,7 +103,8 @@ wazuhCdbExport:
     repository: python
     tag: 3.13-alpine
   misp:
-    # Defaults to http://<release name>, the subchart's Service.
+    # Defaults to http://misp, the subchart's Service (named "misp" whatever
+    # the release is called), so it resolves from any pod in this namespace.
     url: ""
     # Secret holding the MISP auth key (the same one section 2 creates).
     apiKeySecret: misp-api-key
@@ -113,7 +114,9 @@ wazuhCdbExport:
     publishedOnly: false
     pageSize: 5000
   wazuh:
-    # The manager API: https://<master Service>.<namespace>.svc.cluster.local:55000
+    # The manager API: https://<master Service>.<namespace>.svc.cluster.local:55000,
+    # or https://wazuh:55000 when Wazuh runs in this namespace (the
+    # security-operations umbrella chart).
     url: ""
     # Secret with the API login. Same key names as the Wazuh chart's own
     # wazuh-api-cred, so a sealed copy of that Secret into this namespace works.
@@ -142,3 +145,11 @@ wazuhCdbExport:
       memory: 128Mi
     limits:
       memory: 512Mi
+
+# kubeaid-addons subchart (Chart.yaml). Renders nothing with this chart's
+# defaults; it is there so a kubeaid-config can add its global.* extras (network
+# policies, backups) to the MISP namespace. Set false when another chart in the
+# same release already carries kubeaid-addons, as the security-operations
+# umbrella does.
+kubeaid-addons:
+  enabled: true
