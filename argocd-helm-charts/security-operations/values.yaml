@@ -1,0 +1,337 @@
+# security-operations: Wazuh, Velociraptor, DFIR-IRIS, MISP and Ollama as one
+# release in one namespace. See README.md.
+#
+# The top half is what an operator normally sets: domain, keycloak, operators and
+# tenants. The per-tenant configuration of every component is rendered from
+# `tenants` by this chart's own templates (ConfigMaps the components mount), so
+# onboarding a tenant is one list entry. The bottom half passes values through to
+# the component charts unchanged; its defaults wire the components to each other
+# inside the namespace.
+
+# Base domain. Component hostnames default to <component>.<domain>; override one
+# in `hosts` when it differs. They feed the OIDC client redirect URIs and the
+# dashboard links in IRIS alerts. The ingress hostnames themselves are set in the
+# component blocks below (a parent chart cannot compute a subchart's values), so
+# keep both in step.
+domain: example.com
+hosts:
+  wazuh: ""
+  iris: ""
+  misp: ""
+  velociraptor: ""
+
+# Keycloak realm that all components log in through. Everything in this block
+# except `clients` goes to the reconciler as is (keycloak section of its
+# tenants.json); the component charts take their own Keycloak settings.
+keycloak:
+  # Root URL including any context path, as the reconciler reaches it, e.g.
+  # http://keycloakx-http.keycloakx.svc/auth
+  url: https://keycloak.example.com/auth
+  realm: soc
+  # Master-realm admin the reconciler logs in as, and its password (read only).
+  # The reconciler's ServiceAccount may read exactly this Secret. The default is
+  # the KubeAid keycloakx chart's.
+  adminUsername: admin
+  adminSecretRef:
+    namespace: keycloakx
+    name: keycloak-admin
+    key: KEYCLOAK_PASSWORD
+  # Realm policy the reconciler enforces. Remove a key to leave that setting alone.
+  bruteForceProtected: true
+  otpPolicy:
+    type: totp
+    algorithm: HmacSHA1
+    digits: 6
+    period: 30
+  # CONFIGURE_TOTP as default required action, and a browser flow with
+  # mandatory OTP bound to the realm.
+  requireTOTP: true
+  mfaFlow:
+    alias: browser-mfa
+    copyFrom: browser
+    bind: true
+  # OIDC clients the reconciler keeps in the realm. Empty: one per enabled
+  # component plus iris-sync, with redirect URIs from `hosts` and client secrets
+  # in the Secrets the component charts read by default (templates/_tenants.tpl).
+  clients: []
+
+# Central team: realm roles (and the group that grants the analyst role) that see
+# every tenant in every component.
+operators:
+  adminRole: administrator
+  analystRole: analyst
+  analystGroup: soc-analysts
+
+# What those roles, and a tenant's own group, become in each tool.
+toolRoles:
+  iris:
+    admin: [Administrators]
+    analyst: [Analysts]
+    tenant: [Analysts]
+  velociraptor:
+    admin: administrator
+    analyst: investigator
+    tenant: investigator
+
+# Tenants. One entry per tenant; adding one and syncing is the whole onboarding
+# on the chart side (the reconciler, when enabled, does the API-only rest).
+#   code          ^[a-z0-9]{1,32}$, unique. It is the Wazuh agent label value,
+#                 the alerts index infix (wazuh-alerts-4.x-<code>-*) and the
+#                 suffix of the Keycloak group/role <tenantGroupPrefix><code>.
+#                 No dashes: index patterns of two tenants must never overlap.
+#   name          unique display name. IRIS customer and Velociraptor org name.
+#   retentionDays optional, defaults to defaultRetentionDays (ISM on the
+#                 tenant's alerts indices, applied by the reconciler).
+#   idp           optional identity-provider broker for the tenant, passed to
+#                 the reconciler as is.
+tenants: []
+#  - code: "001"
+#    name: Tenant A
+#  - code: "002"
+#    name: Tenant B
+#    retentionDays: 90
+
+# Keycloak group and realm role of a tenant: <tenantGroupPrefix><code>.
+tenantGroupPrefix: tenant-
+# Wazuh agent label carrying the tenant code. Must equal
+# wazuh.wazuh.wazuh.filebeat.indexRouting.labelKey (checked at render time).
+tenantLabelKey: tenant
+defaultRetentionDays: 365
+
+# Render-time consistency checks between `tenants` and the component values that
+# cannot be derived from it (README, "What is not derived from tenants").
+checks:
+  # Every tenant needs <prefix><code>-reader in wazuh.wazuh.indexer.config.extraRoles
+  # and in wazuh.wazuh.dashboard.sso.oidc.extraRoleMappings.
+  wazuhTenantRoles: true
+
+# Local model for IRIS alert triage (dfir-iris aiTriage + ollama). IRIS login of
+# the triage service account, which the reconciler gives every tenant as customer.
+ai:
+  irisLogin: svc_ai
+  irisGroups: [Automation]
+
+# Public entry points. Everything else is meant for the internal ingress class.
+# Agents dial in from outside, so these hostnames go into the per-tenant enrolment
+# bundle the reconciler writes.
+publicIngress:
+  # Wazuh enrolment (1515) and events (1514), see wazuh.agentTcpRoutes.
+  wazuhAgentHost: ""
+  # Velociraptor frontend (8000), see velociraptor.frontendTcpRoute.
+  velociraptorHost: ""
+
+# API-only setup (Keycloak roles/groups/clients, IRIS customers, Velociraptor
+# orgs, Wazuh RBAC) from the siem-tenants ConfigMap. Off until the image is
+# published; the chart renders its input either way.
+reconciler:
+  enabled: false
+  image:
+    repository: ghcr.io/obmondo/siem-reconciler
+    tag: ""
+    pullPolicy: IfNotPresent
+  # Print the plan only. Read the job log first, then set false.
+  dryRun: true
+  schedule: "*/10 * * * *"
+  # Also run as an Argo CD PostSync hook, so a new tenant is set up right after
+  # the sync instead of on the next schedule tick.
+  postSync: true
+  activeDeadlineSeconds: 600
+  # Secrets created with random values when missing ({namespace, name, keys:
+  # [{key, generator}]}). Empty: one per client secretRef.
+  secrets: []
+  # Merged over the derived component settings in siem-tenants, e.g.
+  #   velociraptor:
+  #     serverMonitoring:
+  #       - artifact: Custom.Server.KeycloakSync
+  #         parameters: {DryRun: "N"}
+  components: {}
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+# ---------------------------------------------------------------------------
+# Component charts. Everything below is passed through unchanged. fullnameOverride
+# keeps the object names a standalone install would have (wazuh-*, velociraptor,
+# dfir-iris-*, misp, ollama) although the release is called security-operations.
+# Lists replace, they do not merge: when you override one of the lists below,
+# copy the entries you want to keep.
+# ---------------------------------------------------------------------------
+
+wazuh:
+  enabled: true
+  # Wrapper: IRIS integration ConfigMap (wazuh-iris-integration).
+  irisIntegration:
+    enabled: true
+  wazuh:
+    fullnameOverride: wazuh
+    wazuh:
+      # One agent group per tenant, from the wazuh-tenants ConfigMap this chart
+      # renders. Copied at manager start: with Reloader installed the annotation
+      # below restarts the managers when a tenant is added, otherwise restart them.
+      agentGroupConfConfigMap: wazuh-tenants
+      filebeat:
+        indexRouting:
+          enabled: true
+          labelKey: tenant
+          valuePattern: "^[a-z0-9]{1,32}$"
+          dateRounding: M
+          indexNameFormat: yyyy.MM
+      master:
+        annotations:
+          configmap.reloader.stakater.com/reload: wazuh-tenants
+        additionalVolumes: &wazuhVolumes
+          - name: iris-integration
+            configMap:
+              name: wazuh-iris-integration
+              defaultMode: 0755
+          # IRIS API key (key API_KEY). The integration logs an error per alert
+          # until it exists; the manager itself starts without it.
+          - name: iris-api-key
+            secret:
+              secretName: iris-api-key
+              optional: true
+              # 0444: wazuh-integratord runs as wazuh, outside the pod's fsGroup.
+              defaultMode: 0444
+          - name: tenants
+            configMap:
+              name: wazuh-tenants
+        additionalVolumeMounts: &wazuhMounts
+          - name: iris-integration
+            mountPath: /var/ossec/integrations/custom-iris
+            subPath: custom-iris
+            readOnly: true
+          - name: iris-integration
+            mountPath: /var/ossec/integrations/custom-iris.py
+            subPath: custom-iris.py
+            readOnly: true
+          - name: iris-api-key
+            mountPath: /var/ossec/integrations/.iris_key
+            subPath: API_KEY
+            readOnly: true
+          # A directory mount (no subPath), so a new tenant reaches the running
+          # integration without a restart.
+          - name: tenants
+            mountPath: /var/ossec/integrations/tenants
+            readOnly: true
+        networkPolicy:
+          extraIngresses:
+            # MISP pushes its CDB lists to the API.
+            - ports:
+                - protocol: TCP
+                  port: 55000
+              from:
+                - podSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: misp-wazuh-cdb-export
+            # The reconciler manages Wazuh RBAC and groups through the API.
+            - ports:
+                - protocol: TCP
+                  port: 55000
+              from:
+                - podSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: siem-reconciler
+          extraEgresses: &wazuhEgresses
+            # DFIR-IRIS API, target of the custom-iris integration.
+            - ports:
+                - protocol: TCP
+                  port: 8000
+              to:
+                - podSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: dfir-iris
+                      app.kubernetes.io/component: app
+            # MISP REST API (its Service listens on 80).
+            - ports:
+                - protocol: TCP
+                  port: 80
+              to:
+                - podSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: misp
+        # Alerts at level 10 and above become IRIS alerts; the tenant part of the
+        # options comes from wazuh-tenants (iris-options.json). If you override
+        # extraConf, keep this block.
+        extraConf: &wazuhExtraConf |
+          <integration>
+            <name>custom-iris</name>
+            <hook_url>http://dfir-iris-app:8000</hook_url>
+            <api_key>file:/var/ossec/integrations/.iris_key</api_key>
+            <level>10</level>
+            <alert_format>json</alert_format>
+            <options>{"min_level": 10, "default_customer_id": 1, "options_file": "/var/ossec/integrations/tenants/iris-options.json"}</options>
+          </integration>
+      worker:
+        annotations:
+          configmap.reloader.stakater.com/reload: wazuh-tenants
+        additionalVolumes: *wazuhVolumes
+        additionalVolumeMounts: *wazuhMounts
+        networkPolicy:
+          extraEgresses: *wazuhEgresses
+        extraConf: *wazuhExtraConf
+
+velociraptor:
+  enabled: true
+  velociraptor:
+    fullnameOverride: velociraptor
+    # Tenant maps for server artifacts (group-map.json, role-map.json,
+    # org-map.json in /etc/siem), from the velociraptor-tenants ConfigMap.
+    extraVolumes:
+      - name: tenants
+        configMap:
+          name: velociraptor-tenants
+    extraVolumeMounts:
+      - name: tenants
+        mountPath: /etc/siem
+        readOnly: true
+    networkPolicy:
+      # Server artifacts poll the IRIS API.
+      extraEgress:
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: dfir-iris
+                  app.kubernetes.io/component: app
+          ports:
+            - protocol: TCP
+              port: 8000
+
+dfir-iris:
+  enabled: true
+  fullnameOverride: dfir-iris
+  keycloakSync:
+    # Roles and one group per tenant, from the dfir-iris-tenants ConfigMap.
+    mappingConfigMap:
+      name: dfir-iris-tenants
+      key: mapping.json
+  aiTriage:
+    ollamaUrl: http://ollama:11434
+
+misp:
+  enabled: true
+  # dfir-iris carries kubeaid-addons already; one copy per release.
+  kubeaid-addons:
+    enabled: false
+  misp:
+    fullnameOverride: misp
+  wazuhCdbExport:
+    wazuh:
+      url: https://wazuh:55000
+      # The Wazuh chart's own API Secret, in this namespace.
+      credentialsSecret: wazuh-api-cred
+
+ollama:
+  enabled: true
+  ollama:
+    fullnameOverride: ollama
+  networkPolicy:
+    enabled: true
+    # Only the IRIS triage job may call the model.
+    allowedFrom:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: dfir-iris
+            app.kubernetes.io/component: ai-triage

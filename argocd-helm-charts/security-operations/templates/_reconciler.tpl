@@ -1,0 +1,41 @@
+{{/* Pod template shared by the reconciler CronJob and its PostSync Job. */}}
+{{- define "secops.reconciler.pod" -}}
+{{- $r := .Values.reconciler -}}
+metadata:
+  labels:
+    app.kubernetes.io/name: siem-reconciler
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  annotations:
+    checksum/config: {{ include (print .Template.BasePath "/tenants-configmaps.yaml") . | sha256sum }}
+spec:
+  serviceAccountName: siem-reconciler
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: reconciler
+      image: "{{ $r.image.repository }}:{{ required "reconciler.image.tag is required when reconciler.enabled" $r.image.tag }}"
+      imagePullPolicy: {{ $r.image.pullPolicy }}
+      args:
+        - --config
+        - /etc/siem/tenants.json
+        - --dry-run={{ $r.dryRun }}
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+      resources:
+        {{- toYaml $r.resources | nindent 8 }}
+      volumeMounts:
+        - name: config
+          mountPath: /etc/siem
+          readOnly: true
+  volumes:
+    - name: config
+      configMap:
+        name: siem-tenants
+{{- end }}

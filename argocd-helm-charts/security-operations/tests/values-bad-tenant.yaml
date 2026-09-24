@@ -1,0 +1,5 @@
+# Must be rejected by values.schema.json: a dash in the code would let
+# wazuh-alerts-4.x-a-* match the indices of a tenant called a-b.
+tenants:
+  - code: a-b
+    name: Tenant With Dash

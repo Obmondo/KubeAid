@@ -1,0 +1,57 @@
+# Generic three-tenant fixture: values-2-tenants.yaml plus tenant 003 and nothing else for render_test.sh.
+domain: example.com
+keycloak:
+  url: https://keycloak.example.com/auth
+  realm: soc
+tenants:
+  - code: "001"
+    name: Tenant A
+  - code: "002"
+    name: Tenant B
+    retentionDays: 90
+  - code: "003"
+    name: Tenant C
+
+wazuh:
+  wazuh:
+    indexer:
+      config:
+        doNotFailOnForbidden: true
+        extraRoles:
+          tenant-001-reader:
+            cluster_permissions: [cluster_composite_ops_ro]
+            index_permissions:
+              - index_patterns: ["wazuh-alerts-4.x-001-*"]
+                allowed_actions: [read]
+              - index_patterns: ["wazuh-monitoring-*"]
+                dls: '{"term": {"group.keyword": "tenant-001"}}'
+                allowed_actions: [read]
+          tenant-002-reader:
+            cluster_permissions: [cluster_composite_ops_ro]
+            index_permissions:
+              - index_patterns: ["wazuh-alerts-4.x-002-*"]
+                allowed_actions: [read]
+              - index_patterns: ["wazuh-monitoring-*"]
+                dls: '{"term": {"group.keyword": "tenant-002"}}'
+                allowed_actions: [read]
+          tenant-003-reader:
+            cluster_permissions: [cluster_composite_ops_ro]
+            index_permissions:
+              - index_patterns: ["wazuh-alerts-4.x-003-*"]
+                allowed_actions: [read]
+              - index_patterns: ["wazuh-monitoring-*"]
+                dls: '{"term": {"group.keyword": "tenant-003"}}'
+                allowed_actions: [read]
+    dashboard:
+      sso:
+        oidc:
+          roleMappings:
+            kibanaUser:
+              backendRoles: [analyst, tenant-001, tenant-002, tenant-003]
+          extraRoleMappings:
+            tenant-001-reader:
+              backend_roles: [tenant-001]
+            tenant-002-reader:
+              backend_roles: [tenant-002]
+            tenant-003-reader:
+              backend_roles: [tenant-003]

@@ -1,0 +1,18 @@
+dependencies:
+- name: wazuh
+  repository: file://../wazuh
+  version: 1.0.0
+- name: velociraptor
+  repository: file://../velociraptor
+  version: 1.0.0
+- name: dfir-iris
+  repository: file://../dfir-iris
+  version: 0.4.0
+- name: misp
+  repository: file://../misp
+  version: 1.1.0
+- name: ollama
+  repository: file://../ollama
+  version: 1.1.0
+digest: sha256:cd321504ad469bda1674ebc95e40a369dd30b75cb52838855bfdc62f457f954d
+generated: "2026-09-25T02:34:07.472096+05:30"

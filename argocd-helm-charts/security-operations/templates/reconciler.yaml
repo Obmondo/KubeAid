@@ -1,0 +1,116 @@
+{{- if .Values.reconciler.enabled }}
+{{- $r := .Values.reconciler }}
+{{- $name := "siem-reconciler" }}
+{{- $kcRef := .Values.keycloak.adminSecretRef }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: reconciler
+---
+# Secrets it creates if missing (OIDC client secrets, API keys, enrolment
+# bundles) and never overwrites; the API credentials it reads.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: reconciler
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: reconciler
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}
+    namespace: {{ .Release.Namespace }}
+---
+# Read access to the Keycloak admin Secret only, in Keycloak's namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ printf "%s-%s" .Release.Namespace $name }}
+  namespace: {{ $kcRef.namespace }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: reconciler
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: [{{ $kcRef.name | quote }}]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ printf "%s-%s" .Release.Namespace $name }}
+  namespace: {{ $kcRef.namespace }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: reconciler
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ printf "%s-%s" .Release.Namespace $name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: reconciler
+spec:
+  schedule: {{ $r.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: {{ $r.activeDeadlineSeconds }}
+      template:
+        {{- include "secops.reconciler.pod" . | nindent 8 }}
+{{- if $r.postSync }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $name }}-postsync
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: reconciler
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: {{ $r.activeDeadlineSeconds }}
+  template:
+    {{- include "secops.reconciler.pod" . | nindent 4 }}
+{{- end }}
+{{- end }}

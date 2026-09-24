@@ -1,0 +1,25 @@
+{{- /*
+  Render-time checks between `tenants` and component values this chart cannot
+  derive (README, "What is not derived from tenants"). Renders nothing.
+*/}}
+{{- $tenants := include "secops.tenants" . | fromJsonArray }}
+{{- if .Values.wazuh.enabled }}
+{{- $w := .Values.wazuh.wazuh | default dict }}
+{{- $routing := ((($w.wazuh | default dict).filebeat | default dict).indexRouting | default dict) }}
+{{- if and $routing.enabled (ne ($routing.labelKey | default "") .Values.tenantLabelKey) }}
+{{- fail (printf "wazuh.wazuh.wazuh.filebeat.indexRouting.labelKey (%q) must equal tenantLabelKey (%q)" ($routing.labelKey | default "") .Values.tenantLabelKey) }}
+{{- end }}
+{{- if and $tenants .Values.checks.wazuhTenantRoles }}
+{{- $roles := ((($w.indexer | default dict).config | default dict).extraRoles | default dict) }}
+{{- $maps := ((((($w.dashboard | default dict).sso | default dict).oidc | default dict).extraRoleMappings) | default dict) }}
+{{- range $tenants }}
+{{- $role := printf "%s-reader" .group }}
+{{- if not (hasKey $roles $role) }}
+{{- fail (printf "tenant %s: add wazuh.wazuh.indexer.config.extraRoles.%s (README, section \"What is not derived from tenants\"), or set checks.wazuhTenantRoles: false" .code $role) }}
+{{- end }}
+{{- if not (hasKey $maps $role) }}
+{{- fail (printf "tenant %s: add wazuh.wazuh.dashboard.sso.oidc.extraRoleMappings.%s (README, section \"What is not derived from tenants\"), or set checks.wazuhTenantRoles: false" .code $role) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
