@@ -1,0 +1,466 @@
+apiVersion: perses.dev/v1alpha2
+kind: PersesDashboard
+metadata:
+  labels:
+    app.kubernetes.io/component: dashboard
+    app.kubernetes.io/instance: aisix-ai-gateway-overview
+    app.kubernetes.io/name: perses-dashboard
+    app.kubernetes.io/part-of: perses-operator
+  name: aisix-ai-gateway-overview
+  namespace: perses-dev
+spec:
+  config:
+    display:
+      name: AISIX AI Gateway / Overview
+    duration: 1h
+    layouts:
+    - kind: Grid
+      spec:
+        display:
+          title: Traffic and latency
+        items:
+        - content:
+            $ref: '#/spec/panels/0_0'
+          height: 8
+          width: 12
+          x: 0
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/0_1'
+          height: 8
+          width: 12
+          x: 12
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/0_2'
+          height: 8
+          width: 12
+          x: 0
+          "y": 8
+        - content:
+            $ref: '#/spec/panels/0_3'
+          height: 8
+          width: 12
+          x: 12
+          "y": 8
+    - kind: Grid
+      spec:
+        display:
+          title: Usage and policy signals
+        items:
+        - content:
+            $ref: '#/spec/panels/1_0'
+          height: 8
+          width: 12
+          x: 0
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/1_1'
+          height: 8
+          width: 12
+          x: 12
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/1_2'
+          height: 8
+          width: 12
+          x: 0
+          "y": 8
+        - content:
+            $ref: '#/spec/panels/1_3'
+          height: 8
+          width: 12
+          x: 12
+          "y": 8
+    panels:
+      "0_0":
+        kind: Panel
+        spec:
+          display:
+            description: Rate of completed AISIX requests, grouped by provider, model, and outcome.
+            name: Request rate
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+                values:
+                - last
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: requests/sec
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (provider, model, outcome) (
+                      rate(aisix_requests_total{instance=~"$instance",job=~"$job"}[$__rate_interval])
+                    )
+                  seriesNameFormat: '{{provider}} / {{model}} / {{outcome}}'
+      "0_1":
+        kind: Panel
+        spec:
+          display:
+            description: Percentage of completed AISIX requests whose outcome is success.
+            name: Success ratio
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+                values:
+                - last
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: percent-decimal
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |2-
+                      sum(
+                        rate(aisix_requests_total{instance=~"$instance",job=~"$job",outcome="success"}[$__rate_interval])
+                      )
+                    /
+                      sum(rate(aisix_requests_total{instance=~"$instance",job=~"$job"}[$__rate_interval]))
+                  seriesNameFormat: Success
+      "0_2":
+        kind: Panel
+        spec:
+          display:
+            description: P95 client-perceived request latency. Streaming requests are observed at stream completion.
+            name: P95 end-to-end latency
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+                values:
+                - last
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: seconds
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.95,
+                      sum by (le) (
+                        rate(aisix_request_e2e_latency_seconds_bucket{instance=~"$instance",job=~"$job"}[$__rate_interval])
+                      )
+                    )
+                  seriesNameFormat: P95 end-to-end
+      "0_3":
+        kind: Panel
+        spec:
+          display:
+            description: P95 time to first token for streaming requests. Non-streaming requests do not contribute.
+            name: P95 time to first token
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+                values:
+                - last
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: seconds
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.95,
+                      sum by (le) (
+                        rate(aisix_request_ttft_seconds_bucket{instance=~"$instance",job=~"$job"}[$__rate_interval])
+                      )
+                    )
+                  seriesNameFormat: P95 TTFT
+      "1_0":
+        kind: Panel
+        spec:
+          display:
+            description: Input and output tokens per second reported by the upstream provider.
+            name: Token throughput by model
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+                values:
+                - last
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: counts/sec
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (model) (
+                      rate(aisix_llm_input_tokens_total{instance=~"$instance",job=~"$job"}[$__rate_interval])
+                    )
+                  seriesNameFormat: '{{model}} input'
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (model) (
+                      rate(aisix_llm_output_tokens_total{instance=~"$instance",job=~"$job"}[$__rate_interval])
+                    )
+                  seriesNameFormat: '{{model}} output'
+      "1_1":
+        kind: Panel
+        spec:
+          display:
+            description: Rate of cache-policy outcomes. Requests without an active cache policy do not contribute.
+            name: Cache outcomes
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+                values:
+                - last
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: requests/sec
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (outcome) (
+                      rate(aisix_cache_requests_total{instance=~"$instance",job=~"$job"}[$__rate_interval])
+                    )
+                  seriesNameFormat: '{{outcome}}'
+      "1_2":
+        kind: Panel
+        spec:
+          display:
+            description: Rates of rate-limit rejections, guardrail blocks, and fail-open guardrail bypass events.
+            name: Policy enforcement
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+                values:
+                - last
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: counts/sec
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (scope) (
+                      rate(aisix_ratelimit_rejections_total{instance=~"$instance",job=~"$job"}[$__rate_interval])
+                    )
+                  seriesNameFormat: Rate limit / {{scope}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: sum(rate(aisix_guardrail_blocks_total{instance=~"$instance",job=~"$job"}[$__rate_interval]))
+                  seriesNameFormat: Guardrail blocks
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (reason) (
+                      rate(aisix_guardrail_bypasses_total{instance=~"$instance",job=~"$job"}[$__rate_interval])
+                    )
+                  seriesNameFormat: Guardrail bypass / {{reason}}
+      "1_3":
+        kind: Panel
+        spec:
+          display:
+            description: Failure and drop event rates from AISIX OTLP HTTP exporters. A zero value is not proof that tracing is enabled.
+            name: OTLP delivery failures and drops
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+                values:
+                - last
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: counts/sec
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (exporter) (
+                      rate(aisix_otlp_fanout_failures_total{instance=~"$instance",job=~"$job"}[$__rate_interval])
+                    )
+                  seriesNameFormat: '{{exporter}} failures'
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (exporter, reason) (
+                      rate(aisix_otlp_fanout_drops_total{instance=~"$instance",job=~"$job"}[$__rate_interval])
+                    )
+                  seriesNameFormat: '{{exporter}} drops / {{reason}}'
+    variables:
+    - kind: ListVariable
+      spec:
+        allowAllValue: true
+        allowMultiple: true
+        display:
+          hidden: false
+          name: job
+        name: job
+        plugin:
+          kind: PrometheusLabelValuesVariable
+          spec:
+            datasource:
+              kind: PrometheusDatasource
+              name: custom-datasource
+            labelName: job
+            matchers:
+            - aisix_requests_total{}
+    - kind: ListVariable
+      spec:
+        allowAllValue: true
+        allowMultiple: true
+        display:
+          hidden: false
+          name: instance
+        name: instance
+        plugin:
+          kind: PrometheusLabelValuesVariable
+          spec:
+            datasource:
+              kind: PrometheusDatasource
+              name: custom-datasource
+            labelName: instance
+            matchers:
+            - aisix_requests_total{job=~"$job"}
+status: {}

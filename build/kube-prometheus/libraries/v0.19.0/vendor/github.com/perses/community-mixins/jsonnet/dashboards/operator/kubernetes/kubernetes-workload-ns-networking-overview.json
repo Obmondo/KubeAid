@@ -1,0 +1,985 @@
+{
+  "kind": "PersesDashboard",
+  "apiVersion": "perses.dev/v1alpha2",
+  "metadata": {
+    "name": "kubernetes-workload-ns-networking-overview",
+    "namespace": "perses-dev",
+    "labels": {
+      "app.kubernetes.io/component": "dashboard",
+      "app.kubernetes.io/instance": "kubernetes-workload-ns-networking-overview",
+      "app.kubernetes.io/name": "perses-dashboard",
+      "app.kubernetes.io/part-of": "perses-operator"
+    }
+  },
+  "spec": {
+    "config": {
+      "display": {
+        "name": "Kubernetes / Networking / Namespace (Workloads)"
+      },
+      "variables": [
+        {
+          "kind": "ListVariable",
+          "spec": {
+            "display": {
+              "name": "cluster",
+              "hidden": false
+            },
+            "allowAllValue": false,
+            "allowMultiple": false,
+            "plugin": {
+              "kind": "PrometheusLabelValuesVariable",
+              "spec": {
+                "datasource": {
+                  "kind": "PrometheusDatasource",
+                  "name": "prometheus-datasource"
+                },
+                "labelName": "cluster",
+                "matchers": [
+                  "up{job=\"kubelet\"}"
+                ]
+              }
+            },
+            "name": "cluster"
+          }
+        },
+        {
+          "kind": "ListVariable",
+          "spec": {
+            "display": {
+              "name": "namespace",
+              "hidden": false
+            },
+            "allowAllValue": false,
+            "allowMultiple": false,
+            "plugin": {
+              "kind": "PrometheusLabelValuesVariable",
+              "spec": {
+                "datasource": {
+                  "kind": "PrometheusDatasource",
+                  "name": "prometheus-datasource"
+                },
+                "labelName": "namespace",
+                "matchers": [
+                  "container_network_receive_packets_total{cluster=\"$cluster\"}"
+                ]
+              }
+            },
+            "name": "namespace"
+          }
+        },
+        {
+          "kind": "ListVariable",
+          "spec": {
+            "display": {
+              "name": "workload_type",
+              "hidden": false
+            },
+            "allowAllValue": false,
+            "allowMultiple": false,
+            "plugin": {
+              "kind": "PrometheusLabelValuesVariable",
+              "spec": {
+                "datasource": {
+                  "kind": "PrometheusDatasource",
+                  "name": "prometheus-datasource"
+                },
+                "labelName": "workload_type",
+                "matchers": [
+                  "namespace_workload_pod:kube_pod_owner:relabel{cluster=\"$cluster\",namespace=\"$namespace\",workload=~\".+\"}"
+                ]
+              }
+            },
+            "name": "type"
+          }
+        }
+      ],
+      "panels": {
+        "0_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Current Rate of Bytes Received",
+              "description": "Shows the rate of bytes received by top workload in a namespace in a cluster."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.75,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "bytes/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sort_desc(\n  sum by (workload) (\n        rate(\n          container_network_receive_bytes_total{cluster=\"$cluster\",namespace=\"$namespace\"}[$__rate_interval]\n        )\n      * on (cluster, namespace, pod) group_left ()\n        topk by (cluster, namespace, pod) (\n          1,\n          max by (cluster, namespace, pod) (kube_pod_info{host_network=\"false\"})\n        )\n    * on (cluster, namespace, pod) group_left (workload, workload_type)\n      namespace_workload_pod:kube_pod_owner:relabel{cluster=\"$cluster\",namespace=\"$namespace\",workload=~\".+\",workload_type=~\"$type\"}\n  )\n)",
+                      "seriesNameFormat": "{{workload}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "0_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Current Rate of Bytes Transmitted",
+              "description": "Shows the rate of bytes transmitted by top workload in a namespace in a cluster."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.75,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "bytes/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sort_desc(\n  sum by (workload) (\n        rate(\n          container_network_transmit_bytes_total{cluster=\"$cluster\",namespace=\"$namespace\"}[$__rate_interval]\n        )\n      * on (cluster, namespace, pod) group_left ()\n        topk by (cluster, namespace, pod) (\n          1,\n          max by (cluster, namespace, pod) (kube_pod_info{host_network=\"false\"})\n        )\n    * on (cluster, namespace, pod) group_left (workload, workload_type)\n      namespace_workload_pod:kube_pod_owner:relabel{cluster=\"$cluster\",namespace=\"$namespace\",workload=~\".+\",workload_type=~\"$type\"}\n  )\n)",
+                      "seriesNameFormat": "{{workload}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "1_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Current Network Status",
+              "description": "Shows the current network status of the namespace by workloads."
+            },
+            "plugin": {
+              "kind": "Table",
+              "spec": {
+                "columnSettings": [
+                  {
+                    "align": "left",
+                    "header": "Workload",
+                    "name": "workload"
+                  },
+                  {
+                    "align": "left",
+                    "header": "Type",
+                    "name": "workload_type"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "bytes/sec"
+                    },
+                    "header": "Rx Bytes",
+                    "name": "value #1"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "bytes/sec"
+                    },
+                    "header": "Tx Bytes",
+                    "name": "value #2"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "bytes/sec"
+                    },
+                    "header": "Rx Bytes (Avg)",
+                    "name": "value #3"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "bytes/sec"
+                    },
+                    "header": "Tx Bytes (Avg)",
+                    "name": "value #4"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "packets/sec"
+                    },
+                    "header": "Rx Packets",
+                    "name": "value #5"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "packets/sec"
+                    },
+                    "header": "Tx Packets",
+                    "name": "value #6"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "packets/sec"
+                    },
+                    "header": "Rx Packets Dropped",
+                    "name": "value #7"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "packets/sec"
+                    },
+                    "header": "Tx Packets Dropped",
+                    "name": "value #8"
+                  },
+                  {
+                    "hide": true,
+                    "name": "timestamp"
+                  }
+                ],
+                "transforms": [
+                  {
+                    "kind": "MergeSeries",
+                    "spec": {}
+                  }
+                ]
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sort_desc(\n  sum by (workload, workload_type) (\n        rate(\n          container_network_receive_bytes_total{cluster=\"$cluster\",namespace=\"$namespace\"}[$__rate_interval]\n        )\n      * on (namespace, pod)\n        kube_pod_info{cluster=\"$cluster\",host_network=\"false\",namespace=\"$namespace\"}\n    * on (namespace, pod) group_left (workload, workload_type)\n      namespace_workload_pod:kube_pod_owner:relabel{cluster=\"$cluster\",namespace=\"$namespace\",workload=~\".+\",workload_type=~\"$type\"}\n  )\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sort_desc(\n  sum by (workload, workload_type) (\n        rate(\n          container_network_transmit_bytes_total{cluster=\"$cluster\",namespace=\"$namespace\"}[$__rate_interval]\n        )\n      * on (namespace, pod)\n        kube_pod_info{cluster=\"$cluster\",host_network=\"false\",namespace=\"$namespace\"}\n    * on (namespace, pod) group_left (workload, workload_type)\n      namespace_workload_pod:kube_pod_owner:relabel{cluster=\"$cluster\",namespace=\"$namespace\",workload=~\".+\",workload_type=~\"$type\"}\n  )\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sort_desc(\n  avg by (workload, workload_type) (\n        rate(\n          container_network_receive_bytes_total{cluster=\"$cluster\",namespace=\"$namespace\"}[$__rate_interval]\n        )\n      * on (namespace, pod)\n        kube_pod_info{cluster=\"$cluster\",host_network=\"false\",namespace=\"$namespace\"}\n    * on (namespace, pod) group_left (workload, workload_type)\n      namespace_workload_pod:kube_pod_owner:relabel{cluster=\"$cluster\",namespace=\"$namespace\",workload=~\".+\",workload_type=~\"$type\"}\n  )\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sort_desc(\n  avg by (workload, workload_type) (\n        rate(\n          container_network_transmit_bytes_total{cluster=\"$cluster\",namespace=\"$namespace\"}[$__rate_interval]\n        )\n      * on (namespace, pod)\n        kube_pod_info{cluster=\"$cluster\",host_network=\"false\",namespace=\"$namespace\"}\n    * on (namespace, pod) group_left (workload, workload_type)\n      namespace_workload_pod:kube_pod_owner:relabel{cluster=\"$cluster\",namespace=\"$namespace\",workload=~\".+\",workload_type=~\"$type\"}\n  )\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sort_desc(\n  sum by (workload, workload_type) (\n        rate(\n          container_network_receive_packets_total{cluster=\"$cluster\",namespace=\"$namespace\"}[$__rate_interval]\n        )\n      * on (namespace, pod)\n        kube_pod_info{cluster=\"$cluster\",host_network=\"false\",namespace=\"$namespace\"}\n    * on (namespace, pod) group_left (workload, workload_type)\n      namespace_workload_pod:kube_pod_owner:relabel{cluster=\"$cluster\",namespace=\"$namespace\",workload=~\".+\",workload_type=~\"$type\"}\n  )\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sort_desc(\n  sum by (workload, workload_type) (\n        rate(\n          container_network_transmit_packets_total{cluster=\"$cluster\",namespace=\"$namespace\"}[$__rate_interval]\n        )\n      * on (namespace, pod)\n        kube_pod_info{cluster=\"$cluster\",host_network=\"false\",namespace=\"$namespace\"}\n    * on (namespace, pod) group_left (workload, workload_type)\n      namespace_workload_pod:kube_pod_owner:relabel{cluster=\"$cluster\",namespace=\"$namespace\",workload=~\".+\",workload_type=~\"$type\"}\n  )\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sort_desc(\n  sum by (workload, workload_type) (\n        rate(\n          container_network_receive_packets_dropped_total{cluster=\"$cluster\",namespace=\"$namespace\"}[$__rate_interval]\n        )\n      * on (namespace, pod)\n        kube_pod_info{cluster=\"$cluster\",host_network=\"false\",namespace=\"$namespace\"}\n    * on (namespace, pod) group_left (workload, workload_type)\n      namespace_workload_pod:kube_pod_owner:relabel{cluster=\"$cluster\",namespace=\"$namespace\",workload=~\".+\",workload_type=~\"$type\"}\n  )\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sort_desc(\n  sum by (workload, workload_type) (\n        rate(\n          container_network_transmit_packets_dropped_total{cluster=\"$cluster\",namespace=\"$namespace\"}[$__rate_interval]\n        )\n      * on (namespace, pod)\n        kube_pod_info{cluster=\"$cluster\",host_network=\"false\",namespace=\"$namespace\"}\n    * on (namespace, pod) group_left (workload, workload_type)\n      namespace_workload_pod:kube_pod_owner:relabel{cluster=\"$cluster\",namespace=\"$namespace\",workload=~\".+\",workload_type=~\"$type\"}\n  )\n)"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "2_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Receive Bandwidth",
+              "description": "Shows the network receive bandwidth of the namespace by workload highlighting top pods."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.75,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "bytes/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sort_desc(\n  sum by (workload) (\n        rate(\n          container_network_receive_bytes_total{cluster=\"$cluster\",namespace=\"$namespace\"}[$__rate_interval]\n        )\n      * on (cluster, namespace, pod) group_left ()\n        topk by (cluster, namespace, pod) (\n          1,\n          max by (cluster, namespace, pod) (kube_pod_info{host_network=\"false\"})\n        )\n    * on (cluster, namespace, pod) group_left (workload, workload_type)\n      namespace_workload_pod:kube_pod_owner:relabel{cluster=\"$cluster\",namespace=\"$namespace\",workload=~\".+\",workload_type=~\"$type\"}\n  )\n)",
+                      "seriesNameFormat": "{{workload}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "2_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Transmit Bandwidth",
+              "description": "Shows the network transmit bandwidth of the namespace by workload highlighting top pods."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.75,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "bytes/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sort_desc(\n  sum by (workload) (\n        rate(\n          container_network_transmit_bytes_total{cluster=\"$cluster\",namespace=\"$namespace\"}[$__rate_interval]\n        )\n      * on (cluster, namespace, pod) group_left ()\n        topk by (cluster, namespace, pod) (\n          1,\n          max by (cluster, namespace, pod) (kube_pod_info{host_network=\"false\"})\n        )\n    * on (cluster, namespace, pod) group_left (workload, workload_type)\n      namespace_workload_pod:kube_pod_owner:relabel{cluster=\"$cluster\",namespace=\"$namespace\",workload=~\".+\",workload_type=~\"$type\"}\n  )\n)",
+                      "seriesNameFormat": "{{workload}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "3_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Average Container Bandwidth by Workload: Received",
+              "description": "Shows the average network bandwidth received in container by workload highlighting top pods."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.75,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "bytes/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sort_desc(\n  avg by (workload) (\n        rate(\n          container_network_receive_bytes_total{cluster=\"$cluster\",namespace=\"$namespace\"}[$__rate_interval]\n        )\n      * on (cluster, namespace, pod) group_left ()\n        topk by (cluster, namespace, pod) (\n          1,\n          max by (cluster, namespace, pod) (kube_pod_info{host_network=\"false\"})\n        )\n    * on (cluster, namespace, pod) group_left (workload, workload_type)\n      namespace_workload_pod:kube_pod_owner:relabel{cluster=\"$cluster\",namespace=\"$namespace\",workload=~\".+\",workload_type=~\"$type\"}\n  )\n)",
+                      "seriesNameFormat": "{{workload}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "3_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Average Container Bandwidth by Workload: Transmitted",
+              "description": "Shows the average network bandwidth transmitted in container by workload highlighting top pods."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.75,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "bytes/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sort_desc(\n  avg by (workload) (\n        rate(\n          container_network_transmit_bytes_total{cluster=\"$cluster\",namespace=\"$namespace\"}[$__rate_interval]\n        )\n      * on (cluster, namespace, pod) group_left ()\n        topk by (cluster, namespace, pod) (\n          1,\n          max by (cluster, namespace, pod) (kube_pod_info{host_network=\"false\"})\n        )\n    * on (cluster, namespace, pod) group_left (workload, workload_type)\n      namespace_workload_pod:kube_pod_owner:relabel{cluster=\"$cluster\",namespace=\"$namespace\",workload=~\".+\",workload_type=~\"$type\"}\n  )\n)",
+                      "seriesNameFormat": "{{workload}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "4_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Rate of Received Packets",
+              "description": "Shows the rate of received packets by top pods in a workload in a namespace in a cluster."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.75,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "packets/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sort_desc(\n  sum by (workload) (\n        rate(\n          container_network_receive_packets_total{cluster=\"$cluster\",namespace=\"$namespace\"}[$__rate_interval]\n        )\n      * on (cluster, namespace, pod) group_left ()\n        topk by (cluster, namespace, pod) (\n          1,\n          max by (cluster, namespace, pod) (kube_pod_info{host_network=\"false\"})\n        )\n    * on (cluster, namespace, pod) group_left (workload, workload_type)\n      namespace_workload_pod:kube_pod_owner:relabel{cluster=\"$cluster\",namespace=\"$namespace\",workload=~\".+\",workload_type=~\"$type\"}\n  )\n)",
+                      "seriesNameFormat": "{{workload}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "4_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Rate of Transmitted Packets",
+              "description": "Shows the rate of transmitted packets by top pods in a workload in a namespace in a cluster."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.75,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "packets/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sort_desc(\n  sum by (workload) (\n        rate(\n          container_network_transmit_packets_total{cluster=\"$cluster\",namespace=\"$namespace\"}[$__rate_interval]\n        )\n      * on (cluster, namespace, pod) group_left ()\n        topk by (cluster, namespace, pod) (\n          1,\n          max by (cluster, namespace, pod) (kube_pod_info{host_network=\"false\"})\n        )\n    * on (cluster, namespace, pod) group_left (workload, workload_type)\n      namespace_workload_pod:kube_pod_owner:relabel{cluster=\"$cluster\",namespace=\"$namespace\",workload=~\".+\",workload_type=~\"$type\"}\n  )\n)",
+                      "seriesNameFormat": "{{workload}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "5_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Rate of Received Packets Dropped",
+              "description": "Shows the rate of received packets dropped by top pods in a workload in a namespace in a cluster."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.75,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "packets/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sort_desc(\n  sum by (workload) (\n        rate(\n          container_network_receive_packets_dropped_total{cluster=\"$cluster\",namespace=\"$namespace\"}[$__rate_interval]\n        )\n      * on (cluster, namespace, pod) group_left ()\n        topk by (cluster, namespace, pod) (\n          1,\n          max by (cluster, namespace, pod) (kube_pod_info{host_network=\"false\"})\n        )\n    * on (cluster, namespace, pod) group_left (workload, workload_type)\n      namespace_workload_pod:kube_pod_owner:relabel{cluster=\"$cluster\",namespace=\"$namespace\",workload=~\".+\",workload_type=~\"$type\"}\n  )\n)",
+                      "seriesNameFormat": "{{workload}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "5_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Rate of Transmitted Packets Dropped",
+              "description": "Shows the rate of transmitted packets dropped by top pods in a workload in a namespace in a cluster."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.75,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "packets/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sort_desc(\n  sum by (workload) (\n        rate(\n          container_network_transmit_packets_dropped_total{cluster=\"$cluster\",namespace=\"$namespace\"}[$__rate_interval]\n        )\n      * on (cluster, namespace, pod) group_left ()\n        topk by (cluster, namespace, pod) (\n          1,\n          max by (cluster, namespace, pod) (kube_pod_info{host_network=\"false\"})\n        )\n    * on (cluster, namespace, pod) group_left (workload, workload_type)\n      namespace_workload_pod:kube_pod_owner:relabel{cluster=\"$cluster\",namespace=\"$namespace\",workload=~\".+\",workload_type=~\"$type\"}\n  )\n)",
+                      "seriesNameFormat": "{{workload}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "layouts": [
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Current Rate of Bytes"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/0_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/0_1"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Current Status"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 24,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/1_0"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Bandwidth"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/2_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/2_1"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Average Container Bandwidth"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/3_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/3_1"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Rate of Packets"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/4_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/4_1"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Rate of Packets Dropped"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/5_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/5_1"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "duration": "1h"
+    }
+  },
+  "status": {}
+}

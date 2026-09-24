@@ -1,0 +1,705 @@
+apiVersion: perses.dev/v1alpha2
+kind: PersesDashboard
+metadata:
+  labels:
+    app.kubernetes.io/component: dashboard
+    app.kubernetes.io/instance: blackbox-overview
+    app.kubernetes.io/name: perses-dashboard
+    app.kubernetes.io/part-of: perses-operator
+  name: blackbox-overview
+  namespace: perses-dev
+spec:
+  config:
+    display:
+      name: Blackbox Exporter / Overview
+    duration: 1h
+    layouts:
+    - kind: Grid
+      spec:
+        display:
+          title: Summary
+        items:
+        - content:
+            $ref: '#/spec/panels/0_0'
+          height: 8
+          width: 24
+          x: 0
+          "y": 0
+    - kind: Grid
+      spec:
+        display:
+          title: Probes Stats
+        items:
+        - content:
+            $ref: '#/spec/panels/1_0'
+          height: 8
+          width: 6
+          x: 0
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/1_1'
+          height: 8
+          width: 6
+          x: 6
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/1_2'
+          height: 8
+          width: 6
+          x: 12
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/1_3'
+          height: 8
+          width: 6
+          x: 18
+          "y": 0
+    - kind: Grid
+      spec:
+        display:
+          title: Probes Uptimes Stats
+        items:
+        - content:
+            $ref: '#/spec/panels/2_0'
+          height: 8
+          width: 12
+          x: 0
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/2_1'
+          height: 8
+          width: 12
+          x: 12
+          "y": 0
+    - kind: Grid
+      spec:
+        display:
+          title: Probes
+        items:
+        - content:
+            $ref: '#/spec/panels/3_0'
+          height: 10
+          width: 12
+          x: 0
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/3_1'
+          height: 10
+          width: 12
+          x: 12
+          "y": 0
+    - kind: Grid
+      spec:
+        display:
+          title: Probes Additional Stats
+        items:
+        - content:
+            $ref: '#/spec/panels/4_0'
+          height: 8
+          width: 4
+          x: 0
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/4_1'
+          height: 8
+          width: 4
+          x: 4
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/4_2'
+          height: 8
+          width: 4
+          x: 8
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/4_3'
+          height: 8
+          width: 4
+          x: 12
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/4_4'
+          height: 8
+          width: 4
+          x: 16
+          "y": 0
+    - kind: Grid
+      spec:
+        display:
+          title: Probes Avg Duration Stats
+        items:
+        - content:
+            $ref: '#/spec/panels/5_0'
+          height: 8
+          width: 12
+          x: 0
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/5_1'
+          height: 8
+          width: 12
+          x: 12
+          "y": 0
+    panels:
+      "0_0":
+        kind: Panel
+        spec:
+          display:
+            description: Shows Probe success, either 1 if up, or 0 if down
+            name: Status Map
+          plugin:
+            kind: StatChart
+            spec:
+              calculation: last
+              format:
+                unit: decimal
+              sparkline:
+                width: 1
+              thresholds:
+                defaultColor: green
+                mode: absolute
+                steps:
+                - color: red
+                  value: 0
+                - color: green
+                  value: 1
+              valueFontSize: 50
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: max by (instance) (probe_success{job=~"$job"})
+                  seriesNameFormat: '{{instance}}'
+      "1_0":
+        kind: Panel
+        spec:
+          display:
+            description: Counts Probes Success
+            name: Probes
+          plugin:
+            kind: StatChart
+            spec:
+              calculation: last
+              format:
+                unit: decimal
+              sparkline:
+                width: 1
+              thresholds:
+                defaultColor: green
+                mode: absolute
+              valueFontSize: 50
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: count(probe_success{job=~"$job"})
+      "1_1":
+        kind: Panel
+        spec:
+          display:
+            description: Percentage of Probes Success
+            name: Probes Success
+          plugin:
+            kind: StatChart
+            spec:
+              calculation: last
+              format:
+                unit: percent-decimal
+              sparkline:
+                width: 1
+              thresholds:
+                defaultColor: red
+                mode: absolute
+                steps:
+                - color: yellow
+                  value: 0.99
+                - color: green
+                  value: 0.999
+              valueFontSize: 50
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: (count(probe_success{job=~"$job"} == 1) or vector(0)) / count(probe_success{job=~"$job"})
+      "1_2":
+        kind: Panel
+        spec:
+          display:
+            description: Proportion of HTTP probes that successfully used SSL
+            name: Probes SSL
+          plugin:
+            kind: StatChart
+            spec:
+              calculation: last
+              format:
+                unit: percent-decimal
+              sparkline:
+                width: 1
+              thresholds:
+                defaultColor: red
+                mode: absolute
+                steps:
+                - color: yellow
+                  value: 0.99
+                - color: green
+                  value: 0.999
+              valueFontSize: 50
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: count(probe_http_ssl{job=~"$job"} == 1) / count(probe_http_version{job=~"$job"})
+      "1_3":
+        kind: Panel
+        spec:
+          display:
+            description: Duration in Seconds
+            name: Probe Average Duration
+          plugin:
+            kind: StatChart
+            spec:
+              calculation: last
+              format:
+                unit: seconds
+              sparkline:
+                width: 1
+              thresholds:
+                defaultColor: green
+                mode: absolute
+              valueFontSize: 50
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: avg(probe_duration_seconds{job=~"$job"})
+      "2_0":
+        kind: Panel
+        spec:
+          display:
+            description: Max uptime by instance
+            name: Uptime
+          plugin:
+            kind: StatChart
+            spec:
+              calculation: last
+              format:
+                unit: percent-decimal
+              sparkline:
+                width: 1
+              thresholds:
+                defaultColor: red
+                mode: absolute
+                steps:
+                - color: yellow
+                  value: 0.99
+                - color: green
+                  value: 0.999
+              valueFontSize: 50
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: max by (instance) (probe_success{instance=~"$instance",job=~"$job"})
+                  seriesNameFormat: '{{instance}}'
+      "2_1":
+        kind: Panel
+        spec:
+          display:
+            description: 30 days uptime
+            name: Uptime 30d
+          plugin:
+            kind: StatChart
+            spec:
+              calculation: last
+              format:
+                unit: percent-decimal
+              sparkline:
+                width: 1
+              thresholds:
+                defaultColor: red
+                mode: absolute
+                steps:
+                - color: yellow
+                  value: 0.99
+                - color: green
+                  value: 0.999
+              valueFontSize: 50
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: avg_over_time(probe_success{instance=~"$instance",job=~"$job"}[30d])
+                  seriesNameFormat: '{{instance}}'
+      "3_0":
+        kind: Panel
+        spec:
+          display:
+            description: Shows Probe duration in seconds
+            name: Probe Duration
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+                size: small
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: seconds
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (instance) (
+                      avg by (phase, instance) (probe_http_duration_seconds{instance=~"$instance",job=~"$job"})
+                    )
+                  seriesNameFormat: HTTP duration
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: avg by (instance) (probe_duration_seconds{instance=~"$instance",job=~"$job"})
+                  seriesNameFormat: Total probe duration
+      "3_1":
+        kind: Panel
+        spec:
+          display:
+            description: Shows Probe duration in seconds
+            name: Probe Phases
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+                size: small
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: seconds
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: avg by (phase) (probe_http_duration_seconds{instance=~"$instance",job=~"$job"})
+                  seriesNameFormat: '{{phase}}'
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: avg by (phase) (probe_icmp_duration_seconds{instance=~"$instance",job=~"$job"})
+                  seriesNameFormat: '{{phase}}'
+      "4_0":
+        kind: Panel
+        spec:
+          display:
+            description: Shows Probe Last Status Code
+            name: Latest Response Code
+          plugin:
+            kind: StatChart
+            spec:
+              calculation: last
+              format:
+                unit: decimal
+              sparkline:
+                width: 1
+              thresholds:
+                defaultColor: green
+                mode: absolute
+                steps:
+                - color: red
+                  value: 500
+                - color: yellow
+                  value: 400
+                - color: blue
+                  value: 300
+              valueFontSize: 50
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: max by (instance) (probe_http_status_code{instance=~"$instance",job=~"$job"})
+                  seriesNameFormat: '{{instance}}'
+      "4_1":
+        kind: Panel
+        spec:
+          display:
+            description: Shows Probe TLS Version
+            name: SSL Version
+          plugin:
+            kind: StatChart
+            spec:
+              calculation: last
+              format:
+                unit: decimal
+              sparkline:
+                width: 1
+              thresholds:
+                defaultColor: green
+                mode: absolute
+              valueFontSize: 50
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: max by (instance, version) (probe_tls_version_info{instance=~"$instance",job=~"$job"})
+                  seriesNameFormat: '{{version}}'
+      "4_2":
+        kind: Panel
+        spec:
+          display:
+            description: Shows When SSL Cert Will Expire
+            name: SSL Certificate Expiry
+          plugin:
+            kind: StatChart
+            spec:
+              calculation: last
+              format:
+                unit: decimal
+              sparkline:
+                width: 1
+              thresholds:
+                defaultColor: green
+                mode: absolute
+              valueFontSize: 50
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: min by (instance) (probe_ssl_earliest_cert_expiry{instance=~"$instance",job=~"$job"}) - time()
+      "4_3":
+        kind: Panel
+        spec:
+          display:
+            description: Shows Probes HTTP Redirects
+            name: Redirects
+          plugin:
+            kind: StatChart
+            spec:
+              calculation: last
+              format:
+                unit: decimal
+              sparkline:
+                width: 1
+              thresholds:
+                defaultColor: blue
+                mode: absolute
+                steps:
+                - color: green
+                  name: "No"
+                  value: 0
+                - color: blue
+                  name: "Yes"
+                  value: 1
+              valueFontSize: 50
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: max by (instance) (probe_http_redirects{instance=~"$instance",job=~"$job"})
+      "4_4":
+        kind: Panel
+        spec:
+          display:
+            description: Shows Probes HTTP Version
+            name: HTTP Version
+          plugin:
+            kind: StatChart
+            spec:
+              calculation: last
+              format:
+                unit: decimal
+              sparkline:
+                width: 1
+              thresholds:
+                defaultColor: blue
+                mode: absolute
+              valueFontSize: 50
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: max by (instance) (probe_http_version{instance=~"$instance",job=~"$job"})
+                  seriesNameFormat: '{{version}}'
+      "5_0":
+        kind: Panel
+        spec:
+          display:
+            description: Average Duration in Seconds by Instance
+            name: Average Latency
+          plugin:
+            kind: StatChart
+            spec:
+              calculation: mean
+              format:
+                unit: seconds
+              sparkline:
+                width: 1
+              thresholds:
+                defaultColor: green
+                mode: absolute
+              valueFontSize: 50
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: avg by (instance) (probe_duration_seconds{instance=~"$instance",job=~"$job"})
+      "5_1":
+        kind: Panel
+        spec:
+          display:
+            description: Average DNS lookup Time per instance
+            name: Average DNS Lookup Time
+          plugin:
+            kind: StatChart
+            spec:
+              calculation: mean
+              format:
+                unit: seconds
+              sparkline:
+                width: 1
+              thresholds:
+                defaultColor: green
+                mode: absolute
+              valueFontSize: 50
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: avg by (instance) (probe_dns_lookup_time_seconds{instance=~"$instance",job=~"$job"})
+    variables:
+    - kind: ListVariable
+      spec:
+        allowAllValue: false
+        allowMultiple: false
+        display:
+          hidden: false
+          name: job
+        name: job
+        plugin:
+          kind: PrometheusLabelValuesVariable
+          spec:
+            datasource:
+              kind: PrometheusDatasource
+              name: custom-datasource
+            labelName: job
+            matchers:
+            - probe_success{}
+    - kind: ListVariable
+      spec:
+        allowAllValue: false
+        allowMultiple: false
+        display:
+          hidden: false
+          name: instance
+        name: instance
+        plugin:
+          kind: PrometheusLabelValuesVariable
+          spec:
+            datasource:
+              kind: PrometheusDatasource
+              name: custom-datasource
+            labelName: instance
+            matchers:
+            - probe_success{job="$job"}
+status: {}

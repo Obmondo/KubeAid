@@ -1,0 +1,1894 @@
+{
+      "annotations": {
+         "list": [ ]
+      },
+      "editable": false,
+      "id": null,
+      "links": [
+         {
+            "includeVars": true,
+            "keepTime": true,
+            "title": "Opensearch logs",
+            "type": "link",
+            "url": "/d/opensearch-logs"
+         },
+         {
+            "includeVars": true,
+            "keepTime": true,
+            "title": "Opensearch node overview",
+            "type": "link",
+            "url": "/d/opensearch-node-overview"
+         },
+         {
+            "includeVars": true,
+            "keepTime": true,
+            "title": "Opensearch search and index overview",
+            "type": "link",
+            "url": "/d/opensearch-search-and-index-overview"
+         }
+      ],
+      "panels": [
+         {
+            "collapsed": false,
+            "gridPos": {
+               "h": 1,
+               "w": 0,
+               "x": 0,
+               "y": 0
+            },
+            "id": 1,
+            "panels": [ ],
+            "title": "Cluster overview",
+            "type": "row"
+         },
+         {
+            "datasource": {
+               "type": "prometheus",
+               "uid": "${prometheus_datasource}"
+            },
+            "description": "The overall health and availability of the OpenSearch cluster.",
+            "fieldConfig": {
+               "defaults": {
+                  "color": {
+                     "fixedColor": "#5794f2",
+                     "mode": "thresholds"
+                  },
+                  "mappings": [
+                     {
+                        "options": {
+                           "0": {
+                              "index": 0,
+                              "text": "Green"
+                           },
+                           "1": {
+                              "index": 1,
+                              "text": "Yellow"
+                           },
+                           "2": {
+                              "index": 2,
+                              "text": "Red"
+                           }
+                        },
+                        "type": "value"
+                     }
+                  ],
+                  "thresholds": {
+                     "mode": "absolute",
+                     "steps": [
+                        {
+                           "color": "green",
+                           "value": null
+                        },
+                        {
+                           "color": "green",
+                           "value": 0
+                        },
+                        {
+                           "color": "yellow",
+                           "value": 1
+                        },
+                        {
+                           "color": "red",
+                           "value": 2
+                        }
+                     ]
+                  }
+               }
+            },
+            "gridPos": {
+               "h": 6,
+               "w": 5,
+               "x": 0,
+               "y": 1
+            },
+            "id": 2,
+            "options": {
+               "graphMode": "none",
+               "reduceOptions": {
+                  "calcs": [
+                     "lastNotNull"
+                  ]
+               }
+            },
+            "pluginVersion": "v11.4.0",
+            "targets": [
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "min by (job,cluster,opensearch_cluster) (\n  opensearch_cluster_status{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\"}\n)",
+                  "format": "time_series",
+                  "instant": false,
+                  "intervalFactor": 2,
+                  "legendFormat": "{{opensearch_cluster}}",
+                  "refId": "Cluster status"
+               }
+            ],
+            "title": "Cluster status",
+            "type": "stat"
+         },
+         {
+            "datasource": {
+               "type": "prometheus",
+               "uid": "${prometheus_datasource}"
+            },
+            "description": "The number of running nodes across the OpenSearch cluster.",
+            "fieldConfig": {
+               "defaults": {
+                  "color": {
+                     "fixedColor": "#5794f2",
+                     "mode": "thresholds"
+                  },
+                  "thresholds": {
+                     "mode": "absolute",
+                     "steps": [
+                        {
+                           "color": "green",
+                           "value": null
+                        },
+                        {
+                           "color": "red",
+                           "value": 0
+                        },
+                        {
+                           "color": "green",
+                           "value": 1
+                        }
+                     ]
+                  }
+               }
+            },
+            "gridPos": {
+               "h": 6,
+               "w": 5,
+               "x": 5,
+               "y": 1
+            },
+            "id": 3,
+            "options": {
+               "graphMode": "none",
+               "reduceOptions": {
+                  "calcs": [
+                     "lastNotNull"
+                  ]
+               }
+            },
+            "pluginVersion": "v11.4.0",
+            "targets": [
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "min by (job,cluster,opensearch_cluster) (\n  opensearch_cluster_nodes_number{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\"}\n)",
+                  "format": "time_series",
+                  "instant": false,
+                  "intervalFactor": 2,
+                  "legendFormat": "{{opensearch_cluster}}",
+                  "refId": "Node count"
+               }
+            ],
+            "title": "Node count",
+            "type": "stat"
+         },
+         {
+            "datasource": {
+               "type": "prometheus",
+               "uid": "${prometheus_datasource}"
+            },
+            "description": "The number of data nodes in the OpenSearch cluster.",
+            "fieldConfig": {
+               "defaults": {
+                  "color": {
+                     "fixedColor": "#5794f2",
+                     "mode": "thresholds"
+                  },
+                  "thresholds": {
+                     "mode": "absolute",
+                     "steps": [
+                        {
+                           "color": "green",
+                           "value": null
+                        },
+                        {
+                           "color": "red",
+                           "value": 0
+                        },
+                        {
+                           "color": "green",
+                           "value": 1
+                        }
+                     ]
+                  }
+               }
+            },
+            "gridPos": {
+               "h": 6,
+               "w": 5,
+               "x": 10,
+               "y": 1
+            },
+            "id": 4,
+            "options": {
+               "graphMode": "none",
+               "reduceOptions": {
+                  "calcs": [
+                     "lastNotNull"
+                  ]
+               }
+            },
+            "pluginVersion": "v11.4.0",
+            "targets": [
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "min by (job,cluster,opensearch_cluster) (\n  opensearch_cluster_datanodes_number{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\"}\n)",
+                  "format": "time_series",
+                  "instant": false,
+                  "intervalFactor": 2,
+                  "legendFormat": "{{opensearch_cluster}}",
+                  "refId": "Data node count"
+               }
+            ],
+            "title": "Data node count",
+            "type": "stat"
+         },
+         {
+            "datasource": {
+               "type": "prometheus",
+               "uid": "${prometheus_datasource}"
+            },
+            "description": "The number of shards in the OpenSearch cluster across all indices.",
+            "fieldConfig": {
+               "defaults": {
+                  "color": {
+                     "fixedColor": "#5794f2",
+                     "mode": "thresholds"
+                  },
+                  "thresholds": {
+                     "mode": "absolute",
+                     "steps": [
+                        {
+                           "color": "green",
+                           "value": null
+                        },
+                        {
+                           "color": "red",
+                           "value": 0
+                        },
+                        {
+                           "color": "green",
+                           "value": 1
+                        }
+                     ]
+                  }
+               }
+            },
+            "gridPos": {
+               "h": 6,
+               "w": 5,
+               "x": 15,
+               "y": 1
+            },
+            "id": 5,
+            "options": {
+               "graphMode": "none",
+               "reduceOptions": {
+                  "calcs": [
+                     "lastNotNull"
+                  ]
+               }
+            },
+            "pluginVersion": "v11.4.0",
+            "targets": [
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "sum(\n  max by (job,cluster,opensearch_cluster,type) (\n  opensearch_cluster_shards_number{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\"}\n)\n)",
+                  "format": "time_series",
+                  "instant": false,
+                  "intervalFactor": 2,
+                  "legendFormat": "{{opensearch_cluster}}",
+                  "refId": "Shard count"
+               }
+            ],
+            "title": "Shard count",
+            "type": "stat"
+         },
+         {
+            "datasource": {
+               "type": "prometheus",
+               "uid": "${prometheus_datasource}"
+            },
+            "description": "Percent of active shards across the OpenSearch cluster.",
+            "fieldConfig": {
+               "defaults": {
+                  "color": {
+                     "fixedColor": "#5794f2",
+                     "mode": "thresholds"
+                  },
+                  "thresholds": {
+                     "mode": "absolute",
+                     "steps": [
+                        {
+                           "color": "green",
+                           "value": null
+                        },
+                        {
+                           "color": "red",
+                           "value": 0
+                        },
+                        {
+                           "color": "yellow",
+                           "value": 1
+                        },
+                        {
+                           "color": "green",
+                           "value": 100
+                        }
+                     ]
+                  },
+                  "unit": "percent"
+               }
+            },
+            "gridPos": {
+               "h": 6,
+               "w": 4,
+               "x": 20,
+               "y": 1
+            },
+            "id": 6,
+            "options": {
+               "graphMode": "none",
+               "reduceOptions": {
+                  "calcs": [
+                     "lastNotNull"
+                  ]
+               }
+            },
+            "pluginVersion": "v11.4.0",
+            "targets": [
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "min by (job,cluster,opensearch_cluster) (\n  opensearch_cluster_shards_active_percent{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\"}\n)",
+                  "format": "time_series",
+                  "instant": false,
+                  "intervalFactor": 2,
+                  "legendFormat": "{{opensearch_cluster}}",
+                  "refId": "Active shards %%"
+               }
+            ],
+            "title": "Active shards %",
+            "type": "stat"
+         },
+         {
+            "collapsed": false,
+            "gridPos": {
+               "h": 1,
+               "w": 0,
+               "x": 0,
+               "y": 7
+            },
+            "id": 7,
+            "panels": [ ],
+            "title": "Node roles",
+            "type": "row"
+         },
+         {
+            "datasource": {
+               "type": "datasource",
+               "uid": "-- Mixed --"
+            },
+            "description": "OpenSearch node roles.",
+            "fieldConfig": {
+               "defaults": {
+                  "mappings": [
+                     {
+                        "options": {
+                           "0": {
+                              "color": "super-light-orange",
+                              "index": 5,
+                              "text": "False"
+                           },
+                           "1": {
+                              "color": "light-green",
+                              "index": 3,
+                              "text": "True"
+                           },
+                           "Data": {
+                              "color": "light-purple",
+                              "index": 0,
+                              "text": "data"
+                           },
+                           "Ingest": {
+                              "color": "light-blue",
+                              "index": 2,
+                              "text": "ingest"
+                           },
+                           "Master": {
+                              "color": "light-green",
+                              "index": 1,
+                              "text": "master"
+                           },
+                           "Remote cluster client": {
+                              "color": "light-orange",
+                              "index": 4,
+                              "text": "remote_cluster_client"
+                           }
+                        },
+                        "type": "value"
+                     }
+                  ]
+               },
+               "overrides": [
+                  {
+                     "matcher": {
+                        "id": "byRegexp",
+                        "options": "/Data|Master|Ingest|Remote.+|Cluster.+/"
+                     },
+                     "properties": [
+                        {
+                           "id": "custom.cellOptions",
+                           "value": {
+                              "type": "color-text"
+                           }
+                        }
+                     ]
+                  }
+               ]
+            },
+            "gridPos": {
+               "h": 8,
+               "w": 24,
+               "x": 0,
+               "y": 8
+            },
+            "id": 8,
+            "pluginVersion": "v11.4.0",
+            "targets": [
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "max by (job,cluster,opensearch_cluster,node,nodeid,role,primary_ip) (\n  last_over_time(opensearch_node_role_bool{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\"}[1d])\n)",
+                  "format": "time_series",
+                  "instant": true,
+                  "legendFormat": "{{opensearch_cluster}}: Node role bool last seen ({{node}} {{nodeid}} {{primary_ip}} {{role}})",
+                  "refId": "Node role bool last seen"
+               }
+            ],
+            "title": "Roles",
+            "transformations": [
+               {
+                  "id": "labelsToFields",
+                  "options": {
+                     "mode": "columns",
+                     "valueLabel": "role"
+                  }
+               },
+               {
+                  "id": "merge",
+                  "options": { }
+               },
+               {
+                  "id": "organize",
+                  "options": {
+                     "excludeByName": {
+                        "Time": true
+                     },
+                     "indexByName": {
+                        "Time": 0,
+                        "cluster": 3,
+                        "cluster_manager": 108,
+                        "data": 105,
+                        "ingest": 106,
+                        "instance": 3,
+                        "job": 3,
+                        "master": 104,
+                        "node": 3,
+                        "nodeid": 3,
+                        "opensearch_cluster": 3,
+                        "remote_cluster_client": 107
+                     },
+                     "renameByName": {
+                        "Time": "",
+                        "cluster": "Cluster",
+                        "cluster_manager": "Cluster manager",
+                        "data": "Data",
+                        "ingest": "Ingest",
+                        "master": "Master",
+                        "node": "Node",
+                        "nodeid": "Nodeid",
+                        "remote_cluster_client": "Remote cluster client"
+                     }
+                  }
+               }
+            ],
+            "type": "table"
+         },
+         {
+            "datasource": {
+               "type": "prometheus",
+               "uid": "${prometheus_datasource}"
+            },
+            "description": "OpenSearch node roles over time.",
+            "fieldConfig": {
+               "defaults": {
+                  "color": {
+                     "fixedColor": "#5794f2",
+                     "mode": "palette-classic"
+                  },
+                  "mappings": [
+                     {
+                        "options": {
+                           "2": {
+                              "color": "light-purple",
+                              "index": 0,
+                              "text": "data"
+                           },
+                           "3": {
+                              "color": "light-green",
+                              "index": 1,
+                              "text": "master"
+                           },
+                           "4": {
+                              "color": "light-blue",
+                              "index": 2,
+                              "text": "ingest"
+                           },
+                           "5": {
+                              "color": "light-yellow",
+                              "index": 3,
+                              "text": "cluster_manager"
+                           },
+                           "6": {
+                              "color": "super-light-red",
+                              "index": 4,
+                              "text": "remote_cluster_client"
+                           }
+                        },
+                        "type": "value"
+                     }
+                  ],
+                  "thresholds": {
+                     "mode": "absolute",
+                     "steps": [ ]
+                  }
+               }
+            },
+            "gridPos": {
+               "h": 8,
+               "w": 24,
+               "x": 0,
+               "y": 16
+            },
+            "id": 9,
+            "maxDataPoints": 100,
+            "options": {
+               "legend": false,
+               "showValue": "never"
+            },
+            "pluginVersion": "v11.4.0",
+            "targets": [
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "\n  max by (job,cluster,opensearch_cluster,node,role) (\n  max_over_time(opensearch_node_role_bool{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\", role=\"data\"}[1m]) == 1\n)\n * 2",
+                  "format": "time_series",
+                  "instant": false,
+                  "legendFormat": "{{ node }} / data",
+                  "refId": "Node role: data"
+               },
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "\n  max by (job,cluster,opensearch_cluster,node,role) (\n  max_over_time(opensearch_node_role_bool{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\", role=\"master\"}[1m]) == 1\n)\n * 3",
+                  "format": "time_series",
+                  "instant": false,
+                  "legendFormat": "{{ node }} / master",
+                  "refId": "Node role: master"
+               },
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "\n  max by (job,cluster,opensearch_cluster,node,role) (\n  max_over_time(opensearch_node_role_bool{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\", role=\"ingest\"}[1m]) == 1\n)\n * 4",
+                  "format": "time_series",
+                  "instant": false,
+                  "legendFormat": "{{ node }} / ingest",
+                  "refId": "Node role: ingest"
+               },
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "\n  max by (job,cluster,opensearch_cluster,node,role) (\n  max_over_time(opensearch_node_role_bool{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\", role=\"cluster_manager\"}[1m]) == 1\n)\n * 5",
+                  "format": "time_series",
+                  "instant": false,
+                  "legendFormat": "{{ node }} / cluster_manager",
+                  "refId": "Node role: cluster_manager"
+               },
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "\n  max by (job,cluster,opensearch_cluster,node,role) (\n  max_over_time(opensearch_node_role_bool{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\", role=\"remote_cluster_client\"}[1m]) == 1\n)\n * 6",
+                  "format": "time_series",
+                  "instant": false,
+                  "legendFormat": "{{ node }} / remote_client",
+                  "refId": "Node role: remote_cluster_client"
+               }
+            ],
+            "title": "Roles timeline",
+            "type": "status-history"
+         },
+         {
+            "collapsed": false,
+            "gridPos": {
+               "h": 1,
+               "w": 0,
+               "x": 0,
+               "y": 24
+            },
+            "id": 10,
+            "panels": [ ],
+            "title": "Resource usage",
+            "type": "row"
+         },
+         {
+            "datasource": {
+               "type": "datasource",
+               "uid": "-- Mixed --"
+            },
+            "description": "Top nodes by OS CPU usage across the OpenSearch cluster.",
+            "fieldConfig": {
+               "defaults": {
+                  "color": {
+                     "mode": "thresholds"
+                  },
+                  "max": 100,
+                  "min": 0,
+                  "thresholds": {
+                     "steps": [
+                        {
+                           "color": "green",
+                           "value": null
+                        },
+                        {
+                           "color": "red",
+                           "value": 80
+                        }
+                     ]
+                  },
+                  "unit": "percent"
+               }
+            },
+            "gridPos": {
+               "h": 8,
+               "w": 8,
+               "x": 0,
+               "y": 25
+            },
+            "id": 11,
+            "options": {
+               "orientation": "horizontal",
+               "reduceOptions": {
+                  "calcs": [
+                     "lastNotNull"
+                  ]
+               }
+            },
+            "pluginVersion": "v11.4.0",
+            "targets": [
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "topk($k, sort_desc(\n  sum by (job,cluster,opensearch_cluster) (\n  opensearch_os_cpu_percent{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\"}\n)\n))",
+                  "format": "time_series",
+                  "instant": false,
+                  "intervalFactor": 2,
+                  "legendFormat": "{{node}}",
+                  "refId": "Top nodes by CPU usage"
+               }
+            ],
+            "title": "Top nodes by CPU usage",
+            "type": "bargauge"
+         },
+         {
+            "datasource": {
+               "type": "datasource",
+               "uid": "-- Mixed --"
+            },
+            "description": "The total count of circuit breakers tripped across the OpenSearch cluster.",
+            "fieldConfig": {
+               "defaults": {
+                  "color": {
+                     "mode": "thresholds"
+                  },
+                  "thresholds": {
+                     "steps": [
+                        {
+                           "color": "green",
+                           "value": null
+                        },
+                        {
+                           "color": "red",
+                           "value": 80
+                        }
+                     ]
+                  },
+                  "unit": "trips"
+               }
+            },
+            "gridPos": {
+               "h": 8,
+               "w": 8,
+               "x": 8,
+               "y": 25
+            },
+            "id": 12,
+            "options": {
+               "orientation": "horizontal",
+               "reduceOptions": {
+                  "calcs": [
+                     "lastNotNull"
+                  ]
+               }
+            },
+            "pluginVersion": "v11.4.0",
+            "targets": [
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "sum by (job,cluster,opensearch_cluster) (\n  increase(opensearch_circuitbreaker_tripped_count{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\"}[$__interval:] offset -$__interval)\n)",
+                  "format": "time_series",
+                  "instant": false,
+                  "interval": "2m",
+                  "intervalFactor": 2,
+                  "legendFormat": "{{node}}",
+                  "refId": "Breakers tripped"
+               }
+            ],
+            "title": "Breakers tripped",
+            "type": "bargauge"
+         },
+         {
+            "datasource": {
+               "type": "datasource",
+               "uid": "-- Mixed --"
+            },
+            "description": "Shard status counts across the OpenSearch cluster.",
+            "fieldConfig": {
+               "defaults": {
+                  "color": {
+                     "mode": "thresholds"
+                  },
+                  "thresholds": {
+                     "steps": [
+                        {
+                           "color": "green",
+                           "value": null
+                        },
+                        {
+                           "color": "red",
+                           "value": 80
+                        }
+                     ]
+                  },
+                  "unit": "shards"
+               }
+            },
+            "gridPos": {
+               "h": 8,
+               "w": 8,
+               "x": 16,
+               "y": 25
+            },
+            "id": 13,
+            "options": {
+               "orientation": "horizontal",
+               "reduceOptions": {
+                  "calcs": [
+                     "lastNotNull"
+                  ]
+               }
+            },
+            "pluginVersion": "v11.4.0",
+            "targets": [
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "min by (job,cluster,opensearch_cluster,type) (\n  opensearch_cluster_shards_number{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\"}\n)",
+                  "format": "time_series",
+                  "instant": false,
+                  "intervalFactor": 2,
+                  "legendFormat": "{{type}}",
+                  "refId": "Shard status"
+               }
+            ],
+            "title": "Shard status",
+            "type": "bargauge"
+         },
+         {
+            "collapsed": false,
+            "gridPos": {
+               "h": 1,
+               "w": 0,
+               "x": 0,
+               "y": 33
+            },
+            "id": 14,
+            "panels": [ ],
+            "title": "Storage and tasks",
+            "type": "row"
+         },
+         {
+            "datasource": {
+               "type": "datasource",
+               "uid": "-- Mixed --"
+            },
+            "description": "Top nodes by disk usage across the OpenSearch cluster.",
+            "fieldConfig": {
+               "defaults": {
+                  "color": {
+                     "mode": "thresholds"
+                  },
+                  "max": 100,
+                  "min": 0,
+                  "thresholds": {
+                     "steps": [
+                        {
+                           "color": "green",
+                           "value": null
+                        },
+                        {
+                           "color": "red",
+                           "value": 80
+                        }
+                     ]
+                  },
+                  "unit": "percent"
+               }
+            },
+            "gridPos": {
+               "h": 8,
+               "w": 8,
+               "x": 0,
+               "y": 34
+            },
+            "id": 15,
+            "options": {
+               "orientation": "horizontal",
+               "reduceOptions": {
+                  "calcs": [
+                     "lastNotNull"
+                  ]
+               }
+            },
+            "pluginVersion": "v11.4.0",
+            "targets": [
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "topk($k, sort_desc((100 * (\n  sum by(job,cluster,opensearch_cluster,instance) (opensearch_fs_path_total_bytes{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\"}) - \n  sum by(job,cluster,opensearch_cluster,instance) (opensearch_fs_path_free_bytes{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\"})\n) / \nsum by(job,cluster,opensearch_cluster,instance) (opensearch_fs_path_total_bytes{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\"})\n)))",
+                  "format": "time_series",
+                  "instant": false,
+                  "intervalFactor": 2,
+                  "legendFormat": "{{node}}",
+                  "refId": "Top nodes by disk usage"
+               }
+            ],
+            "title": "Top nodes by disk usage",
+            "type": "bargauge"
+         },
+         {
+            "datasource": {
+               "type": "prometheus",
+               "uid": "${prometheus_datasource}"
+            },
+            "description": "The total count of documents indexed across the OpenSearch cluster.",
+            "fieldConfig": {
+               "defaults": {
+                  "color": {
+                     "fixedColor": "#5794f2",
+                     "mode": "palette-classic"
+                  },
+                  "custom": {
+                     "fillOpacity": 30,
+                     "gradientMode": "opacity",
+                     "lineInterpolation": "smooth",
+                     "lineWidth": 2,
+                     "showPoints": "never"
+                  },
+                  "thresholds": {
+                     "mode": "absolute",
+                     "steps": [ ]
+                  },
+                  "unit": "documents"
+               }
+            },
+            "gridPos": {
+               "h": 8,
+               "w": 16,
+               "x": 8,
+               "y": 34
+            },
+            "id": 16,
+            "options": {
+               "legend": {
+                  "calcs": [ ],
+                  "displayMode": "list"
+               },
+               "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+               }
+            },
+            "pluginVersion": "v11.4.0",
+            "targets": [
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "avg by (job,cluster,opensearch_cluster) (\n  opensearch_indices_indexing_index_count{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\"}\n)",
+                  "format": "time_series",
+                  "instant": false,
+                  "intervalFactor": 2,
+                  "legendFormat": "{{opensearch_cluster}}",
+                  "refId": "Total documents"
+               }
+            ],
+            "title": "Total documents",
+            "type": "timeseries"
+         },
+         {
+            "datasource": {
+               "type": "prometheus",
+               "uid": "${prometheus_datasource}"
+            },
+            "description": "The number of tasks waiting to be executed across the OpenSearch cluster.",
+            "fieldConfig": {
+               "defaults": {
+                  "color": {
+                     "fixedColor": "#5794f2",
+                     "mode": "palette-classic"
+                  },
+                  "custom": {
+                     "fillOpacity": 30,
+                     "gradientMode": "opacity",
+                     "lineInterpolation": "smooth",
+                     "lineWidth": 2,
+                     "showPoints": "never"
+                  },
+                  "thresholds": {
+                     "mode": "absolute",
+                     "steps": [ ]
+                  },
+                  "unit": "tasks"
+               }
+            },
+            "gridPos": {
+               "h": 8,
+               "w": 8,
+               "x": 0,
+               "y": 42
+            },
+            "id": 17,
+            "options": {
+               "legend": {
+                  "calcs": [ ],
+                  "displayMode": "list"
+               },
+               "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+               }
+            },
+            "pluginVersion": "v11.4.0",
+            "targets": [
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "avg by (job,cluster,opensearch_cluster) (\n  opensearch_cluster_pending_tasks_number{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\"}\n)",
+                  "format": "time_series",
+                  "instant": false,
+                  "intervalFactor": 2,
+                  "legendFormat": "{{opensearch_cluster}}",
+                  "refId": "Pending tasks"
+               }
+            ],
+            "title": "Pending tasks",
+            "type": "timeseries"
+         },
+         {
+            "datasource": {
+               "type": "prometheus",
+               "uid": "${prometheus_datasource}"
+            },
+            "description": "The total size of the store across the OpenSearch cluster.",
+            "fieldConfig": {
+               "defaults": {
+                  "color": {
+                     "fixedColor": "#5794f2",
+                     "mode": "palette-classic"
+                  },
+                  "custom": {
+                     "fillOpacity": 30,
+                     "gradientMode": "opacity",
+                     "lineInterpolation": "smooth",
+                     "lineWidth": 2,
+                     "showPoints": "never"
+                  },
+                  "thresholds": {
+                     "mode": "absolute",
+                     "steps": [ ]
+                  },
+                  "unit": "bytes"
+               }
+            },
+            "gridPos": {
+               "h": 8,
+               "w": 8,
+               "x": 8,
+               "y": 42
+            },
+            "id": 18,
+            "options": {
+               "legend": {
+                  "calcs": [ ],
+                  "displayMode": "list"
+               },
+               "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+               }
+            },
+            "pluginVersion": "v11.4.0",
+            "targets": [
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "avg by (job,cluster,opensearch_cluster) (\n  opensearch_indices_store_size_bytes{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\"}\n)",
+                  "format": "time_series",
+                  "instant": false,
+                  "intervalFactor": 2,
+                  "legendFormat": "{{opensearch_cluster}}",
+                  "refId": "Store size"
+               }
+            ],
+            "title": "Store size",
+            "type": "timeseries"
+         },
+         {
+            "datasource": {
+               "type": "prometheus",
+               "uid": "${prometheus_datasource}"
+            },
+            "description": "The max wait time for tasks to be executed across the OpenSearch cluster.",
+            "fieldConfig": {
+               "defaults": {
+                  "color": {
+                     "fixedColor": "#5794f2",
+                     "mode": "palette-classic"
+                  },
+                  "custom": {
+                     "fillOpacity": 30,
+                     "gradientMode": "opacity",
+                     "lineInterpolation": "smooth",
+                     "lineWidth": 2,
+                     "showPoints": "never"
+                  },
+                  "thresholds": {
+                     "mode": "absolute",
+                     "steps": [ ]
+                  },
+                  "unit": "s"
+               }
+            },
+            "gridPos": {
+               "h": 8,
+               "w": 8,
+               "x": 16,
+               "y": 42
+            },
+            "id": 19,
+            "options": {
+               "legend": {
+                  "calcs": [ ],
+                  "displayMode": "list"
+               },
+               "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+               }
+            },
+            "pluginVersion": "v11.4.0",
+            "targets": [
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "max by (job,cluster,opensearch_cluster) (\n  opensearch_cluster_task_max_waiting_time_seconds{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\"}\n)",
+                  "format": "time_series",
+                  "instant": false,
+                  "legendFormat": "{{opensearch_cluster}}",
+                  "refId": "Task max wait time"
+               }
+            ],
+            "title": "Max task wait time",
+            "type": "timeseries"
+         },
+         {
+            "collapsed": false,
+            "gridPos": {
+               "h": 1,
+               "w": 0,
+               "x": 0,
+               "y": 50
+            },
+            "id": 20,
+            "panels": [ ],
+            "title": "Search performance",
+            "type": "row"
+         },
+         {
+            "datasource": {
+               "type": "prometheus",
+               "uid": "${prometheus_datasource}"
+            },
+            "description": "Top indices by combined fetch, query, and scroll request rate across the OpenSearch cluster.",
+            "fieldConfig": {
+               "defaults": {
+                  "color": {
+                     "fixedColor": "#5794f2",
+                     "mode": "palette-classic"
+                  },
+                  "custom": {
+                     "fillOpacity": 30,
+                     "gradientMode": "opacity",
+                     "lineInterpolation": "smooth",
+                     "lineWidth": 2,
+                     "showPoints": "never"
+                  },
+                  "thresholds": {
+                     "mode": "absolute",
+                     "steps": [ ]
+                  },
+                  "unit": "reqps"
+               }
+            },
+            "gridPos": {
+               "h": 8,
+               "w": 8,
+               "x": 0,
+               "y": 51
+            },
+            "id": 21,
+            "options": {
+               "legend": {
+                  "calcs": [ ],
+                  "displayMode": "list"
+               },
+               "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+               }
+            },
+            "pluginVersion": "v11.4.0",
+            "targets": [
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "topk($k, sort_desc(avg by(index, job,cluster,opensearch_cluster) (\n  opensearch_index_search_fetch_current_number{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\", context=\"total\"} + \n  opensearch_index_search_query_current_number{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\", context=\"total\"} + \n  opensearch_index_search_scroll_current_number{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\", context=\"total\"}\n)))",
+                  "format": "time_series",
+                  "instant": false,
+                  "legendFormat": "{{index}}",
+                  "refId": "Top indices by request rate"
+               }
+            ],
+            "title": "Top indices by request rate",
+            "type": "timeseries"
+         },
+         {
+            "datasource": {
+               "type": "prometheus",
+               "uid": "${prometheus_datasource}"
+            },
+            "description": "Top indices by combined fetch, query, and scroll latency across the OpenSearch cluster.",
+            "fieldConfig": {
+               "defaults": {
+                  "color": {
+                     "fixedColor": "#5794f2",
+                     "mode": "palette-classic"
+                  },
+                  "custom": {
+                     "fillOpacity": 30,
+                     "gradientMode": "opacity",
+                     "lineInterpolation": "smooth",
+                     "lineWidth": 2,
+                     "showPoints": "never"
+                  },
+                  "thresholds": {
+                     "mode": "absolute",
+                     "steps": [ ]
+                  },
+                  "unit": "s"
+               }
+            },
+            "gridPos": {
+               "h": 8,
+               "w": 8,
+               "x": 8,
+               "y": 51
+            },
+            "id": 22,
+            "options": {
+               "legend": {
+                  "calcs": [ ],
+                  "displayMode": "list"
+               },
+               "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+               }
+            },
+            "pluginVersion": "v11.4.0",
+            "targets": [
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "topk($k, sort_desc(sum by(index, job,cluster,opensearch_cluster) ((\n  increase(opensearch_index_search_fetch_time_seconds{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\", context=\"total\"}[$__interval:] offset $__interval) + \n  increase(opensearch_index_search_query_time_seconds{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\", context=\"total\"}[$__interval:] offset $__interval) + \n  increase(opensearch_index_search_scroll_time_seconds{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\", context=\"total\"}[$__interval:] offset $__interval)\n) / clamp_min(\n  increase(opensearch_index_search_fetch_count{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\", context=\"total\"}[$__interval:] offset $__interval) + \n  increase(opensearch_index_search_query_count{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\", context=\"total\"}[$__interval:] offset $__interval) + \n  increase(opensearch_index_search_scroll_count{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\", context=\"total\"}[$__interval:] offset $__interval), 1\n))))",
+                  "format": "time_series",
+                  "instant": false,
+                  "interval": "2m",
+                  "legendFormat": "{{index}}",
+                  "refId": "Top indices by request latency"
+               }
+            ],
+            "title": "Top indices by request latency",
+            "type": "timeseries"
+         },
+         {
+            "datasource": {
+               "type": "prometheus",
+               "uid": "${prometheus_datasource}"
+            },
+            "description": "Top indices by cache hit ratio for the combined request and query cache across the OpenSearch cluster.",
+            "fieldConfig": {
+               "defaults": {
+                  "color": {
+                     "fixedColor": "#5794f2",
+                     "mode": "palette-classic"
+                  },
+                  "custom": {
+                     "fillOpacity": 30,
+                     "gradientMode": "opacity",
+                     "lineInterpolation": "smooth",
+                     "lineWidth": 2,
+                     "showPoints": "never"
+                  },
+                  "thresholds": {
+                     "mode": "absolute",
+                     "steps": [ ]
+                  },
+                  "unit": "percent"
+               }
+            },
+            "gridPos": {
+               "h": 8,
+               "w": 8,
+               "x": 16,
+               "y": 51
+            },
+            "id": 23,
+            "options": {
+               "legend": {
+                  "calcs": [ ],
+                  "displayMode": "list"
+               },
+               "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+               }
+            },
+            "pluginVersion": "v11.4.0",
+            "targets": [
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "topk($k, sort_desc(avg by(index, job,cluster,opensearch_cluster) (\n  100 * (opensearch_index_requestcache_hit_count{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\", context=\"total\"} + \n  opensearch_index_querycache_hit_count{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\", context=\"total\"}) / \n  clamp_min((opensearch_index_requestcache_hit_count{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\", context=\"total\"} + \n  opensearch_index_querycache_hit_count{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\", context=\"total\"} + \n  opensearch_index_requestcache_miss_count{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\", context=\"total\"} + \n  opensearch_index_querycache_miss_number{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\", context=\"total\"}), 1\n))))",
+                  "format": "time_series",
+                  "instant": false,
+                  "intervalFactor": 2,
+                  "legendFormat": "{{index}}",
+                  "refId": "Top indices by combined cache hit ratio"
+               }
+            ],
+            "title": "Top indices by combined cache hit ratio",
+            "type": "timeseries"
+         },
+         {
+            "collapsed": false,
+            "gridPos": {
+               "h": 1,
+               "w": 0,
+               "x": 0,
+               "y": 59
+            },
+            "id": 24,
+            "panels": [ ],
+            "title": "Ingest performance",
+            "type": "row"
+         },
+         {
+            "datasource": {
+               "type": "prometheus",
+               "uid": "${prometheus_datasource}"
+            },
+            "description": "Top nodes by rate of ingest across the OpenSearch cluster.",
+            "fieldConfig": {
+               "defaults": {
+                  "color": {
+                     "fixedColor": "#5794f2",
+                     "mode": "palette-classic"
+                  },
+                  "custom": {
+                     "fillOpacity": 30,
+                     "gradientMode": "opacity",
+                     "lineInterpolation": "smooth",
+                     "lineWidth": 2,
+                     "showPoints": "never"
+                  },
+                  "thresholds": {
+                     "mode": "absolute",
+                     "steps": [ ]
+                  },
+                  "unit": "Bps"
+               }
+            },
+            "gridPos": {
+               "h": 8,
+               "w": 8,
+               "x": 0,
+               "y": 60
+            },
+            "id": 25,
+            "options": {
+               "legend": {
+                  "calcs": [ ],
+                  "displayMode": "list"
+               },
+               "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+               }
+            },
+            "pluginVersion": "v11.4.0",
+            "targets": [
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "topk($k, \n  sum by (job,cluster,opensearch_cluster,node) (\n  rate(opensearch_ingest_total_count{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\"}[$__rate_interval])\n)\n)",
+                  "format": "time_series",
+                  "instant": false,
+                  "intervalFactor": 2,
+                  "legendFormat": "{{node}}",
+                  "refId": "Top nodes by ingest rate"
+               }
+            ],
+            "title": "Top nodes by ingest rate",
+            "type": "timeseries"
+         },
+         {
+            "datasource": {
+               "type": "prometheus",
+               "uid": "${prometheus_datasource}"
+            },
+            "description": "Top nodes by ingestion latency across the OpenSearch cluster.",
+            "fieldConfig": {
+               "defaults": {
+                  "color": {
+                     "fixedColor": "#5794f2",
+                     "mode": "palette-classic"
+                  },
+                  "custom": {
+                     "fillOpacity": 30,
+                     "gradientMode": "opacity",
+                     "lineInterpolation": "smooth",
+                     "lineWidth": 2,
+                     "showPoints": "never"
+                  },
+                  "thresholds": {
+                     "mode": "absolute",
+                     "steps": [ ]
+                  },
+                  "unit": "s"
+               }
+            },
+            "gridPos": {
+               "h": 8,
+               "w": 8,
+               "x": 8,
+               "y": 60
+            },
+            "id": 26,
+            "options": {
+               "legend": {
+                  "calcs": [ ],
+                  "displayMode": "list"
+               },
+               "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+               }
+            },
+            "pluginVersion": "v11.4.0",
+            "targets": [
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "topk($k, sum by(job,cluster,opensearch_cluster,instance) (\n  increase(opensearch_ingest_total_time_seconds{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\"}[$__interval:] offset $__interval) / \n  clamp_min(increase(opensearch_ingest_total_count{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\"}[$__interval:] offset $__interval), 1)\n))",
+                  "format": "time_series",
+                  "instant": false,
+                  "interval": "2m",
+                  "intervalFactor": 2,
+                  "legendFormat": "{{node}}",
+                  "refId": "Top nodes by ingest latency"
+               }
+            ],
+            "title": "Top nodes by ingest latency",
+            "type": "timeseries"
+         },
+         {
+            "datasource": {
+               "type": "prometheus",
+               "uid": "${prometheus_datasource}"
+            },
+            "description": "Top nodes by ingestion failures across the OpenSearch cluster.",
+            "fieldConfig": {
+               "defaults": {
+                  "color": {
+                     "fixedColor": "#5794f2",
+                     "mode": "palette-classic"
+                  },
+                  "custom": {
+                     "fillOpacity": 30,
+                     "gradientMode": "opacity",
+                     "lineInterpolation": "smooth",
+                     "lineWidth": 2,
+                     "showPoints": "never"
+                  },
+                  "thresholds": {
+                     "mode": "absolute",
+                     "steps": [ ]
+                  },
+                  "unit": "errors"
+               }
+            },
+            "gridPos": {
+               "h": 8,
+               "w": 8,
+               "x": 16,
+               "y": 60
+            },
+            "id": 27,
+            "options": {
+               "legend": {
+                  "calcs": [ ],
+                  "displayMode": "list"
+               },
+               "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+               }
+            },
+            "pluginVersion": "v11.4.0",
+            "targets": [
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "topk($k, \n  sum by (job,cluster,opensearch_cluster,node) (\n  increase(opensearch_ingest_total_failed_count{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\"}[$__interval:] offset -$__interval)\n)\n)",
+                  "format": "time_series",
+                  "instant": false,
+                  "interval": "2m",
+                  "intervalFactor": 2,
+                  "legendFormat": "{{node}}",
+                  "refId": "Top nodes by ingest errors"
+               }
+            ],
+            "title": "Top nodes by ingest errors",
+            "type": "timeseries"
+         },
+         {
+            "collapsed": false,
+            "gridPos": {
+               "h": 1,
+               "w": 0,
+               "x": 0,
+               "y": 68
+            },
+            "id": 28,
+            "panels": [ ],
+            "title": "Indexing performance",
+            "type": "row"
+         },
+         {
+            "datasource": {
+               "type": "prometheus",
+               "uid": "${prometheus_datasource}"
+            },
+            "description": "Top indices by rate of document indexing across the OpenSearch cluster.",
+            "fieldConfig": {
+               "defaults": {
+                  "color": {
+                     "fixedColor": "#5794f2",
+                     "mode": "palette-classic"
+                  },
+                  "custom": {
+                     "fillOpacity": 30,
+                     "gradientMode": "opacity",
+                     "lineInterpolation": "smooth",
+                     "lineWidth": 2,
+                     "showPoints": "never"
+                  },
+                  "thresholds": {
+                     "mode": "absolute",
+                     "steps": [ ]
+                  },
+                  "unit": "documents/s"
+               }
+            },
+            "gridPos": {
+               "h": 8,
+               "w": 8,
+               "x": 0,
+               "y": 69
+            },
+            "id": 29,
+            "options": {
+               "legend": {
+                  "calcs": [ ],
+                  "displayMode": "list"
+               },
+               "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+               }
+            },
+            "pluginVersion": "v11.4.0",
+            "targets": [
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "topk($k, \n  avg by (job,cluster,opensearch_cluster,index) (\n  opensearch_index_indexing_index_current_number{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\"}\n)\n)",
+                  "format": "time_series",
+                  "instant": false,
+                  "intervalFactor": 2,
+                  "legendFormat": "{{index}}",
+                  "refId": "Top indices by index rate"
+               }
+            ],
+            "title": "Top indices by index rate",
+            "type": "timeseries"
+         },
+         {
+            "datasource": {
+               "type": "prometheus",
+               "uid": "${prometheus_datasource}"
+            },
+            "description": "Top indices by indexing latency across the OpenSearch cluster.",
+            "fieldConfig": {
+               "defaults": {
+                  "color": {
+                     "fixedColor": "#5794f2",
+                     "mode": "palette-classic"
+                  },
+                  "custom": {
+                     "fillOpacity": 30,
+                     "gradientMode": "opacity",
+                     "lineInterpolation": "smooth",
+                     "lineWidth": 2,
+                     "showPoints": "never"
+                  },
+                  "thresholds": {
+                     "mode": "absolute",
+                     "steps": [ ]
+                  },
+                  "unit": "s"
+               }
+            },
+            "gridPos": {
+               "h": 8,
+               "w": 8,
+               "x": 8,
+               "y": 69
+            },
+            "id": 30,
+            "options": {
+               "legend": {
+                  "calcs": [ ],
+                  "displayMode": "list"
+               },
+               "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+               }
+            },
+            "pluginVersion": "v11.4.0",
+            "targets": [
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "topk($k, avg by(index, job,cluster,opensearch_cluster) (\n  increase(opensearch_index_indexing_index_time_seconds{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\", context=\"total\"}[$__interval:] offset $__interval) / \n  clamp_min(increase(opensearch_index_indexing_index_count{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\", context=\"total\"}[$__interval:] offset $__interval), 1)\n))",
+                  "format": "time_series",
+                  "instant": false,
+                  "interval": "2m",
+                  "intervalFactor": 2,
+                  "legendFormat": "{{index}}",
+                  "refId": "Top indices by index latency"
+               }
+            ],
+            "title": "Top indices by index latency",
+            "type": "timeseries"
+         },
+         {
+            "datasource": {
+               "type": "prometheus",
+               "uid": "${prometheus_datasource}"
+            },
+            "description": "Top indices by index document failures across the OpenSearch cluster.",
+            "fieldConfig": {
+               "defaults": {
+                  "color": {
+                     "fixedColor": "#5794f2",
+                     "mode": "palette-classic"
+                  },
+                  "custom": {
+                     "fillOpacity": 30,
+                     "gradientMode": "opacity",
+                     "lineInterpolation": "smooth",
+                     "lineWidth": 2,
+                     "showPoints": "never"
+                  },
+                  "thresholds": {
+                     "mode": "absolute",
+                     "steps": [ ]
+                  },
+                  "unit": "failures"
+               }
+            },
+            "gridPos": {
+               "h": 8,
+               "w": 8,
+               "x": 16,
+               "y": 69
+            },
+            "id": 31,
+            "options": {
+               "legend": {
+                  "calcs": [ ],
+                  "displayMode": "list"
+               },
+               "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+               }
+            },
+            "pluginVersion": "v11.4.0",
+            "targets": [
+               {
+                  "datasource": {
+                     "type": "prometheus",
+                     "uid": "${prometheus_datasource}"
+                  },
+                  "expr": "topk($k, \n  avg by (job,cluster,opensearch_cluster,index) (\n  increase(opensearch_index_indexing_index_failed_count{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\"}[$__interval:] offset -$__interval)\n)\n)",
+                  "format": "time_series",
+                  "instant": false,
+                  "interval": "2m",
+                  "intervalFactor": 2,
+                  "legendFormat": "{{index}}",
+                  "refId": "Top indices by index failures"
+               }
+            ],
+            "title": "Top indices by index failures",
+            "type": "timeseries"
+         }
+      ],
+      "refresh": "30s",
+      "schemaVersion": 39,
+      "tags": [
+         "opensearch-mixin"
+      ],
+      "templating": {
+         "list": [
+            {
+               "label": "Prometheus data source",
+               "name": "prometheus_datasource",
+               "query": "prometheus",
+               "regex": "(?!grafanacloud-usage|grafanacloud-ml-metrics).+",
+               "type": "datasource"
+            },
+            {
+               "allValue": ".+",
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "${prometheus_datasource}"
+               },
+               "includeAll": true,
+               "label": "Job",
+               "multi": true,
+               "name": "job",
+               "query": "label_values(opensearch_os_cpu_percent{}, job)",
+               "refresh": 2,
+               "sort": 1,
+               "type": "query"
+            },
+            {
+               "allValue": ".*",
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "${prometheus_datasource}"
+               },
+               "includeAll": true,
+               "label": "Cluster",
+               "multi": true,
+               "name": "cluster",
+               "query": "label_values(opensearch_os_cpu_percent{job=~\"$job\"}, cluster)",
+               "refresh": 2,
+               "sort": 1,
+               "type": "query"
+            },
+            {
+               "allValue": ".+",
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "${prometheus_datasource}"
+               },
+               "includeAll": true,
+               "label": "Opensearch_cluster",
+               "multi": true,
+               "name": "opensearch_cluster",
+               "query": "label_values(opensearch_os_cpu_percent{job=~\"$job\",cluster=~\"$cluster\"}, opensearch_cluster)",
+               "refresh": 2,
+               "sort": 1,
+               "type": "query"
+            },
+            {
+               "allValue": ".+",
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "${prometheus_datasource}"
+               },
+               "includeAll": true,
+               "label": "Instance",
+               "multi": true,
+               "name": "instance",
+               "query": "label_values(opensearch_os_cpu_percent{job=~\"$job\",cluster=~\"$cluster\",opensearch_cluster=~\"$opensearch_cluster\"}, instance)",
+               "refresh": 2,
+               "sort": 1,
+               "type": "query"
+            },
+            {
+               "hide": 2,
+               "label": "Loki data source",
+               "name": "loki_datasource",
+               "query": "loki",
+               "regex": "(?!grafanacloud.+usage-insights|grafanacloud.+alert-state-history).+",
+               "type": "datasource"
+            },
+            {
+               "current": {
+                  "selected": false,
+                  "text": "10",
+                  "value": "10"
+               },
+               "includeAll": false,
+               "label": "Top K",
+               "multi": false,
+               "name": "k",
+               "options": [
+                  {
+                     "selected": true,
+                     "text": "3",
+                     "value": "3"
+                  },
+                  {
+                     "selected": false,
+                     "text": "5",
+                     "value": "5"
+                  },
+                  {
+                     "selected": false,
+                     "text": "10",
+                     "value": "10"
+                  },
+                  {
+                     "selected": false,
+                     "text": "15",
+                     "value": "15"
+                  },
+                  {
+                     "selected": false,
+                     "text": "25",
+                     "value": "25"
+                  }
+               ],
+               "query": "3 : 3,5 : 5,10 : 10,15 : 15,25 : 25",
+               "type": "custom"
+            }
+         ]
+      },
+      "time": {
+         "from": "now-30m",
+         "to": "now"
+      },
+      "timezone": "default",
+      "title": "OpenSearch cluster overview",
+      "uid": "opensearch-cluster-overview"
+   }

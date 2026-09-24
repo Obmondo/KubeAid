@@ -1,0 +1,337 @@
+# Copyright kubernetes-mixin Authors
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+rule_files:
+- ../prometheus_alerts.yaml
+
+tests:
+- interval: 1m
+  name: KubeAPIDown fires when kube-apiserver target is absent
+  input_series:
+  - series: 'up{job="kube-apiserver", instance="apiserver1"}'
+    values: '1 1 1 1 1 0 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _'
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: KubeAPIDown
+  - eval_time: 25m
+    alertname: KubeAPIDown
+    exp_alerts:
+    - exp_labels:
+        severity: "critical"
+        job: "kube-apiserver"
+      exp_annotations:
+        description: "KubeAPI has disappeared from Prometheus target discovery."
+        summary: "Target disappeared from Prometheus target discovery."
+        runbook_url: "https://github.com/kubernetes-sigs/kubernetes-mixin/tree/master/runbook.md#alert-name-kubeapidown"
+
+- interval: 1m
+  name: KubeletDown fires when kubelet target is absent but nodes exist
+  input_series:
+  # kube_node_info from kube-state-metrics - stays present to indicate nodes exist
+  - series: 'kube_node_info{job="kube-state-metrics", cluster="test-cluster", node="node1"}'
+    values: '1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1'
+  # kubelet up metric - goes absent after 5 minutes
+  - series: 'up{job="kubelet", cluster="test-cluster", instance="node1"}'
+    values: '1 1 1 1 1 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _'
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: KubeletDown
+  - eval_time: 25m
+    alertname: KubeletDown
+    exp_alerts:
+    - exp_labels:
+        severity: "critical"
+        cluster: "test-cluster"
+      exp_annotations:
+        description: "Kubelet has disappeared from Prometheus target discovery."
+        summary: "Target disappeared from Prometheus target discovery."
+        runbook_url: "https://github.com/kubernetes-sigs/kubernetes-mixin/tree/master/runbook.md#alert-name-kubeletdown"
+
+- interval: 1m
+  name: KubeletDown does not fire when kubelet is up
+  input_series:
+  - series: 'kube_node_info{job="kube-state-metrics", cluster="test-cluster", node="node1"}'
+    values: '1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1'
+  - series: 'up{job="kubelet", cluster="test-cluster", instance="node1"}'
+    values: '1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1'
+  alert_rule_test:
+  - eval_time: 25m
+    alertname: KubeletDown
+    exp_alerts: []
+
+- interval: 1m
+  name: KubeletDown does not fire when no nodes exist (no kube_node_info)
+  input_series:
+  # No kube_node_info means no nodes in this cluster - kubelet absence is expected
+  - series: 'up{job="kubelet", cluster="test-cluster", instance="node1"}'
+    values: '1 1 1 1 1 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _'
+  alert_rule_test:
+  - eval_time: 25m
+    alertname: KubeletDown
+    exp_alerts: []
+
+- interval: 1m
+  name: KubeletDown fires without cluster label (single-cluster setup)
+  input_series:
+  # Metrics without cluster label - common in single-cluster setups without external_labels
+  - series: 'kube_node_info{job="kube-state-metrics", node="node1"}'
+    values: '1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1'
+  - series: 'up{job="kubelet", instance="node1"}'
+    values: '1 1 1 1 1 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _'
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: KubeletDown
+  - eval_time: 25m
+    alertname: KubeletDown
+    exp_alerts:
+    - exp_labels:
+        severity: "critical"
+      exp_annotations:
+        description: "Kubelet has disappeared from Prometheus target discovery."
+        summary: "Target disappeared from Prometheus target discovery."
+        runbook_url: "https://github.com/kubernetes-sigs/kubernetes-mixin/tree/master/runbook.md#alert-name-kubeletdown"
+
+- interval: 1m
+  name: KubeletDown does not fire when kubelet is up (single-cluster setup)
+  input_series:
+  # Metrics without cluster label - healthy single-cluster setup
+  - series: 'kube_node_info{job="kube-state-metrics", node="node1"}'
+    values: '1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1'
+  - series: 'up{job="kubelet", instance="node1"}'
+    values: '1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1'
+  alert_rule_test:
+  - eval_time: 25m
+    alertname: KubeletDown
+    exp_alerts: []
+
+- interval: 1m
+  name: KubeletDown does not fire when no nodes exist (single-cluster setup)
+  input_series:
+  # No kube_node_info and no cluster label - kubelet absence is expected
+  - series: 'up{job="kubelet", instance="node1"}'
+    values: '1 1 1 1 1 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _'
+  alert_rule_test:
+  - eval_time: 25m
+    alertname: KubeletDown
+    exp_alerts: []
+
+- interval: 1m
+  name: KubeSchedulerDown fires when kube-scheduler target is absent
+  input_series:
+  - series: 'up{job="kube-scheduler", instance="scheduler1"}'
+    values: '1 1 1 1 1 0 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _'
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: KubeSchedulerDown
+  - eval_time: 25m
+    alertname: KubeSchedulerDown
+    exp_alerts:
+    - exp_labels:
+        severity: "critical"
+        job: "kube-scheduler"
+      exp_annotations:
+        description: "KubeScheduler has disappeared from Prometheus target discovery."
+        summary: "Target disappeared from Prometheus target discovery."
+        runbook_url: "https://github.com/kubernetes-sigs/kubernetes-mixin/tree/master/runbook.md#alert-name-kubeschedulerdown"
+
+- interval: 1m
+  name: KubeControllerManagerDown fires when kube-controller-manager target is absent
+  input_series:
+  - series: 'up{job="kube-controller-manager", instance="controller1"}'
+    values: '1 1 1 1 1 0 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _'
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: KubeControllerManagerDown
+  - eval_time: 25m
+    alertname: KubeControllerManagerDown
+    exp_alerts:
+    - exp_labels:
+        severity: "critical"
+        job: "kube-controller-manager"
+      exp_annotations:
+        description: "KubeControllerManager has disappeared from Prometheus target discovery."
+        summary: "Target disappeared from Prometheus target discovery."
+        runbook_url: "https://github.com/kubernetes-sigs/kubernetes-mixin/tree/master/runbook.md#alert-name-kubecontrollermanagerdown"
+
+- interval: 1m
+  name: KubeProxyDown fires when kube-proxy target is absent
+  input_series:
+  - series: 'up{job="kube-proxy", instance="proxy1"}'
+    values: '1 1 1 1 1 0 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _'
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: KubeProxyDown
+  - eval_time: 25m
+    alertname: KubeProxyDown
+    exp_alerts:
+    - exp_labels:
+        severity: "critical"
+        job: "kube-proxy"
+      exp_annotations:
+        description: "KubeProxy has disappeared from Prometheus target discovery."
+        summary: "Target disappeared from Prometheus target discovery."
+        runbook_url: "https://github.com/kubernetes-sigs/kubernetes-mixin/tree/master/runbook.md#alert-name-kubeproxydown"
+
+# InstanceUnreachable alerts - fire when scrape targets exist in service discovery but are failing (up == 0)
+
+- interval: 1m
+  name: KubeAPIInstanceUnreachable fires when kube-apiserver scrape fails
+  input_series:
+  - series: 'up{job="kube-apiserver", instance="apiserver1"}'
+    values: '1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0'
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: KubeAPIInstanceUnreachable
+  - eval_time: 25m
+    alertname: KubeAPIInstanceUnreachable
+    exp_alerts:
+    - exp_labels:
+        severity: "warning"
+        job: "kube-apiserver"
+        instance: "apiserver1"
+      exp_annotations:
+        description: "A KubeAPI instance has been unreachable for more than 15 minutes."
+        summary: "KubeAPI instance is unreachable."
+        runbook_url: "https://github.com/kubernetes-sigs/kubernetes-mixin/tree/master/runbook.md#alert-name-kubeapiinstanceunreachable"
+
+- interval: 1m
+  name: KubeAPIInstanceUnreachable does not fire when kube-apiserver is up
+  input_series:
+  - series: 'up{job="kube-apiserver", instance="apiserver1"}'
+    values: '1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1'
+  alert_rule_test:
+  - eval_time: 25m
+    alertname: KubeAPIInstanceUnreachable
+    exp_alerts: []
+
+- interval: 1m
+  name: KubeletInstanceUnreachable fires when kubelet scrape fails
+  input_series:
+  - series: 'up{job="kubelet", instance="node1"}'
+    values: '1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0'
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: KubeletInstanceUnreachable
+  - eval_time: 25m
+    alertname: KubeletInstanceUnreachable
+    exp_alerts:
+    - exp_labels:
+        severity: "warning"
+        job: "kubelet"
+        instance: "node1"
+      exp_annotations:
+        description: "A Kubelet instance has been unreachable for more than 15 minutes."
+        summary: "Kubelet instance is unreachable."
+        runbook_url: "https://github.com/kubernetes-sigs/kubernetes-mixin/tree/master/runbook.md#alert-name-kubeletinstanceunreachable"
+
+- interval: 1m
+  name: KubeletInstanceUnreachable does not fire when kubelet is up
+  input_series:
+  - series: 'up{job="kubelet", instance="node1"}'
+    values: '1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1'
+  alert_rule_test:
+  - eval_time: 25m
+    alertname: KubeletInstanceUnreachable
+    exp_alerts: []
+
+- interval: 1m
+  name: KubeSchedulerInstanceUnreachable fires when kube-scheduler scrape fails
+  input_series:
+  - series: 'up{job="kube-scheduler", instance="scheduler1"}'
+    values: '1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0'
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: KubeSchedulerInstanceUnreachable
+  - eval_time: 25m
+    alertname: KubeSchedulerInstanceUnreachable
+    exp_alerts:
+    - exp_labels:
+        severity: "warning"
+        job: "kube-scheduler"
+        instance: "scheduler1"
+      exp_annotations:
+        description: "A KubeScheduler instance has been unreachable for more than 15 minutes."
+        summary: "KubeScheduler instance is unreachable."
+        runbook_url: "https://github.com/kubernetes-sigs/kubernetes-mixin/tree/master/runbook.md#alert-name-kubeschedulerinstanceunreachable"
+
+- interval: 1m
+  name: KubeSchedulerInstanceUnreachable does not fire when kube-scheduler is up
+  input_series:
+  - series: 'up{job="kube-scheduler", instance="scheduler1"}'
+    values: '1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1'
+  alert_rule_test:
+  - eval_time: 25m
+    alertname: KubeSchedulerInstanceUnreachable
+    exp_alerts: []
+
+- interval: 1m
+  name: KubeControllerManagerInstanceUnreachable fires when kube-controller-manager scrape fails
+  input_series:
+  - series: 'up{job="kube-controller-manager", instance="controller1"}'
+    values: '1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0'
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: KubeControllerManagerInstanceUnreachable
+  - eval_time: 25m
+    alertname: KubeControllerManagerInstanceUnreachable
+    exp_alerts:
+    - exp_labels:
+        severity: "warning"
+        job: "kube-controller-manager"
+        instance: "controller1"
+      exp_annotations:
+        description: "A KubeControllerManager instance has been unreachable for more than 15 minutes."
+        summary: "KubeControllerManager instance is unreachable."
+        runbook_url: "https://github.com/kubernetes-sigs/kubernetes-mixin/tree/master/runbook.md#alert-name-kubecontrollermanagerinstanceunreachable"
+
+- interval: 1m
+  name: KubeControllerManagerInstanceUnreachable does not fire when kube-controller-manager is up
+  input_series:
+  - series: 'up{job="kube-controller-manager", instance="controller1"}'
+    values: '1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1'
+  alert_rule_test:
+  - eval_time: 25m
+    alertname: KubeControllerManagerInstanceUnreachable
+    exp_alerts: []
+
+- interval: 1m
+  name: KubeProxyInstanceUnreachable fires when kube-proxy scrape fails
+  input_series:
+  - series: 'up{job="kube-proxy", instance="proxy1"}'
+    values: '1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0'
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: KubeProxyInstanceUnreachable
+  - eval_time: 25m
+    alertname: KubeProxyInstanceUnreachable
+    exp_alerts:
+    - exp_labels:
+        severity: "warning"
+        job: "kube-proxy"
+        instance: "proxy1"
+      exp_annotations:
+        description: "A KubeProxy instance has been unreachable for more than 15 minutes."
+        summary: "KubeProxy instance is unreachable."
+        runbook_url: "https://github.com/kubernetes-sigs/kubernetes-mixin/tree/master/runbook.md#alert-name-kubeproxyinstanceunreachable"
+
+- interval: 1m
+  name: KubeProxyInstanceUnreachable does not fire when kube-proxy is up
+  input_series:
+  - series: 'up{job="kube-proxy", instance="proxy1"}'
+    values: '1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1'
+  alert_rule_test:
+  - eval_time: 25m
+    alertname: KubeProxyInstanceUnreachable
+    exp_alerts: []

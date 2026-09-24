@@ -1,0 +1,1194 @@
+{
+   "__inputs": [ ],
+   "__requires": [ ],
+   "annotations": {
+      "list": [ ]
+   },
+   "description": "A detailed namespace-level cost analysis dashboard that breaks down infrastructure spending by pods, containers, persistent volumes, and GPU usage within a selected namespace. Use this dashboard to understand which workloads are driving costs within a namespace, track monthly cost trends over time, and identify optimization opportunities at the pod and container level. This dashboard is ideal for application teams monitoring their own resource consumption and costs. The dashboards were generated using [opencost-mixin](https://github.com/adinhodovic/opencost-mixin). Open issues and create feature requests in the repository.",
+   "editable": false,
+   "links": [
+      {
+         "asDropdown": true,
+         "includeVars": false,
+         "keepTime": true,
+         "tags": [
+            "opencost",
+            "opencost-mixin"
+         ],
+         "targetBlank": true,
+         "title": "OpenCost",
+         "type": "dashboards"
+      }
+   ],
+   "panels": [
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 0
+         },
+         "id": 1,
+         "title": "Summary",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Current hourly cost rate for the selected namespace, including CPU, RAM, and PV costs. This provides real-time visibility into namespace spending and helps track the immediate impact of workload changes on costs.",
+         "fieldConfig": {
+            "defaults": {
+               "decimals": 2,
+               "mappings": [ ],
+               "thresholds": {
+                  "steps": [
+                     {
+                        "color": "green",
+                        "value": 0
+                     }
+                  ]
+               },
+               "unit": "currencyUSD"
+            },
+            "overrides": [ ]
+         },
+         "gridPos": {
+            "h": 3,
+            "w": 4,
+            "x": 0,
+            "y": 1
+         },
+         "id": 2,
+         "options": {
+            "graphMode": "none",
+            "percentChangeColorMode": "inverted",
+            "showPercentChange": true
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(\n  sum(\n    container_memory_allocation_bytes{\n      cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n    }\n  )\n  by (namespace, instance)\n  * on(instance) group_left()\n  (\n    avg(\n      node_ram_hourly_cost{\n        cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n      }\n    ) by (instance) / (1024 * 1024 * 1024) * 1\n  )\n)\n\n+\nsum(\n  sum(\n    container_cpu_allocation{\n      cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n    }\n  )\n  by (namespace, instance)\n  * on(instance) group_left()\n  (\n    avg(\n      node_cpu_hourly_cost{\n        cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n      }\n    ) by (instance) * 1\n  )\n)\n\n+\nsum(\n  sum(\n    container_gpu_allocation{\n      cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n    }\n  )\n  by (namespace, instance)\n  * on(instance) group_left()\n  (\n    avg(\n      node_gpu_hourly_cost{\n        cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n      }\n    ) by (instance) * 1\n  )\n)\n\n+\nsum(\n  sum(\n    kube_persistentvolume_capacity_bytes{\n      cluster=\"$cluster\",\njob=\"$ksm_job\"\n\n    }\n    / (1024 * 1024 * 1024)\n  ) by (persistentvolume)\n  *\n  sum(\n    pv_hourly_cost{\n      cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n    }\n  ) by (persistentvolume)\n  * on(persistentvolume) group_left(cluster, namespace, persistentvolumeclaim) (\n    label_replace(\n      kube_persistentvolumeclaim_info{\n        cluster=\"$cluster\",\njob=\"$ksm_job\"\n,\nnamespace=\"$namespace\"\n\n      },\n      \"persistentvolume\", \"$1\",\n      \"volumename\", \"(.*)\"\n    )\n  ) or vector(0)\n) * 1\n\n",
+               "instant": false
+            }
+         ],
+         "title": "Hourly Cost",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Projected monthly cost for the selected namespace based on current hourly rates. This includes CPU, RAM, GPU, and PV costs so application teams can track their overall spend against budget.",
+         "fieldConfig": {
+            "defaults": {
+               "decimals": 2,
+               "mappings": [ ],
+               "thresholds": {
+                  "steps": [
+                     {
+                        "color": "green",
+                        "value": 0
+                     }
+                  ]
+               },
+               "unit": "currencyUSD"
+            },
+            "overrides": [ ]
+         },
+         "gridPos": {
+            "h": 3,
+            "w": 4,
+            "x": 4,
+            "y": 1
+         },
+         "id": 3,
+         "options": {
+            "graphMode": "none",
+            "percentChangeColorMode": "inverted",
+            "showPercentChange": true
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(\n  sum(\n    container_memory_allocation_bytes{\n      cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n    }\n  )\n  by (namespace, instance)\n  * on(instance) group_left()\n  (\n    avg(\n      node_ram_hourly_cost{\n        cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n      }\n    ) by (instance) / (1024 * 1024 * 1024) * 730\n  )\n)\n\n+\nsum(\n  sum(\n    container_cpu_allocation{\n      cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n    }\n  )\n  by (namespace, instance)\n  * on(instance) group_left()\n  (\n    avg(\n      node_cpu_hourly_cost{\n        cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n      }\n    ) by (instance) * 730\n  )\n)\n\n+\nsum(\n  sum(\n    container_gpu_allocation{\n      cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n    }\n  )\n  by (namespace, instance)\n  * on(instance) group_left()\n  (\n    avg(\n      node_gpu_hourly_cost{\n        cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n      }\n    ) by (instance) * 730\n  )\n)\n\n+\nsum(\n  sum(\n    kube_persistentvolume_capacity_bytes{\n      cluster=\"$cluster\",\njob=\"$ksm_job\"\n\n    }\n    / (1024 * 1024 * 1024)\n  ) by (persistentvolume)\n  *\n  sum(\n    pv_hourly_cost{\n      cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n    }\n  ) by (persistentvolume)\n  * on(persistentvolume) group_left(cluster, namespace, persistentvolumeclaim) (\n    label_replace(\n      kube_persistentvolumeclaim_info{\n        cluster=\"$cluster\",\njob=\"$ksm_job\"\n,\nnamespace=\"$namespace\"\n\n      },\n      \"persistentvolume\", \"$1\",\n      \"volumename\", \"(.*)\"\n    )\n  ) or vector(0)\n) * 730\n\n",
+               "instant": false
+            }
+         ],
+         "title": "Monthly Cost",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Projected monthly CPU cost for the selected namespace. Compare this with RAM costs to understand your namespace compute profile and identify if CPU requests are appropriately sized for your workloads.",
+         "fieldConfig": {
+            "defaults": {
+               "decimals": 2,
+               "mappings": [ ],
+               "thresholds": {
+                  "steps": [
+                     {
+                        "color": "green",
+                        "value": 0
+                     }
+                  ]
+               },
+               "unit": "currencyUSD"
+            },
+            "overrides": [ ]
+         },
+         "gridPos": {
+            "h": 3,
+            "w": 4,
+            "x": 8,
+            "y": 1
+         },
+         "id": 4,
+         "options": {
+            "graphMode": "none",
+            "percentChangeColorMode": "inverted",
+            "showPercentChange": true
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(\n  sum(\n    container_cpu_allocation{\n      cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n    }\n  )\n  by (namespace, instance)\n  * on(instance) group_left()\n  (\n    avg(\n      node_cpu_hourly_cost{\n        cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n      }\n    ) by (instance) * 730\n  )\n)\n",
+               "instant": false
+            }
+         ],
+         "title": "Monthly CPU Cost",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Projected monthly RAM cost for the selected namespace. High memory costs may indicate opportunities to optimize container memory requests or identify memory-intensive workloads that could benefit from tuning.",
+         "fieldConfig": {
+            "defaults": {
+               "decimals": 2,
+               "mappings": [ ],
+               "thresholds": {
+                  "steps": [
+                     {
+                        "color": "green",
+                        "value": 0
+                     }
+                  ]
+               },
+               "unit": "currencyUSD"
+            },
+            "overrides": [ ]
+         },
+         "gridPos": {
+            "h": 3,
+            "w": 4,
+            "x": 12,
+            "y": 1
+         },
+         "id": 5,
+         "options": {
+            "graphMode": "none",
+            "percentChangeColorMode": "inverted",
+            "showPercentChange": true
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(\n  sum(\n    container_memory_allocation_bytes{\n      cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n    }\n  )\n  by (namespace, instance)\n  * on(instance) group_left()\n  (\n    avg(\n      node_ram_hourly_cost{\n        cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n      }\n    ) by (instance) / (1024 * 1024 * 1024) * 730\n  )\n)\n",
+               "instant": false
+            }
+         ],
+         "title": "Monthly Ram Cost",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Projected monthly GPU cost for the selected namespace. This helps teams understand accelerator spend and spot namespaces where GPU-backed workloads dominate overall costs.",
+         "fieldConfig": {
+            "defaults": {
+               "decimals": 2,
+               "mappings": [ ],
+               "thresholds": {
+                  "steps": [
+                     {
+                        "color": "green",
+                        "value": 0
+                     }
+                  ]
+               },
+               "unit": "currencyUSD"
+            },
+            "overrides": [ ]
+         },
+         "gridPos": {
+            "h": 3,
+            "w": 4,
+            "x": 16,
+            "y": 1
+         },
+         "id": 6,
+         "options": {
+            "graphMode": "none",
+            "percentChangeColorMode": "inverted",
+            "showPercentChange": true
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(\n  sum(\n    container_gpu_allocation{\n      cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n    }\n  )\n  by (namespace, instance)\n  * on(instance) group_left()\n  (\n    avg(\n      node_gpu_hourly_cost{\n        cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n      }\n    ) by (instance) * 730\n  )\n)\n",
+               "instant": false
+            }
+         ],
+         "title": "Monthly GPU Cost",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Projected monthly Persistent Volume cost for the selected namespace. Monitor this to identify unused PVCs or opportunities to migrate to cheaper storage classes without impacting application performance.",
+         "fieldConfig": {
+            "defaults": {
+               "decimals": 2,
+               "mappings": [ ],
+               "thresholds": {
+                  "steps": [
+                     {
+                        "color": "green",
+                        "value": 0
+                     }
+                  ]
+               },
+               "unit": "currencyUSD"
+            },
+            "overrides": [ ]
+         },
+         "gridPos": {
+            "h": 3,
+            "w": 4,
+            "x": 20,
+            "y": 1
+         },
+         "id": 7,
+         "options": {
+            "graphMode": "none",
+            "percentChangeColorMode": "inverted",
+            "showPercentChange": true
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(\n  sum(\n    kube_persistentvolume_capacity_bytes{\n      cluster=\"$cluster\",\njob=\"$ksm_job\"\n\n    }\n    / (1024 * 1024 * 1024)\n  ) by (persistentvolume)\n  *\n  sum(\n    pv_hourly_cost{\n      cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n    }\n  ) by (persistentvolume)\n  * on(persistentvolume) group_left(cluster, namespace, persistentvolumeclaim) (\n    label_replace(\n      kube_persistentvolumeclaim_info{\n        cluster=\"$cluster\",\njob=\"$ksm_job\"\n,\nnamespace=\"$namespace\"\n\n      },\n      \"persistentvolume\", \"$1\",\n      \"volumename\", \"(.*)\"\n    )\n  )\n) * 730\n",
+               "instant": false
+            }
+         ],
+         "title": "Monthly PV Cost",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Hourly cost trend for the selected namespace. Use this to see short-term cost changes from scaling, deployments, or workload churn without switching to the cluster overview.",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10
+               },
+               "unit": "currencyUSD"
+            },
+            "overrides": [ ]
+         },
+         "gridPos": {
+            "h": 5,
+            "w": 12,
+            "x": 0,
+            "y": 4
+         },
+         "id": 8,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "mean",
+                  "max"
+               ],
+               "displayMode": "table",
+               "placement": "right",
+               "showLegend": true,
+               "sortBy": "Mean",
+               "sortDesc": true
+            },
+            "tooltip": {
+               "mode": "multi",
+               "sort": "desc"
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "exemplar": false,
+               "expr": "sum(\n  sum(\n    container_memory_allocation_bytes{\n      cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n    }\n  )\n  by (namespace, instance)\n  * on(instance) group_left()\n  (\n    avg(\n      node_ram_hourly_cost{\n        cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n      }\n    ) by (instance) / (1024 * 1024 * 1024) * 1\n  )\n)\n\n+\nsum(\n  sum(\n    container_cpu_allocation{\n      cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n    }\n  )\n  by (namespace, instance)\n  * on(instance) group_left()\n  (\n    avg(\n      node_cpu_hourly_cost{\n        cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n      }\n    ) by (instance) * 1\n  )\n)\n\n+\nsum(\n  sum(\n    container_gpu_allocation{\n      cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n    }\n  )\n  by (namespace, instance)\n  * on(instance) group_left()\n  (\n    avg(\n      node_gpu_hourly_cost{\n        cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n      }\n    ) by (instance) * 1\n  )\n)\n\n+\nsum(\n  sum(\n    kube_persistentvolume_capacity_bytes{\n      cluster=\"$cluster\",\njob=\"$ksm_job\"\n\n    }\n    / (1024 * 1024 * 1024)\n  ) by (persistentvolume)\n  *\n  sum(\n    pv_hourly_cost{\n      cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n    }\n  ) by (persistentvolume)\n  * on(persistentvolume) group_left(cluster, namespace, persistentvolumeclaim) (\n    label_replace(\n      kube_persistentvolumeclaim_info{\n        cluster=\"$cluster\",\njob=\"$ksm_job\"\n,\nnamespace=\"$namespace\"\n\n      },\n      \"persistentvolume\", \"$1\",\n      \"volumename\", \"(.*)\"\n    )\n  ) or vector(0)\n) * 1\n\n",
+               "interval": "30m",
+               "legendFormat": "Hourly Cost"
+            }
+         ],
+         "title": "Hourly Cost",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Monthly cost projection trend for the selected namespace. This helps application teams track their projected monthly spending and ensure they remain within their allocated budget throughout the billing period.",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10
+               },
+               "unit": "currencyUSD"
+            },
+            "overrides": [ ]
+         },
+         "gridPos": {
+            "h": 5,
+            "w": 12,
+            "x": 12,
+            "y": 4
+         },
+         "id": 9,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "mean",
+                  "max"
+               ],
+               "displayMode": "table",
+               "placement": "right",
+               "showLegend": true,
+               "sortBy": "Mean",
+               "sortDesc": true
+            },
+            "tooltip": {
+               "mode": "multi",
+               "sort": "desc"
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "exemplar": false,
+               "expr": "sum(\n  sum(\n    container_memory_allocation_bytes{\n      cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n    }\n  )\n  by (namespace, instance)\n  * on(instance) group_left()\n  (\n    avg(\n      node_ram_hourly_cost{\n        cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n      }\n    ) by (instance) / (1024 * 1024 * 1024) * 730\n  )\n)\n\n+\nsum(\n  sum(\n    container_cpu_allocation{\n      cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n    }\n  )\n  by (namespace, instance)\n  * on(instance) group_left()\n  (\n    avg(\n      node_cpu_hourly_cost{\n        cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n      }\n    ) by (instance) * 730\n  )\n)\n\n+\nsum(\n  sum(\n    container_gpu_allocation{\n      cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n    }\n  )\n  by (namespace, instance)\n  * on(instance) group_left()\n  (\n    avg(\n      node_gpu_hourly_cost{\n        cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n      }\n    ) by (instance) * 730\n  )\n)\n\n+\nsum(\n  sum(\n    kube_persistentvolume_capacity_bytes{\n      cluster=\"$cluster\",\njob=\"$ksm_job\"\n\n    }\n    / (1024 * 1024 * 1024)\n  ) by (persistentvolume)\n  *\n  sum(\n    pv_hourly_cost{\n      cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n    }\n  ) by (persistentvolume)\n  * on(persistentvolume) group_left(cluster, namespace, persistentvolumeclaim) (\n    label_replace(\n      kube_persistentvolumeclaim_info{\n        cluster=\"$cluster\",\njob=\"$ksm_job\"\n,\nnamespace=\"$namespace\"\n\n      },\n      \"persistentvolume\", \"$1\",\n      \"volumename\", \"(.*)\"\n    )\n  ) or vector(0)\n) * 730\n\n",
+               "interval": "30m",
+               "legendFormat": "Monthly Cost"
+            }
+         ],
+         "title": "Monthly Cost",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Monthly cost distribution for the selected namespace across resource types (CPU, RAM, Persistent Volumes, and GPU). This shows which resource category is the primary cost driver for this namespace, helping teams prioritize their optimization efforts.",
+         "fieldConfig": {
+            "defaults": {
+               "unit": "currencyUSD"
+            },
+            "overrides": [ ]
+         },
+         "gridPos": {
+            "h": 7,
+            "w": 12,
+            "x": 0,
+            "y": 9
+         },
+         "id": 10,
+         "options": {
+            "displayLabels": [
+               "percent"
+            ],
+            "legend": {
+               "displayMode": "table",
+               "placement": "right",
+               "showLegend": true,
+               "values": [
+                  "percent",
+                  "value"
+               ]
+            },
+            "tooltip": {
+               "mode": "multi",
+               "sort": "desc"
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(\n  sum(\n    container_cpu_allocation{\n      cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n    }\n  )\n  by (namespace, instance)\n  * on(instance) group_left()\n  (\n    avg(\n      node_cpu_hourly_cost{\n        cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n      }\n    ) by (instance) * 730\n  )\n)\n",
+               "instant": true,
+               "legendFormat": "CPU"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(\n  sum(\n    container_memory_allocation_bytes{\n      cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n    }\n  )\n  by (namespace, instance)\n  * on(instance) group_left()\n  (\n    avg(\n      node_ram_hourly_cost{\n        cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n      }\n    ) by (instance) / (1024 * 1024 * 1024) * 730\n  )\n)\n",
+               "instant": true,
+               "legendFormat": "RAM"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(\n  sum(\n    kube_persistentvolume_capacity_bytes{\n      cluster=\"$cluster\",\njob=\"$ksm_job\"\n\n    }\n    / (1024 * 1024 * 1024)\n  ) by (persistentvolume)\n  *\n  sum(\n    pv_hourly_cost{\n      cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n    }\n  ) by (persistentvolume)\n  * on(persistentvolume) group_left(cluster, namespace, persistentvolumeclaim) (\n    label_replace(\n      kube_persistentvolumeclaim_info{\n        cluster=\"$cluster\",\njob=\"$ksm_job\"\n,\nnamespace=\"$namespace\"\n\n      },\n      \"persistentvolume\", \"$1\",\n      \"volumename\", \"(.*)\"\n    )\n  )\n) * 730\n",
+               "instant": true,
+               "legendFormat": "PV"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(\n  sum(\n    container_gpu_allocation{\n      cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n    }\n  )\n  by (namespace, instance)\n  * on(instance) group_left()\n  (\n    avg(\n      node_gpu_hourly_cost{\n        cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n      }\n    ) by (instance) * 730\n  )\n)\n",
+               "instant": true,
+               "legendFormat": "GPU"
+            }
+         ],
+         "title": "Cost by Resource",
+         "type": "piechart"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Top 10 pods by monthly cost showing the distribution of spending across pods in the namespace. This visualization helps identify which pods consume the most resources and whether costs are evenly distributed or concentrated in a few workloads.",
+         "fieldConfig": {
+            "defaults": {
+               "unit": "currencyUSD"
+            },
+            "overrides": [ ]
+         },
+         "gridPos": {
+            "h": 7,
+            "w": 12,
+            "x": 12,
+            "y": 9
+         },
+         "id": 11,
+         "options": {
+            "displayLabels": [
+               "percent"
+            ],
+            "legend": {
+               "displayMode": "table",
+               "placement": "right",
+               "showLegend": true,
+               "values": [
+                  "percent",
+                  "value"
+               ]
+            },
+            "tooltip": {
+               "mode": "multi",
+               "sort": "desc"
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "topk(10,\n  sum(\n    (\n      sum(\n        container_memory_allocation_bytes{\n          cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n        }\n      )\n      by (instance, pod)\n      * on(instance) group_left()\n      (\n        avg(\n          node_ram_hourly_cost{\n            cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n          }\n        ) by (instance) / (1024 * 1024 * 1024) * 730\n      )\n    )\n    +\n    (\n      sum(\n        container_cpu_allocation{\n          cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n        }\n      )\n      by (instance, pod)\n      * on(instance) group_left()\n      (\n        avg(\n          node_cpu_hourly_cost{\n            cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n          }\n        ) by (instance) * 730)\n    )\n  ) by (pod)\n)\n",
+               "instant": true,
+               "legendFormat": "{{ pod }}"
+            }
+         ],
+         "title": "Cost by Pod",
+         "type": "piechart"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Top 10 containers by monthly cost showing the distribution of spending across containers in the namespace. This helps identify which container images or workload types are most expensive and whether sidecar containers are adding significant costs.",
+         "fieldConfig": {
+            "defaults": {
+               "unit": "currencyUSD"
+            },
+            "overrides": [ ]
+         },
+         "gridPos": {
+            "h": 7,
+            "w": 12,
+            "x": 0,
+            "y": 16
+         },
+         "id": 12,
+         "options": {
+            "displayLabels": [
+               "percent"
+            ],
+            "legend": {
+               "displayMode": "table",
+               "placement": "right",
+               "showLegend": true,
+               "values": [
+                  "percent",
+                  "value"
+               ]
+            },
+            "tooltip": {
+               "mode": "multi",
+               "sort": "desc"
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "topk(10,\n  sum(\n    (\n      sum(\n        container_memory_allocation_bytes{\n          cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n        }\n      )\n      by (instance, container)\n      * on(instance) group_left()\n      (\n        avg(\n          node_ram_hourly_cost{\n            cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n          }\n        ) by (instance) / (1024 * 1024 * 1024) * 730\n      )\n    )\n    +\n    (\n      sum(\n        container_cpu_allocation{\n          cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n        }\n      )\n      by (instance, container)\n      * on(instance) group_left()\n      (\n        avg(\n          node_cpu_hourly_cost{\n            cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n          }\n        ) by (instance) * 730\n      )\n    )\n  ) by (container)\n)\n",
+               "instant": true,
+               "legendFormat": "{{ container }}"
+            }
+         ],
+         "title": "Cost by Container",
+         "type": "piechart"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Distribution of monthly storage costs across Persistent Volume Claims in the namespace. This shows which claims consume the most storage budget and helps identify whether storage costs are concentrated in a few large claims or distributed across many smaller ones.",
+         "fieldConfig": {
+            "defaults": {
+               "unit": "currencyUSD"
+            },
+            "overrides": [ ]
+         },
+         "gridPos": {
+            "h": 7,
+            "w": 12,
+            "x": 12,
+            "y": 16
+         },
+         "id": 13,
+         "options": {
+            "displayLabels": [
+               "percent"
+            ],
+            "legend": {
+               "displayMode": "table",
+               "placement": "right",
+               "showLegend": true,
+               "values": [
+                  "percent",
+                  "value"
+               ]
+            },
+            "tooltip": {
+               "mode": "multi",
+               "sort": "desc"
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(\n  sum(\n    kube_persistentvolume_capacity_bytes{\n      cluster=\"$cluster\",\njob=\"$ksm_job\"\n\n    }\n    / (1024 * 1024 * 1024)\n  ) by (persistentvolume)\n  *\n  sum(\n    pv_hourly_cost{\n      cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n    }\n  ) by (persistentvolume)\n  * on(persistentvolume) group_left(cluster, namespace, persistentvolumeclaim) (\n    label_replace(\n      kube_persistentvolumeclaim_info{\n        cluster=\"$cluster\",\njob=\"$ksm_job\"\n,\nnamespace=\"$namespace\"\n\n      },\n      \"persistentvolume\", \"$1\",\n      \"volumename\", \"(.*)\"\n    )\n  )\n) by (persistentvolumeclaim) * 730\n",
+               "instant": true,
+               "legendFormat": "{{ persistentvolumeclaim }}"
+            }
+         ],
+         "title": "Cost by Persistent Volume Claim",
+         "type": "piechart"
+      },
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 23
+         },
+         "id": 14,
+         "title": "Pod Summary",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Top 10 pods by projected monthly cost (based on current hourly rates) with percentage change compared to 7 days and 30 days ago. Positive percentages indicate cost increases (red), negative percentages indicate cost decreases (green). Use this to identify the most expensive pods in the namespace and track how pod costs change over time, especially after deployments or configuration changes.",
+         "fieldConfig": {
+            "defaults": {
+               "links": [ ],
+               "thresholds": {
+                  "steps": [
+                     {
+                        "color": "green",
+                        "value": 0
+                     },
+                     {
+                        "color": "yellow",
+                        "value": 5
+                     },
+                     {
+                        "color": "red",
+                        "value": 10
+                     }
+                  ]
+               },
+               "unit": "currencyUSD"
+            },
+            "overrides": [
+               {
+                  "matcher": {
+                     "id": "byName",
+                     "options": "Cost Change vs 7d Ago (%)"
+                  },
+                  "properties": [
+                     {
+                        "id": "color",
+                        "value": {
+                           "mode": "thresholds"
+                        }
+                     },
+                     {
+                        "id": "custom.cellOptions",
+                        "value": {
+                           "type": "color-background"
+                        }
+                     },
+                     {
+                        "id": "unit",
+                        "value": "percent"
+                     }
+                  ]
+               },
+               {
+                  "matcher": {
+                     "id": "byName",
+                     "options": "Cost Change vs 30d Ago (%)"
+                  },
+                  "properties": [
+                     {
+                        "id": "color",
+                        "value": {
+                           "mode": "thresholds"
+                        }
+                     },
+                     {
+                        "id": "custom.cellOptions",
+                        "value": {
+                           "type": "color-background"
+                        }
+                     },
+                     {
+                        "id": "unit",
+                        "value": "percent"
+                     }
+                  ]
+               }
+            ]
+         },
+         "gridPos": {
+            "h": 10,
+            "w": 24,
+            "x": 0,
+            "y": 24
+         },
+         "id": 15,
+         "options": {
+            "footer": {
+               "enablePagination": true
+            },
+            "sortBy": [
+               {
+                  "desc": true,
+                  "displayName": "Total Cost (Today)"
+               }
+            ]
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "topk(10,\n  sum(\n    (\n      sum(\n        container_memory_allocation_bytes{\n          cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n        }\n      )\n      by (instance, pod)\n      * on(instance) group_left()\n      (\n        avg(\n          node_ram_hourly_cost{\n            cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n          }\n        ) by (instance) / (1024 * 1024 * 1024) * 730\n      )\n    )\n    +\n    (\n      sum(\n        container_cpu_allocation{\n          cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n        }\n      )\n      by (instance, pod)\n      * on(instance) group_left()\n      (\n        avg(\n          node_cpu_hourly_cost{\n            cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n          }\n        ) by (instance) * 730)\n    )\n  ) by (pod)\n)\n",
+               "format": "table",
+               "instant": true
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "topk(10,\n  sum(\n    (\n      sum(\n        container_memory_allocation_bytes{\n          cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n        }\n      )\n      by (instance, pod)\n      * on(instance) group_left()\n      (\n        avg(\n          node_ram_hourly_cost{\n            cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n          }\n        ) by (instance) / (1024 * 1024 * 1024) * 730\n      )\n    )\n    +\n    (\n      sum(\n        container_cpu_allocation{\n          cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n        }\n      )\n      by (instance, pod)\n      * on(instance) group_left()\n      (\n        avg(\n          node_cpu_hourly_cost{\n            cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n          }\n        ) by (instance) * 730)\n    )\n  ) by (pod)\n)\n\n/\ntopk(10,\n  sum(\n    (\n      sum(\n        container_memory_allocation_bytes{\n          cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n        } offset 7d\n      )\n      by (instance, pod)\n      * on(instance) group_left()\n      (\n        avg(\n          node_ram_hourly_cost{\n            cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n          } offset 7d\n        ) by (instance) / (1024 * 1024 * 1024) * 730\n      )\n    )\n    +\n    (\n      sum(\n        container_cpu_allocation{\n          cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n        } offset 7d\n      )\n      by (instance, pod)\n      * on(instance) group_left()\n      (\n        avg(\n          node_cpu_hourly_cost{\n            cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n          } offset 7d\n        ) by (instance) * 730)\n    )\n  ) by (pod)\n)\n\n* 100\n- 100\n",
+               "format": "table",
+               "instant": true
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "topk(10,\n  sum(\n    (\n      sum(\n        container_memory_allocation_bytes{\n          cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n        }\n      )\n      by (instance, pod)\n      * on(instance) group_left()\n      (\n        avg(\n          node_ram_hourly_cost{\n            cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n          }\n        ) by (instance) / (1024 * 1024 * 1024) * 730\n      )\n    )\n    +\n    (\n      sum(\n        container_cpu_allocation{\n          cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n        }\n      )\n      by (instance, pod)\n      * on(instance) group_left()\n      (\n        avg(\n          node_cpu_hourly_cost{\n            cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n          }\n        ) by (instance) * 730)\n    )\n  ) by (pod)\n)\n\n/\ntopk(10,\n  sum(\n    (\n      sum(\n        container_memory_allocation_bytes{\n          cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n        } offset 30d\n      )\n      by (instance, pod)\n      * on(instance) group_left()\n      (\n        avg(\n          node_ram_hourly_cost{\n            cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n          } offset 30d\n        ) by (instance) / (1024 * 1024 * 1024) * 730\n      )\n    )\n    +\n    (\n      sum(\n        container_cpu_allocation{\n          cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n        } offset 30d\n      )\n      by (instance, pod)\n      * on(instance) group_left()\n      (\n        avg(\n          node_cpu_hourly_cost{\n            cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n          } offset 30d\n        ) by (instance) * 730)\n    )\n  ) by (pod)\n)\n\n* 100\n- 100\n",
+               "format": "table",
+               "instant": true
+            }
+         ],
+         "title": "Pod Monthly Cost",
+         "transformations": [
+            {
+               "id": "merge"
+            },
+            {
+               "id": "organize",
+               "options": {
+                  "excludeByName": {
+                     "Time": true,
+                     "job": true
+                  },
+                  "indexByName": {
+                     "Value #A": 1,
+                     "Value #B": 2,
+                     "Value #C": 3,
+                     "pod": 0
+                  },
+                  "renameByName": {
+                     "Value #A": "Monthly Cost",
+                     "Value #B": "Cost Change vs 7d Ago (%)",
+                     "Value #C": "Cost Change vs 30d Ago (%)",
+                     "pod": "Pod"
+                  }
+               }
+            }
+         ],
+         "type": "table"
+      },
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 34
+         },
+         "id": 16,
+         "title": "Container Summary",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Top 10 containers by current monthly cost with percentage change compared to 7 days and 30 days ago. Positive percentages indicate cost increases (red), negative percentages indicate cost decreases (green). This granular view helps identify specific containers within pods that are driving costs, useful for optimizing multi-container pod configurations.",
+         "fieldConfig": {
+            "defaults": {
+               "links": [ ],
+               "thresholds": {
+                  "steps": [
+                     {
+                        "color": "green",
+                        "value": 0
+                     },
+                     {
+                        "color": "yellow",
+                        "value": 5
+                     },
+                     {
+                        "color": "red",
+                        "value": 10
+                     }
+                  ]
+               },
+               "unit": "currencyUSD"
+            },
+            "overrides": [
+               {
+                  "matcher": {
+                     "id": "byName",
+                     "options": "Cost Change vs 7d Ago (%)"
+                  },
+                  "properties": [
+                     {
+                        "id": "color",
+                        "value": {
+                           "mode": "thresholds"
+                        }
+                     },
+                     {
+                        "id": "custom.cellOptions",
+                        "value": {
+                           "type": "color-background"
+                        }
+                     },
+                     {
+                        "id": "unit",
+                        "value": "percent"
+                     }
+                  ]
+               },
+               {
+                  "matcher": {
+                     "id": "byName",
+                     "options": "Cost Change vs 30d Ago (%)"
+                  },
+                  "properties": [
+                     {
+                        "id": "color",
+                        "value": {
+                           "mode": "thresholds"
+                        }
+                     },
+                     {
+                        "id": "custom.cellOptions",
+                        "value": {
+                           "type": "color-background"
+                        }
+                     },
+                     {
+                        "id": "unit",
+                        "value": "percent"
+                     }
+                  ]
+               }
+            ]
+         },
+         "gridPos": {
+            "h": 10,
+            "w": 24,
+            "x": 0,
+            "y": 35
+         },
+         "id": 17,
+         "options": {
+            "footer": {
+               "enablePagination": true
+            },
+            "sortBy": [
+               {
+                  "desc": true,
+                  "displayName": "Monthly Cost"
+               }
+            ]
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "topk(10,\n  sum(\n    (\n      sum(\n        container_memory_allocation_bytes{\n          cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n        }\n      )\n      by (instance, container)\n      * on(instance) group_left()\n      (\n        avg(\n          node_ram_hourly_cost{\n            cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n          }\n        ) by (instance) / (1024 * 1024 * 1024) * 730\n      )\n    )\n    +\n    (\n      sum(\n        container_cpu_allocation{\n          cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n        }\n      )\n      by (instance, container)\n      * on(instance) group_left()\n      (\n        avg(\n          node_cpu_hourly_cost{\n            cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n          }\n        ) by (instance) * 730\n      )\n    )\n  ) by (container)\n)\n",
+               "format": "table",
+               "instant": true
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "topk(10,\n  sum(\n    (\n      sum(\n        container_memory_allocation_bytes{\n          cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n        }\n      )\n      by (instance, container)\n      * on(instance) group_left()\n      (\n        avg(\n          node_ram_hourly_cost{\n            cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n          }\n        ) by (instance) / (1024 * 1024 * 1024) * 730\n      )\n    )\n    +\n    (\n      sum(\n        container_cpu_allocation{\n          cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n        }\n      )\n      by (instance, container)\n      * on(instance) group_left()\n      (\n        avg(\n          node_cpu_hourly_cost{\n            cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n          }\n        ) by (instance) * 730\n      )\n    )\n  ) by (container)\n)\n\n/\ntopk(10,\n  sum(\n    (\n      sum(\n        container_memory_allocation_bytes{\n          cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n        } offset 7d\n      )\n      by (instance, container)\n      * on(instance) group_left()\n      (\n        avg(\n          node_ram_hourly_cost{\n            cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n          } offset 7d\n        ) by (instance) / (1024 * 1024 * 1024) * 730\n      )\n    )\n    +\n    (\n      sum(\n        container_cpu_allocation{\n          cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n        } offset 7d\n      )\n      by (instance, container)\n      * on(instance) group_left()\n      (\n        avg(\n          node_cpu_hourly_cost{\n            cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n          } offset 7d\n        ) by (instance) * 730\n      )\n    )\n  ) by (container)\n)\n\n* 100\n- 100\n",
+               "format": "table",
+               "instant": true
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "topk(10,\n  sum(\n    (\n      sum(\n        container_memory_allocation_bytes{\n          cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n        }\n      )\n      by (instance, container)\n      * on(instance) group_left()\n      (\n        avg(\n          node_ram_hourly_cost{\n            cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n          }\n        ) by (instance) / (1024 * 1024 * 1024) * 730\n      )\n    )\n    +\n    (\n      sum(\n        container_cpu_allocation{\n          cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n        }\n      )\n      by (instance, container)\n      * on(instance) group_left()\n      (\n        avg(\n          node_cpu_hourly_cost{\n            cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n          }\n        ) by (instance) * 730\n      )\n    )\n  ) by (container)\n)\n\n/\ntopk(10,\n  sum(\n    (\n      sum(\n        container_memory_allocation_bytes{\n          cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n        } offset 30d\n      )\n      by (instance, container)\n      * on(instance) group_left()\n      (\n        avg(\n          node_ram_hourly_cost{\n            cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n          } offset 30d\n        ) by (instance) / (1024 * 1024 * 1024) * 730\n      )\n    )\n    +\n    (\n      sum(\n        container_cpu_allocation{\n          cluster=\"$cluster\",\njob=\"$opencost_job\"\n,\nnamespace=\"$namespace\"\n\n        } offset 30d\n      )\n      by (instance, container)\n      * on(instance) group_left()\n      (\n        avg(\n          node_cpu_hourly_cost{\n            cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n          } offset 30d\n        ) by (instance) * 730\n      )\n    )\n  ) by (container)\n)\n\n* 100\n- 100\n",
+               "format": "table",
+               "instant": true
+            }
+         ],
+         "title": "Container Monthly Cost",
+         "transformations": [
+            {
+               "id": "merge"
+            },
+            {
+               "id": "organize",
+               "options": {
+                  "excludeByName": {
+                     "Time": true,
+                     "job": true
+                  },
+                  "indexByName": {
+                     "Value #A": 1,
+                     "Value #B": 2,
+                     "Value #C": 3,
+                     "container": 0
+                  },
+                  "renameByName": {
+                     "Value #A": "Monthly Cost",
+                     "Value #B": "Cost Change vs 7d Ago (%)",
+                     "Value #C": "Cost Change vs 30d Ago (%)",
+                     "container": "Container"
+                  }
+               }
+            }
+         ],
+         "type": "table"
+      },
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 45
+         },
+         "id": 18,
+         "title": "PV Summary",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "List of Persistent Volume Claims used by the selected namespace with their capacity (in GiB) and monthly cost, sorted by total cost. Use this to identify large or expensive claims that may be candidates for cleanup, resizing, or migration to cheaper storage classes.",
+         "fieldConfig": {
+            "defaults": {
+               "links": [ ],
+               "thresholds": {
+                  "steps": [ ]
+               },
+               "unit": "decgbytes"
+            },
+            "overrides": [
+               {
+                  "matcher": {
+                     "id": "byName",
+                     "options": "Total Cost"
+                  },
+                  "properties": [
+                     {
+                        "id": "unit",
+                        "value": "currencyUSD"
+                     }
+                  ]
+               }
+            ]
+         },
+         "gridPos": {
+            "h": 10,
+            "w": 24,
+            "x": 0,
+            "y": 46
+         },
+         "id": 19,
+         "options": {
+            "footer": {
+               "enablePagination": true
+            },
+            "sortBy": [
+               {
+                  "desc": true,
+                  "displayName": "Monthly Cost"
+               }
+            ]
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(\n  sum(\n    kube_persistentvolume_capacity_bytes{\n      cluster=\"$cluster\",\njob=\"$ksm_job\"\n\n    } / (1024 * 1024 * 1024)\n  ) by (persistentvolume)\n  * on(persistentvolume) group_left(cluster, namespace, persistentvolumeclaim)\n    label_replace(\n      kube_persistentvolumeclaim_info{\n        cluster=\"$cluster\",\njob=\"$ksm_job\"\n,\nnamespace=\"$namespace\"\n\n      },\n      \"persistentvolume\", \"$1\",\n      \"volumename\", \"(.*)\"\n    )\n) by (persistentvolumeclaim)\n",
+               "format": "table",
+               "instant": true
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(\n  sum(\n    kube_persistentvolume_capacity_bytes{\n      cluster=\"$cluster\",\njob=\"$ksm_job\"\n\n    }\n    / (1024 * 1024 * 1024)\n  ) by (persistentvolume)\n  *\n  sum(\n    pv_hourly_cost{\n      cluster=\"$cluster\",\njob=\"$opencost_job\"\n\n    }\n  ) by (persistentvolume)\n  * on(persistentvolume) group_left(cluster, namespace, persistentvolumeclaim) (\n    label_replace(\n      kube_persistentvolumeclaim_info{\n        cluster=\"$cluster\",\njob=\"$ksm_job\"\n,\nnamespace=\"$namespace\"\n\n      },\n      \"persistentvolume\", \"$1\",\n      \"volumename\", \"(.*)\"\n    )\n  )\n) by (persistentvolumeclaim) * 730\n",
+               "format": "table",
+               "instant": true
+            }
+         ],
+         "title": "Persistent Volume Claims Monthly Cost",
+         "transformations": [
+            {
+               "id": "merge"
+            },
+            {
+               "id": "organize",
+               "options": {
+                  "excludeByName": {
+                     "Time": true,
+                     "job": true,
+                     "namespace": true
+                  },
+                  "indexByName": {
+                     "Value #A": 1,
+                     "Value #B": 2,
+                     "persistentvolumeclaim": 0
+                  },
+                  "renameByName": {
+                     "Value #A": "Total GiB",
+                     "Value #B": "Total Cost",
+                     "persistentvolumeclaim": "Persistent Volume Claim"
+                  }
+               }
+            }
+         ],
+         "type": "table"
+      }
+   ],
+   "schemaVersion": 39,
+   "tags": [
+      "opencost",
+      "opencost-mixin"
+   ],
+   "templating": {
+      "list": [
+         {
+            "current": {
+               "selected": true,
+               "text": "default",
+               "value": "default"
+            },
+            "label": "Data source",
+            "name": "datasource",
+            "query": "prometheus",
+            "type": "datasource"
+         },
+         {
+            "datasource": {
+               "type": "prometheus",
+               "uid": "${datasource}"
+            },
+            "hide": 2,
+            "label": "Cluster",
+            "name": "cluster",
+            "query": "label_values(opencost_build_info{}, cluster)",
+            "refresh": 2,
+            "sort": 1,
+            "type": "query"
+         },
+         {
+            "datasource": {
+               "type": "prometheus",
+               "uid": "${datasource}"
+            },
+            "includeAll": false,
+            "label": "OpenCost Job",
+            "multi": false,
+            "name": "opencost_job",
+            "query": "label_values(opencost_build_info{cluster=\"$cluster\"}, job)",
+            "refresh": 2,
+            "sort": 1,
+            "type": "query"
+         },
+         {
+            "datasource": {
+               "type": "prometheus",
+               "uid": "${datasource}"
+            },
+            "includeAll": false,
+            "label": "KSM Job",
+            "multi": false,
+            "name": "ksm_job",
+            "query": "label_values(kube_node_status_capacity{cluster=\"$cluster\"}, job)",
+            "refresh": 2,
+            "sort": 1,
+            "type": "query"
+         },
+         {
+            "datasource": {
+               "type": "prometheus",
+               "uid": "${datasource}"
+            },
+            "includeAll": false,
+            "label": "Namespace",
+            "multi": false,
+            "name": "namespace",
+            "query": "label_values(kube_namespace_status_phase{cluster=\"$cluster\", job=\"$ksm_job\"}, namespace)",
+            "refresh": 2,
+            "sort": 1,
+            "type": "query"
+         }
+      ]
+   },
+   "time": {
+      "from": "now-2d",
+      "to": "now"
+   },
+   "timezone": "utc",
+   "title": "OpenCost / Namespace",
+   "uid": "opencost-mixin-namespace-jkwq"
+}

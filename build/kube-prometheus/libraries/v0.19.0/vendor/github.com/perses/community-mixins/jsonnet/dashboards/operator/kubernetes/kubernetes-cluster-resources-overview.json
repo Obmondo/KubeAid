@@ -1,0 +1,1931 @@
+{
+  "kind": "PersesDashboard",
+  "apiVersion": "perses.dev/v1alpha2",
+  "metadata": {
+    "name": "kubernetes-cluster-resources-overview",
+    "namespace": "perses-dev",
+    "labels": {
+      "app.kubernetes.io/component": "dashboard",
+      "app.kubernetes.io/instance": "kubernetes-cluster-resources-overview",
+      "app.kubernetes.io/name": "perses-dashboard",
+      "app.kubernetes.io/part-of": "perses-operator"
+    }
+  },
+  "spec": {
+    "config": {
+      "display": {
+        "name": "Kubernetes / Compute Resources / Cluster"
+      },
+      "variables": [
+        {
+          "kind": "ListVariable",
+          "spec": {
+            "display": {
+              "name": "cluster",
+              "hidden": false
+            },
+            "allowAllValue": false,
+            "allowMultiple": false,
+            "plugin": {
+              "kind": "PrometheusLabelValuesVariable",
+              "spec": {
+                "datasource": {
+                  "kind": "PrometheusDatasource",
+                  "name": "prometheus-datasource"
+                },
+                "labelName": "cluster",
+                "matchers": [
+                  "up{job=\"kubelet\"}"
+                ]
+              }
+            },
+            "name": "cluster"
+          }
+        }
+      ],
+      "panels": {
+        "0_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "CPU Utilization",
+              "description": "Shows the CPU utilization of the cluster."
+            },
+            "plugin": {
+              "kind": "StatChart",
+              "spec": {
+                "calculation": "last",
+                "format": {
+                  "decimalPlaces": 2,
+                  "unit": "percent"
+                },
+                "valueFontSize": 50
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "cluster:node_cpu:ratio_rate5m{cluster=\"$cluster\"}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "0_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "CPU Requests Commitment",
+              "description": "Shows the CPU requests commitment of the cluster."
+            },
+            "plugin": {
+              "kind": "StatChart",
+              "spec": {
+                "calculation": "last",
+                "format": {
+                  "decimalPlaces": 2,
+                  "unit": "percent"
+                },
+                "valueFontSize": 50
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  sum(namespace_cpu:kube_pod_container_resource_requests:sum{cluster=\"$cluster\"})\n/\n  sum(kube_node_status_allocatable{cluster=\"$cluster\",job=\"kube-state-metrics\",resource=\"cpu\"})"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "0_2": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "CPU Limits Commitment",
+              "description": "Shows the CPU limits commitment of the cluster."
+            },
+            "plugin": {
+              "kind": "StatChart",
+              "spec": {
+                "calculation": "last",
+                "format": {
+                  "decimalPlaces": 2,
+                  "unit": "percent"
+                },
+                "valueFontSize": 50
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  sum(namespace_cpu:kube_pod_container_resource_limits:sum{cluster=\"$cluster\"})\n/\n  sum(kube_node_status_allocatable{cluster=\"$cluster\",job=\"kube-state-metrics\",resource=\"cpu\"})"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "0_3": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Memory Utilization",
+              "description": "Shows the Memory utilization of the cluster."
+            },
+            "plugin": {
+              "kind": "StatChart",
+              "spec": {
+                "calculation": "last",
+                "format": {
+                  "decimalPlaces": 2,
+                  "unit": "percent"
+                },
+                "valueFontSize": 50
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  1\n-\n    sum(:node_memory_MemAvailable_bytes:sum{cluster=\"$cluster\"})\n  /\n    sum(node_memory_MemTotal_bytes{cluster=\"$cluster\",job=\"node-exporter\"})"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "0_4": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Memory Requests Commitment",
+              "description": "Shows the Memory requests commitment of the cluster."
+            },
+            "plugin": {
+              "kind": "StatChart",
+              "spec": {
+                "calculation": "last",
+                "format": {
+                  "decimalPlaces": 2,
+                  "unit": "percent"
+                },
+                "valueFontSize": 50
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  sum(namespace_memory:kube_pod_container_resource_requests:sum{cluster=\"$cluster\"})\n/\n  sum(kube_node_status_allocatable{cluster=\"$cluster\",job=\"kube-state-metrics\",resource=\"memory\"})"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "0_5": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Memory Limits Commitment",
+              "description": "Shows the Memory limits commitment of the cluster."
+            },
+            "plugin": {
+              "kind": "StatChart",
+              "spec": {
+                "calculation": "last",
+                "format": {
+                  "decimalPlaces": 2,
+                  "unit": "percent"
+                },
+                "valueFontSize": 50
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  sum(namespace_memory:kube_pod_container_resource_limits:sum{cluster=\"$cluster\"})\n/\n  sum(kube_node_status_allocatable{cluster=\"$cluster\",job=\"kube-state-metrics\",resource=\"memory\"})"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "10_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "IOPS(Reads+Writes)",
+              "description": "Shows IOPS(Reads+Writes) by namespace."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.75,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "ops/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "ceil(\n  sum by (namespace) (\n      rate(\n        container_fs_reads_total{cluster=\"$cluster\",container!=\"\",device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\",job=\"cadvisor\",namespace!=\"\"}[$__rate_interval]\n      )\n    +\n      rate(\n        container_fs_writes_total{cluster=\"$cluster\",container!=\"\",job=\"cadvisor\",namespace!=\"\"}[$__rate_interval]\n      )\n  )\n)",
+                      "seriesNameFormat": "{{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "10_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "ThroughPut(Read+Write)",
+              "description": "Shows Throughput(Read+Write) by namespace."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.75,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "bytes/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (\n    rate(\n      container_fs_reads_bytes_total{cluster=\"$cluster\",container!=\"\",device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\",job=\"cadvisor\",namespace!=\"\"}[$__rate_interval]\n    )\n  +\n    rate(\n      container_fs_writes_bytes_total{cluster=\"$cluster\",container!=\"\",job=\"cadvisor\",namespace!=\"\"}[$__rate_interval]\n    )\n)",
+                      "seriesNameFormat": "{{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "11_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Current Storage IO",
+              "description": "Shows the current storage IO of the cluster in tabular form, by namespace."
+            },
+            "plugin": {
+              "kind": "Table",
+              "spec": {
+                "columnSettings": [
+                  {
+                    "align": "left",
+                    "header": "Namespace",
+                    "name": "namespace"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "ops/sec"
+                    },
+                    "header": "IOPS(Reads)",
+                    "name": "value #1"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "ops/sec"
+                    },
+                    "header": "IOPS(Writes)",
+                    "name": "value #2"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "ops/sec"
+                    },
+                    "header": "IOPS(Reads + Writes)",
+                    "name": "value #3"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "bytes/sec"
+                    },
+                    "header": "Throughput(Reads)",
+                    "name": "value #4"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "bytes/sec"
+                    },
+                    "header": "Throughput(Writes)",
+                    "name": "value #5"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "bytes/sec"
+                    },
+                    "header": "Throughput(Reads + Writes)",
+                    "name": "value #6"
+                  },
+                  {
+                    "hide": true,
+                    "name": "timestamp"
+                  }
+                ],
+                "transforms": [
+                  {
+                    "kind": "MergeSeries",
+                    "spec": {}
+                  }
+                ]
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (\n  rate(\n    container_fs_reads_total{cluster=\"$cluster\",container!=\"\",device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\",job=\"cadvisor\",namespace!=\"\"}[$__rate_interval]\n  )\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (\n  rate(\n    container_fs_writes_total{cluster=\"$cluster\",container!=\"\",device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\",job=\"cadvisor\",namespace!=\"\"}[$__rate_interval]\n  )\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (\n    rate(\n      container_fs_reads_total{cluster=\"$cluster\",container!=\"\",device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\",job=\"cadvisor\",namespace!=\"\"}[$__rate_interval]\n    )\n  +\n    rate(\n      container_fs_writes_total{cluster=\"$cluster\",container!=\"\",device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\",job=\"cadvisor\",namespace!=\"\"}[$__rate_interval]\n    )\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (\n  rate(\n    container_fs_reads_bytes_total{cluster=\"$cluster\",container!=\"\",device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\",job=\"cadvisor\",namespace!=\"\"}[$__rate_interval]\n  )\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (\n  rate(\n    container_fs_writes_bytes_total{cluster=\"$cluster\",container!=\"\",device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\",job=\"cadvisor\",namespace!=\"\"}[$__rate_interval]\n  )\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (\n    rate(\n      container_fs_reads_bytes_total{cluster=\"$cluster\",container!=\"\",device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\",job=\"cadvisor\",namespace!=\"\"}[$__rate_interval]\n    )\n  +\n    rate(\n      container_fs_writes_bytes_total{cluster=\"$cluster\",container!=\"\",device=~\"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+\",job=\"cadvisor\",namespace!=\"\"}[$__rate_interval]\n    )\n)"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "1_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "CPU Usage",
+              "description": "Shows the CPU usage of the cluster by namespace."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (\n  node_namespace_pod_container:container_cpu_usage_seconds_total:sum_rate5m{cluster=\"$cluster\"}\n)",
+                      "seriesNameFormat": "{{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "2_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "CPU Quota",
+              "description": "Shows the CPU requests, limits, and usage of workloads by namespace in tabular format."
+            },
+            "plugin": {
+              "kind": "Table",
+              "spec": {
+                "columnSettings": [
+                  {
+                    "align": "left",
+                    "header": "Namespace",
+                    "name": "namespace"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "decimal"
+                    },
+                    "header": "Pods",
+                    "name": "value #1"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "decimal"
+                    },
+                    "header": "Workloads",
+                    "name": "value #2"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "decimalPlaces": 4,
+                      "unit": "decimal"
+                    },
+                    "header": "CPU Usage",
+                    "name": "value #3"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "decimalPlaces": 4,
+                      "unit": "decimal"
+                    },
+                    "header": "CPU Requests",
+                    "name": "value #4"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "decimalPlaces": 4,
+                      "unit": "percent-decimal"
+                    },
+                    "header": "CPU Requests %",
+                    "name": "value #5"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "decimalPlaces": 4,
+                      "unit": "decimal"
+                    },
+                    "header": "CPU Limits",
+                    "name": "value #6"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "decimalPlaces": 4,
+                      "unit": "percent-decimal"
+                    },
+                    "header": "CPU Limits %",
+                    "name": "value #7"
+                  },
+                  {
+                    "hide": true,
+                    "name": "timestamp"
+                  }
+                ],
+                "transforms": [
+                  {
+                    "kind": "MergeSeries",
+                    "spec": {}
+                  }
+                ]
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (kube_pod_owner{cluster=\"$cluster\",job=\"kube-state-metrics\"})"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "count by (namespace) (\n  avg by (workload, namespace) (namespace_workload_pod:kube_pod_owner:relabel{cluster=\"$cluster\"})\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (\n  node_namespace_pod_container:container_cpu_usage_seconds_total:sum_rate5m{cluster=\"$cluster\"}\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (namespace_cpu:kube_pod_container_resource_requests:sum{cluster=\"$cluster\"})"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  sum by (namespace) (\n    node_namespace_pod_container:container_cpu_usage_seconds_total:sum_rate5m{cluster=\"$cluster\"}\n  )\n/\n  sum by (namespace) (namespace_cpu:kube_pod_container_resource_requests:sum{cluster=\"$cluster\"})"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (namespace_cpu:kube_pod_container_resource_limits:sum{cluster=\"$cluster\"})"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  sum by (namespace) (\n    node_namespace_pod_container:container_cpu_usage_seconds_total:sum_rate5m{cluster=\"$cluster\"}\n  )\n/\n  sum by (namespace) (namespace_cpu:kube_pod_container_resource_limits:sum{cluster=\"$cluster\"})"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "3_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Memory Usage",
+              "description": "Shows the memory usage of the cluster by namespace."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "bytes"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (container_memory_rss{cluster=\"$cluster\",container!=\"\",job=\"cadvisor\"})",
+                      "seriesNameFormat": "{{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "4_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Memory Requests by Namespace",
+              "description": "Shows the memory requests, limits, and usage of workloads by namespace in tabular format."
+            },
+            "plugin": {
+              "kind": "Table",
+              "spec": {
+                "columnSettings": [
+                  {
+                    "align": "left",
+                    "header": "Namespace",
+                    "name": "namespace"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "decimal"
+                    },
+                    "header": "Pods",
+                    "name": "value #1"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "decimal"
+                    },
+                    "header": "Workloads",
+                    "name": "value #2"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "bytes"
+                    },
+                    "header": "Memory Usage",
+                    "name": "value #3"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "bytes"
+                    },
+                    "header": "Memory Requests",
+                    "name": "value #4"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "decimalPlaces": 4,
+                      "unit": "percent-decimal"
+                    },
+                    "header": "Memory Requests %",
+                    "name": "value #5"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "bytes"
+                    },
+                    "header": "Memory Limits",
+                    "name": "value #6"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "decimalPlaces": 4,
+                      "unit": "percent-decimal"
+                    },
+                    "header": "Memory Limits %",
+                    "name": "value #7"
+                  },
+                  {
+                    "hide": true,
+                    "name": "timestamp"
+                  }
+                ],
+                "transforms": [
+                  {
+                    "kind": "MergeSeries",
+                    "spec": {}
+                  }
+                ]
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (kube_pod_owner{cluster=\"$cluster\",job=\"kube-state-metrics\"})"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "count by (namespace) (\n  avg by (workload, namespace) (namespace_workload_pod:kube_pod_owner:relabel{cluster=\"$cluster\"})\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (container_memory_rss{cluster=\"$cluster\",container!=\"\",job=\"cadvisor\"})"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (namespace_memory:kube_pod_container_resource_requests:sum{cluster=\"$cluster\"})"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  sum by (namespace) (container_memory_rss{cluster=\"$cluster\",container!=\"\",job=\"cadvisor\"})\n/\n  sum by (namespace) (namespace_memory:kube_pod_container_resource_requests:sum{cluster=\"$cluster\"})"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (namespace_memory:kube_pod_container_resource_limits:sum{cluster=\"$cluster\"})"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  sum by (namespace) (container_memory_rss{cluster=\"$cluster\",container!=\"\",job=\"cadvisor\"})\n/\n  sum by (namespace) (namespace_memory:kube_pod_container_resource_limits:sum{cluster=\"$cluster\"})"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "5_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Current Network Usage",
+              "description": "Shows the current network usage of the cluster by namespace."
+            },
+            "plugin": {
+              "kind": "Table",
+              "spec": {
+                "columnSettings": [
+                  {
+                    "align": "left",
+                    "header": "Namespace",
+                    "name": "namespace"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "bytes/sec"
+                    },
+                    "header": "Current Receive Bandwidth",
+                    "name": "value #1"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "bytes/sec"
+                    },
+                    "header": "Current Transmit Bandwidth",
+                    "name": "value #2"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "packets/sec"
+                    },
+                    "header": "Rate of Received Packets",
+                    "name": "value #3"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "packets/sec"
+                    },
+                    "header": "Rate of Transmitted Packets",
+                    "name": "value #4"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "packets/sec"
+                    },
+                    "header": "Rate of Received Packets Dropped",
+                    "name": "value #5"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "packets/sec"
+                    },
+                    "header": "Rate of Transmitted Packets Dropped",
+                    "name": "value #6"
+                  },
+                  {
+                    "hide": true,
+                    "name": "timestamp"
+                  }
+                ],
+                "transforms": [
+                  {
+                    "kind": "MergeSeries",
+                    "spec": {}
+                  }
+                ]
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (\n  rate(\n    container_network_receive_bytes_total{cluster=\"$cluster\",job=\"cadvisor\",namespace=~\".+\"}[$__rate_interval]\n  )\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (\n  rate(\n    container_network_transmit_bytes_total{cluster=\"$cluster\",job=\"cadvisor\",namespace=~\".+\"}[$__rate_interval]\n  )\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (\n  rate(\n    container_network_receive_packets_total{cluster=\"$cluster\",job=\"cadvisor\",namespace=~\".+\"}[$__rate_interval]\n  )\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (\n  rate(\n    container_network_transmit_packets_total{cluster=\"$cluster\",job=\"cadvisor\",namespace=~\".+\"}[$__rate_interval]\n  )\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (\n  rate(\n    container_network_receive_packets_dropped_total{cluster=\"$cluster\",job=\"cadvisor\",namespace=~\".+\"}[$__rate_interval]\n  )\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (\n  rate(\n    container_network_transmit_packets_dropped_total{cluster=\"$cluster\",job=\"cadvisor\",namespace=~\".+\"}[$__rate_interval]\n  )\n)"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "6_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Receive Bandwidth",
+              "description": "Shows the network receive bandwidth of the cluster by namespace."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.75,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "bytes/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (\n  rate(\n    container_network_receive_bytes_total{cluster=\"$cluster\",job=\"cadvisor\",namespace=~\".+\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "{{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "6_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Transmit Bandwidth",
+              "description": "Shows the network transmit bandwidth of the cluster by namespace."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.75,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "bytes/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (\n  rate(\n    container_network_transmit_bytes_total{cluster=\"$cluster\",job=\"cadvisor\",namespace=~\".+\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "{{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "7_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Average Container Bandwidth by Namespace: Received",
+              "description": "Shows the average network bandwidth received in container by namespace."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.75,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "bytes/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "avg by (namespace) (\n  irate(\n    container_network_receive_bytes_total{cluster=\"$cluster\",job=\"cadvisor\",namespace=~\".+\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "{{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "7_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Average Container Bandwidth by Namespace: Transmitted",
+              "description": "Shows the average network bandwidth transmitted in container by namespace."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.75,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "bytes/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "avg by (namespace) (\n  irate(\n    container_network_transmit_bytes_total{cluster=\"$cluster\",job=\"cadvisor\",namespace=~\".+\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "{{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "8_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Rate of Received Packets",
+              "description": "Shows the rate of received packets by namespace."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.75,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "packets/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (\n  irate(\n    container_network_receive_packets_total{cluster=\"$cluster\",job=\"cadvisor\",namespace=~\".+\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "{{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "8_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Rate of Transmitted Packets",
+              "description": "Shows the rate of transmitted packets by namespace."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.75,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "packets/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (\n  irate(\n    container_network_transmit_packets_total{cluster=\"$cluster\",job=\"cadvisor\",namespace=~\".+\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "{{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "9_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Rate of Received Packets Dropped",
+              "description": "Shows the rate of received packets dropped by namespace."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.75,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "packets/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (\n  irate(\n    container_network_receive_packets_dropped_total{cluster=\"$cluster\",job=\"cadvisor\",namespace=~\".+\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "{{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "9_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Rate of Transmitted Packets Dropped",
+              "description": "Shows the rate of transmitted packets dropped by namespace."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.75,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "packets/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace) (\n  irate(\n    container_network_transmit_packets_dropped_total{cluster=\"$cluster\",job=\"cadvisor\",namespace=~\".+\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "{{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "layouts": [
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Cluster Stats"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 4,
+                "height": 4,
+                "content": {
+                  "$ref": "#/spec/panels/0_0"
+                }
+              },
+              {
+                "x": 4,
+                "y": 0,
+                "width": 4,
+                "height": 4,
+                "content": {
+                  "$ref": "#/spec/panels/0_1"
+                }
+              },
+              {
+                "x": 8,
+                "y": 0,
+                "width": 4,
+                "height": 4,
+                "content": {
+                  "$ref": "#/spec/panels/0_2"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 4,
+                "height": 4,
+                "content": {
+                  "$ref": "#/spec/panels/0_3"
+                }
+              },
+              {
+                "x": 16,
+                "y": 0,
+                "width": 4,
+                "height": 4,
+                "content": {
+                  "$ref": "#/spec/panels/0_4"
+                }
+              },
+              {
+                "x": 20,
+                "y": 0,
+                "width": 4,
+                "height": 4,
+                "content": {
+                  "$ref": "#/spec/panels/0_5"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "CPU Usage"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 24,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/1_0"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "CPU Usage Quota"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 24,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/2_0"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Memory Usage"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 24,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/3_0"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Memory Usage Quota"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 24,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/4_0"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Network Usage"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 24,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/5_0"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Bandwidth"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/6_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/6_1"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Average Container Bandwidth"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/7_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/7_1"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Rate of Packets"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/8_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/8_1"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Rate of Packets Dropped"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/9_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/9_1"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Storage IO"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/10_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/10_1"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Storage IO - Distribution"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 24,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/11_0"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "duration": "1h"
+    }
+  },
+  "status": {}
+}

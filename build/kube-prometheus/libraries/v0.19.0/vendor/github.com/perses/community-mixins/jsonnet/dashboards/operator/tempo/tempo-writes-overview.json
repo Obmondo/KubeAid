@@ -1,0 +1,1649 @@
+{
+  "kind": "PersesDashboard",
+  "apiVersion": "perses.dev/v1alpha2",
+  "metadata": {
+    "name": "tempo-writes-overview",
+    "namespace": "perses-dev",
+    "labels": {
+      "app.kubernetes.io/component": "dashboard",
+      "app.kubernetes.io/instance": "tempo-writes-overview",
+      "app.kubernetes.io/name": "perses-dashboard",
+      "app.kubernetes.io/part-of": "perses-operator"
+    }
+  },
+  "spec": {
+    "config": {
+      "display": {
+        "name": "Tempo / Writes"
+      },
+      "variables": [
+        {
+          "kind": "ListVariable",
+          "spec": {
+            "display": {
+              "name": "cluster",
+              "hidden": false
+            },
+            "allowAllValue": false,
+            "allowMultiple": true,
+            "plugin": {
+              "kind": "PrometheusLabelValuesVariable",
+              "spec": {
+                "datasource": {
+                  "kind": "PrometheusDatasource",
+                  "name": "prometheus-datasource"
+                },
+                "labelName": "cluster",
+                "matchers": [
+                  "tempo_build_info{}"
+                ]
+              }
+            },
+            "name": "cluster"
+          }
+        },
+        {
+          "kind": "ListVariable",
+          "spec": {
+            "display": {
+              "name": "namespace",
+              "hidden": false
+            },
+            "allowAllValue": false,
+            "allowMultiple": false,
+            "plugin": {
+              "kind": "PrometheusLabelValuesVariable",
+              "spec": {
+                "datasource": {
+                  "kind": "PrometheusDatasource",
+                  "name": "prometheus-datasource"
+                },
+                "labelName": "namespace",
+                "matchers": [
+                  "tempo_build_info{cluster=\"$cluster\"}"
+                ]
+              }
+            },
+            "name": "namespace"
+          }
+        }
+      ],
+      "panels": {
+        "0_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "QPS",
+              "description": "Rate of HTTP request durations for Tempo Gateway"
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  },
+                  "stack": "all"
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (status) (\n  label_replace(\n    label_replace(\n      rate(\n        tempo_request_duration_seconds_count{cluster=~\"$cluster\",job=~\"($namespace)/cortex-gw(-internal)?\",route=~\"(opentelemetry_proto_collector_trace_v1_traceservice_export|otlp_v1_traces)\"}[$__rate_interval]\n      ),\n      \"status\",\n      \"${1}xx\",\n      \"status_code\",\n      \"([0-9])..\"\n    ),\n    \"status\",\n    \"${1}\",\n    \"status_code\",\n    \"([a-zA-Z]+)\"\n  )\n)",
+                      "seriesNameFormat": "{{status}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "0_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Latency",
+              "description": "Shows the 99th and 50th quantile latency of Gateway."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "milliseconds"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  histogram_quantile(\n    0.99,\n    sum by (le) (\n      rate(\n        tempo_request_duration_seconds_bucket{cluster=~\"$cluster\",job=~\"($namespace)/cortex-gw(-internal)?\",route=~\"(opentelemetry_proto_collector_trace_v1_traceservice_export|otlp_v1_traces)\"}[$__rate_interval]\n      )\n    )\n  )\n*\n  1000",
+                      "seriesNameFormat": "{{route}} 99th"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  histogram_quantile(\n    0.5,\n    sum by (le) (\n      rate(\n        tempo_request_duration_seconds_bucket{cluster=~\"$cluster\",job=~\"($namespace)/cortex-gw(-internal)?\",route=~\"(opentelemetry_proto_collector_trace_v1_traceservice_export|otlp_v1_traces)\"}[$__rate_interval]\n      )\n    )\n  )\n*\n  1000",
+                      "seriesNameFormat": "{{route}} 50th"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "    sum(\n      rate(\n        tempo_request_duration_seconds_sum{cluster=~\"$cluster\",job=~\"($namespace)/cortex-gw(-internal)?\",route=~\"(opentelemetry_proto_collector_trace_v1_traceservice_export|otlp_v1_traces)\"}[$__rate_interval]\n      )\n    )\n  *\n    1000\n/\n  sum(\n    rate(\n      tempo_request_duration_seconds_count{cluster=~\"$cluster\",job=~\"($namespace)/cortex-gw(-internal)?\",route=~\"(opentelemetry_proto_collector_trace_v1_traceservice_export|otlp_v1_traces)\"}[$__rate_interval]\n    )\n  )",
+                      "seriesNameFormat": "{{route}} Average"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "1_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "QPS",
+              "description": "Rate of gRPC response statuses from Envoy"
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  },
+                  "stack": "all"
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (grpc_status) (\n  rate(\n    label_replace(\n      {__name__=~\"envoy_cluster_grpc_proto_collector_trace_v1_TraceService_[0-9]+\",cluster=~\"$cluster\",job=~\"($namespace)/cortex-gw(-internal)?\"},\n      \"grpc_status\",\n      \"$1\",\n      \"__name__\",\n      \"envoy_cluster_grpc_proto_collector_trace_v1_TraceService_(.+)\"\n    )[$__rate_interval:30s]\n  )\n)",
+                      "seriesNameFormat": "{{grpc_status}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "1_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "gRPC status codes"
+            },
+            "plugin": {
+              "kind": "Markdown",
+              "spec": {
+                "text": "Visit [Status codes and their use in gRPC](https://github.com/grpc/grpc/blob/master/doc/statuscodes.md)\n\nCode | Number | Description\n---|---|---\nOK | 0 | Not an error; returned on success.\nCANCELLED | 1 | The operation was cancelled, typically by the caller.\nUNKNOWN | 2 | Unknown error. For example, this error may be returned when a Status value received from another address space belongs to an error space that is not known in this address space. Also errors raised by APIs that do not return enough error information may be converted to this error.\nINVALID_ARGUMENT | 3 | The client specified an invalid argument. Note that this differs from FAILED_PRECONDITION.\nDEADLINE_EXCEEDED | 4 | The deadline expired before the operation could complete.\nNOT_FOUND | 5 | Some requested entity (e.g., file or directory) was not found.\nALREADY_EXISTS | 6 | The entity that a client attempted to create (e.g., file or directory) already exists.\nPERMISSION_DENIED | 7 | The caller does not have permission to execute the specified operation.\nRESOURCE_EXHAUSTED | 8 | Some resource has been exhausted, perhaps a per-user quota, or perhaps the entire file system is out of space.\nFAILED_PRECONDITION | 9 | The operation was rejected because the system is not in a state required for the operation's execution.\nABORTED | 10 | The operation was aborted, typically due to a concurrency issue such as a sequencer check failure or transaction abort.\nOUT_OF_RANGE | 11 | The operation was attempted past the valid range.\nUNIMPLEMENTED | 12 | The operation is not implemented or is not supported/enabled in this service.\nINTERNAL | 13 | Internal errors. This means that some invariants expected by the underlying system have been broken.\nUNAVAILABLE | 14 | The service is currently unavailable. This is most likely a transient condition.\nDATA_LOSS | 15 | Unrecoverable data loss or corruption.\nUNAUTHENTICATED | 16 | The request does not have valid authentication credentials for the operation."
+              }
+            }
+          }
+        },
+        "2_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Spans / sec",
+              "description": "Rate of Spans per Second for Tempo Distributor"
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum(\n  rate(\n    tempo_receiver_accepted_spans{cluster=~\"$cluster\",job=~\"($namespace)/distributor\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "accepted"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum(\n  rate(\n    tempo_receiver_refused_spans{cluster=~\"$cluster\",job=~\"($namespace)/distributor\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "refused"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "2_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Bytes / sec",
+              "description": "Rate of bytes received by Tempo distributors"
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "bytes/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (status) (\n  rate(\n    tempo_distributor_bytes_received_total{cluster=~\"$cluster\",job=~\"($namespace)/distributor\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "received"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "2_2": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Latency",
+              "description": "Shows the 99th and 50th quantile latency of Distributor."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "milliseconds"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  histogram_quantile(\n    0.99,\n    sum by (le) (\n      rate(\n        tempo_distributor_push_duration_seconds_bucket{cluster=~\"$cluster\",job=~\"($namespace)/distributor\"}[$__rate_interval]\n      )\n    )\n  )\n*\n  1000",
+                      "seriesNameFormat": "{{route}} 99th"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  histogram_quantile(\n    0.5,\n    sum by (le) (\n      rate(\n        tempo_distributor_push_duration_seconds_bucket{cluster=~\"$cluster\",job=~\"($namespace)/distributor\"}[$__rate_interval]\n      )\n    )\n  )\n*\n  1000",
+                      "seriesNameFormat": "{{route}} 50th"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "    sum(\n      rate(\n        tempo_distributor_push_duration_seconds_sum{cluster=~\"$cluster\",job=~\"($namespace)/distributor\"}[$__rate_interval]\n      )\n    )\n  *\n    1000\n/\n  sum(\n    rate(\n      tempo_distributor_push_duration_seconds_count{cluster=~\"$cluster\",job=~\"($namespace)/distributor\"}[$__rate_interval]\n    )\n  )",
+                      "seriesNameFormat": "{{route}} Average"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "3_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Kafka append records / sec",
+              "description": "Rate of bytes received by Tempo Distributors"
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum(\n  rate(\n    tempo_distributor_kafka_appends_total{cluster=~\"$cluster\",job=~\"($namespace)/distributor\",status=\"success\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "appends"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "3_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Kafka failed append records / sec",
+              "description": "Rate of failed bytes received by Tempo distributors"
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum(\n  rate(\n    tempo_distributor_kafka_appends_total{cluster=~\"$cluster\",job=~\"($namespace)/distributor\",status=\"fail\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "failed"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "4_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Kafka write bytes / sec",
+              "description": "Rate of append (write) operations the Tempo Distributor to Kafkas"
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum(\n  rate(\n    tempo_distributor_kafka_write_bytes_total{cluster=~\"$cluster\",job=~\"($namespace)/distributor\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "writes"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "4_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Kafka write latency (sec)",
+              "description": "Shows the 99th and 50th quantile latency of Distributor Kafka Write."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "milliseconds"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.5,\n  sum by (le) (\n    rate(\n      tempo_distributor_kafka_write_latency_seconds_bucket{cluster=~\"$cluster\",job=~\"($namespace)/distributor\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "50th percentile"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.99,\n  sum by (le) (\n    rate(\n      tempo_distributor_kafka_write_latency_seconds_bucket{cluster=~\"$cluster\",job=~\"($namespace)/distributor\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "99th percentile"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  sum(\n    rate(\n      tempo_distributor_kafka_write_latency_seconds_sum{cluster=~\"$cluster\",job=~\"($namespace)/distributor\"}[$__rate_interval]\n    )\n  )\n/\n  sum(\n    rate(\n      tempo_distributor_kafka_write_latency_seconds_count{cluster=~\"$cluster\",job=~\"($namespace)/distributor\"}[$__rate_interval]\n    )\n  )",
+                      "seriesNameFormat": "Average"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "5_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "QPS",
+              "description": "Rate of HTTP request durations for Tempo Ingester"
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  },
+                  "stack": "all"
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (status) (\n  label_replace(\n    label_replace(\n      rate(\n        tempo_request_duration_seconds_count{cluster=~\"$cluster\",job=~\"($namespace)/ingester\",route=~\"/tempopb.Pusher/Push.*\"}[$__rate_interval]\n      ),\n      \"status\",\n      \"${1}xx\",\n      \"status_code\",\n      \"([0-9])..\"\n    ),\n    \"status\",\n    \"${1}\",\n    \"status_code\",\n    \"([a-zA-Z]+)\"\n  )\n)",
+                      "seriesNameFormat": "{{status}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "5_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Latency",
+              "description": "Shows the 99th and 50th quantile latency of Ingester."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "milliseconds"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  histogram_quantile(\n    0.99,\n    sum by (le) (\n      rate(\n        tempo_request_duration_seconds_bucket{cluster=~\"$cluster\",job=~\"($namespace)/ingester\",route=~\"/tempopb.Pusher/Push.*\"}[$__rate_interval]\n      )\n    )\n  )\n*\n  1000",
+                      "seriesNameFormat": "{{route}} 99th"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  histogram_quantile(\n    0.5,\n    sum by (le) (\n      rate(\n        tempo_request_duration_seconds_bucket{cluster=~\"$cluster\",job=~\"($namespace)/ingester\",route=~\"/tempopb.Pusher/Push.*\"}[$__rate_interval]\n      )\n    )\n  )\n*\n  1000",
+                      "seriesNameFormat": "{{route}} 50th"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "    sum(\n      rate(\n        tempo_request_duration_seconds_sum{cluster=~\"$cluster\",job=~\"($namespace)/ingester\",route=~\"/tempopb.Pusher/Push.*\"}[$__rate_interval]\n      )\n    )\n  *\n    1000\n/\n  sum(\n    rate(\n      tempo_request_duration_seconds_count{cluster=~\"$cluster\",job=~\"($namespace)/ingester\",route=~\"/tempopb.Pusher/Push.*\"}[$__rate_interval]\n    )\n  )",
+                      "seriesNameFormat": "{{route}} Average"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "6_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "QPS",
+              "description": "Rate of HTTP request durations for Tempo Memcached Ingester"
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  },
+                  "stack": "all"
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (status) (\n  label_replace(\n    label_replace(\n      rate(\n        tempo_memcache_request_duration_seconds_count{cluster=~\"$cluster\",job=~\"($namespace)/ingester\",method=\"Memcache.Put\"}[$__rate_interval]\n      ),\n      \"status\",\n      \"${1}xx\",\n      \"status_code\",\n      \"([0-9])..\"\n    ),\n    \"status\",\n    \"${1}\",\n    \"status_code\",\n    \"([a-zA-Z]+)\"\n  )\n)",
+                      "seriesNameFormat": "{{status}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "6_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Latency",
+              "description": "Shows the 99th and 50th quantile latency of Memcached Ingester."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "milliseconds"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  histogram_quantile(\n    0.99,\n    sum by (le) (\n      rate(\n        tempo_memcache_request_duration_seconds_bucket{cluster=~\"$cluster\",job=~\"($namespace)/ingester\",method=\"Memcache.Put\"}[$__rate_interval]\n      )\n    )\n  )\n*\n  1000",
+                      "seriesNameFormat": "{{route}} 99th"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  histogram_quantile(\n    0.5,\n    sum by (le) (\n      rate(\n        tempo_memcache_request_duration_seconds_bucket{cluster=~\"$cluster\",job=~\"($namespace)/ingester\",method=\"Memcache.Put\"}[$__rate_interval]\n      )\n    )\n  )\n*\n  1000",
+                      "seriesNameFormat": "{{route}} 50th"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "    sum(\n      rate(\n        tempo_memcache_request_duration_seconds_sum{cluster=~\"$cluster\",job=~\"($namespace)/ingester\",method=\"Memcache.Put\"}[$__rate_interval]\n      )\n    )\n  *\n    1000\n/\n  sum(\n    rate(\n      tempo_memcache_request_duration_seconds_count{cluster=~\"$cluster\",job=~\"($namespace)/ingester\",method=\"Memcache.Put\"}[$__rate_interval]\n    )\n  )",
+                      "seriesNameFormat": "{{route}} Average"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "7_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "QPS",
+              "description": "Rate of HTTP request durations for Tempo Backend Ingester"
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  },
+                  "stack": "all"
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (status) (\n  label_replace(\n    label_replace(\n      rate(\n        tempodb_backend_request_duration_seconds_count{cluster=~\"$cluster\",job=~\"($namespace)/ingester\",operation=~\"(PUT|POST)\"}[$__rate_interval]\n      ),\n      \"status\",\n      \"${1}xx\",\n      \"status_code\",\n      \"([0-9])..\"\n    ),\n    \"status\",\n    \"${1}\",\n    \"status_code\",\n    \"([a-zA-Z]+)\"\n  )\n)",
+                      "seriesNameFormat": "{{status}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "7_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Latency",
+              "description": "Shows the 99th and 50th quantile latency of Backend Ingester."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "milliseconds"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  histogram_quantile(\n    0.99,\n    sum by (le) (\n      rate(\n        tempodb_backend_request_duration_seconds_bucket{cluster=~\"$cluster\",job=~\"($namespace)/ingester\",operation=~\"(PUT|POST)\"}[$__rate_interval]\n      )\n    )\n  )\n*\n  1000",
+                      "seriesNameFormat": "{{route}} 99th"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  histogram_quantile(\n    0.99,\n    sum by (le) (\n      rate(\n        tempodb_backend_request_duration_seconds_bucket{cluster=~\"$cluster\",job=~\"($namespace)/ingester\",operation=~\"(PUT|POST)\"}[$__rate_interval]\n      )\n    )\n  )\n*\n  1000",
+                      "seriesNameFormat": "{{route}} 50th"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "    sum(\n      rate(\n        tempodb_backend_request_duration_seconds_sum{cluster=~\"$cluster\",job=~\"($namespace)/ingester\",operation=~\"(PUT|POST)\"}[$__rate_interval]\n      )\n    )\n  *\n    1000\n/\n  sum(\n    rate(\n      tempodb_backend_request_duration_seconds_count{cluster=~\"$cluster\",job=~\"($namespace)/ingester\",operation=~\"(PUT|POST)\"}[$__rate_interval]\n    )\n  )",
+                      "seriesNameFormat": "{{route}} Average"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "8_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "QPS",
+              "description": "Rate of HTTP request durations for Memcached Compactor"
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  },
+                  "stack": "all"
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (status) (\n  label_replace(\n    label_replace(\n      rate(\n        tempo_memcache_request_duration_seconds_count{cluster=~\"$cluster\",job=~\"($namespace)/compactor\",method=\"Memcache.Put\"}[$__rate_interval]\n      ),\n      \"status\",\n      \"${1}xx\",\n      \"status_code\",\n      \"([0-9])..\"\n    ),\n    \"status\",\n    \"${1}\",\n    \"status_code\",\n    \"([a-zA-Z]+)\"\n  )\n)",
+                      "seriesNameFormat": "{{status}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "8_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Latency",
+              "description": "Shows the 99th and 50th quantile latency of Backend Ingester."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "milliseconds"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  histogram_quantile(\n    0.99,\n    sum by (le) (\n      rate(\n        tempo_memcache_request_duration_seconds_bucket{cluster=~\"$cluster\",job=~\"($namespace)/compactor\",method=\"Memcache.Put\"}[$__rate_interval]\n      )\n    )\n  )\n*\n  1000",
+                      "seriesNameFormat": "{{route}} 99th"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  histogram_quantile(\n    0.5,\n    sum by (le) (\n      rate(\n        tempo_memcache_request_duration_seconds_bucket{cluster=~\"$cluster\",job=~\"($namespace)/compactor\",method=\"Memcache.Put\"}[$__rate_interval]\n      )\n    )\n  )\n*\n  1000",
+                      "seriesNameFormat": "{{route}} 50th"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "    sum(\n      rate(\n        tempo_memcache_request_duration_seconds_sum{cluster=~\"$cluster\",job=~\"($namespace)/compactor\",method=\"Memcache.Put\"}[$__rate_interval]\n      )\n    )\n  *\n    1000\n/\n  sum(\n    rate(\n      tempo_memcache_request_duration_seconds_count{cluster=~\"$cluster\",job=~\"($namespace)/compactor\",method=\"Memcache.Put\"}[$__rate_interval]\n    )\n  )",
+                      "seriesNameFormat": "{{route}} Average"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "9_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "QPS",
+              "description": "Rate of HTTP request durations for Backend Compactor"
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  },
+                  "stack": "all"
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (status) (\n  label_replace(\n    label_replace(\n      rate(\n        tempodb_backend_request_duration_seconds_count{cluster=~\"$cluster\",job=~\"($namespace)/compactor\",operation=~\"(PUT|POST)\"}[$__rate_interval]\n      ),\n      \"status\",\n      \"${1}xx\",\n      \"status_code\",\n      \"([0-9])..\"\n    ),\n    \"status\",\n    \"${1}\",\n    \"status_code\",\n    \"([a-zA-Z]+)\"\n  )\n)",
+                      "seriesNameFormat": "{{status}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "9_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Latency",
+              "description": "Shows the 99th and 50th quantile latency of Backend Ingester."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "milliseconds"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  histogram_quantile(\n    0.99,\n    sum by (le) (\n      rate(\n        tempodb_backend_request_duration_seconds_bucket{cluster=~\"$cluster\",job=~\"($namespace)/compactor\",operation=~\"(PUT|POST)\"}[$__rate_interval]\n      )\n    )\n  )\n*\n  1000",
+                      "seriesNameFormat": "{{route}} 99th"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  histogram_quantile(\n    0.99,\n    sum by (le) (\n      rate(\n        tempodb_backend_request_duration_seconds_bucket{cluster=~\"$cluster\",job=~\"($namespace)/compactor\",operation=~\"(PUT|POST)\"}[$__rate_interval]\n      )\n    )\n  )\n*\n  1000",
+                      "seriesNameFormat": "{{route}} 50th"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "    sum(\n      rate(\n        tempodb_backend_request_duration_seconds_sum{cluster=~\"$cluster\",job=~\"($namespace)/compactor\",operation=~\"(PUT|POST)\"}[$__rate_interval]\n      )\n    )\n  *\n    1000\n/\n  sum(\n    rate(\n      tempodb_backend_request_duration_seconds_count{cluster=~\"$cluster\",job=~\"($namespace)/compactor\",operation=~\"(PUT|POST)\"}[$__rate_interval]\n    )\n  )",
+                      "seriesNameFormat": "{{route}} Average"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "layouts": [
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Gateway"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/0_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/0_1"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Envoy Proxy"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/1_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/1_1"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Distributor"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 8,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/2_0"
+                }
+              },
+              {
+                "x": 8,
+                "y": 0,
+                "width": 8,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/2_1"
+                }
+              },
+              {
+                "x": 16,
+                "y": 0,
+                "width": 8,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/2_2"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Kafka produced records"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/3_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/3_1"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Kafka Writes"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/4_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/4_1"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Ingester"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/5_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/5_1"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Memcached - Ingester"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/6_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/6_1"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Backend - Ingester"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/7_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/7_1"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Memcached - Compactor"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/8_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/8_1"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Backend - Compactor"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/9_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/9_1"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "duration": "1h"
+    }
+  },
+  "status": {}
+}

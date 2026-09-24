@@ -1,0 +1,35 @@
+name: ci
+permissions: {}
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Format Jsonnet
+            run: make --always-make jsonnet-fmt && git diff --exit-code
+          - name: Lint Jsonnet
+            run: make --always-make jsonnet-lint
+          - name: Format Markdown
+            run: make --always-make markdownfmt && git diff --exit-code
+          - name: Lint Markdown
+            run: make --always-make vale && git diff --exit-code
+          - name: Run unit tests
+            run: make --always-make test
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
+        with:
+          go-version-file: scripts/go.mod
+          cache-dependency-path: scripts/go.sum
+      - run: ${{ matrix.run }}

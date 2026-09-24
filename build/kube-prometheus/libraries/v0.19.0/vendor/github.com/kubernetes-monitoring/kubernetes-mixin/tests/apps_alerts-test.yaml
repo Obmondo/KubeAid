@@ -1,0 +1,163 @@
+# Copyright kubernetes-mixin Authors
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+rule_files:
+- ../prometheus_alerts.yaml
+
+tests:
+- interval: 1m
+  name: KubePdbNotEnoughHealthyPods fires when current healthly pods are less than desired
+  input_series:
+  - series: 'kube_poddisruptionbudget_status_desired_healthy{cluster="cluster1", namespace="ns1", poddisruptionbudget="pdb1", job="kube-state-metrics"}'
+    values: '4x15'
+  - series: 'kube_poddisruptionbudget_status_current_healthy{cluster="cluster1", namespace="ns1", poddisruptionbudget="pdb1", job="kube-state-metrics"}'
+    values: '3x15'
+  - series: 'kube_poddisruptionbudget_status_expected_pods{cluster="cluster1", namespace="ns1", poddisruptionbudget="pdb1", job="kube-state-metrics"}'
+    values: '4x15'
+  alert_rule_test:
+  - eval_time: 14m
+    alertname: KubePdbNotEnoughHealthyPods
+  - eval_time: 15m
+    alertname: KubePdbNotEnoughHealthyPods
+    exp_alerts:
+    - exp_labels:
+        severity: "warning"
+        cluster: "cluster1"
+        namespace: "ns1"
+        poddisruptionbudget: "pdb1"
+        job: "kube-state-metrics"
+      exp_annotations:
+        description: "PDB ns1/pdb1 expects 1 more healthy pods. The desired number of healthy pods has not been met for at least 15m."
+        runbook_url: "https://github.com/kubernetes-sigs/kubernetes-mixin/tree/master/runbook.md#alert-name-kubepdbnotenoughhealthypods"
+        summary: "PDB does not have enough healthy pods."
+
+- interval: 1m
+  name: KubePdbNotEnoughHealthyPods does not fire when the PDB selects no pods
+  input_series:
+  # A PDB with an absolute minAvailable reports desiredHealthy from the spec even when its
+  # selector matches nothing, so a workload scaled to zero replicas shows a permanent deficit.
+  - series: 'kube_poddisruptionbudget_status_desired_healthy{cluster="cluster1", namespace="ns1", poddisruptionbudget="pdb1", job="kube-state-metrics"}'
+    values: '1x30'
+  - series: 'kube_poddisruptionbudget_status_current_healthy{cluster="cluster1", namespace="ns1", poddisruptionbudget="pdb1", job="kube-state-metrics"}'
+    values: '0x30'
+  - series: 'kube_poddisruptionbudget_status_expected_pods{cluster="cluster1", namespace="ns1", poddisruptionbudget="pdb1", job="kube-state-metrics"}'
+    values: '0x30'
+  alert_rule_test:
+  - eval_time: 15m
+    alertname: KubePdbNotEnoughHealthyPods
+  - eval_time: 30m
+    alertname: KubePdbNotEnoughHealthyPods
+
+- interval: 1m
+  name: KubeStatefulSetUpdateNotRolledOut still fires even if another label (e.g. instance) is present
+  input_series:
+  - series: 'kube_statefulset_status_current_revision{job="kube-state-metrics", cluster="c1", namespace="ns1", statefulset="ss1", revision="foo", instance="custom"}'
+    values: '1x15'
+  - series: 'kube_statefulset_status_update_revision{job="kube-state-metrics", cluster="c1", namespace="ns1", statefulset="ss1", revision="bar", instance="custom"}'
+    values: '1x15'
+  - series: 'kube_statefulset_replicas{job="kube-state-metrics", cluster="c1", namespace="ns1", statefulset="ss1", instance="custom"}'
+    values: '5x15'
+  - series: 'kube_statefulset_status_replicas_updated{job="kube-state-metrics", cluster="c1", namespace="ns1", statefulset="ss1", instance="custom"}'
+    values: '1x15'
+  alert_rule_test:
+  - eval_time: 14m
+    alertname: KubeStatefulSetUpdateNotRolledOut
+  - eval_time: 15m
+    alertname: KubeStatefulSetUpdateNotRolledOut
+    exp_alerts:
+    - exp_labels:
+        cluster: "c1"
+        job: "kube-state-metrics"
+        namespace: "ns1"
+        severity: "warning"
+        statefulset: "ss1"
+      exp_annotations:
+        description: "StatefulSet ns1/ss1 update has not been rolled out."
+        runbook_url: "https://github.com/kubernetes-sigs/kubernetes-mixin/tree/master/runbook.md#alert-name-kubestatefulsetupdatenotrolledout"
+        summary: "StatefulSet update has not been rolled out."
+
+- interval: 1m
+  name: KubeHpaMaxedOut fires when current replicas hit max and min is not equal to max
+  input_series:
+  - series: 'kube_horizontalpodautoscaler_status_current_replicas{job="kube-state-metrics", cluster="cluster1", namespace="ns1", horizontalpodautoscaler="hpa1"}'
+    values: '10x15'
+  - series: 'kube_horizontalpodautoscaler_spec_max_replicas{job="kube-state-metrics", cluster="cluster1", namespace="ns1", horizontalpodautoscaler="hpa1"}'
+    values: '10x15'
+  - series: 'kube_horizontalpodautoscaler_spec_min_replicas{job="kube-state-metrics", cluster="cluster1", namespace="ns1", horizontalpodautoscaler="hpa1"}'
+    values: '2x15'
+  alert_rule_test:
+  - eval_time: 14m
+    alertname: KubeHpaMaxedOut
+  - eval_time: 15m
+    alertname: KubeHpaMaxedOut
+    exp_alerts:
+    - exp_labels:
+        severity: "warning"
+        cluster: "cluster1"
+        namespace: "ns1"
+        horizontalpodautoscaler: "hpa1"
+        job: "kube-state-metrics"
+      exp_annotations:
+        description: "HPA ns1/hpa1 has been running at max replicas for longer than 15 minutes."
+        runbook_url: "https://github.com/kubernetes-sigs/kubernetes-mixin/tree/master/runbook.md#alert-name-kubehpamaxedout"
+        summary: "HPA is running at max replicas"
+
+- interval: 1m
+  name: KubeHpaMaxedOut does not fire when HPA is intentionally pinned to a fixed scale (min == max)
+  input_series:
+  - series: 'kube_horizontalpodautoscaler_status_current_replicas{job="kube-state-metrics", cluster="cluster1", namespace="ns1", horizontalpodautoscaler="hpa2"}'
+    values: '5x15'
+  - series: 'kube_horizontalpodautoscaler_spec_max_replicas{job="kube-state-metrics", cluster="cluster1", namespace="ns1", horizontalpodautoscaler="hpa2"}'
+    values: '5x15'
+  - series: 'kube_horizontalpodautoscaler_spec_min_replicas{job="kube-state-metrics", cluster="cluster1", namespace="ns1", horizontalpodautoscaler="hpa2"}'
+    values: '5x15'
+  alert_rule_test:
+  - eval_time: 15m
+    alertname: KubeHpaMaxedOut
+
+- interval: 1m
+  name: KubeHpaMaxedOut does not fire for pinned HPA (min == max) on cluster2 when non-pinned same-named HPA exists on cluster1
+  input_series:
+  # cluster1 - HPA at max, min != max -> should fire
+  - series: 'kube_horizontalpodautoscaler_status_current_replicas{job="kube-state-metrics", cluster="cluster1", namespace="ns1", horizontalpodautoscaler="hpa1"}'
+    values: '10x15'
+  - series: 'kube_horizontalpodautoscaler_spec_max_replicas{job="kube-state-metrics", cluster="cluster1", namespace="ns1", horizontalpodautoscaler="hpa1"}'
+    values: '10x15'
+  - series: 'kube_horizontalpodautoscaler_spec_min_replicas{job="kube-state-metrics", cluster="cluster1", namespace="ns1", horizontalpodautoscaler="hpa1"}'
+    values: '2x15'
+  # cluster2 - same namespace/hpa name, but pinned (min == max) -> should NOT fire
+  - series: 'kube_horizontalpodautoscaler_status_current_replicas{job="kube-state-metrics", cluster="cluster2", namespace="ns1", horizontalpodautoscaler="hpa1"}'
+    values: '5x15'
+  - series: 'kube_horizontalpodautoscaler_spec_max_replicas{job="kube-state-metrics", cluster="cluster2", namespace="ns1", horizontalpodautoscaler="hpa1"}'
+    values: '5x15'
+  - series: 'kube_horizontalpodautoscaler_spec_min_replicas{job="kube-state-metrics", cluster="cluster2", namespace="ns1", horizontalpodautoscaler="hpa1"}'
+    values: '5x15'
+  alert_rule_test:
+  - eval_time: 14m
+    alertname: KubeHpaMaxedOut
+  - eval_time: 15m
+    alertname: KubeHpaMaxedOut
+    exp_alerts:
+    # Only cluster1 should fire; cluster2 is pinned (min == max) and must not fire
+    - exp_labels:
+        severity: "warning"
+        cluster: "cluster1"
+        namespace: "ns1"
+        horizontalpodautoscaler: "hpa1"
+        job: "kube-state-metrics"
+      exp_annotations:
+        description: "HPA ns1/hpa1 has been running at max replicas for longer than 15 minutes."
+        runbook_url: "https://github.com/kubernetes-sigs/kubernetes-mixin/tree/master/runbook.md#alert-name-kubehpamaxedout"
+        summary: "HPA is running at max replicas"

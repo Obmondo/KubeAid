@@ -1,0 +1,7 @@
+prometheus_alerts.yaml
+prometheus_rules.yaml
+dashboards_out
+vendor
+tmp
+.vale
+__pycache__

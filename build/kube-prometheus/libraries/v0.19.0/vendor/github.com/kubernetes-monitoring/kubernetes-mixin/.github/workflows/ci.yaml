@@ -1,0 +1,85 @@
+# Copyright kubernetes-mixin Authors
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: ci
+permissions: {}
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+jobs:
+  build-tools:
+    runs-on: ubuntu-latest
+    name: Build Go Tools
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: scripts/go.mod
+          cache-dependency-path: scripts/go.sum
+      - name: Build Go tools
+        run: make build-tools
+      - name: Upload built tools
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: go-tools
+          path: tmp/bin/
+          retention-days: 1
+          if-no-files-found: error
+
+  matrix:
+    runs-on: ubuntu-latest
+    name: ${{ matrix.name }}
+    needs: build-tools
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Lint Alerts
+            run: make alerts-lint
+          - name: Generate YAML
+            run: make generate && git diff --exit-code
+          - name: Lint Grafana Dashboards
+            run: make dashboards-lint
+          - name: Format JSONNET
+            run: make jsonnet-fmt && git diff --exit-code
+          - name: Lint JSONNET
+            run: make jsonnet-lint
+          - name: Format MD
+            run: make markdownfmt && git diff --exit-code
+          - name: Lint MD
+            run: make vale && git diff --exit-code
+          - name: Lint YAML
+            run: make pint-lint
+          - name: Run unit tests
+            run: make test
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download built tools
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: go-tools
+          path: tmp/bin/
+      - name: Make tools executable and update timestamps
+        run: |
+          chmod +x tmp/bin/*
+          touch tmp/bin/*
+      - run: ${{ matrix.run }}

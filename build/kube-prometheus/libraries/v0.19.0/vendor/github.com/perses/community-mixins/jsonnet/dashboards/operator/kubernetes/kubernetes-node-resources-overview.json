@@ -1,0 +1,744 @@
+{
+  "kind": "PersesDashboard",
+  "apiVersion": "perses.dev/v1alpha2",
+  "metadata": {
+    "name": "kubernetes-node-resources-overview",
+    "namespace": "perses-dev",
+    "labels": {
+      "app.kubernetes.io/component": "dashboard",
+      "app.kubernetes.io/instance": "kubernetes-node-resources-overview",
+      "app.kubernetes.io/name": "perses-dashboard",
+      "app.kubernetes.io/part-of": "perses-operator"
+    }
+  },
+  "spec": {
+    "config": {
+      "display": {
+        "name": "Kubernetes / Compute Resources / Node (Pods)"
+      },
+      "variables": [
+        {
+          "kind": "ListVariable",
+          "spec": {
+            "display": {
+              "name": "cluster",
+              "hidden": false
+            },
+            "allowAllValue": false,
+            "allowMultiple": false,
+            "plugin": {
+              "kind": "PrometheusLabelValuesVariable",
+              "spec": {
+                "datasource": {
+                  "kind": "PrometheusDatasource",
+                  "name": "prometheus-datasource"
+                },
+                "labelName": "cluster",
+                "matchers": [
+                  "up{job=\"kubelet\"}"
+                ]
+              }
+            },
+            "name": "cluster"
+          }
+        },
+        {
+          "kind": "ListVariable",
+          "spec": {
+            "display": {
+              "name": "node",
+              "hidden": false
+            },
+            "allowAllValue": false,
+            "allowMultiple": false,
+            "plugin": {
+              "kind": "PrometheusLabelValuesVariable",
+              "spec": {
+                "datasource": {
+                  "kind": "PrometheusDatasource",
+                  "name": "prometheus-datasource"
+                },
+                "labelName": "node",
+                "matchers": [
+                  "kube_pod_info{cluster=\"$cluster\"}"
+                ]
+              }
+            },
+            "name": "node"
+          }
+        }
+      ],
+      "panels": {
+        "0_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "CPU Usage",
+              "description": "Shows the CPU usage of the node by pod, and the CPU capacity of the node."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum(\n  kube_node_status_capacity{cluster=\"$cluster\",job=\"kube-state-metrics\",node=~\"$node\",resource=\"cpu\"}\n)",
+                      "seriesNameFormat": "max capacity"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (pod) (\n  node_namespace_pod_container:container_cpu_usage_seconds_total:sum_rate5m{cluster=\"$cluster\",node=~\"$node\"}\n)",
+                      "seriesNameFormat": "{{pod}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "1_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "CPU Quota",
+              "description": "Shows the CPU requests, limits, and usage of pods on the node in tabular format."
+            },
+            "plugin": {
+              "kind": "Table",
+              "spec": {
+                "columnSettings": [
+                  {
+                    "align": "left",
+                    "header": "Pod",
+                    "name": "pod"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "decimalPlaces": 4,
+                      "unit": "decimal"
+                    },
+                    "header": "CPU Usage",
+                    "name": "value #1"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "decimalPlaces": 4,
+                      "unit": "decimal"
+                    },
+                    "header": "CPU Requests",
+                    "name": "value #2"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "decimalPlaces": 4,
+                      "unit": "percent-decimal"
+                    },
+                    "header": "CPU Requests %",
+                    "name": "value #3"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "decimalPlaces": 4,
+                      "unit": "decimal"
+                    },
+                    "header": "CPU Limits",
+                    "name": "value #4"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "decimalPlaces": 4,
+                      "unit": "percent-decimal"
+                    },
+                    "header": "CPU Limits %",
+                    "name": "value #5"
+                  },
+                  {
+                    "hide": true,
+                    "name": "timestamp"
+                  }
+                ],
+                "transforms": [
+                  {
+                    "kind": "MergeSeries",
+                    "spec": {}
+                  }
+                ]
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (pod) (\n  node_namespace_pod_container:container_cpu_usage_seconds_total:sum_rate5m{cluster=\"$cluster\",node=~\"$node\"}\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (pod) (\n  cluster:namespace:pod_cpu:active:kube_pod_container_resource_requests{cluster=\"$cluster\",node=~\"$node\"}\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  sum by (pod) (\n    node_namespace_pod_container:container_cpu_usage_seconds_total:sum_rate5m{cluster=\"$cluster\",node=~\"$node\"}\n  )\n/\n  sum by (pod) (\n    cluster:namespace:pod_cpu:active:kube_pod_container_resource_requests{cluster=\"$cluster\",node=~\"$node\"}\n  )"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (pod) (\n  cluster:namespace:pod_cpu:active:kube_pod_container_resource_limits{cluster=\"$cluster\",node=~\"$node\"}\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  sum by (pod) (\n    node_namespace_pod_container:container_cpu_usage_seconds_total:sum_rate5m{cluster=\"$cluster\",node=~\"$node\"}\n  )\n/\n  sum by (pod) (\n    cluster:namespace:pod_cpu:active:kube_pod_container_resource_limits{cluster=\"$cluster\",node=~\"$node\"}\n  )"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "2_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Memory Usage",
+              "description": "Shows the memory usage of the node by pod, and the memory capacity of the node."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "bytes"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum(\n  kube_node_status_capacity{cluster=\"$cluster\",job=\"kube-state-metrics\",node=~\"$node\",resource=\"memory\"}\n)",
+                      "seriesNameFormat": "max capacity"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (pod) (\n  node_namespace_pod_container:container_memory_working_set_bytes{cluster=\"$cluster\",container!=\"\",node=~\"$node\"}\n)",
+                      "seriesNameFormat": "{{pod}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "3_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Memory Usage",
+              "description": "Shows the memory usage (RSS) of the node by pod, and the memory capacity of the node."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "bytes"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum(\n  kube_node_status_capacity{cluster=\"$cluster\",job=\"kube-state-metrics\",node=~\"$node\",resource=\"memory\"}\n)",
+                      "seriesNameFormat": "max capacity"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (pod) (\n  node_namespace_pod_container:container_memory_rss{cluster=\"$cluster\",container!=\"\",node=~\"$node\"}\n)",
+                      "seriesNameFormat": "{{pod}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "4_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Memory Quota",
+              "description": "Shows the Memory requests, limits, and usage of pods on the node in tabular format."
+            },
+            "plugin": {
+              "kind": "Table",
+              "spec": {
+                "columnSettings": [
+                  {
+                    "align": "left",
+                    "header": "Pod",
+                    "name": "pod"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "bytes"
+                    },
+                    "header": "Memory Usage",
+                    "name": "value #1"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "bytes"
+                    },
+                    "header": "Memory Requests",
+                    "name": "value #2"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "decimalPlaces": 4,
+                      "unit": "percent-decimal"
+                    },
+                    "header": "Memory Requests %",
+                    "name": "value #3"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "bytes"
+                    },
+                    "header": "Memory Limits",
+                    "name": "value #4"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "decimalPlaces": 4,
+                      "unit": "percent-decimal"
+                    },
+                    "header": "Memory Limits %",
+                    "name": "value #5"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "bytes"
+                    },
+                    "header": "Memory Usage (RSS)",
+                    "name": "value #6"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "bytes"
+                    },
+                    "header": "Memory Usage (Cache)",
+                    "name": "value #7"
+                  },
+                  {
+                    "align": "right",
+                    "format": {
+                      "unit": "bytes"
+                    },
+                    "header": "Memory Usage (Swap)",
+                    "name": "value #8"
+                  },
+                  {
+                    "hide": true,
+                    "name": "timestamp"
+                  }
+                ],
+                "transforms": [
+                  {
+                    "kind": "MergeSeries",
+                    "spec": {}
+                  }
+                ]
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (pod) (\n  node_namespace_pod_container:container_memory_working_set_bytes{cluster=\"$cluster\",container!=\"\",node=~\"$node\"}\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (pod) (\n  cluster:namespace:pod_memory:active:kube_pod_container_resource_requests{cluster=\"$cluster\",node=~\"$node\"}\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  sum by (pod) (\n    node_namespace_pod_container:container_memory_working_set_bytes{cluster=\"$cluster\",container!=\"\",node=~\"$node\"}\n  )\n/\n  sum by (pod) (\n    cluster:namespace:pod_memory:active:kube_pod_container_resource_requests{cluster=\"$cluster\",node=~\"$node\"}\n  )"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (pod) (\n  cluster:namespace:pod_memory:active:kube_pod_container_resource_limits{cluster=\"$cluster\",node=~\"$node\"}\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  sum by (pod) (\n    node_namespace_pod_container:container_memory_working_set_bytes{cluster=\"$cluster\",container!=\"\",node=~\"$node\"}\n  )\n/\n  sum by (pod) (\n    cluster:namespace:pod_memory:active:kube_pod_container_resource_limits{cluster=\"$cluster\",node=~\"$node\"}\n  )"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (pod) (\n  node_namespace_pod_container:container_memory_rss{cluster=\"$cluster\",container!=\"\",node=~\"$node\"}\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (pod) (\n  node_namespace_pod_container:container_memory_cache{cluster=\"$cluster\",container!=\"\",node=~\"$node\"}\n)"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (pod) (\n  node_namespace_pod_container:container_memory_swap{cluster=\"$cluster\",container!=\"\",node=~\"$node\"}\n)"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "layouts": [
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "CPU Usage"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 24,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/0_0"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "CPU Quota"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 24,
+                "height": 12,
+                "content": {
+                  "$ref": "#/spec/panels/1_0"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Memory Usage with Cache"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 24,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/2_0"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Memory Usage without Cache"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 24,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/3_0"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Memory Quota"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 24,
+                "height": 12,
+                "content": {
+                  "$ref": "#/spec/panels/4_0"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "duration": "1h"
+    }
+  },
+  "status": {}
+}

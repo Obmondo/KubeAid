@@ -1,0 +1,5 @@
+vendor
+tmp
+dashboards_out/.lint
+examples_out
+.vale

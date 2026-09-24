@@ -1,0 +1,2405 @@
+{
+  "kind": "PersesDashboard",
+  "apiVersion": "perses.dev/v1alpha2",
+  "metadata": {
+    "name": "thanos-store-overview",
+    "namespace": "perses-dev",
+    "labels": {
+      "app.kubernetes.io/component": "dashboard",
+      "app.kubernetes.io/instance": "thanos-store-overview",
+      "app.kubernetes.io/name": "perses-dashboard",
+      "app.kubernetes.io/part-of": "perses-operator"
+    }
+  },
+  "spec": {
+    "config": {
+      "display": {
+        "name": "Thanos / Store Gateway / Overview"
+      },
+      "variables": [
+        {
+          "kind": "ListVariable",
+          "spec": {
+            "display": {
+              "name": "job",
+              "hidden": false
+            },
+            "allowAllValue": false,
+            "allowMultiple": true,
+            "plugin": {
+              "kind": "PrometheusLabelValuesVariable",
+              "spec": {
+                "datasource": {
+                  "kind": "PrometheusDatasource",
+                  "name": "prometheus-datasource"
+                },
+                "labelName": "job",
+                "matchers": [
+                  "thanos_build_info{container=\"thanos-store\"}"
+                ]
+              }
+            },
+            "name": "job"
+          }
+        },
+        {
+          "kind": "ListVariable",
+          "spec": {
+            "display": {
+              "name": "namespace",
+              "hidden": false
+            },
+            "allowAllValue": false,
+            "allowMultiple": false,
+            "plugin": {
+              "kind": "PrometheusLabelValuesVariable",
+              "spec": {
+                "datasource": {
+                  "kind": "PrometheusDatasource",
+                  "name": "prometheus-datasource"
+                },
+                "labelName": "namespace",
+                "matchers": [
+                  "thanos_status{}"
+                ]
+              }
+            },
+            "name": "namespace"
+          }
+        }
+      ],
+      "panels": {
+        "0_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Unary gRPC Read request rate",
+              "description": "Shows rate of handled Unary gRPC Read requests (StoreAPI)."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  },
+                  "stack": "all"
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "requests/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace, job, grpc_method, grpc_code) (\n  rate(\n    grpc_server_handled_total{grpc_method!=\"RemoteWrite\",grpc_type=\"unary\",job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "{{namespace}} {{job}} {{grpc_method}} {{grpc_code}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "0_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Unary gRPC Read error rate",
+              "description": "Shows percentage of errors of Unary gRPC Read requests (StoreAPI)."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  },
+                  "stack": "all"
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "percent"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  sum by (namespace, job, grpc_code) (\n    rate(\n      grpc_server_handled_total{grpc_code=~\"Unknown|ResourceExhausted|Internal|Unavailable|DataLoss\",grpc_method!=\"RemoteWrite\",grpc_type=\"unary\",job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n/ ignoring (grpc_code) group_left ()\n  sum by (namespace, job) (\n    rate(\n      grpc_server_handled_total{grpc_method!=\"RemoteWrite\",grpc_type=\"unary\",job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )",
+                      "seriesNameFormat": "{{namespace}} {{job}} {{grpc_method}} {{grpc_code}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "0_2": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Unary gRPC Read duration",
+              "description": "Shows duration percentiles of handled Unary gRPC Read requests (StoreAPI)."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "seconds"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.5,\n  sum by (namespace, job, le) (\n    rate(\n      grpc_server_handling_seconds_bucket{grpc_method!=\"RemoteWrite\",grpc_type=\"unary\",job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p50 {{namespace}} {{job}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.9,\n  sum by (namespace, job, le) (\n    rate(\n      grpc_server_handling_seconds_bucket{grpc_method!=\"RemoteWrite\",grpc_type=\"unary\",job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p90 {{namespace}} {{job}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.99,\n  sum by (namespace, job, le) (\n    rate(\n      grpc_server_handling_seconds_bucket{grpc_method!=\"RemoteWrite\",grpc_type=\"unary\",job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p99 {{namespace}} {{job}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "1_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Stream gRPC Read request rate",
+              "description": "Shows rate of handled Stream gRPC Read requests (StoreAPI Series/Exemplar calls)."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  },
+                  "stack": "all"
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "requests/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace, job, grpc_method, grpc_code) (\n  rate(\n    grpc_server_handled_total{grpc_type=\"server_stream\",job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "{{namespace}} {{job}} {{grpc_method}} {{grpc_code}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "1_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Stream gRPC Read error rate",
+              "description": "Shows percentage of errors of Stream gRPC Read requests (StoreAPI Series/Exemplar calls)."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  },
+                  "stack": "all"
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "percent"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  sum by (namespace, job, grpc_code) (\n    rate(\n      grpc_server_handled_total{grpc_code=~\"Unknown|ResourceExhausted|Internal|Unavailable|DataLoss\",grpc_type=\"server_stream\",job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n/ ignoring (grpc_code) group_left ()\n  sum by (namespace, job) (\n    rate(\n      grpc_server_handled_total{grpc_type=\"server_stream\",job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )",
+                      "seriesNameFormat": "{{namespace}} {{job}} {{grpc_method}} {{grpc_code}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "1_2": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Stream gRPC Read duration",
+              "description": "Shows duration percentiles of handled Stream gRPC Read requests (StoreAPI Series/Exemplar calls)."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "seconds"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.5,\n  sum by (namespace, job, le) (\n    rate(\n      grpc_server_handling_seconds_bucket{grpc_type=\"server_stream\",job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p50 {{namespace}} {{job}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.9,\n  sum by (namespace, job, le) (\n    rate(\n      grpc_server_handling_seconds_bucket{grpc_type=\"server_stream\",job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p90 {{namespace}} {{job}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.99,\n  sum by (namespace, job, le) (\n    rate(\n      grpc_server_handling_seconds_bucket{grpc_type=\"server_stream\",job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p99 {{namespace}} {{job}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "2_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Bucket Operations",
+              "description": "Shows rate of executions of operations against object storage bucket."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  },
+                  "stack": "all"
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "requests/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace, job, operation) (\n  rate(thanos_objstore_bucket_operations_total{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval])\n)",
+                      "seriesNameFormat": "{{job}} {{operation}} {{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "2_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Bucket Operation Errors",
+              "description": "Shows percentage of errors of operations against object storage bucket."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  },
+                  "stack": "all"
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "percent"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "    sum by (namespace, job, operation) (\n      rate(\n        thanos_objstore_bucket_operation_failures_total{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n      )\n    )\n  /\n    sum by (namespace, job, operation) (\n      rate(thanos_objstore_bucket_operations_total{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval])\n    )\n*\n  100",
+                      "seriesNameFormat": "{{job}} {{operation}} {{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "2_2": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Bucket Operation Latency",
+              "description": "Shows latency of operations against object storage bucket."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "seconds"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.99,\n  sum by (namespace, job, operation, le) (\n    rate(\n      thanos_objstore_bucket_operation_duration_seconds_bucket{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p99 {{job}} {{operation}} {{namespace}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.9,\n  sum by (namespace, job, operation, le) (\n    rate(\n      thanos_objstore_bucket_operation_duration_seconds_bucket{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p90 {{job}} {{operation}} {{namespace}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.5,\n  sum by (namespace, job, operation, le) (\n    rate(\n      thanos_objstore_bucket_operation_duration_seconds_bucket{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p50 {{job}} {{operation}} {{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "3_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Block Load Rate",
+              "description": "Shows the rate of block loads from the bucket."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  },
+                  "stack": "all"
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "counts/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace, job) (\n  rate(thanos_bucket_store_block_loads_total{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval])\n)",
+                      "seriesNameFormat": "{{job}} {{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "3_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Block Load Errors",
+              "description": "Shows ratio of errors compared to total number of block load operations."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  },
+                  "stack": "all"
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "percent"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "    sum by (namespace, job) (\n      rate(\n        thanos_bucket_store_block_load_failures_total{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n      )\n    )\n  /\n    sum by (namespace, job) (\n      rate(thanos_bucket_store_block_loads_total{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval])\n    )\n*\n  100",
+                      "seriesNameFormat": "{{job}} {{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "3_2": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Block Drop Rate",
+              "description": "Shows rate of block drops."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  },
+                  "stack": "all"
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "counts/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace, job, operation) (\n  rate(thanos_bucket_store_block_drops_total{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval])\n)",
+                      "seriesNameFormat": "{{job}} {{operation}} {{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "3_3": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Block Drop Errors",
+              "description": "Shows ratio of errors compared to total number of block drops."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  },
+                  "stack": "all"
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "percent"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "    sum by (namespace, job) (\n      rate(\n        thanos_bucket_store_block_drop_failures_total{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n      )\n    )\n  /\n    sum by (namespace, job) (\n      rate(thanos_bucket_store_block_drops_total{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval])\n    )\n*\n  100",
+                      "seriesNameFormat": "{{job}} {{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "4_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Cache Requests",
+              "description": "Shows rate of cache requests."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  },
+                  "stack": "all"
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "requests/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace, job, item_type) (\n  rate(thanos_store_index_cache_requests_total{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval])\n)",
+                      "seriesNameFormat": "{{job}} {{item_type}} {{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "4_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Cache Hits",
+              "description": "Shows rate of cache hits."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  },
+                  "stack": "all"
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "requests/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace, job, item_type) (\n  rate(thanos_store_index_cache_hits_total{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval])\n)",
+                      "seriesNameFormat": "{{job}} {{item_type}} {{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "4_2": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Cache Items Added",
+              "description": "Shows rate of items added to cache."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  },
+                  "stack": "all"
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "counts/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace, job, item_type) (\n  rate(\n    thanos_store_index_cache_items_added_total{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "{{job}} {{item_type}} {{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "4_3": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Cache Items Evicted",
+              "description": "Shows rate of items evicted from cache."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  },
+                  "stack": "all"
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "counts/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (namespace, job, item_type) (\n  rate(\n    thanos_store_index_cache_items_evicted_total{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "{{job}} {{item_type}} {{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "5_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Blocks Queried",
+              "description": "Shows the mean rate, p50, p90 and p99 for the amount of blocks touched whilst evaluating queries."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  sum by (namespace, job) (\n    rate(\n      thanos_bucket_store_series_blocks_queried_sum{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n/\n  sum by (namespace, job) (\n    rate(\n      thanos_bucket_store_series_blocks_queried_count{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )",
+                      "seriesNameFormat": "mean {{job}} {{namespace}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.5,\n  sum by (namespace, job, le) (\n    rate(\n      thanos_bucket_store_series_blocks_queried_bucket{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p50 {{job}} {{namespace}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.9,\n  sum by (namespace, job, le) (\n    rate(\n      thanos_bucket_store_series_blocks_queried_bucket{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p90 {{job}} {{namespace}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.99,\n  sum by (namespace, job, le) (\n    rate(\n      thanos_bucket_store_series_blocks_queried_bucket{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p99 {{job}} {{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "5_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Data Fetched",
+              "description": "Shows the mean rate, p50, p90 and p99 of the amount of data fetched to fulfill Store API calls, split by data type."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "bytes"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  sum by (namespace, job, data_type) (\n    rate(\n      thanos_bucket_store_series_data_size_fetched_bytes_sum{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n/\n  sum by (namespace, job, data_type) (\n    rate(\n      thanos_bucket_store_series_data_size_fetched_bytes_count{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )",
+                      "seriesNameFormat": "mean {{job}} {{data_type}} {{namespace}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.5,\n  sum by (namespace, job, data_type, le) (\n    rate(\n      thanos_bucket_store_series_data_size_fetched_bytes_bucket{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p50 {{job}} {{data_type}} {{namespace}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.9,\n  sum by (namespace, job, data_type, le) (\n    rate(\n      thanos_bucket_store_series_data_size_fetched_bytes_bucket{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p90 {{job}} {{data_type}} {{namespace}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.99,\n  sum by (namespace, job, data_type, le) (\n    rate(\n      thanos_bucket_store_series_data_size_fetched_bytes_bucket{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p99 {{job}} {{data_type}} {{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "5_2": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Data Touched",
+              "description": "Shows the mean rate, p50, p90 and p99 of the amount of data touched to fulfill Store API calls, split by data type."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "bytes"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  sum by (namespace, job, data_type) (\n    rate(\n      thanos_bucket_store_series_data_size_touched_bytes_sum{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n/\n  sum by (namespace, job, data_type) (\n    rate(\n      thanos_bucket_store_series_data_size_touched_bytes_count{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )",
+                      "seriesNameFormat": "mean {{job}} {{data_type}} {{namespace}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.5,\n  sum by (namespace, job, data_type, le) (\n    rate(\n      thanos_bucket_store_series_data_size_touched_bytes_bucket{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p50 {{job}} {{data_type}} {{namespace}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.9,\n  sum by (namespace, job, data_type, le) (\n    rate(\n      thanos_bucket_store_series_data_size_touched_bytes_bucket{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p90 {{job}} {{data_type}} {{namespace}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.99,\n  sum by (namespace, job, data_type, le) (\n    rate(\n      thanos_bucket_store_series_data_size_touched_bytes_bucket{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p99 {{job}} {{data_type}} {{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "5_3": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Result Series",
+              "description": "Shows the mean rate, p50, p90 and p99 of the count of result series observed in the final result of queries."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  sum by (namespace, job) (\n    rate(\n      thanos_bucket_store_series_result_series_sum{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n/\n  sum by (namespace, job) (\n    rate(\n      thanos_bucket_store_series_result_series_count{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )",
+                      "seriesNameFormat": "mean {{job}} {{namespace}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.5,\n  sum by (namespace, job, le) (\n    rate(\n      thanos_bucket_store_series_result_series_bucket{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p50 {{job}} {{namespace}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.9,\n  sum by (namespace, job, le) (\n    rate(\n      thanos_bucket_store_series_result_series_bucket{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p90 {{job}} {{namespace}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.99,\n  sum by (namespace, job, le) (\n    rate(\n      thanos_bucket_store_series_result_series_bucket{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p99 {{job}} {{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "6_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Get All Series Duration",
+              "description": "Shows the p50, p90 and p99 of time it takes until all per-block prepares and loads for each query is finished."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "seconds"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.5,\n  sum by (namespace, job, le) (\n    rate(\n      thanos_bucket_store_series_get_all_duration_seconds_bucket{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p50 {{job}} {{namespace}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.9,\n  sum by (namespace, job, le) (\n    rate(\n      thanos_bucket_store_series_get_all_duration_seconds_bucket{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p90 {{job}} {{namespace}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.99,\n  sum by (namespace, job, le) (\n    rate(\n      thanos_bucket_store_series_get_all_duration_seconds_bucket{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p99 {{job}} {{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "6_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Merge Durations",
+              "description": "Shows the p50, p90 and p99 of the time it takes to merge sub-results from all queried blocks into single results for queries."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "seconds"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.5,\n  sum by (namespace, job, le) (\n    rate(\n      thanos_bucket_store_series_merge_duration_seconds_bucket{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p50 {{job}} {{namespace}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.9,\n  sum by (namespace, job, le) (\n    rate(\n      thanos_bucket_store_series_merge_duration_seconds_bucket{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p90 {{job}} {{namespace}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.99,\n  sum by (namespace, job, le) (\n    rate(\n      thanos_bucket_store_series_merge_duration_seconds_bucket{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p99 {{job}} {{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "6_2": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Gate Waiting Durations",
+              "description": "Shows the p50, p90 and p99 of the time it took for queries to wait at the gate."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "seconds"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.5,\n  sum by (namespace, job, le) (\n    rate(\n      thanos_bucket_store_series_gate_duration_seconds_bucket{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p50 {{job}} {{namespace}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.9,\n  sum by (namespace, job, le) (\n    rate(\n      thanos_bucket_store_series_gate_duration_seconds_bucket{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p90 {{job}} {{namespace}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.99,\n  sum by (namespace, job, le) (\n    rate(\n      thanos_bucket_store_series_gate_duration_seconds_bucket{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p99 {{job}} {{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "7_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Store Sent Chunk Size",
+              "description": "Shows the mean rate, p50, p90 and p99 for the bytes of chunks sent for single series, which are adequate to the gRPC message size sent to querier."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "bytes"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  sum by (namespace, job) (\n    rate(\n      thanos_bucket_store_sent_chunk_size_bytes_sum{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n/\n  sum by (namespace, job) (\n    rate(\n      thanos_bucket_store_sent_chunk_size_bytes_count{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )",
+                      "seriesNameFormat": "mean {{job}} {{namespace}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.5,\n  sum by (namespace, job, le) (\n    rate(\n      thanos_bucket_store_sent_chunk_size_bytes_bucket{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p50 {{job}} {{namespace}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.9,\n  sum by (namespace, job, le) (\n    rate(\n      thanos_bucket_store_sent_chunk_size_bytes_bucket{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p90 {{job}} {{namespace}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.99,\n  sum by (namespace, job, le) (\n    rate(\n      thanos_bucket_store_sent_chunk_size_bytes_bucket{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "p99 {{job}} {{namespace}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "8_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "CPU Usage",
+              "description": "Shows the CPU usage of the component."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom",
+                  "values": [
+                    "last"
+                  ]
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "rate(process_cpu_seconds_total{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval])",
+                      "seriesNameFormat": "{{pod}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "8_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Memory Usage",
+              "description": "Shows various memory usage metrics of the component."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom",
+                  "values": [
+                    "last"
+                  ]
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "bytes"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "go_memstats_alloc_bytes{job=~\"$job\",namespace=\"$namespace\"}",
+                      "seriesNameFormat": "Alloc All {{pod}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "go_memstats_heap_alloc_bytes{job=~\"$job\",namespace=\"$namespace\"}",
+                      "seriesNameFormat": "Alloc Heap {{pod}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "rate(go_memstats_alloc_bytes_total{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval])",
+                      "seriesNameFormat": "Alloc Rate All {{pod}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "rate(go_memstats_heap_alloc_bytes{job=~\"$job\",namespace=\"$namespace\"}[$__rate_interval])",
+                      "seriesNameFormat": "Alloc Rate Heap {{pod}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "go_memstats_stack_inuse_bytes{job=~\"$job\",namespace=\"$namespace\"}",
+                      "seriesNameFormat": "Inuse Stack {{pod}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "go_memstats_heap_inuse_bytes{job=~\"$job\",namespace=\"$namespace\"}",
+                      "seriesNameFormat": "Inuse Heap {{pod}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "process_resident_memory_bytes{job=~\"$job\",namespace=\"$namespace\"}",
+                      "seriesNameFormat": "Resident Memory {{pod}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "8_2": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Goroutines",
+              "description": "Shows the number of goroutines being used by the component."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom",
+                  "values": [
+                    "last"
+                  ]
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "go_goroutines{job=~\"$job\",namespace=\"$namespace\"}",
+                      "seriesNameFormat": "{{pod}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "8_3": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "GC Duration",
+              "description": "Shows the Go garbage collection pause durations for the component."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom",
+                  "values": [
+                    "last"
+                  ]
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "seconds"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "go_gc_duration_seconds{job=~\"$job\",namespace=\"$namespace\"}",
+                      "seriesNameFormat": "{{quantile}} - {{pod}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "layouts": [
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Read gRPC Unary (StoreAPI Info/Labels)"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 8,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/0_0"
+                }
+              },
+              {
+                "x": 8,
+                "y": 0,
+                "width": 8,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/0_1"
+                }
+              },
+              {
+                "x": 16,
+                "y": 0,
+                "width": 8,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/0_2"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Read gRPC Stream (StoreAPI Series/Exemplars)"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 8,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/1_0"
+                }
+              },
+              {
+                "x": 8,
+                "y": 0,
+                "width": 8,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/1_1"
+                }
+              },
+              {
+                "x": 16,
+                "y": 0,
+                "width": 8,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/1_2"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Bucket Operations"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 8,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/2_0"
+                }
+              },
+              {
+                "x": 8,
+                "y": 0,
+                "width": 8,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/2_1"
+                }
+              },
+              {
+                "x": 16,
+                "y": 0,
+                "width": 8,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/2_2"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Block Operations"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 6,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/3_0"
+                }
+              },
+              {
+                "x": 6,
+                "y": 0,
+                "width": 6,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/3_1"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 6,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/3_2"
+                }
+              },
+              {
+                "x": 18,
+                "y": 0,
+                "width": 6,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/3_3"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Cache Operations"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 6,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/4_0"
+                }
+              },
+              {
+                "x": 6,
+                "y": 0,
+                "width": 6,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/4_1"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 6,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/4_2"
+                }
+              },
+              {
+                "x": 18,
+                "y": 0,
+                "width": 6,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/4_3"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Query Operations"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 6,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/5_0"
+                }
+              },
+              {
+                "x": 6,
+                "y": 0,
+                "width": 6,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/5_1"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 6,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/5_2"
+                }
+              },
+              {
+                "x": 18,
+                "y": 0,
+                "width": 6,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/5_3"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Query Operation Durations"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 8,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/6_0"
+                }
+              },
+              {
+                "x": 8,
+                "y": 0,
+                "width": 8,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/6_1"
+                }
+              },
+              {
+                "x": 16,
+                "y": 0,
+                "width": 8,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/6_2"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Store Sent Chunk Size"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 24,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/7_0"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Resources"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 6,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/8_0"
+                }
+              },
+              {
+                "x": 6,
+                "y": 0,
+                "width": 6,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/8_1"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 6,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/8_2"
+                }
+              },
+              {
+                "x": 18,
+                "y": 0,
+                "width": 6,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/8_3"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "duration": "1h"
+    }
+  },
+  "status": {}
+}

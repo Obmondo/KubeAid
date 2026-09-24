@@ -1,0 +1,114 @@
+# yamllint disable rule:line-length
+---
+rule_files:
+  - ../prometheus_alerts.yaml
+  - ../prometheus_rules.yaml
+
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'node_total_hourly_cost{job="opencost", node="test-node"}'
+        values: "10x35"
+    alert_rule_test:
+      - eval_time: 35m
+        alertname: OpenCostMonthlyBudgetExceeded
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "OpenCost Monthly Budget Exceeded"
+              description: "The monthly budget for the cluster has been exceeded. Consider scaling down resources or increasing the budget."
+              dashboard_url: "https://grafana.com/d/opencost-mixin-kover-jkwq/opencost-overview"
+  - interval: 1m
+    input_series:
+      - series: pv_hourly_cost{job="opencost", persistentvolume="test-pv"}
+        values: "10x35"
+      - series: kube_persistentvolume_capacity_bytes{job="opencost", persistentvolume="test-pv"}
+        values: "1000000000000x35"
+    alert_rule_test:
+      - eval_time: 35m
+        alertname: OpenCostMonthlyBudgetExceeded
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "OpenCost Monthly Budget Exceeded"
+              description: "The monthly budget for the cluster has been exceeded. Consider scaling down resources or increasing the budget."
+              dashboard_url: "https://grafana.com/d/opencost-mixin-kover-jkwq/opencost-overview"
+  - interval: 1h
+    input_series:
+      - series: 'node_total_hourly_cost{job="opencost", node="test-node"}'
+        values: "1x12 2000x3"
+    alert_rule_test:
+      - eval_time: 15h
+        alertname: OpenCostAnomalyDetected
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "OpenCost Cost Anomaly Detected"
+              description: "A significant increase in cluster costs has been detected. The average hourly cost over the 3 hours exceeds the 7-day average by more than 15%. This could indicate unexpected resource usage or cost-related changes in the cluster."
+              dashboard_url: "https://grafana.com/d/opencost-mixin-kover-jkwq/opencost-overview"
+  - interval: 1h
+    input_series:
+      - series: 'node_total_hourly_cost{job="opencost", node="test-node"}'
+        values: "1x12 2000x3"
+      - series: 'kube_persistentvolume_capacity_bytes{job="opencost", persistentvolume="pv1"}'
+        values: "10737418240x15" # 10 GiB
+      - series: 'pv_hourly_cost{job="opencost", cluster="test-cluster", persistentvolume="pv1"}'
+        values: "0.01x15"
+    alert_rule_test:
+      - eval_time: 15h
+        alertname: OpenCostAnomalyDetected
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "OpenCost Cost Anomaly Detected"
+              description: "A significant increase in cluster costs has been detected. The average hourly cost over the 3 hours exceeds the 7-day average by more than 15%. This could indicate unexpected resource usage or cost-related changes in the cluster."
+              dashboard_url: "https://grafana.com/d/opencost-mixin-kover-jkwq/opencost-overview"
+  - interval: 15m
+    input_series:
+      - series: 'container_memory_allocation_bytes{cluster="test-cluster", namespace="test-ns", pod="pod1", instance="node1"}'
+        values: '1073741824x3'
+      - series: 'node_ram_hourly_cost{cluster="test-cluster", instance="node1"}'
+        values: '4x3'
+      - series: 'container_cpu_allocation{cluster="test-cluster", namespace="test-ns", pod="pod1", instance="node1"}'
+        values: '2x3'
+      - series: 'node_cpu_hourly_cost{cluster="test-cluster", instance="node1"}'
+        values: '0.5x3'
+      - series: 'container_gpu_allocation{cluster="test-cluster", namespace="test-ns", pod="pod1", instance="node1"}'
+        values: '2x3'
+      - series: 'node_gpu_hourly_cost{cluster="test-cluster", instance="node1"}'
+        values: '3x3'
+      - series: 'namespace_workload_pod:kube_pod_owner:relabel{cluster="test-cluster", namespace="test-ns", pod="pod1", workload_type="deployment", workload="web"}'
+        values: '1x3'
+      - series: 'kube_pod_spec_volumes_persistentvolumeclaims_info{job="kube-state-metrics", cluster="test-cluster", namespace="test-ns", pod="pod1", persistentvolumeclaim="pvc1"}'
+        values: '1x3'
+      - series: 'kube_persistentvolume_capacity_bytes{job="kube-state-metrics", cluster="test-cluster", persistentvolume="pv1"}'
+        values: '10737418240x3'
+      - series: 'pv_hourly_cost{cluster="test-cluster", persistentvolume="pv1"}'
+        values: '0.2x3'
+      - series: 'kube_persistentvolumeclaim_info{job="kube-state-metrics", cluster="test-cluster", namespace="test-ns", persistentvolumeclaim="pvc1", volumename="pv1"}'
+        values: '1x3'
+    promql_expr_test:
+      - eval_time: 30m
+        expr: 'workload:opencost_ram_cost:sum{cluster="test-cluster", namespace="test-ns", workload_type="deployment", workload="web"}'
+        exp_samples:
+          - labels: 'workload:opencost_ram_cost:sum{cluster="test-cluster", namespace="test-ns", workload_type="deployment", workload="web"}'
+            value: 4
+      - eval_time: 30m
+        expr: 'workload:opencost_cpu_cost:sum{cluster="test-cluster", namespace="test-ns", workload_type="deployment", workload="web"}'
+        exp_samples:
+          - labels: 'workload:opencost_cpu_cost:sum{cluster="test-cluster", namespace="test-ns", workload_type="deployment", workload="web"}'
+            value: 1
+      - eval_time: 30m
+        expr: 'workload:opencost_gpu_cost:sum{cluster="test-cluster", namespace="test-ns", workload_type="deployment", workload="web"}'
+        exp_samples:
+          - labels: 'workload:opencost_gpu_cost:sum{cluster="test-cluster", namespace="test-ns", workload_type="deployment", workload="web"}'
+            value: 6
+      - eval_time: 30m
+        expr: 'workload:opencost_pvc_cost:sum{cluster="test-cluster", namespace="test-ns", workload_type="deployment", workload="web"}'
+        exp_samples:
+          - labels: 'workload:opencost_pvc_cost:sum{cluster="test-cluster", namespace="test-ns", persistentvolumeclaim="pvc1", workload_type="deployment", workload="web"}'
+            value: 2

@@ -1,0 +1,72 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/created-by: perses-operator
+    app.kubernetes.io/name: perses-operator
+    app.kubernetes.io/part-of: perses-operator
+    app.kubernetes.io/version: v0.5.0
+  name: perses-operator
+  namespace: perses-dev
+spec:
+  groups:
+  - name: perses-operator
+    rules:
+    - alert: PersesOperatorDown
+      annotations:
+        description: Perses Operator has disappeared from Prometheus target discovery.
+        summary: Perses Operator is down.
+      expr: |
+        absent(up{job="perses-operator"} == 1)
+      for: 5m
+      labels:
+        severity: critical
+    - alert: PersesOperatorNotReady
+      annotations:
+        description: Perses operator in {{ $labels.namespace }} namespace isn't ready to reconcile {{ $labels.controller }} resources.
+        summary: Perses operator not ready
+      expr: |
+        min by (controller,namespace) (max_over_time(perses_operator_ready{job="perses-operator"}[5m]) == 0)
+      for: 5m
+      labels:
+        severity: warning
+    - alert: PersesOperatorReconcileErrors
+      annotations:
+        description: '{{ $value | humanizePercentage }} of reconciling operations failed for {{ $labels.controller }} controller in {{ $labels.namespace }} namespace (reason: {{ $labels.reason }}).'
+        summary: Errors while reconciling objects.
+      expr: |
+        sum by (controller,namespace, reason) (rate(perses_operator_reconcile_errors_total{job="perses-operator"}[5m]))
+        / on(controller,namespace) group_left()
+        (sum by (controller,namespace) (rate(perses_operator_reconcile_operations_total{job="perses-operator"}[5m])) > 0)
+        > 0.1
+      for: 10m
+      labels:
+        severity: warning
+    - alert: PersesOperatorSyncFailed
+      annotations:
+        description: Controller in {{ $labels.namespace }} namespace fails to reconcile {{ printf "%.0f" $value }} objects.
+        summary: Last controller reconciliation failed
+      expr: |
+        min_over_time(perses_operator_syncs{status="failed",job="perses-operator"}[5m]) > 0
+      for: 10m
+      labels:
+        severity: warning
+    - alert: PersesOperatorValidationFailures
+      annotations:
+        description: '{{ $labels.controller }} controller in {{ $labels.namespace }} namespace has resources failing Perses server-side validation. Check resource status conditions for details.'
+        summary: Resources failing server-side validation.
+      expr: |
+        sum by (controller,namespace) (increase(perses_operator_reconcile_errors_total{reason="ValidationFailed",job="perses-operator"}[15m])) > 0
+      for: 5m
+      labels:
+        severity: warning
+    - alert: PersesOperatorResourceSyncFailures
+      annotations:
+        description: Perses operator in {{ $labels.namespace }} namespace has {{ printf "%.0f" $value }} {{ $labels.resource }} resources in failed state (resource namespace {{ $labels.resource_namespace }}).
+        summary: Resources failing to sync by Perses operator
+      expr: |
+        min_over_time(perses_operator_managed_resources{state="failed",job="perses-operator"}[5m]) > 0
+      for: 5m
+      labels:
+        severity: warning
