@@ -1,13 +1,52 @@
 cluster-api-operator:
+  # Prefer worker nodes for the CAPI operator and the providers it manages,
+  # but allow falling back to control-plane nodes (via the upstream
+  # control-plane tolerations) when no worker is schedulable.
   core:
     cluster-api:
       version: v1.11.10
       createNamespace: false
+      deployment:
+        affinity: &preferWorkers
+          nodeAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                preference:
+                  matchExpressions:
+                    - key: node-role.kubernetes.io/control-plane
+                      operator: DoesNotExist
   bootstrap:
     kubeadm:
       version: v1.11.10
       createNamespace: false
+      deployment:
+        affinity: *preferWorkers
   controlPlane:
     kubeadm:
       version: v1.11.10
       createNamespace: false
+      deployment:
+        affinity: *preferWorkers
+
+  # Overrides the upstream chart default, so its arch/os requirement is kept.
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                  - amd64
+                  - arm64
+                  - ppc64le
+              - key: kubernetes.io/os
+                operator: In
+                values:
+                  - linux
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist

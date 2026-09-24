@@ -20,6 +20,9 @@ spec:
   version: {{ .Values.global.caph.version }}
   fetchConfig:
     url: https://github.com/syself/cluster-api-provider-hetzner/releases/download/{{ .Values.global.caph.version }}/infrastructure-components.yaml
+  {{- with .Values.global.caph.deployment }}
+  deployment: {{- toYaml . | nindent 4 }}
+  {{- end }}
   manager:
     cacheNamespace: {{ $namespace }}
     # BUG : ClusterAPI renders --metrics-bind-addr but CAPH wants --metrics-bind-address.

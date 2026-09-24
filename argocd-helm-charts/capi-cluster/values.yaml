@@ -12,6 +12,18 @@ global:
     enableMachinePools: false
   caph:
     version: v1.1.8
+    # Rendered into the InfrastructureProvider's spec.deployment. Prefers
+    # worker nodes; CAPH's upstream control-plane toleration still allows
+    # falling back to control-plane nodes when no worker is schedulable.
+    deployment:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
   capz:
     # v1.26.0 (latest, Jun 2026) for AKS clusters : the classic managed API
     # (AzureManagedControlPlane), networkPlugin "none" (BYO CNI) and
