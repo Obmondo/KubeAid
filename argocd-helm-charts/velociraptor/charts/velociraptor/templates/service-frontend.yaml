@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "velociraptor.fullname" . }}-frontend
+  labels:
+    {{- include "velociraptor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+  {{- with .Values.frontend.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.frontend.service.type }}
+  {{- if and (eq .Values.frontend.service.type "LoadBalancer") .Values.frontend.service.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.frontend.service.loadBalancerIP }}
+  {{- end }}
+  {{- if and (eq .Values.frontend.service.type "LoadBalancer") .Values.frontend.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- toYaml .Values.frontend.service.loadBalancerSourceRanges | nindent 4 }}
+  {{- end }}
+  {{- if and (ne .Values.frontend.service.type "ClusterIP") .Values.frontend.service.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ .Values.frontend.service.externalTrafficPolicy }}
+  {{- end }}
+  ports:
+    - name: frontend
+      port: {{ .Values.frontend.service.port }}
+      targetPort: frontend
+      protocol: TCP
+  selector:
+    {{- include "velociraptor.selectorLabels" . | nindent 4 }}

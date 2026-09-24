@@ -1,0 +1,55 @@
+{{- if .Values.wazuh.enabled }}
+{{- if .Values.wazuh.loadBalancer.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "wazuh.fullname" . }}-manager-lb
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ include "wazuh.fullname" . }}-manager
+  annotations:
+    {{- with .Values.wazuh.loadBalancer.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  type: LoadBalancer
+  {{- if .Values.wazuh.loadBalancer.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- toYaml .Values.wazuh.loadBalancer.loadBalancerSourceRanges | nindent 4 }}
+  {{- end }}
+  {{- if .Values.wazuh.loadBalancer.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ .Values.wazuh.loadBalancer.externalTrafficPolicy }}
+  {{- end }}
+  {{- if .Values.wazuh.loadBalancer.internalTrafficPolicy }}
+  internalTrafficPolicy: {{ .Values.wazuh.loadBalancer.internalTrafficPolicy }}
+  {{- end }}
+  {{- if not (kindIs "invalid" .Values.wazuh.loadBalancer.allocateLoadBalancerNodePorts) }}
+  allocateLoadBalancerNodePorts: {{ .Values.wazuh.loadBalancer.allocateLoadBalancerNodePorts }}
+  {{- end }}
+  ports:
+  {{- range .Values.wazuh.master.service.ports }}
+  {{- if or (empty $.Values.wazuh.loadBalancer.ports) (has .name $.Values.wazuh.loadBalancer.ports) }}
+    - name: {{ .name }}
+      protocol: {{ .protocol | default "TCP" }}
+      port: {{ .port }}
+      targetPort: {{ .targetPort }}
+  {{- end }}
+  {{- end }}
+  {{- range .Values.wazuh.worker.service.ports }}
+  {{- if or (empty $.Values.wazuh.loadBalancer.ports) (has .name $.Values.wazuh.loadBalancer.ports) }}
+    - name: {{ .name }}
+      protocol: {{ .protocol | default "TCP" }}
+      port: {{ .port }}
+      targetPort: {{ .targetPort }}
+  {{- end }}
+  {{- end }}
+  {{- if .Values.wazuh.syslog_enable }}
+    - name: syslog
+      port: 514
+      targetPort: 514
+      protocol: UDP
+  {{- end }}
+  selector:
+    app: {{ include "wazuh.fullname" . }}-manager
+{{- end -}}
+{{- end }}

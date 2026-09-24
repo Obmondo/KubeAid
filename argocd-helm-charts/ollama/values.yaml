@@ -1,0 +1,42 @@
+ollama:
+  ollama:
+    gpu:
+      # CPU only by default. Set enabled: true, type: nvidia, number: 1 on a
+      # GPU node (see the hami chart for shared GPUs).
+      enabled: false
+    # Models pulled at start, e.g. ["llama3.1:8b"]. Keep the list in
+    # kubeaid-config so the model choice is per cluster.
+    models:
+      pull: []
+
+  # Upstream defaults to no persistence, which re-downloads every model on restart.
+  persistentVolume:
+    enabled: true
+    size: 30Gi
+
+  # A 7B to 8B model quantised to 4 bit needs about 6 GB of RAM on CPU.
+  resources:
+    requests:
+      cpu: "2"
+      memory: 8Gi
+    limits:
+      memory: 12Gi
+
+  # The API has no authentication; keep it cluster-internal.
+  ingress:
+    enabled: false
+
+# Close the model service both ways (templates/networkpolicy.yaml). allowedFrom
+# lists the peers that may call port 11434 (NetworkPolicy "from" entries); an
+# empty list with enabled: true admits nobody. Egress is DNS only, plus
+# extraEgress: nothing the model receives can leave the cluster.
+networkPolicy:
+  enabled: false
+  allowedFrom: []
+  #  - namespaceSelector:
+  #      matchLabels:
+  #        kubernetes.io/metadata.name: dfir-iris
+  #    podSelector:
+  #      matchLabels:
+  #        app.kubernetes.io/component: ai-triage
+  extraEgress: []

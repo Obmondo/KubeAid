@@ -1,0 +1,36 @@
+{{- if .Values.certificates.requestPolicy.enabled }}
+apiVersion: policy.cert-manager.io/v1alpha1
+kind: CertificateRequestPolicy
+metadata:
+  name: {{ include "wazuh.fullname" . }}-components-policy
+  annotations:
+    "helm.sh/hook": pre-install
+spec:
+  selector:
+    issuerRef:
+      name: {{ .Values.certificates.issuer.name | default (printf "%s-ca-issuer" (include "wazuh.fullname" .)) }}
+      {{- if eq .Values.certificates.issuer.type "ClusterIssuer" }}
+      kind: ClusterIssuer
+      {{- end }}
+  allowed:
+    # ── This policy is ONLY for end-entity certs, not for CAs
+    isCA: false
+    # ── Accept any Common Name (admin, dashboard, node, filebeat, …)
+    commonName:
+      value: "*"
+      required: true
+    # ── Subject must match your values.yaml
+    subject:
+      organizations:
+        values:
+          - {{ .Values.certificates.subject.organization }}
+        required: true
+      countries:
+        values:
+          - {{ .Values.certificates.subject.country }}
+        required: true
+      localities:
+        values:
+          - {{ .Values.certificates.subject.locality }}
+        required: true
+{{- end }}

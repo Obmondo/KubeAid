@@ -1,0 +1,17 @@
+{{- if and .Values.customArtifacts.enabled (not .Values.customArtifacts.existingConfigMap) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "velociraptor.fullname" . }}-custom-artifacts
+  labels:
+    {{- include "velociraptor.labels" . | nindent 4 }}
+{{- if .Values.customArtifacts.files }}
+data:
+  {{- range $name, $content := .Values.customArtifacts.files }}
+  {{ $name }}: |
+{{ $content | indent 4 }}
+  {{- end }}
+{{- else }}
+data: {}
+{{- end }}
+{{- end }}

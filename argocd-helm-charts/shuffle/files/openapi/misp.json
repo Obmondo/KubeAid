@@ -1,0 +1,5394 @@
+{
+ "basePath": "/",
+ "components": {
+  "securitySchemes": {
+   "ApiKeyAuth": {
+    "in": "header",
+    "name": "Authorization",
+    "type": "apiKey"
+   }
+  }
+ },
+ "editing": true,
+ "host": "misp.local",
+ "id": "c69ea55c02913030b1cd546f86187878",
+ "info": {
+  "contact": {
+   "email": "frikky@shuffler.io",
+   "name": "@frikkylikeme",
+   "url": "https://twitter.com/frikkylikeme"
+  },
+  "description": "### Getting Started\nAutomation functionality is designed to automatically generate signatures for intrusion detection systems. \nTo enable signature generation for a given attribute, Signature field of this attribute must be set to Yes. \nNote that not all attribute types are applicable for signature generation, currently we only support NIDS signature \ngeneration for IP, domains, host names, user agents etc., and hash list generation for MD5/SHA1 values of file artefacts. \nSupport for more attribute types is planned. To make this functionality available for automated tools an authentication \nkey is used. This makes it easier for your tools to access the data without further form-based-authentication. \nThe [API](https://www.circl.lu/doc/misp/GLOSSARY.html#api) key can be found and managed under My Profile page (/users/view/me) \non a MISP instance.\n\n#### Accept and Content-Type headers \nWhen performing your request, depending on the type of request, you might need to explicitly specify in what content \ntype you want to get your results. This is done by setting one of the below `Accept` headers:\n\n    Accept: application/json\n    Accept: application/xml\n\nWhen submitting data in a `POST`, `PUT` or `DELETE` operation you also need to specify in what content-type you encoded the payload. \nThis is done by setting one of the below `Content-Type` headers:\n\n    Content-Type: application/json\n    Content-Type: application/xml\n\nExample:\n```\ncurl  --header \"Authorization: YOUR_API_KEY\" \\\n      --header \"Accept: application/json\" \\\n      --header \"Content-Type: application/json\" https://<misp url>/ \n```\n\n> **NOTE**: By appending .json or .xml the content type can also be set without the need for a header.\n\n#### Automation using PyMISP\n\n[PyMISP](https://github.com/MISP/PyMISP) is a Python library to access MISP platforms via their REST [API](https://www.circl.lu/doc/misp/GLOSSARY.html#api).\nIt allows you to fetch events, add or update events/attributes, add or update samples or search for attributes.\n\n### FAQ\n* [Dev FAQ](https://www.circl.lu/doc/misp/dev-faq/)\n* [GitHub project FAQ](https://github.com/MISP/MISP/wiki/Frequently-Asked-Questions)\n",
+  "title": "MISP",
+  "version": "1.0",
+  "x-categories": [
+   "Intel"
+  ],
+  "x-logo": "data:image/png;base64,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"
+ },
+ "openapi": "3.0.0",
+ "paths": {
+  "/admin/logs": {
+   "post": {
+    "operationId": "Get_instance_logs",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "query",
+      "name": "asd",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"action\": \"${action}\",\n  \"change\": \"${change}\",\n  \"created\": \"${created}\",\n  \"description\": \"${description}\",\n  \"email\": \"${email}\",\n  \"id\": \"${id}\",\n  \"ip\": \"${ip}\",\n  \"limit\": \"${limit}\",\n  \"model\": \"${model}\",\n  \"model_id\": \"${model_id}\",\n  \"org\": \"${org}\",\n  \"page\": \"${page}\",\n  \"title\": \"${title}\",\n  \"user_id\": \"${user_id}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"action\": \"${action}\",\n  \"change\": \"${change}\",\n  \"created\": \"${created}\",\n  \"description\": \"${description}\",\n  \"email\": \"${email}\",\n  \"id\": \"${id}\",\n  \"ip\": \"${ip}\",\n  \"limit\": \"${limit}\",\n  \"model\": \"${model}\",\n  \"model_id\": \"${model_id}\",\n  \"org\": \"${org}\",\n  \"page\": \"${page}\",\n  \"title\": \"${title}\",\n  \"user_id\": \"${user_id}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get instance logs"
+   }
+  },
+  "/admin/organisations/add": {
+   "post": {
+    "operationId": "Add_organisation",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"contacts\": \"${contacts}\",\n  \"created_by\": \"${created_by}\",\n  \"created_by_email\": \"${created_by_email}\",\n  \"date_created\": \"${date_created}\",\n  \"date_modified\": \"${date_modified}\",\n  \"description\": \"${description}\",\n  \"landingpage\": \"${landingpage}\",\n  \"local\": \"${local}\",\n  \"name\": \"${name}\",\n  \"nationality\": \"${nationality}\",\n  \"restricted_to_domain\": \"${restricted_to_domain}\",\n  \"sector\": \"${sector}\",\n  \"type\": \"${type}\",\n  \"user_count\": \"${user_count}\",\n  \"uuid\": \"${uuid}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"contacts\": \"${contacts}\",\n  \"created_by\": \"${created_by}\",\n  \"created_by_email\": \"${created_by_email}\",\n  \"date_created\": \"${date_created}\",\n  \"date_modified\": \"${date_modified}\",\n  \"description\": \"${description}\",\n  \"landingpage\": \"${landingpage}\",\n  \"local\": \"${local}\",\n  \"name\": \"${name}\",\n  \"nationality\": \"${nationality}\",\n  \"restricted_to_domain\": \"${restricted_to_domain}\",\n  \"sector\": \"${sector}\",\n  \"type\": \"${type}\",\n  \"user_count\": \"${user_count}\",\n  \"uuid\": \"${uuid}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add organisation"
+   }
+  },
+  "/admin/organisations/delete/{organisationId}": {
+   "delete": {
+    "operationId": "Delete_organisation",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "organisationId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Delete organisation"
+   }
+  },
+  "/admin/organisations/edit/{organisationId}": {
+   "put": {
+    "operationId": "Edit_organisation",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "organisationId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"contacts\": \"${contacts}\",\n  \"description\": \"${description}\",\n  \"local\": \"${local}\",\n  \"name\": \"${name}\",\n  \"nationality\": \"${nationality}\",\n  \"restricted_to_domain\": \"${restricted_to_domain}\",\n  \"sector\": \"${sector}\",\n  \"type\": \"${type}\",\n  \"uuid\": \"${uuid}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"contacts\": \"${contacts}\",\n  \"description\": \"${description}\",\n  \"local\": \"${local}\",\n  \"name\": \"${name}\",\n  \"nationality\": \"${nationality}\",\n  \"restricted_to_domain\": \"${restricted_to_domain}\",\n  \"sector\": \"${sector}\",\n  \"type\": \"${type}\",\n  \"uuid\": \"${uuid}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Edit organisation"
+   }
+  },
+  "/admin/users": {
+   "get": {
+    "operationId": "Get_users",
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get users"
+   }
+  },
+  "/admin/users/add": {
+   "post": {
+    "operationId": "Add_user",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"authkey\": \"${authkey}\",\n  \"autoalert\": \"${autoalert}\",\n  \"certif_public\": \"${certif_public}\",\n  \"change_pw\": \"${change_pw}\",\n  \"contactalert\": \"${contactalert}\",\n  \"current_login\": \"${current_login}\",\n  \"date_created\": \"${date_created}\",\n  \"date_modified\": \"${date_modified}\",\n  \"disabled\": \"${disabled}\",\n  \"email\": \"${email}\",\n  \"expiration\": \"${expiration}\",\n  \"force_logout\": \"${force_logout}\",\n  \"gpgkey\": \"${gpgkey}\",\n  \"invited_by\": \"${invited_by}\",\n  \"last_login\": \"${last_login}\",\n  \"newsread\": \"${newsread}\",\n  \"nids_sid\": \"${nids_sid}\",\n  \"org_id\": \"${org_id}\",\n  \"role_id\": \"${role_id}\",\n  \"server_id\": \"${server_id}\",\n  \"termsaccepted\": \"${termsaccepted}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"authkey\": \"${authkey}\",\n  \"autoalert\": \"${autoalert}\",\n  \"certif_public\": \"${certif_public}\",\n  \"change_pw\": \"${change_pw}\",\n  \"contactalert\": \"${contactalert}\",\n  \"current_login\": \"${current_login}\",\n  \"date_created\": \"${date_created}\",\n  \"date_modified\": \"${date_modified}\",\n  \"disabled\": \"${disabled}\",\n  \"email\": \"${email}\",\n  \"expiration\": \"${expiration}\",\n  \"force_logout\": \"${force_logout}\",\n  \"gpgkey\": \"${gpgkey}\",\n  \"invited_by\": \"${invited_by}\",\n  \"last_login\": \"${last_login}\",\n  \"newsread\": \"${newsread}\",\n  \"nids_sid\": \"${nids_sid}\",\n  \"org_id\": \"${org_id}\",\n  \"role_id\": \"${role_id}\",\n  \"server_id\": \"${server_id}\",\n  \"termsaccepted\": \"${termsaccepted}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add user"
+   }
+  },
+  "/admin/users/delete/{userId}": {
+   "delete": {
+    "operationId": "Delete_user",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "userId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Delete user"
+   }
+  },
+  "/admin/users/edit/{userId}": {
+   "put": {
+    "operationId": "Edit_user",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "userId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Edit user"
+   }
+  },
+  "/admin/users/view/{userId}": {
+   "get": {
+    "operationId": "Get_user_by_ID",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "userId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get user by ID"
+   }
+  },
+  "/attributes": {
+   "get": {
+    "operationId": "Get_a_list_of_attributes",
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get a list of attributes"
+   }
+  },
+  "/attributes/add/{eventId}": {
+   "post": {
+    "operationId": "Add_an_attribute",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "eventId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"category\": \"${category}\",\n  \"comment\": \"${comment}\",\n  \"deleted\": \"${deleted}\",\n  \"disable_correlation\": \"${disable_correlation}\",\n  \"distribution\": \"${distribution}\",\n  \"event_id\": \"${event_id}\",\n  \"first_seen\": \"${first_seen}\",\n  \"last_seen\": \"${last_seen}\",\n  \"object_id\": \"${object_id}\",\n  \"object_relation\": \"${object_relation}\",\n  \"sharing_group_id\": \"${sharing_group_id}\",\n  \"timestamp\": \"${timestamp}\",\n  \"to_ids\": \"${to_ids}\",\n  \"type\": \"${type}\",\n  \"uuid\": \"${uuid}\",\n  \"value\": \"${value}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"category\": \"${category}\",\n  \"comment\": \"${comment}\",\n  \"deleted\": \"${deleted}\",\n  \"disable_correlation\": \"${disable_correlation}\",\n  \"distribution\": \"${distribution}\",\n  \"event_id\": \"${event_id}\",\n  \"first_seen\": \"${first_seen}\",\n  \"last_seen\": \"${last_seen}\",\n  \"object_id\": \"${object_id}\",\n  \"object_relation\": \"${object_relation}\",\n  \"sharing_group_id\": \"${sharing_group_id}\",\n  \"timestamp\": \"${timestamp}\",\n  \"to_ids\": \"${to_ids}\",\n  \"type\": \"${type}\",\n  \"uuid\": \"${uuid}\",\n  \"value\": \"${value}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add an attribute",
+    "x-label": "Create IOC"
+   }
+  },
+  "/attributes/addTag/{attributeId}/{tagId}/local:{local}": {
+   "post": {
+    "operationId": "Add_a_tag_to_an_attribute",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "attributeId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "tagId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "local",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add a tag to an attribute"
+   }
+  },
+  "/attributes/attributeStatistics/{context}/{percentage}": {
+   "get": {
+    "operationId": "Get_the_count_of_attributes_per_category",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "context",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "percentage",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get the count of attributes per category"
+   }
+  },
+  "/attributes/delete/{attributeId}": {
+   "delete": {
+    "operationId": "Delete_an_attribute",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "attributeId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Delete an attribute",
+    "x-label": "Delete IOC"
+   }
+  },
+  "/attributes/describeTypes": {
+   "get": {
+    "operationId": "Get_a_list_of_the_available_attribute_types",
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get a list of the available attribute types"
+   }
+  },
+  "/attributes/edit/{attributeId}": {
+   "put": {
+    "operationId": "Edit_an_attribute",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "attributeId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Edit an attribute"
+   }
+  },
+  "/attributes/removeTag/{attributeId}/{tagId}": {
+   "post": {
+    "operationId": "Remove_a_tag_from_an_attribute",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "attributeId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "tagId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Remove a tag from an attribute"
+   }
+  },
+  "/attributes/restSearch": {
+   "post": {
+    "description": "**This is the recommended endpoint for searching attributes.**\n",
+    "operationId": "Restsearch_attributes",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"attackgalaxy\": \"${attackgalaxy}\",\n  \"attribute_timestamp\": \"${attribute_timestamp}\",\n  \"category\": \"${category}\",\n  \"decayingmodel\": \"${decayingmodel}\",\n  \"deleted\": \"${deleted}\",\n  \"enforcewarninglist\": \"${enforcewarninglist}\",\n  \"event_timestamp\": \"${event_timestamp}\",\n  \"eventid\": \"${eventid}\",\n  \"eventinfo\": \"${eventinfo}\",\n  \"excludedecayed\": \"${excludedecayed}\",\n  \"first_seen\": \"${first_seen}\",\n  \"from\": \"${from}\",\n  \"headerless\": \"${headerless}\",\n  \"includecontext\": \"${includecontext}\",\n  \"includecorrelations\": \"${includecorrelations}\",\n  \"includedecayscore\": \"${includedecayscore}\",\n  \"includeeventtags\": \"${includeeventtags}\",\n  \"includeeventuuid\": \"${includeeventuuid}\",\n  \"includefullmodel\": \"${includefullmodel}\",\n  \"includeproposals\": \"${includeproposals}\",\n  \"includesightings\": \"${includesightings}\",\n  \"includewarninglisthits\": \"${includewarninglisthits}\",\n  \"last\": \"${last}\",\n  \"last_seen\": \"${last_seen}\",\n  \"limit\": \"${limit}\",\n  \"modeloverrides\": \"${modeloverrides}\",\n  \"object_relation\": \"${object_relation}\",\n  \"org\": \"${org}\",\n  \"page\": \"${page}\",\n  \"publish_timestamp\": \"${publish_timestamp}\",\n  \"published\": \"${published}\",\n  \"requested_attributes\": \"${requested_attributes}\",\n  \"returnformat\": \"${returnformat}\",\n  \"score\": \"${score}\",\n  \"tags\": \"${tags}\",\n  \"threat_level_id\": \"${threat_level_id}\",\n  \"timestamp\": \"${timestamp}\",\n  \"to\": \"${to}\",\n  \"to_ids\": \"${to_ids}\",\n  \"type\": \"${type}\",\n  \"uuid\": \"${uuid}\",\n  \"value\": \"${value}\",\n  \"withattachments\": \"${withattachments}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"attackgalaxy\": \"${attackgalaxy}\",\n  \"attribute_timestamp\": \"${attribute_timestamp}\",\n  \"category\": \"${category}\",\n  \"decayingmodel\": \"${decayingmodel}\",\n  \"deleted\": \"${deleted}\",\n  \"enforcewarninglist\": \"${enforcewarninglist}\",\n  \"event_timestamp\": \"${event_timestamp}\",\n  \"eventid\": \"${eventid}\",\n  \"eventinfo\": \"${eventinfo}\",\n  \"excludedecayed\": \"${excludedecayed}\",\n  \"first_seen\": \"${first_seen}\",\n  \"from\": \"${from}\",\n  \"headerless\": \"${headerless}\",\n  \"includecontext\": \"${includecontext}\",\n  \"includecorrelations\": \"${includecorrelations}\",\n  \"includedecayscore\": \"${includedecayscore}\",\n  \"includeeventtags\": \"${includeeventtags}\",\n  \"includeeventuuid\": \"${includeeventuuid}\",\n  \"includefullmodel\": \"${includefullmodel}\",\n  \"includeproposals\": \"${includeproposals}\",\n  \"includesightings\": \"${includesightings}\",\n  \"includewarninglisthits\": \"${includewarninglisthits}\",\n  \"last\": \"${last}\",\n  \"last_seen\": \"${last_seen}\",\n  \"limit\": \"${limit}\",\n  \"modeloverrides\": \"${modeloverrides}\",\n  \"object_relation\": \"${object_relation}\",\n  \"org\": \"${org}\",\n  \"page\": \"${page}\",\n  \"publish_timestamp\": \"${publish_timestamp}\",\n  \"published\": \"${published}\",\n  \"requested_attributes\": \"${requested_attributes}\",\n  \"returnformat\": \"${returnformat}\",\n  \"score\": \"${score}\",\n  \"tags\": \"${tags}\",\n  \"threat_level_id\": \"${threat_level_id}\",\n  \"timestamp\": \"${timestamp}\",\n  \"to\": \"${to}\",\n  \"to_ids\": \"${to_ids}\",\n  \"type\": \"${type}\",\n  \"uuid\": \"${uuid}\",\n  \"value\": \"${value}\",\n  \"withattachments\": \"${withattachments}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Restsearch attributes",
+    "x-label": "Search IOC"
+   }
+  },
+  "/attributes/restore/{attributeId}": {
+   "post": {
+    "operationId": "Restore_an_attribute",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "attributeId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Restore an attribute"
+   }
+  },
+  "/attributes/view/{attributeId}": {
+   "get": {
+    "operationId": "Get_an_attribute_by_ID",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "attributeId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get an attribute by ID"
+   }
+  },
+  "/auth_keys": {
+   "get": {
+    "operationId": "Get_auth_keys",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "query",
+      "name": "asd",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get auth keys"
+   },
+   "post": {
+    "operationId": "Search_auth_keys",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"allowed_ips\": \"${allowed_ips}\",\n  \"authkey_end\": \"${authkey_end}\",\n  \"authkey_start\": \"${authkey_start}\",\n  \"comment\": \"${comment}\",\n  \"created\": \"${created}\",\n  \"expiration\": \"${expiration}\",\n  \"id\": \"${id}\",\n  \"last_used\": \"${last_used}\",\n  \"limit\": \"${limit}\",\n  \"page\": \"${page}\",\n  \"read_only\": \"${read_only}\",\n  \"user_id\": \"${user_id}\",\n  \"uuid\": \"${uuid}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"allowed_ips\": \"${allowed_ips}\",\n  \"authkey_end\": \"${authkey_end}\",\n  \"authkey_start\": \"${authkey_start}\",\n  \"comment\": \"${comment}\",\n  \"created\": \"${created}\",\n  \"expiration\": \"${expiration}\",\n  \"id\": \"${id}\",\n  \"last_used\": \"${last_used}\",\n  \"limit\": \"${limit}\",\n  \"page\": \"${page}\",\n  \"read_only\": \"${read_only}\",\n  \"user_id\": \"${user_id}\",\n  \"uuid\": \"${uuid}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Search auth keys"
+   }
+  },
+  "/auth_keys/add/{userId}": {
+   "post": {
+    "operationId": "Add_auth_keys",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "userId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"allowed_ips\": \"${allowed_ips}\",\n  \"comment\": \"${comment}\",\n  \"read_only\": \"${read_only}\",\n  \"user_id\": \"${user_id}\",\n  \"uuid\": \"${uuid}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"allowed_ips\": \"${allowed_ips}\",\n  \"comment\": \"${comment}\",\n  \"read_only\": \"${read_only}\",\n  \"user_id\": \"${user_id}\",\n  \"uuid\": \"${uuid}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add auth keys"
+   }
+  },
+  "/auth_keys/delete/{authKeyId}": {
+   "delete": {
+    "operationId": "Delete_auth_key",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "authKeyId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Delete auth key"
+   }
+  },
+  "/auth_keys/edit/{authKeyId}": {
+   "post": {
+    "operationId": "Edit_auth_key",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "authKeyId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"allowed_ips\": \"${allowed_ips}\",\n  \"comment\": \"${comment}\",\n  \"read_only\": \"${read_only}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"allowed_ips\": \"${allowed_ips}\",\n  \"comment\": \"${comment}\",\n  \"read_only\": \"${read_only}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Edit auth key"
+   }
+  },
+  "/auth_keys/view/{authKeyId}": {
+   "get": {
+    "operationId": "View_auth_key",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "authKeyId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "View auth key"
+   }
+  },
+  "/events": {
+   "get": {
+    "operationId": "Get_a_list_of_events",
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get a list of events",
+    "x-label": [
+     "list_tickets",
+     "app_validation"
+    ]
+   }
+  },
+  "/events/add": {
+   "post": {
+    "operationId": "Add_event",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"analysis\": \"${analysis}\",\n  \"attribute_count\": \"${attribute_count}\",\n  \"date\": \"${date}\",\n  \"disable_correlation\": \"${disable_correlation}\",\n  \"distribution\": \"${distribution}\",\n  \"event_creator_email\": \"${event_creator_email}\",\n  \"extends_uuid\": \"${extends_uuid}\",\n  \"info\": \"${info}\",\n  \"locked\": \"${locked}\",\n  \"org_id\": \"${org_id}\",\n  \"orgc_id\": \"${orgc_id}\",\n  \"proposal_email_lock\": \"${proposal_email_lock}\",\n  \"publish_timestamp\": \"${publish_timestamp}\",\n  \"published\": \"${published}\",\n  \"sharing_group_id\": \"${sharing_group_id}\",\n  \"sighting_timestamp\": \"${sighting_timestamp}\",\n  \"threat_level_id\": \"${threat_level_id}\",\n  \"timestamp\": \"${timestamp}\",\n  \"uuid\": \"${uuid}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"analysis\": \"${analysis}\",\n  \"attribute_count\": \"${attribute_count}\",\n  \"date\": \"${date}\",\n  \"disable_correlation\": \"${disable_correlation}\",\n  \"distribution\": \"${distribution}\",\n  \"event_creator_email\": \"${event_creator_email}\",\n  \"extends_uuid\": \"${extends_uuid}\",\n  \"info\": \"${info}\",\n  \"locked\": \"${locked}\",\n  \"org_id\": \"${org_id}\",\n  \"orgc_id\": \"${orgc_id}\",\n  \"proposal_email_lock\": \"${proposal_email_lock}\",\n  \"publish_timestamp\": \"${publish_timestamp}\",\n  \"published\": \"${published}\",\n  \"sharing_group_id\": \"${sharing_group_id}\",\n  \"sighting_timestamp\": \"${sighting_timestamp}\",\n  \"threat_level_id\": \"${threat_level_id}\",\n  \"timestamp\": \"${timestamp}\",\n  \"uuid\": \"${uuid}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add event",
+    "x-label": [
+     "send_message"
+    ]
+   }
+  },
+  "/events/addTag/{eventId}/{tagId}/local:{local}": {
+   "post": {
+    "operationId": "Add_event_tag",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "eventId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "tagId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "local",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add event tag"
+   }
+  },
+  "/events/delete/{eventId}": {
+   "delete": {
+    "operationId": "Delete_event",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "eventId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Delete event"
+   }
+  },
+  "/events/edit/{eventId}": {
+   "put": {
+    "operationId": "Edit_event",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "eventId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"analysis\": \"${analysis}\",\n  \"attribute_count\": \"${attribute_count}\",\n  \"date\": \"${date}\",\n  \"disable_correlation\": \"${disable_correlation}\",\n  \"distribution\": \"${distribution}\",\n  \"event_creator_email\": \"${event_creator_email}\",\n  \"extends_uuid\": \"${extends_uuid}\",\n  \"info\": \"${info}\",\n  \"locked\": \"${locked}\",\n  \"org_id\": \"${org_id}\",\n  \"orgc_id\": \"${orgc_id}\",\n  \"proposal_email_lock\": \"${proposal_email_lock}\",\n  \"publish_timestamp\": \"${publish_timestamp}\",\n  \"published\": \"${published}\",\n  \"sharing_group_id\": \"${sharing_group_id}\",\n  \"sighting_timestamp\": \"${sighting_timestamp}\",\n  \"threat_level_id\": \"${threat_level_id}\",\n  \"timestamp\": \"${timestamp}\",\n  \"uuid\": \"${uuid}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"analysis\": \"${analysis}\",\n  \"attribute_count\": \"${attribute_count}\",\n  \"date\": \"${date}\",\n  \"disable_correlation\": \"${disable_correlation}\",\n  \"distribution\": \"${distribution}\",\n  \"event_creator_email\": \"${event_creator_email}\",\n  \"extends_uuid\": \"${extends_uuid}\",\n  \"info\": \"${info}\",\n  \"locked\": \"${locked}\",\n  \"org_id\": \"${org_id}\",\n  \"orgc_id\": \"${orgc_id}\",\n  \"proposal_email_lock\": \"${proposal_email_lock}\",\n  \"publish_timestamp\": \"${publish_timestamp}\",\n  \"published\": \"${published}\",\n  \"sharing_group_id\": \"${sharing_group_id}\",\n  \"sighting_timestamp\": \"${sighting_timestamp}\",\n  \"threat_level_id\": \"${threat_level_id}\",\n  \"timestamp\": \"${timestamp}\",\n  \"uuid\": \"${uuid}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Edit event"
+   }
+  },
+  "/events/index": {
+   "post": {
+    "operationId": "Search_events",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"analysis\": \"${analysis}\",\n  \"attribute\": \"${attribute}\",\n  \"datefrom\": \"${datefrom}\",\n  \"dateuntil\": \"${dateuntil}\",\n  \"direction\": \"${direction}\",\n  \"distribution\": \"${distribution}\",\n  \"email\": \"${email}\",\n  \"eventid\": \"${eventid}\",\n  \"eventinfo\": \"${eventinfo}\",\n  \"hasproposal\": \"${hasproposal}\",\n  \"limit\": \"${limit}\",\n  \"minimal\": \"${minimal}\",\n  \"org\": \"${org}\",\n  \"page\": \"${page}\",\n  \"publish_timestamp\": \"${publish_timestamp}\",\n  \"searchDatefrom\": \"${searchDatefrom}\",\n  \"searchDateuntil\": \"${searchDateuntil}\",\n  \"sharinggroup\": \"${sharinggroup}\",\n  \"sort\": \"${sort}\",\n  \"tag\": \"${tag}\",\n  \"tags\": \"${tags}\",\n  \"threatlevel\": \"${threatlevel}\",\n  \"timestamp\": \"${timestamp}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"analysis\": \"${analysis}\",\n  \"attribute\": \"${attribute}\",\n  \"datefrom\": \"${datefrom}\",\n  \"dateuntil\": \"${dateuntil}\",\n  \"direction\": \"${direction}\",\n  \"distribution\": \"${distribution}\",\n  \"email\": \"${email}\",\n  \"eventid\": \"${eventid}\",\n  \"eventinfo\": \"${eventinfo}\",\n  \"hasproposal\": \"${hasproposal}\",\n  \"limit\": \"${limit}\",\n  \"minimal\": \"${minimal}\",\n  \"org\": \"${org}\",\n  \"page\": \"${page}\",\n  \"publish_timestamp\": \"${publish_timestamp}\",\n  \"searchDatefrom\": \"${searchDatefrom}\",\n  \"searchDateuntil\": \"${searchDateuntil}\",\n  \"sharinggroup\": \"${sharinggroup}\",\n  \"sort\": \"${sort}\",\n  \"tag\": \"${tag}\",\n  \"tags\": \"${tags}\",\n  \"threatlevel\": \"${threatlevel}\",\n  \"timestamp\": \"${timestamp}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Search events"
+   }
+  },
+  "/events/publish/{eventId}": {
+   "post": {
+    "operationId": "Publish_an_event",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "eventId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Publish an event"
+   }
+  },
+  "/events/removeTag/{eventId}/{tagId}": {
+   "post": {
+    "operationId": "Remove_event_tag",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "eventId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "tagId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Remove event tag"
+   }
+  },
+  "/events/restSearch": {
+   "post": {
+    "description": "**This is the recommended endpoint for searching events.**\n",
+    "operationId": "Restsearch_events",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"attackGalaxy\": \"${attackGalaxy}\",\n  \"category\": \"${category}\",\n  \"date\": \"${date}\",\n  \"deleted\": \"${deleted}\",\n  \"enforceWarninglist\": \"${enforceWarninglist}\",\n  \"eventid\": \"${eventid}\",\n  \"excludeLocalTags\": \"${excludeLocalTags}\",\n  \"from\": \"${from}\",\n  \"headerless\": \"${headerless}\",\n  \"includeContext\": \"${includeContext}\",\n  \"includeSightingdb\": \"${includeSightingdb}\",\n  \"includeWarninglistHits\": \"${includeWarninglistHits}\",\n  \"last\": \"${last}\",\n  \"limit\": \"${limit}\",\n  \"metadata\": \"${metadata}\",\n  \"object_relation\": \"${object_relation}\",\n  \"org\": \"${org}\",\n  \"page\": \"${page}\",\n  \"publish_timestamp\": \"${publish_timestamp}\",\n  \"published\": \"${published}\",\n  \"requested_attributes\": \"${requested_attributes}\",\n  \"returnFormat\": \"${returnFormat}\",\n  \"searchall\": \"${searchall}\",\n  \"sgReferenceOnly\": \"${sgReferenceOnly}\",\n  \"tag\": \"${tag}\",\n  \"tags\": \"${tags}\",\n  \"threat_level_id\": \"${threat_level_id}\",\n  \"timestamp\": \"${timestamp}\",\n  \"to\": \"${to}\",\n  \"to_ids\": \"${to_ids}\",\n  \"type\": \"${type}\",\n  \"uuid\": \"${uuid}\",\n  \"value\": \"${value}\",\n  \"withAttachments\": \"${withAttachments}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"attackGalaxy\": \"${attackGalaxy}\",\n  \"category\": \"${category}\",\n  \"date\": \"${date}\",\n  \"deleted\": \"${deleted}\",\n  \"enforceWarninglist\": \"${enforceWarninglist}\",\n  \"eventid\": \"${eventid}\",\n  \"excludeLocalTags\": \"${excludeLocalTags}\",\n  \"from\": \"${from}\",\n  \"headerless\": \"${headerless}\",\n  \"includeContext\": \"${includeContext}\",\n  \"includeSightingdb\": \"${includeSightingdb}\",\n  \"includeWarninglistHits\": \"${includeWarninglistHits}\",\n  \"last\": \"${last}\",\n  \"limit\": \"${limit}\",\n  \"metadata\": \"${metadata}\",\n  \"object_relation\": \"${object_relation}\",\n  \"org\": \"${org}\",\n  \"page\": \"${page}\",\n  \"publish_timestamp\": \"${publish_timestamp}\",\n  \"published\": \"${published}\",\n  \"requested_attributes\": \"${requested_attributes}\",\n  \"returnFormat\": \"${returnFormat}\",\n  \"searchall\": \"${searchall}\",\n  \"sgReferenceOnly\": \"${sgReferenceOnly}\",\n  \"tag\": \"${tag}\",\n  \"tags\": \"${tags}\",\n  \"threat_level_id\": \"${threat_level_id}\",\n  \"timestamp\": \"${timestamp}\",\n  \"to\": \"${to}\",\n  \"to_ids\": \"${to_ids}\",\n  \"type\": \"${type}\",\n  \"uuid\": \"${uuid}\",\n  \"value\": \"${value}\",\n  \"withAttachments\": \"${withAttachments}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Restsearch events"
+   }
+  },
+  "/events/unpublish/{eventId}": {
+   "post": {
+    "operationId": "Unpublish_an_event",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "eventId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Unpublish an event"
+   }
+  },
+  "/events/view/{eventId}": {
+   "get": {
+    "operationId": "Get_event_by_ID",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "eventId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get event by ID"
+   }
+  },
+  "/feeds": {
+   "get": {
+    "operationId": "Get_a_list_of_feeds",
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get a list of feeds"
+   }
+  },
+  "/feeds/add": {
+   "post": {
+    "operationId": "Add_a_feed",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"caching_enabled\": \"${caching_enabled}\",\n  \"delete_local_file\": \"${delete_local_file}\",\n  \"delta_merge\": \"${delta_merge}\",\n  \"distribution\": \"${distribution}\",\n  \"enabled\": \"${enabled}\",\n  \"event_id\": \"${event_id}\",\n  \"fixed_event\": \"${fixed_event}\",\n  \"force_to_ids\": \"${force_to_ids}\",\n  \"headers\": \"${headers}\",\n  \"input_source\": \"${input_source}\",\n  \"lookup_visible\": \"${lookup_visible}\",\n  \"name\": \"${name}\",\n  \"orgc_id\": \"${orgc_id}\",\n  \"override_ids\": \"${override_ids}\",\n  \"provider\": \"${provider}\",\n  \"publish\": \"${publish}\",\n  \"rules\": \"${rules}\",\n  \"sharing_group_id\": \"${sharing_group_id}\",\n  \"source_format\": \"${source_format}\",\n  \"tag_id\": \"${tag_id}\",\n  \"url\": \"${url}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"caching_enabled\": \"${caching_enabled}\",\n  \"delete_local_file\": \"${delete_local_file}\",\n  \"delta_merge\": \"${delta_merge}\",\n  \"distribution\": \"${distribution}\",\n  \"enabled\": \"${enabled}\",\n  \"event_id\": \"${event_id}\",\n  \"fixed_event\": \"${fixed_event}\",\n  \"force_to_ids\": \"${force_to_ids}\",\n  \"headers\": \"${headers}\",\n  \"input_source\": \"${input_source}\",\n  \"lookup_visible\": \"${lookup_visible}\",\n  \"name\": \"${name}\",\n  \"orgc_id\": \"${orgc_id}\",\n  \"override_ids\": \"${override_ids}\",\n  \"provider\": \"${provider}\",\n  \"publish\": \"${publish}\",\n  \"rules\": \"${rules}\",\n  \"sharing_group_id\": \"${sharing_group_id}\",\n  \"source_format\": \"${source_format}\",\n  \"tag_id\": \"${tag_id}\",\n  \"url\": \"${url}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add a feed",
+    "x-label": [
+     "send_message"
+    ]
+   }
+  },
+  "/feeds/cacheFeeds/{cacheFeedsScope}": {
+   "post": {
+    "operationId": "Cache_feeds",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "cacheFeedsScope",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Cache feeds"
+   }
+  },
+  "/feeds/disable/{feedId}": {
+   "post": {
+    "operationId": "Disable_feed",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "feedId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Disable feed"
+   }
+  },
+  "/feeds/edit/{feedId}": {
+   "put": {
+    "operationId": "Edit_a_feed",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "feedId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"caching_enabled\": \"${caching_enabled}\",\n  \"delete_local_file\": \"${delete_local_file}\",\n  \"delta_merge\": \"${delta_merge}\",\n  \"distribution\": \"${distribution}\",\n  \"enabled\": \"${enabled}\",\n  \"event_id\": \"${event_id}\",\n  \"fixed_event\": \"${fixed_event}\",\n  \"force_to_ids\": \"${force_to_ids}\",\n  \"headers\": \"${headers}\",\n  \"id\": \"${id}\",\n  \"input_source\": \"${input_source}\",\n  \"lookup_visible\": \"${lookup_visible}\",\n  \"name\": \"${name}\",\n  \"orgc_id\": \"${orgc_id}\",\n  \"override_ids\": \"${override_ids}\",\n  \"provider\": \"${provider}\",\n  \"publish\": \"${publish}\",\n  \"rules\": \"${rules}\",\n  \"sharing_group_id\": \"${sharing_group_id}\",\n  \"source_format\": \"${source_format}\",\n  \"tag_id\": \"${tag_id}\",\n  \"url\": \"${url}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"caching_enabled\": \"${caching_enabled}\",\n  \"delete_local_file\": \"${delete_local_file}\",\n  \"delta_merge\": \"${delta_merge}\",\n  \"distribution\": \"${distribution}\",\n  \"enabled\": \"${enabled}\",\n  \"event_id\": \"${event_id}\",\n  \"fixed_event\": \"${fixed_event}\",\n  \"force_to_ids\": \"${force_to_ids}\",\n  \"headers\": \"${headers}\",\n  \"id\": \"${id}\",\n  \"input_source\": \"${input_source}\",\n  \"lookup_visible\": \"${lookup_visible}\",\n  \"name\": \"${name}\",\n  \"orgc_id\": \"${orgc_id}\",\n  \"override_ids\": \"${override_ids}\",\n  \"provider\": \"${provider}\",\n  \"publish\": \"${publish}\",\n  \"rules\": \"${rules}\",\n  \"sharing_group_id\": \"${sharing_group_id}\",\n  \"source_format\": \"${source_format}\",\n  \"tag_id\": \"${tag_id}\",\n  \"url\": \"${url}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Edit a feed"
+   }
+  },
+  "/feeds/enable/{feedId}": {
+   "post": {
+    "operationId": "Enable_feed",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "feedId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Enable feed"
+   }
+  },
+  "/feeds/fetchFromAllFeeds": {
+   "post": {
+    "operationId": "Fetch_from_all_feeds",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Fetch from all feeds"
+   }
+  },
+  "/feeds/fetchFromFeed/{feedId}": {
+   "post": {
+    "operationId": "Fetch_from_feed_by_ID",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "feedId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Fetch from feed by ID"
+   }
+  },
+  "/feeds/view/{feedId}": {
+   "get": {
+    "operationId": "Get_a_feed_by_ID",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "feedId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get a feed by ID"
+   }
+  },
+  "/galaxies": {
+   "get": {
+    "operationId": "Get_galaxies",
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get galaxies"
+   },
+   "post": {
+    "operationId": "Search_galaxies",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"value\": \"${value}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"value\": \"${value}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Search galaxies"
+   }
+  },
+  "/galaxies/attachCluster/{attachTargetId}/{attachTargetType}/local:{local}": {
+   "post": {
+    "operationId": "Attach_the_galaxy_cluster_tag_a_given_entity",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "attachTargetId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "attachTargetType",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "local",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"Galaxy\": \"${Galaxy}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"Galaxy\": \"${Galaxy}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Attach the galaxy cluster tag a given entity"
+   }
+  },
+  "/galaxies/delete/{galaxyId}": {
+   "delete": {
+    "operationId": "Delete_a_galaxy",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "galaxyId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Delete a galaxy"
+   }
+  },
+  "/galaxies/export/{galaxyId}": {
+   "post": {
+    "operationId": "Export_galaxy_clusters",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "galaxyId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"Galaxy\": \"${Galaxy}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"Galaxy\": \"${Galaxy}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Export galaxy clusters"
+   }
+  },
+  "/galaxies/import": {
+   "post": {
+    "operationId": "Import_a_galaxy_cluster",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Import a galaxy cluster"
+   }
+  },
+  "/galaxies/update": {
+   "post": {
+    "operationId": "Force_update_the_galaxies_with_the_galaxy_json_definitions",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Force update the galaxies with the galaxy json definitions"
+   }
+  },
+  "/galaxies/view/{galaxyId}": {
+   "get": {
+    "operationId": "Get_galaxy_by_ID",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "galaxyId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get galaxy by ID"
+   }
+  },
+  "/galaxy_clusters/add/{galaxyId}": {
+   "post": {
+    "operationId": "Add_galaxy_cluster",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "galaxyId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add galaxy cluster"
+   }
+  },
+  "/galaxy_clusters/delete/{galaxyClusterId}": {
+   "post": {
+    "operationId": "Delete_galaxy_cluster",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "galaxyClusterId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Delete galaxy cluster"
+   }
+  },
+  "/galaxy_clusters/edit/{galaxyClusterId}": {
+   "put": {
+    "operationId": "Edit_galaxy_cluster",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "galaxyClusterId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Edit galaxy cluster"
+   }
+  },
+  "/galaxy_clusters/index/{galaxyId}": {
+   "get": {
+    "operationId": "Get_galaxy_clusters",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "galaxyId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get galaxy clusters"
+   },
+   "post": {
+    "operationId": "Search_galaxy_clusters",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "galaxyId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"context\": \"${context}\",\n  \"searchall\": \"${searchall}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"context\": \"${context}\",\n  \"searchall\": \"${searchall}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Search galaxy clusters"
+   }
+  },
+  "/galaxy_clusters/publish/{galaxyClusterId}": {
+   "post": {
+    "operationId": "Publish_galaxy_cluster",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "galaxyClusterId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Publish galaxy cluster"
+   }
+  },
+  "/galaxy_clusters/restore/{galaxyClusterId}": {
+   "post": {
+    "operationId": "Restore_galaxy_cluster",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "galaxyClusterId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Restore galaxy cluster"
+   }
+  },
+  "/galaxy_clusters/unpublish/{galaxyClusterId}": {
+   "post": {
+    "operationId": "Unpublish_galaxy_cluster",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "galaxyClusterId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Unpublish galaxy cluster"
+   }
+  },
+  "/galaxy_clusters/view/{galaxyClusterId}": {
+   "get": {
+    "operationId": "Get_galaxy_cluster_by_ID",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "galaxyClusterId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get galaxy cluster by ID"
+   }
+  },
+  "/noticelists": {
+   "get": {
+    "operationId": "Get_a_list_of_noticelists",
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get a list of noticelists"
+   }
+  },
+  "/noticelists/toggleEnable/{noticelistId}": {
+   "post": {
+    "operationId": "Enabledisable_noticelist",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "noticelistId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Enabledisable noticelist"
+   }
+  },
+  "/noticelists/update": {
+   "post": {
+    "operationId": "Update_noticelists",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Update noticelists"
+   }
+  },
+  "/noticelists/view/{noticelistId}": {
+   "get": {
+    "operationId": "Get_a_noticelist_by_ID",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "noticelistId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get a noticelist by ID"
+   }
+  },
+  "/objects/add/{eventId}/{objectTemplateId}": {
+   "post": {
+    "operationId": "Add_an_object_to_an_event",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "eventId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "objectTemplateId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"Attribute\": \"${Attribute}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"Attribute\": \"${Attribute}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add an object to an event"
+   }
+  },
+  "/objects/delete/{objectId}/{hardDelete}": {
+   "delete": {
+    "operationId": "Delete_object",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "objectId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "hardDelete",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Delete object"
+   }
+  },
+  "/objects/view/{objectId}": {
+   "get": {
+    "operationId": "Get_object_by_ID",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "objectId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get object by ID"
+   }
+  },
+  "/organisations": {
+   "get": {
+    "operationId": "Get_organisations",
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get organisations"
+   }
+  },
+  "/organisations/view/{organisationId}": {
+   "get": {
+    "operationId": "Get_organisation_by_ID",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "organisationId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get organisation by ID"
+   }
+  },
+  "/servers": {
+   "get": {
+    "operationId": "Get_servers",
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get servers"
+   }
+  },
+  "/servers/add": {
+   "post": {
+    "operationId": "Add_server",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"authkey\": \"${authkey}\",\n  \"cache_timestamp\": \"${cache_timestamp}\",\n  \"caching_enabled\": \"${caching_enabled}\",\n  \"cert_file\": \"${cert_file}\",\n  \"client_cert_file\": \"${client_cert_file}\",\n  \"internal\": \"${internal}\",\n  \"lastpulledid\": \"${lastpulledid}\",\n  \"lastpushedid\": \"${lastpushedid}\",\n  \"name\": \"${name}\",\n  \"org_id\": \"${org_id}\",\n  \"organization\": \"${organization}\",\n  \"priority\": \"${priority}\",\n  \"publish_without_email\": \"${publish_without_email}\",\n  \"pull\": \"${pull}\",\n  \"pull_galaxy_clusters\": \"${pull_galaxy_clusters}\",\n  \"pull_rules\": \"${pull_rules}\",\n  \"push\": \"${push}\",\n  \"push_galaxy_clusters\": \"${push_galaxy_clusters}\",\n  \"push_rules\": \"${push_rules}\",\n  \"push_sightings\": \"${push_sightings}\",\n  \"remote_org_id\": \"${remote_org_id}\",\n  \"self_signed\": \"${self_signed}\",\n  \"skip_proxy\": \"${skip_proxy}\",\n  \"unpublish_event\": \"${unpublish_event}\",\n  \"url\": \"${url}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"authkey\": \"${authkey}\",\n  \"cache_timestamp\": \"${cache_timestamp}\",\n  \"caching_enabled\": \"${caching_enabled}\",\n  \"cert_file\": \"${cert_file}\",\n  \"client_cert_file\": \"${client_cert_file}\",\n  \"internal\": \"${internal}\",\n  \"lastpulledid\": \"${lastpulledid}\",\n  \"lastpushedid\": \"${lastpushedid}\",\n  \"name\": \"${name}\",\n  \"org_id\": \"${org_id}\",\n  \"organization\": \"${organization}\",\n  \"priority\": \"${priority}\",\n  \"publish_without_email\": \"${publish_without_email}\",\n  \"pull\": \"${pull}\",\n  \"pull_galaxy_clusters\": \"${pull_galaxy_clusters}\",\n  \"pull_rules\": \"${pull_rules}\",\n  \"push\": \"${push}\",\n  \"push_galaxy_clusters\": \"${push_galaxy_clusters}\",\n  \"push_rules\": \"${push_rules}\",\n  \"push_sightings\": \"${push_sightings}\",\n  \"remote_org_id\": \"${remote_org_id}\",\n  \"self_signed\": \"${self_signed}\",\n  \"skip_proxy\": \"${skip_proxy}\",\n  \"unpublish_event\": \"${unpublish_event}\",\n  \"url\": \"${url}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add server"
+   }
+  },
+  "/servers/cache": {
+   "post": {
+    "operationId": "Cache_server",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Cache server"
+   }
+  },
+  "/servers/createSync": {
+   "post": {
+    "operationId": "Create_sync",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Create sync"
+   }
+  },
+  "/servers/delete/{serverId}": {
+   "post": {
+    "operationId": "Delete_server",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "serverId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Delete server"
+   }
+  },
+  "/servers/edit/{serverId}": {
+   "put": {
+    "operationId": "Edit_server",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "serverId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Edit server"
+   }
+  },
+  "/servers/getInstanceUUID": {
+   "get": {
+    "operationId": "Get_instance_UUID",
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get instance UUID"
+   }
+  },
+  "/servers/getPyMISPVersion": {
+   "get": {
+    "operationId": "Get_current_instance_PyMISP_version",
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get current instance PyMISP version"
+   }
+  },
+  "/servers/getSetting/{settingName}": {
+   "get": {
+    "operationId": "Get_server_setting_by_name",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "settingName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get server setting by name"
+   }
+  },
+  "/servers/getVersion": {
+   "get": {
+    "operationId": "Get_current_instance_version",
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get current instance version"
+   }
+  },
+  "/servers/getWorkers": {
+   "get": {
+    "operationId": "Get_workers",
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get workers"
+   }
+  },
+  "/servers/import": {
+   "post": {
+    "operationId": "Import_server",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"Organisation\": \"${Organisation}\",\n  \"authkey\": \"${authkey}\",\n  \"name\": \"${name}\",\n  \"url\": \"${url}\",\n  \"uuid\": \"${uuid}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"Organisation\": \"${Organisation}\",\n  \"authkey\": \"${authkey}\",\n  \"name\": \"${name}\",\n  \"url\": \"${url}\",\n  \"uuid\": \"${uuid}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Import server"
+   }
+  },
+  "/servers/killAllWorkers": {
+   "post": {
+    "operationId": "Kill_all_workers",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Kill all workers"
+   }
+  },
+  "/servers/pull/{serverId}/{pullTechnique}": {
+   "get": {
+    "operationId": "Pull_server",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "serverId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "pullTechnique",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Pull server"
+   }
+  },
+  "/servers/push/{serverId}/{pushTechnique}": {
+   "get": {
+    "operationId": "Push_server",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "serverId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "pushTechnique",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Push server"
+   }
+  },
+  "/servers/restartDeadWorkers": {
+   "post": {
+    "operationId": "Restart_dead_workers",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Restart dead workers"
+   }
+  },
+  "/servers/restartWorkers": {
+   "post": {
+    "operationId": "Restart_workers",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Restart workers"
+   }
+  },
+  "/servers/serverSettings": {
+   "get": {
+    "operationId": "Get_current_instance_settings_and_diagnostics",
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get current instance settings and diagnostics"
+   }
+  },
+  "/servers/serverSettingsEdit/{settingName}": {
+   "post": {
+    "operationId": "Edit_server_setting",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "settingName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"value\": \"${value}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"value\": \"${value}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Edit server setting"
+   }
+  },
+  "/servers/startWorker/{workerType}": {
+   "post": {
+    "operationId": "Start_worker",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "workerType",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Start worker"
+   }
+  },
+  "/servers/stopWorker/{workerPid}": {
+   "post": {
+    "operationId": "Stop_worker",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "workerPid",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Stop worker"
+   }
+  },
+  "/servers/update": {
+   "post": {
+    "operationId": "Update_server",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Update server"
+   }
+  },
+  "/sharing_groups": {
+   "get": {
+    "operationId": "Get_a_list_of_sharing_groups",
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get a list of sharing groups"
+   }
+  },
+  "/sharing_groups/add": {
+   "post": {
+    "operationId": "Add_a_sharing_group",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add a sharing group"
+   }
+  },
+  "/sharing_groups/addOrg/{sharingGroupId}/{organisationId}": {
+   "post": {
+    "operationId": "Add_an_organisation_to_a_sharing_group",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "sharingGroupId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "organisationId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add an organisation to a sharing group"
+   }
+  },
+  "/sharing_groups/addServer/{sharingGroupId}/{serverId}": {
+   "post": {
+    "operationId": "Add_a_server_to_a_sharing_group",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "sharingGroupId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "serverId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add a server to a sharing group"
+   }
+  },
+  "/sharing_groups/delete/{sharingGroupId}": {
+   "delete": {
+    "operationId": "Delete_a_sharing_group",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "sharingGroupId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Delete a sharing group"
+   }
+  },
+  "/sharing_groups/edit/{sharingGroupId}": {
+   "post": {
+    "operationId": "Edit_a_sharing_group",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "sharingGroupId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Edit a sharing group"
+   }
+  },
+  "/sharing_groups/removeOrg/{sharingGroupId}/{organisationId}": {
+   "post": {
+    "operationId": "Remove_an_organisation_from_a_sharing_group",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "sharingGroupId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "organisationId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Remove an organisation from a sharing group"
+   }
+  },
+  "/sharing_groups/removeServer/{sharingGroupServerId}/{serverId}": {
+   "post": {
+    "operationId": "Remove_a_server_from_a_sharing_group",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "sharingGroupServerId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "serverId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Remove a server from a sharing group"
+   }
+  },
+  "/sharing_groups/view/{sharingGroupId}": {
+   "get": {
+    "operationId": "Get_a_sharing_group_by_ID",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "sharingGroupId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get a sharing group by ID"
+   }
+  },
+  "/sightings/add": {
+   "post": {
+    "operationId": "Add_sightings_of_a_list_of_values",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"filters\": \"${filters}\",\n  \"timestamp\": \"${timestamp}\",\n  \"values\": \"${values}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"filters\": \"${filters}\",\n  \"timestamp\": \"${timestamp}\",\n  \"values\": \"${values}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add sightings of a list of values"
+   }
+  },
+  "/sightings/add/{attributeId}": {
+   "post": {
+    "operationId": "Add_sighting_of_an_attribute",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "attributeId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add sighting of an attribute"
+   }
+  },
+  "/sightings/delete/{sightingId}": {
+   "post": {
+    "operationId": "Delete_sighting",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "sightingId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Delete sighting"
+   }
+  },
+  "/sightings/index/{eventId}": {
+   "get": {
+    "operationId": "Get_sightings_by_event_ID",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "eventId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get sightings by event ID"
+   }
+  },
+  "/tags": {
+   "get": {
+    "operationId": "Get_tags",
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get tags"
+   }
+  },
+  "/tags/add": {
+   "post": {
+    "operationId": "Add_tag",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"colour\": \"${colour}\",\n  \"exportable\": \"${exportable}\",\n  \"hide_tag\": \"${hide_tag}\",\n  \"inherited\": \"${inherited}\",\n  \"is_custom_galaxy\": \"${is_custom_galaxy}\",\n  \"is_galaxy\": \"${is_galaxy}\",\n  \"name\": \"${name}\",\n  \"numerical_value\": \"${numerical_value}\",\n  \"org_id\": \"${org_id}\",\n  \"user_id\": \"${user_id}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"colour\": \"${colour}\",\n  \"exportable\": \"${exportable}\",\n  \"hide_tag\": \"${hide_tag}\",\n  \"inherited\": \"${inherited}\",\n  \"is_custom_galaxy\": \"${is_custom_galaxy}\",\n  \"is_galaxy\": \"${is_galaxy}\",\n  \"name\": \"${name}\",\n  \"numerical_value\": \"${numerical_value}\",\n  \"org_id\": \"${org_id}\",\n  \"user_id\": \"${user_id}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add tag"
+   }
+  },
+  "/tags/delete/{tagId}": {
+   "post": {
+    "operationId": "Delete_tag",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "tagId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Delete tag"
+   }
+  },
+  "/tags/edit/{tagId}": {
+   "post": {
+    "operationId": "Edit_tag",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "tagId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"colour\": \"${colour}\",\n  \"exportable\": \"${exportable}\",\n  \"hide_tag\": \"${hide_tag}\",\n  \"inherited\": \"${inherited}\",\n  \"is_custom_galaxy\": \"${is_custom_galaxy}\",\n  \"is_galaxy\": \"${is_galaxy}\",\n  \"name\": \"${name}\",\n  \"numerical_value\": \"${numerical_value}\",\n  \"org_id\": \"${org_id}\",\n  \"user_id\": \"${user_id}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"colour\": \"${colour}\",\n  \"exportable\": \"${exportable}\",\n  \"hide_tag\": \"${hide_tag}\",\n  \"inherited\": \"${inherited}\",\n  \"is_custom_galaxy\": \"${is_custom_galaxy}\",\n  \"is_galaxy\": \"${is_galaxy}\",\n  \"name\": \"${name}\",\n  \"numerical_value\": \"${numerical_value}\",\n  \"org_id\": \"${org_id}\",\n  \"user_id\": \"${user_id}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Edit tag"
+   }
+  },
+  "/tags/search/{tagSearchTerm}": {
+   "get": {
+    "operationId": "Search_tag",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "tagSearchTerm",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Search tag"
+   }
+  },
+  "/tags/view/{tagId}": {
+   "get": {
+    "operationId": "Get_tag_by_ID",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "tagId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get tag by ID"
+   }
+  },
+  "/taxonomies": {
+   "get": {
+    "operationId": "Get_taxonomies",
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get taxonomies"
+   }
+  },
+  "/taxonomies/disable/{taxonomyIdParameter}": {
+   "post": {
+    "operationId": "Disable_taxonomy",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "taxonomyIdParameter",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Disable taxonomy"
+   }
+  },
+  "/taxonomies/enable/{taxonomyIdParameter}": {
+   "post": {
+    "operationId": "Enable_taxonomy",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "taxonomyIdParameter",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Enable taxonomy"
+   }
+  },
+  "/taxonomies/export/{taxonomyIdParameter}": {
+   "get": {
+    "operationId": "Export_taxonomy_",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "taxonomyIdParameter",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Export taxonomy "
+   }
+  },
+  "/taxonomies/taxonomy_tags/{taxonomyIdParameter}": {
+   "get": {
+    "operationId": "Get_a_taxonomy_extended_with_tags_used_in_events_and_attributes_",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "taxonomyIdParameter",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get a taxonomy extended with tags used in events and attributes "
+   }
+  },
+  "/taxonomies/update": {
+   "post": {
+    "operationId": "Update_taxonomies",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Update taxonomies"
+   }
+  },
+  "/taxonomies/view/{taxonomyIdParameter}": {
+   "get": {
+    "operationId": "Get_a_taxonomy_by_ID",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "taxonomyIdParameter",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get a taxonomy by ID"
+   }
+  },
+  "/user_settings": {
+   "get": {
+    "operationId": "Get_user_settings",
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get user settings"
+   },
+   "post": {
+    "operationId": "Search_user_settings",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"id\": \"${id}\",\n  \"setting\": \"${setting}\",\n  \"user_id\": \"${user_id}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"id\": \"${id}\",\n  \"setting\": \"${setting}\",\n  \"user_id\": \"${user_id}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Search user settings"
+   }
+  },
+  "/user_settings/delete/{userSettingId}": {
+   "delete": {
+    "operationId": "Delete_user_setting_by_id",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "userSettingId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Delete user setting by id"
+   }
+  },
+  "/user_settings/getSetting/{userId}/{userSettingName}": {
+   "get": {
+    "operationId": "Get_user_setting_by_id",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "userId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "userSettingName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get user setting by id"
+   }
+  },
+  "/user_settings/setSetting/{userId}/{userSettingName}": {
+   "post": {
+    "operationId": "Set_user_setting",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "userId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "userSettingName",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Set user setting"
+   }
+  },
+  "/user_settings/view/{userSettingId}": {
+   "get": {
+    "operationId": "Get_user_setting_by_id",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "userSettingId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get user setting by id"
+   }
+  },
+  "/users/initiatePasswordReset/{userId}/{firstTimeReset}": {
+   "post": {
+    "operationId": "Reset_user_password",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "userId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "firstTimeReset",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Reset user password"
+   }
+  },
+  "/warninglists": {
+   "get": {
+    "operationId": "Get_a_list_of_warninglists",
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get a list of warninglists"
+   },
+   "post": {
+    "operationId": "Search_warninglists",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Search warninglists"
+   }
+  },
+  "/warninglists/checkValue": {
+   "post": {
+    "operationId": "Check_if_a_list_of_values_matches_any_warninglists",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Check if a list of values matches any warninglists"
+   }
+  },
+  "/warninglists/toggleEnable": {
+   "post": {
+    "operationId": "Enabledisable_warninglists",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Enabledisable warninglists"
+   }
+  },
+  "/warninglists/update": {
+   "post": {
+    "operationId": "Update_warninglists",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": ""
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Update warninglists"
+   }
+  },
+  "/warninglists/view/{warninglistId}": {
+   "get": {
+    "operationId": "Get_warninglist_by_ID",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "warninglistId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get warninglist by ID"
+   }
+  }
+ },
+ "schemes": [
+  "https:"
+ ],
+ "servers": [
+  {
+   "url": "https://misp.local"
+  }
+ ],
+ "tags": [
+  {
+   "name": "Attributes"
+  },
+  {
+   "name": "Events"
+  },
+  {
+   "name": "Galaxies"
+  },
+  {
+   "name": "Galaxy Clusters"
+  },
+  {
+   "name": "Users"
+  },
+  {
+   "name": "Organisations"
+  },
+  {
+   "name": "Servers"
+  },
+  {
+   "name": "Sharing Groups"
+  },
+  {
+   "name": "Feeds"
+  }
+ ]
+}

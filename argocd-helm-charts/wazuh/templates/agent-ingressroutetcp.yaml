@@ -1,0 +1,40 @@
+{{- if .Values.agentTcpRoutes.enabled }}
+# Agents reach the manager on two raw TCP ports: 1515 for enrolment (TLS, but
+# the agent sends no SNI) and 1514 for events (Wazuh's own encrypted protocol,
+# not TLS). Neither can be terminated by an ingress, and the chart only creates
+# ClusterIP Services, so agents outside the cluster have no path in. On KubeAid
+# clusters traefik forwards them unchanged: one IngressRouteTCP per port on a
+# dedicated entrypoint, matched by HostSNI(`*`) because there is no SNI to
+# match. Add `ports.<entryPoint>` to the traefik values that should carry them
+# (the public DaemonSet with a hostPort for endpoints on the internet, the
+# internal ClusterIP instance for machines on the mesh, or both).
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: {{ .Release.Name }}-agent-enrolment
+  namespace: {{ .Release.Namespace }}
+spec:
+  entryPoints:
+    - {{ .Values.agentTcpRoutes.enrolment.entryPoint }}
+  routes:
+    - match: HostSNI(`*`)
+      services:
+        - name: {{ .Values.agentTcpRoutes.enrolment.serviceName }}
+          port: {{ .Values.agentTcpRoutes.enrolment.port }}
+  tls:
+    passthrough: true
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: {{ .Release.Name }}-agent-events
+  namespace: {{ .Release.Namespace }}
+spec:
+  entryPoints:
+    - {{ .Values.agentTcpRoutes.events.entryPoint }}
+  routes:
+    - match: HostSNI(`*`)
+      services:
+        - name: {{ .Values.agentTcpRoutes.events.serviceName }}
+          port: {{ .Values.agentTcpRoutes.events.port }}
+{{- end }}

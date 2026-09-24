@@ -1,0 +1,34 @@
+{{- if .Values.agent.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  # Name is only "wazuh" because of Certificates commonName
+  name: {{ include "wazuh.fullname" . }}-agent
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ include "wazuh.fullname" . }}-agent
+    node-type: agent
+  annotations:
+    {{- toYaml .Values.agent.service.annotations | nindent 4 }}
+spec:
+  type: {{ .Values.agent.service.type }}
+  {{- if .Values.global.dualStack.enabled }}
+  {{- if .Values.global.dualStack.ipFamilyPolicy }}
+  ipFamilyPolicy: {{ .Values.global.dualStack.ipFamilyPolicy }}
+  {{- end }}
+  {{- if .Values.global.dualStack.ipFamilies }}
+  ipFamilies:
+    {{- toYaml .Values.global.dualStack.ipFamilies | nindent 4 }}
+  {{- end }}
+  {{- end }}
+  ports:
+    - name: http
+      port: {{ .Values.agent.service.port }}
+      targetPort: {{ .Values.agent.service.port }}
+      {{- if and (eq (.Values.agent.service.type | default "ClusterIP") "NodePort") .Values.agent.service.nodePort }}
+      nodePort: {{ .Values.agent.service.nodePort }}
+      {{- end }}
+  selector:
+    app: {{ include "wazuh.fullname" . }}-agent
+    node-type: agent
+{{- end }}

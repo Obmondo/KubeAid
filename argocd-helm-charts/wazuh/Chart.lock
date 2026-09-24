@@ -1,0 +1,6 @@
+dependencies:
+- name: wazuh
+  repository: https://morgoved.github.io/wazuh-helm/
+  version: 2.0.7
+digest: sha256:1a7821b2078a6900a796e45592089bf33aa4e07bbf31c4013b9332894a72a881
+generated: "2026-09-21T16:41:29.873164304+05:30"

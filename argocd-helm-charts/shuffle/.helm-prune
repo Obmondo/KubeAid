@@ -1,0 +1,8 @@
+# Paths deleted from the vendored subcharts after `helm dependency update`.
+# One path per line, relative to this chart directory. Comments with #.
+#
+# Upstream bundles a single-node Bitnami OpenSearch behind opensearch.enabled,
+# which we keep false: Shuffle gets its OpenSearch from the opensearch-operator
+# chart, and Bitnami stopped publishing free images for it in 2025. Without this
+# file the subchart comes back on the next version bump.
+charts/shuffle/charts/opensearch

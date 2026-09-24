@@ -1,0 +1,39 @@
+# Copyright 2025 Carnegie Mellon University.
+# NO WARRANTY. THIS CARNEGIE MELLON UNIVERSITY AND SOFTWARE ENGINEERING INSTITUTE MATERIAL IS FURNISHED ON AN "AS-IS" BASIS.
+# CARNEGIE MELLON UNIVERSITY MAKES NO WARRANTIES OF ANY KIND, EITHER EXPRESSED OR IMPLIED, AS TO ANY MATTER INCLUDING,
+# BUT NOT LIMITED TO, WARRANTY OF FITNESS FOR PURPOSE OR MERCHANTABILITY, EXCLUSIVITY, OR RESULTS OBTAINED FROM USE OF THE
+# MATERIAL. CARNEGIE MELLON #UNIVERSITY DOES NOT MAKE ANY WARRANTY OF ANY KIND WITH RESPECT TO FREEDOM FROM PATENT, TRADEMARK, OR
+# COPYRIGHT INFRINGEMENT.
+# Licensed under an Apache License v2.0-style license, please see license.txt or contact permission@sei.cmu.edu for full terms.
+# [DISTRIBUTION STATEMENT A] This material has been approved for public release and unlimited distribution.
+# Please see Copyright #notice for non-US Government use and distribution.
+# This Software includes and/or makes use of Third-Party Software each subject to its own license.
+# DM25-1432
+apiVersion: v2
+name: misp
+description: A Helm chart for deploying the MISP Threat Sharing web application.
+maintainers:
+  - name: maheckathorn
+    email: maheckathorn@sei.cmu.edu
+  - name: sei-avesey
+    email: avesey@sei.cmu.edu
+  - name: sei-mtrdina
+    email: mtrdina@sei.cmu.edu
+  - name: sei-mfrank
+    email: mfrank@sei.cmu.edu
+type: application
+version: 5.0.1
+appVersion: "2.5.44"
+
+# KubeAid: the upstream mariadb (Bitnami) and smtp dependencies are removed.
+# The database comes from the mariadb-operator (see ../../templates/mariadb.yaml)
+# and mail goes through the cluster relay. Only valkey is vendored.
+dependencies:
+  - name: valkey
+    repository: "oci://ghcr.io/valkey-io/valkey-helm"
+    version: "0.9.4"
+    condition: valkey.enabled
+
+keywords:
+  - misp
+  - threat-sharing

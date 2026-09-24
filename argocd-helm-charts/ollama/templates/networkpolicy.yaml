@@ -1,0 +1,42 @@
+{{- if .Values.networkPolicy.enabled }}
+# The Ollama API has no authentication and its prompts can carry sensitive
+# data, so it is closed both ways: only the listed peers may call it, and it
+# may not open connections anywhere except DNS. With egress closed the model
+# cannot be pulled at start: keep ollama.ollama.models.pull empty once the
+# model is on the volume (see README).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-ollama
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ollama
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    {{- if .Values.networkPolicy.allowedFrom }}
+    - from:
+        {{- toYaml .Values.networkPolicy.allowedFrom | nindent 8 }}
+      ports:
+        - port: 11434
+          protocol: TCP
+    {{- end }}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    {{- with .Values.networkPolicy.extraEgress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}

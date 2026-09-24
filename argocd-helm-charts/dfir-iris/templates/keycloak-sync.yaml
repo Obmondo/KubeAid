@@ -1,0 +1,100 @@
+{{- if .Values.keycloakSync.enabled }}
+{{- $s := .Values.keycloakSync }}
+{{- $fullname := include "dfir-iris.fullname" . }}
+{{- $protected := uniq (append ($s.protectedLogins | default list) .Values.admin.username) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fullname }}-keycloak-sync
+  labels:
+    {{- include "dfir-iris.labels" . | nindent 4 }}
+    app.kubernetes.io/component: keycloak-sync
+data:
+  keycloak-sync.py: |
+{{ .Files.Get "files/keycloak-sync.py" | indent 4 }}
+  mapping.json: |
+    {{- toPrettyJson $s.mapping | nindent 4 }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ $fullname }}-keycloak-sync
+  labels:
+    {{- include "dfir-iris.labels" . | nindent 4 }}
+    app.kubernetes.io/component: keycloak-sync
+spec:
+  schedule: {{ $s.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: {{ $s.activeDeadlineSeconds }}
+      template:
+        metadata:
+          labels:
+            {{- include "dfir-iris.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: keycloak-sync
+          annotations:
+            checksum/sync: {{ printf "%s%s" (.Files.Get "files/keycloak-sync.py") (toJson $s) | sha256sum }}
+        spec:
+          restartPolicy: Never
+          {{- with .Values.hostAliases }}
+          hostAliases:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+          containers:
+            - name: sync
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command: ["python3", "/sync/keycloak-sync.py"]
+              env:
+                - name: KEYCLOAK_URL
+                  value: {{ required "keycloakSync.keycloak.url is required" $s.keycloak.url | quote }}
+                - name: KEYCLOAK_REALM
+                  value: {{ required "keycloakSync.keycloak.realm is required" $s.keycloak.realm | quote }}
+                - name: KEYCLOAK_CLIENT_ID
+                  value: {{ required "keycloakSync.keycloak.clientId is required" $s.keycloak.clientId | quote }}
+                - name: KEYCLOAK_CLIENT_SECRET
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ required "keycloakSync.existingSecret is required" $s.existingSecret }}
+                      key: {{ $s.keycloakSecretKey }}
+                - name: IRIS_URL
+                  value: {{ $s.irisUrl | default (printf "http://%s-app:%v" $fullname .Values.service.port) | quote }}
+                - name: IRIS_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ $s.existingSecret }}
+                      key: {{ $s.irisApiKeySecretKey }}
+                - name: MAPPING_FILE
+                  value: /sync/mapping.json
+                - name: PROTECTED_LOGINS
+                  value: {{ join "," $protected | quote }}
+                - name: DEACTIVATE_ORPHANS
+                  value: {{ $s.deactivateOrphans | quote }}
+                - name: DRY_RUN
+                  value: {{ $s.dryRun | quote }}
+                - name: PYTHONDONTWRITEBYTECODE
+                  value: "1"
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              resources:
+                {{- toYaml $s.resources | nindent 16 }}
+              volumeMounts:
+                - name: sync
+                  mountPath: /sync
+                  readOnly: true
+          volumes:
+            - name: sync
+              configMap:
+                name: {{ $fullname }}-keycloak-sync
+{{- end }}

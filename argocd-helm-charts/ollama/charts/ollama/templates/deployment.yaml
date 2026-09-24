@@ -1,0 +1,297 @@
+---
+{{- if not .Values.knative.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ollama.fullname" . }}
+  namespace: {{ include "ollama.namespace" . }}
+  labels:
+    {{- include "ollama.labels" . | nindent 4 }}
+    {{- with .Values.deployment.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  {{- if or .Values.updateStrategy.type .Values.updateStrategy.rollingUpdate }}
+  strategy: {{ .Values.updateStrategy | toYaml | nindent 4 }}
+  {{- end }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit | default 10 }}
+  selector:
+    matchLabels:
+      {{- include "ollama.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "ollama.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- if .Values.podSchedulerName }}
+      schedulerName: {{ .Values.podSchedulerName }}
+      {{- end }}
+      {{- if .Values.hostIPC }}
+      hostIPC: {{ .Values.hostIPC }}
+      {{- end }}
+      {{- if .Values.hostPID }}
+      hostPID: {{ .Values.hostPID }}
+      {{- end }}
+      {{- if .Values.hostNetwork }}
+      hostNetwork: {{ .Values.hostNetwork }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "ollama.serviceAccountName" . }}
+      {{- if .Values.priorityClassName }}
+      priorityClassName: {{ .Values.priorityClassName | quote }}
+      {{- end }}
+      {{- if .Values.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.runtimeClassName }}
+      runtimeClassName: {{ .Values.runtimeClassName | quote }}
+      {{- end }}
+      {{- with .Values.initContainers }}
+      initContainers:
+        {{- tpl (toYaml . ) $ | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag |  default (ternary (printf "%s-rocm" .Chart.AppVersion) (.Chart.AppVersion) (and (.Values.ollama.gpu.enabled) (eq .Values.ollama.gpu.type "amd"))) }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.ollama.port }}
+              protocol: TCP
+          env:
+            - name: OLLAMA_HOST
+              value: "0.0.0.0:{{ .Values.ollama.port }}"
+            {{- if and .Values.ollama.gpu.enabled (or (eq .Values.ollama.gpu.type "nvidia") (not .Values.ollama.gpu.type))}}
+            - name: PATH
+              value: /usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+            {{- end}}
+            {{- with .Values.extraEnv }}
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
+          envFrom:
+            {{- with .Values.extraEnvFrom }}
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
+          args:
+          {{- with .Values.extraArgs }}
+             {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.resources }}
+          resources:
+            {{- $limits := default dict .Values.resources.limits }}
+            {{- if .Values.ollama.gpu.enabled }}
+            {{- if .Values.ollama.gpu.draEnabled}}
+            claims:
+              - name: gpu
+            {{- else }}
+          # If gpu is enabled, it can either be a NVIDIA card or a AMD card
+              {{- if or (eq .Values.ollama.gpu.type "nvidia") (not .Values.ollama.gpu.type) }}
+          # NVIDIA is assumed by default if no value is set and GPU is enabled
+          # NVIDIA cards can have mig enabled (i.e., the card is sliced into parts
+          # Therefore, the first case is no migs enabled
+                {{- if or (not .Values.ollama.gpu.mig) (not .Values.ollama.gpu.mig.enabled ) }}
+                  {{- $gpuLimit := dict (.Values.ollama.gpu.nvidiaResource | default "nvidia.com/gpu") (.Values.ollama.gpu.number | default 1) }}
+                  {{- $limits = merge $limits $gpuLimit }}
+          # Second case is mig is enabled
+                {{- else if or (.Values.ollama.gpu.mig.enabled) }}
+          # Initialize empty dictionary
+                  {{- $migDevices := dict -}}
+          # Loop over the entries in the mig devices
+                  {{- range $key, $value := .Values.ollama.gpu.mig.devices }}
+                    {{- $migKey := printf "nvidia.com/mig-%s" $key -}}
+                    {{- $migDevices = merge $migDevices (dict $migKey $value) -}}
+                  {{- end }}
+                  {{- $limits = merge $limits $migDevices}}
+                {{- end }}
+              {{- end }}
+              {{- if eq .Values.ollama.gpu.type "amd" }}
+                {{- $gpuLimit := dict "amd.com/gpu" (.Values.ollama.gpu.number | default 1) }}
+                {{- $limits = merge $limits $gpuLimit }}
+              {{- end }}
+            {{- end }}
+            {{- end }}
+            {{- $ressources := deepCopy (dict "limits" $limits) | mergeOverwrite .Values.resources }}
+            {{- toYaml $ressources | nindent 12 }}
+          {{- end}}
+          volumeMounts:
+            - name: ollama-data
+              mountPath: {{ .Values.ollama.mountPath | default "/root/.ollama" }}
+              {{- if .Values.persistentVolume.subPath }}
+              subPath: {{ .Values.persistentVolume.subPath }}
+              {{- end }}
+          {{- range .Values.ollama.models.create }}
+            {{- if .configMapRef }}
+            - name: {{ .name }}-config-model-volume
+              mountPath: /models
+            {{- end }}
+          {{- end }}
+          {{- with .Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.livenessProbe.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.livenessProbe.successThreshold }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.readinessProbe.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.readinessProbe.successThreshold }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+          {{- end }}
+          {{- with .Values.lifecycle}}
+          lifecycle:
+            {{- toYaml . | nindent 12 }}
+          {{- else }}
+          {{- if or .Values.ollama.models.pull .Values.ollama.models.run .Values.ollama.models.create }}
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    while ! /bin/ollama ps > /dev/null 2>&1; do
+                      sleep 5
+                    done
+
+                    {{- $allModels := list -}}
+
+                    {{- if .Values.ollama.models.pull }}
+                    {{- range .Values.ollama.models.pull }}
+
+                    {{- if contains ":" . }}
+                      {{- $allModels = append $allModels . }}
+                    {{- else }}
+                      {{- $allModels = append $allModels (printf "%s:latest" .) }}
+                    {{- end }}
+
+                    /bin/ollama pull {{ternary "--insecure" "" $.Values.ollama.insecure | toString }} {{ . }}
+                    {{- end }}
+                    {{- end }}
+
+                    {{- if .Values.ollama.models.create }}
+                    {{- range .Values.ollama.models.create }}
+                    {{- $allModels = append $allModels .name }}
+                    {{- if .template }}
+                    cat <<EOF > {{ include "ollama.modelsMountPath" $ }}/{{ .name }}
+                    {{- .template | nindent 20 }}
+                    EOF
+                    /bin/ollama create {{ .name }} -f {{ include "ollama.modelsMountPath" $ }}/{{ .name }}
+                    {{- end }}
+                    {{- if .configMapRef }}
+                    /bin/ollama create {{ .name }} -f /models/{{ .name }}
+                    {{- end }}
+                    {{- end }}
+                    {{- end }}
+
+                    {{- if .Values.ollama.models.run }}
+                    {{- range .Values.ollama.models.run }}
+
+                    {{- if contains ":" . }}
+                      {{- $allModels = append $allModels . }}
+                    {{- else }}
+                      {{- $allModels = append $allModels (printf "%s:latest" .) }}
+                    {{- end }}
+
+                    /bin/ollama run {{ . }}
+                    {{- end }}
+                    {{- end }}
+
+                    {{- if .Values.ollama.models.clean }}
+                    /bin/ollama list | awk 'NR>1 {print $1}' | while read model; do
+                      echo "{{ $allModels | join " " }}" | tr ' ' '\n' | grep -Fqx "$model" || /bin/ollama rm "$model"
+                    done
+                    {{- end }}
+          {{- end }}
+          {{- end }}
+      {{- if and .Values.ollama.gpu.enabled .Values.ollama.gpu.draEnabled }}
+      resourceClaims:
+        - name: gpu
+          resourceClaimTemplateName: {{ .Values.ollama.gpu.draExistingClaimTemplate |  default (printf "%s" (include "ollama.fullname" .)) }}
+      {{- end }}
+      volumes:
+        - name: ollama-data
+          {{- if .Values.persistentVolume.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistentVolume.existingClaim |  default (printf "%s" (include "ollama.fullname" .)) }}
+          {{- else }}
+          emptyDir: { }
+          {{- end }}
+        {{- range .Values.ollama.models.create }}
+          {{- if .configMapRef }}
+        - name: {{ .name }}-config-model-volume
+          configMap:
+            name: {{ .configMapRef }}
+            items:
+              - key: {{ .configMapKeyRef }}
+                path: {{ .name }}
+          {{- end }}
+        {{- end }}
+        {{- with .Values.volumes }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if or .Values.ollama.gpu.enabled .Values.tolerations }}
+      tolerations:
+        {{- if and .Values.ollama.gpu.enabled (and 
+              ( or (eq .Values.ollama.gpu.type "nvidia") (not .Values.ollama.gpu.type)) 
+              ( or (not .Values.ollama.gpu.mig) (not .Values.ollama.gpu.mig.enabled))
+            ) }}
+        - key: "{{(.Values.ollama.gpu.nvidiaResource | default "nvidia.com/gpu")}}"
+          operator: Exists
+          effect: NoSchedule
+          {{- else if and .Values.ollama.gpu.enabled (and 
+              ( or (eq .Values.ollama.gpu.type "nvidia") (not .Values.ollama.gpu.type)) 
+              (( .Values.ollama.gpu.mig.enabled))
+            ) }}
+            {{- range $key, $value := .Values.ollama.gpu.mig.devices }}
+        - key: nvidia.com/mig-{{ $key }}
+          operator: Exists
+          effect: NoSchedule
+            {{- end }}
+        {{- end }}
+        {{- with .Values.tolerations }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+{{- end }}
