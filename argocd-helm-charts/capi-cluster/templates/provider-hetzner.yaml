@@ -49,6 +49,9 @@ spec:
             - args:
                 - --leader-elect=true
                 - --namespace={{ $namespace }}
+                {{- if or (eq .Values.mode "bare-metal") (eq .Values.mode "hybrid") }}
+                - --disable-csr-approval
+                {{- end }}
               command:
                 - /manager
               image: {{ $image }}

@@ -181,7 +181,23 @@ spec:
     - |
       {{- include "hetzner.efiBootOrderScript" . | nindent 6 }}
 
-    - export NETWORK_INTERFACE=$(ip route get 8.8.8.8 | awk '{print $5; exit}')
+    - |
+      NETWORK_INTERFACE=""
+      attempt=0
+      while [ "$attempt" -lt 60 ]; do
+        NETWORK_INTERFACE="$(ip route get 8.8.8.8 2>/dev/null | awk '{print $5; exit}')"
+        if [ -n "$NETWORK_INTERFACE" ]; then
+          break
+        fi
+        attempt=$((attempt + 1))
+        sleep 2
+      done
+      if [ -z "$NETWORK_INTERFACE" ]; then
+        echo "ERROR: no default route after 120s — cannot determine the primary network interface" >&2
+        exit 1
+      fi
+      export NETWORK_INTERFACE
+      echo "Detected primary network interface: $NETWORK_INTERFACE"
 
     {{- if or (eq $.Values.mode "hybrid") (and (eq $.Values.mode "bare-metal") $.Values.bareMetal.vSwitch) }}
     {{/* Bring up the VLAN sub-interface for the Hetzner vSwitch.
