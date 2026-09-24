@@ -35,6 +35,8 @@ spec:
       {{- toYaml . | nindent 8 }}
       {{- end }}
       annotations:
+        # KubeAid patch: envFrom does not roll the pod when the ConfigMap changes.
+        checksum/env: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
         {{- with .Values.commonAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -42,6 +44,10 @@ spec:
       {{- (include "misp-charts.misp.misp.image.imagePullSecrets" .) | indent 6 }}
       automountServiceAccountToken: {{ .Values.serviceAccount.automount }}
       serviceAccountName: {{ include "misp-charts.serviceAccountName" . }}
+      {{- with .Values.hostAliases }}
+      hostAliases:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
       - env:
         - name: MYSQL_USER
@@ -73,6 +79,9 @@ spec:
         {{- end }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.clusterDomain }}
+        {{- with .Values.extraEnv }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         envFrom:
         - configMapRef:
             name: {{ include "misp-charts.fullname" . }}-env

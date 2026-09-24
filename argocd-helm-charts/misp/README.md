@@ -10,6 +10,9 @@ chart is not published to a Helm repository, so the chart directory is copied un
 - The Bitnami `mariadb` and `smtp` dependencies were removed from `charts/misp/Chart.yaml`.
   The database comes from the mariadb-operator chart through `templates/mariadb.yaml`.
 - `valkey` (the queue) stays as the upstream subchart.
+- `charts/misp/templates/deployment-misp.yaml` gains `extraEnv`, `hostAliases` and a
+  `checksum/env` pod annotation (the pod reads its settings through `envFrom`, so without
+  the checksum a values change never reaches a running pod). Re-apply these after an update.
 
 ## 2. How to setup
 
@@ -43,9 +46,42 @@ misp:
 
 ## 3. SSO
 
-The upstream chart carries full OIDC settings including role mapping (`env.oidcEnable`,
-`env.oidcProviderUrl`, `env.oidcRolesMapping`). Point them at a Keycloak realm and put the
-client id and secret into `oidc-credentials`.
+The upstream ConfigMap carries the OIDC basics (`env.oidcEnable`, `env.oidcProviderUrl`,
+`env.oidcRolesProperty`, `env.oidcRolesMapping`, `env.oidcDefaultOrg`, `env.oidcLogoutUrl`),
+and the client id and secret come from `oidc-credentials`. What the image reads is decided by
+`/configure_misp.sh` (`set_up_oidc`) in misp-core, not by the chart; check it after a version
+bump. Two upstream keys are dead in misp-core 2.5.44: `OIDC_AUTHENTICATION_METHOD` (the image
+reads `OIDC_AUTH_METHOD`, default `client_secret_post`) and `OIDC_OFFLINE_ACCESS`. Settings the
+ConfigMap does not expose go through `extraEnv`:
+
+```yaml
+misp:
+  env:
+    oidcEnable: true
+    oidcProviderUrl: https://sso.example.com/auth/realms/<realm>
+    oidcRolesProperty: roles
+    # first match wins; values are MISP role names or ids
+    oidcRolesMapping: '{"administrator": "admin", "analyst": "User"}'
+    # used when the token carries no `organization` claim; an id survives an org rename
+    oidcDefaultOrg: "1"
+    oidcLogoutUrl: https://sso.example.com/auth/realms/<realm>/protocol/openid-connect/logout?client_id=misp
+    oidcScopes: '["openid", "email", "profile"]'
+  extraEnv:
+    # keep the local login form (break-glass admin) next to the SSO button
+    - name: OIDC_MIXEDAUTH
+      value: "true"
+```
+
+On the IdP side MISP needs `email` and a `roles` claim in the ID token or userinfo; Keycloak
+puts realm roles under `realm_access.roles` by default, so add a "User Realm Role" mapper
+with claim name `roles`, multivalued. The redirect URI is `<baseurl>/users/login`. A user
+whose roles match nothing in the mapping is refused (and blocked if the account exists).
+
+API key calls do not go through OIDC, so key-based automation keeps working.
+
+If the IdP's public hostname resolves inside the cluster to an address that does not serve it
+(for example an IdP published only on an internal ingress), MISP's back-channel calls fail;
+pin it with `hostAliases` to the internal ingress Service IP.
 
 ## 4. Adding data
 

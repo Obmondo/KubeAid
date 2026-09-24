@@ -255,6 +255,12 @@ pvc:
     storageClass: ""
     storageRequest: 1Gi
 
+# -- (KubeAid patch) Extra env vars for the misp container, e.g. misp-docker settings
+# the ConfigMap does not expose (OIDC_MIXEDAUTH, OIDC_ISSUER, OIDC_AUTH_METHOD).
+extraEnv: []
+# -- (KubeAid patch) hostAliases for the misp pod, e.g. to reach an IdP whose public
+# name does not resolve to a reachable address from inside the cluster.
+hostAliases: []
 # -- Optionally specify extra list of additional volumes
 extraVolumes: []
 #  - name: hostpath-volume
