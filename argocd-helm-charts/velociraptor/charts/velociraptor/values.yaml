@@ -141,11 +141,15 @@ gui:
   ## OIDC authentication (e.g. Keycloak). When enabled, the chart renders an
   ## overlay (GUI.public_url + GUI.authenticator) and merges it onto the base
   ## config via the yq init container (see config.overlay).
-  ## Keycloak "Valid redirect URIs" must include:
-  ##   <publicUrl>auth/oidc/<name>/callback
+  ## Keycloak "Valid redirect URIs" must include (host of publicUrl, not its path):
+  ##   https://<host>/auth/oidc/<name>/callback
   ## oidc_name must match (case-sensitive) the substring in that redirect URI.
-  ## Authn is delegated to the IdP; authorization still needs a Velociraptor user:
-  ##   velociraptor --config <cfg> user add <email> --role administrator
+  ## Authn is delegated to the IdP. Authorization needs a Velociraptor user with
+  ## roles: either map them from a token claim (claims.roles + claims.role_map
+  ## below; the user is created on first login) or add each user by hand:
+  ##   velociraptor --config <cfg> user add <email> --role investigator
+  ## OIDC and Basic cannot run side by side: the "multi" authenticator accepts
+  ## OAuth/OIDC children only, so password logins stop working once this is on.
   ## NOTE: OIDC discovery is fetched EAGERLY at server start — the IdP must be
   ## reachable from the pod or the server won't boot. With networkPolicy.enabled,
   ## add an egress rule to the issuer (443) via networkPolicy.extraEgress.
@@ -162,6 +166,28 @@ gui:
     existingSecret: ""
     existingSecretKey: "oauth_client_secret"
     clientSecret: ""
+    # Log claims and token handling at debug level (GUI component). Off in prod.
+    debug: false
+    # GUI session lifetime in minutes; 0 = Velociraptor default (1440).
+    sessionExpiryMin: 0
+    # GUI.authenticator.claims, passed through verbatim. Keys (Velociraptor 0.77):
+    #   username: claim used as the Velociraptor username (default "email";
+    #     setting any value skips the email_verified check).
+    #   roles: claim holding a list of strings (e.g. a Keycloak "groups" mapper).
+    #     Unset = roles are never assigned from the IdP.
+    #   role_map: claim value -> {roles: [...]}. Values with no entry are ignored.
+    #   override_acls: true = IdP roles replace the user's roles on each login
+    #     (lets the IdP revoke access); false = merged, revocation is manual.
+    #   allow_unverified_email: skip the email_verified check.
+    # Roles granted this way apply to EVERY org; per-org access stays manual
+    # (velociraptor user grant --org <org id> ...).
+    # Example:
+    #   claims:
+    #     roles: groups
+    #     role_map:
+    #       dfir-analysts:
+    #         roles: [investigator]
+    claims: {}
   service:
     type: ClusterIP
     port: 8889
@@ -296,8 +322,16 @@ networkPolicy:
     - 0.0.0.0/0
   # Port of the OIDC issuer (HTTPS).
   oidcEgressPort: 443
+  # An empty list drops the CIDR rule; then reach the IdP through extraEgress
+  # (needed on Cilium when the issuer is served from inside the cluster, where
+  # ipBlock does not match pods).
   # Extra egress rules appended (DNS is always allowed).
   extraEgress: []
+
+# Pod /etc/hosts entries (standard PodSpec hostAliases). Useful when the OIDC
+# issuer's public name does not route from inside the cluster, e.g. an IdP that
+# is only published on an internal ingress: point the name at that ingress.
+hostAliases: []
 
 podDisruptionBudget:
   # Off by default: with replicaCount=1, a PDB would block node drains/upgrades.

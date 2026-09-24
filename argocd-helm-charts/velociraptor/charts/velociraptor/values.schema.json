@@ -88,7 +88,28 @@
             "avatar": { "type": "string" },
             "existingSecret": { "type": "string" },
             "existingSecretKey": { "type": "string" },
-            "clientSecret": { "type": "string" }
+            "clientSecret": { "type": "string" },
+            "debug": { "type": "boolean" },
+            "sessionExpiryMin": { "type": "integer", "minimum": 0 },
+            "claims": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "username": { "type": "string" },
+                "roles": { "type": "string" },
+                "role_map": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "roles": { "type": "array", "items": { "type": "string" } }
+                    }
+                  }
+                },
+                "override_acls": { "type": "boolean" },
+                "allow_unverified_email": { "type": "boolean" }
+              }
+            }
           }
         },
         "service": { "type": "object" },
@@ -145,6 +166,7 @@
         "extraEgress": { "type": "array" }
       }
     },
+    "hostAliases": { "type": "array" },
     "podDisruptionBudget": {
       "type": "object",
       "properties": {

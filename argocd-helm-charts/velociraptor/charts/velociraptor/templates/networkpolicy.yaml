@@ -61,7 +61,7 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
-    {{- if .Values.gui.oidc.enabled }}
+    {{- if and .Values.gui.oidc.enabled .Values.networkPolicy.oidcEgressCIDRs }}
     # OIDC: reach the IdP issuer (discovery fetched at server boot).
     - to:
         {{- range .Values.networkPolicy.oidcEgressCIDRs }}
