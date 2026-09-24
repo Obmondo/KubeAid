@@ -163,13 +163,27 @@ spec:
                 - /bin/sh
                 - -c
                 - |
+                  # postStart fires as the container starts, before the image's
+                  # entrypoint has copied /wazuh-config-mount into /var/ossec, so a
+                  # new group's directory does not exist yet. Wait for it (the
+                  # entrypoint keeps running while the hook waits), then hand it to the
+                  # wazuh user: wazuh-remoted builds merged.mg in there and fails
+                  # with "Permission denied" on a root-owned directory, leaving
+                  # agents that are only in that group without their shared config.
+                  # remoted rebuilds merged.mg on its own, no restart needed.
                   {{- range .Values.wazuh.agentGroupConf }}
-                  if [ -d "/var/ossec/etc/shared/{{ .name }}" ]; then
-                    chown -R wazuh:wazuh /var/ossec/etc/shared/{{ .name }}
-                    chmod 770 /var/ossec/etc/shared/{{ .name }}
-                    chmod 660 /var/ossec/etc/shared/{{ .name }}/* 2>/dev/null || true
-                  fi
+                  for i in $(seq 1 90); do
+                    if [ -f "/var/ossec/etc/shared/{{ .name }}/agent.conf" ]; then
+                      sleep 3
+                      chown -R wazuh:wazuh /var/ossec/etc/shared/{{ .name }}
+                      chmod 2770 /var/ossec/etc/shared/{{ .name }}
+                      chmod 660 /var/ossec/etc/shared/{{ .name }}/* 2>/dev/null || true
+                      break
+                    fi
+                    sleep 2
+                  done
                   {{- end }}
+                  true
           volumeMounts:
             # Wazuh config
             - mountPath: /wazuh-config-mount/etc/
