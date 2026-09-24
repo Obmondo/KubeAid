@@ -148,6 +148,42 @@ keycloakSync:
     limits:
       memory: 256Mi
 
+# AI triage with a self-hosted model (Ollama). A CronJob reads New alerts that
+# have no ai: tag, asks the model for severity, false-positive likelihood,
+# category, a short summary and a suggested next step, and appends that to the
+# alert's note with tags ai:triaged, ai:sev:<level>, ai:fp:<...>. Advisory only:
+# it never changes severity or status, never escalates and never triggers a
+# response, because alert content comes from logs an attacker can write.
+# Kept out of the detection path so a slow or absent model never delays alerts.
+aiTriage:
+  enabled: false
+  # Start with a dry run: the job log shows each answer and its latency.
+  dryRun: true
+  schedule: "* * * * *"
+  # e.g. http://ollama.ollama.svc:11434 - keep the model service without
+  # internet egress; nothing leaves the cluster.
+  ollamaUrl: ""
+  model: llama3.1:8b
+  # Alerts per run and seconds per model call. On CPU an 8B model needs about
+  # 30-70 s per alert; size maxPerRun x timeout below activeDeadlineSeconds.
+  maxPerRun: 3
+  timeoutSeconds: 180
+  # Skip alerts whose Wazuh rule level is below this (0 = all IRIS alerts).
+  minLevel: 0
+  # Secret with the API key of an IRIS user that can read and update alerts
+  # of the customers concerned (e.g. a dedicated service account in a group
+  # with alerts_read and alerts_write).
+  existingSecret: ""
+  irisApiKeySecretKey: IRIS_API_KEY
+  irisUrl: ""
+  activeDeadlineSeconds: 900
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
 app:
   replicas: 1
   resources:

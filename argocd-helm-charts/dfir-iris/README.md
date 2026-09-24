@@ -109,3 +109,22 @@ Prerequisites: a confidential Keycloak client with a service account holding
 `server_administrator`, both in `keycloakSync.existingSecret`. If the Keycloak
 hostname does not resolve correctly inside the cluster, set `hostAliases`; the
 job uses the same entries as the app.
+
+## AI triage with a self-hosted model (`aiTriage`)
+
+An optional CronJob reads New alerts without an `ai:` tag, sends each (title,
+rule, agent, indicators, a size-capped copy of the source event) to an Ollama
+model with a JSON schema, and appends the answer to the alert note: severity,
+false-positive likelihood, category, a short summary and a suggested next step,
+plus tags `ai:triaged`, `ai:sev:<level>`, `ai:fp:<likely|unlikely|unknown>`
+(`ai:error` if the model fails, so an alert is not retried forever).
+
+- Advisory only. It never changes severity or status, never escalates and never
+  triggers a response: alert content comes from logs an attacker can write, and
+  the prompt tells the model to treat it as data, not instructions.
+- Outside the detection path: a slow or missing model never delays alerts.
+- Unowned alerts stay unowned (IRIS would otherwise make the job their owner).
+- The model is told not to retype hashes, IPs or paths; the exact indicators are
+  already on the alert, and a retyped value can be wrong.
+- Keep the model service without internet egress (a NetworkPolicy on its
+  namespace), so no alert content leaves the cluster.
