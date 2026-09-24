@@ -32,3 +32,16 @@ ollama:
 ```
 
 Requires the NVIDIA device plugin (or the hami chart for shared GPUs) on the node.
+
+## Air-gapped model service (`networkPolicy`)
+
+`networkPolicy.enabled: true` restricts the Ollama pod to DNS egress and to
+ingress on 11434 from the peers in `networkPolicy.allowedFrom`. Prompts often
+carry sensitive data (alerts, user names, IP addresses), so nothing the model
+receives can leave the cluster, and nothing outside the listed peers can use
+the unauthenticated API.
+
+With egress closed, `ollama.ollama.models.pull` must be empty: the chart pulls
+models in a postStart hook, and a failed pull kills the container. Pull the
+model once with egress open (or copy it onto the volume, or serve it from an
+internal OCI registry), then enable the policy and empty the pull list.
