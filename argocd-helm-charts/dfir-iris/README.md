@@ -82,3 +82,30 @@ What IRIS does and does not do (checked against the 2.4.20 source):
 - API keys (`Authorization: Bearer` or `X-IRIS-AUTH`) are checked independently of the
   authentication type, so integrations keep working.
 - MFA enforcement is skipped for OIDC logins.
+
+## Access from Keycloak roles and groups (`keycloakSync`)
+
+IRIS's OIDC login reads only the username and email claims, so a user who signs
+in through SSO lands with no group and no customer. The optional
+`keycloakSync` CronJob closes that gap: every few minutes it reads realm roles
+and groups from Keycloak and sets each user's IRIS groups and customers to
+exactly what `keycloakSync.mapping` yields.
+
+- Missing users are created (login = Keycloak username, random unused password)
+  and activated, so they are ready before their first login.
+- Access removed in Keycloak is removed in IRIS on the next run. A user whose
+  mapping yields no group or no customer, or who is disabled or deleted in
+  Keycloak, is deactivated.
+- Only the groups the mapping names are managed; other groups a user was given
+  by hand stay. Customers are set exactly.
+- Service accounts and `protectedLogins` (plus `admin.username`) are never
+  touched. A Keycloak user with a protected name is reported and skipped,
+  because an SSO login with that name would sign in as the local account.
+- `dryRun: true` (the default) only logs what it would change. Read the job log,
+  then set it to false.
+
+Prerequisites: a confidential Keycloak client with a service account holding
+`realm-management` `view-users`, and the API key of an IRIS user with
+`server_administrator`, both in `keycloakSync.existingSecret`. If the Keycloak
+hostname does not resolve correctly inside the cluster, set `hostAliases`; the
+job uses the same entries as the app.

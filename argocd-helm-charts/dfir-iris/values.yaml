@@ -97,6 +97,57 @@ hostAliases: []
 #    hostnames:
 #      - keycloak.example.com
 
+# Keycloak -> IRIS access sync. IRIS's OIDC login reads only the username and
+# email claims, so group and customer membership cannot come from the token.
+# This CronJob reads realm roles and groups from Keycloak and sets each user's
+# IRIS groups and customers to exactly what the mapping yields: it creates
+# missing users, activates them, and on the next run revokes what was removed
+# in Keycloak (no mapped group or customer, or disabled/deleted in Keycloak,
+# means the IRIS user is deactivated). Keycloak becomes the one place where
+# access is granted and taken away.
+#
+# Needs a confidential Keycloak client with a service account holding the
+# realm-management role view-users (read only), and the API key of an IRIS
+# user with server_administrator. Both go into existingSecret.
+keycloakSync:
+  enabled: false
+  schedule: "*/5 * * * *"
+  # Start with a dry run and read the job log before letting it write.
+  dryRun: true
+  # Deactivate IRIS users that are not enabled Keycloak users (service
+  # accounts and protectedLogins are never touched).
+  deactivateOrphans: true
+  # IRIS logins the sync never touches. admin.username is always added. A
+  # Keycloak user with one of these names is reported and skipped: an SSO
+  # login with that name would sign in as the local account.
+  protectedLogins: []
+  keycloak:
+    url: ""        # e.g. https://keycloak.example.com/auth
+    realm: ""
+    clientId: ""
+  # Secret with the Keycloak client secret and the IRIS API key.
+  existingSecret: ""
+  keycloakSecretKey: KEYCLOAK_CLIENT_SECRET
+  irisApiKeySecretKey: IRIS_API_KEY
+  # Defaults to this release's app Service.
+  irisUrl: ""
+  # Keycloak realm role or group name -> IRIS group names and customer names.
+  # "*" means every customer. Groups the mapping names are owned by the sync;
+  # other IRIS groups a user has are left alone.
+  mapping:
+    roles: {}
+    #  administrator: {groups: [Administrators], customers: ["*"]}
+    #  analyst: {groups: [Analysts], customers: ["*"]}
+    groups: {}
+    #  site-a: {groups: [Analysts], customers: ["Site A"]}
+  activeDeadlineSeconds: 240
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
 app:
   replicas: 1
   resources:
