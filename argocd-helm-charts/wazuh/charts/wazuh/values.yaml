@@ -228,6 +228,17 @@ indexer:
     tenants: ""
     nodesDn: ""
     whitelist: ""
+    ## Extra roles appended to roles.yml (also after an indexer.config.roles override), as
+    ## a map in the security plugin's roles.yml format. Map them with
+    ## dashboard.sso.*.extraRoleMappings or indexer.ldap.extraRoleMappings.
+    ## @param indexer.config.extraRoles Extra OpenSearch security roles.
+    extraRoles: {}
+    ## With false (the default) a search over a wildcard such as wazuh-alerts-* fails with
+    ## 403 as soon as it covers one index the user may not read. Set true when some users
+    ## may read only part of an index family (per-tenant indices): the search then runs on
+    ## the indices they may read. Ignored with an indexer.config.securityConfig override.
+    ## @param indexer.config.doNotFailOnForbidden Set do_not_fail_on_forbidden in config.yml.
+    doNotFailOnForbidden: false
   ## @param indexer.additionalConfigs Additional configurations to add to the configmap
   additionalConfigs: {}
   ## LDAP / Active Directory authentication for the indexer (OpenSearch Security)
@@ -772,6 +783,29 @@ wazuh:
   ## @param wazuh.filebeat.config Override for filebeat.yml. If empty, the generated config is used.
   filebeat:
     config: ""
+    ## Per-tenant alert indices. An agent label (set in the agent's ossec.conf or, better,
+    ## in its group's agent.conf, see agentGroupConf) picks the index:
+    ##   <label key="tenant">acme</label>  ->  wazuh-alerts-4.x-acme-<date>
+    ## Alerts without the label, or whose value does not match valuePattern, keep the
+    ## stock wazuh-alerts-4.x-<date>. Both stay under the wazuh index template
+    ## (wazuh-alerts-4.x-*) and the dashboard's wazuh-alerts-* index pattern, so per-tenant
+    ## access is a matter of index permissions on wazuh-alerts-4.x-<tenant>-*.
+    ## Mounts a patched copy of the module's alerts pipeline (files/filebeat/) on the
+    ## managers and turns on filebeat.overwrite_pipelines so it replaces the one already in
+    ## the indexer. Turning this off again does NOT restore the stock pipeline in the
+    ## indexer: delete it (DELETE _ingest/pipeline/filebeat-<version>-wazuh-alerts-pipeline)
+    ## and restart the managers, and filebeat uploads the stock one.
+    ## @param wazuh.filebeat.indexRouting.enabled Route alerts to per-tenant indices by agent label.
+    ## @param wazuh.filebeat.indexRouting.labelKey Agent label key ([a-z0-9_]+); read from agent.labels.<key>.
+    ## @param wazuh.filebeat.indexRouting.valuePattern Painless regex the label value must match to be used in an index name.
+    ## @param wazuh.filebeat.indexRouting.dateRounding date_index_name rounding for tenant indices (y, M, w, d, h); empty keeps the stock daily.
+    ## @param wazuh.filebeat.indexRouting.indexNameFormat Date format for tenant indices (e.g. yyyy.MM); empty keeps the stock yyyy.MM.dd.
+    indexRouting:
+      enabled: false
+      labelKey: tenant
+      valuePattern: "^[a-z0-9]{1,32}$"
+      dateRounding: ""
+      indexNameFormat: ""
   ## @skip wazuh.agentGroupConf
   agentGroupConf:
     - name: example

@@ -198,6 +198,13 @@ spec:
               readOnly: true
               subPath: filebeat.yml
             {{- end }}
+            {{- if include "wazuh.indexRouting.enabled" . }}
+            # Tenant index routing: replaces the wazuh module's alerts pipeline.
+            - mountPath: /usr/share/filebeat/module/wazuh/alerts/ingest/pipeline.json
+              name: config
+              readOnly: true
+              subPath: alerts-pipeline.json
+            {{- end }}
             # PVC
             - name: {{ include "wazuh.fullname" . }}-manager-master
               mountPath: /var/ossec/api/configuration

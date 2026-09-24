@@ -191,9 +191,71 @@ Whether to mount our own filebeat.yml. Only when asked for, so existing releases
 using the image's own file.
 */}}
 {{- define "wazuh.filebeat.overridden" -}}
-{{- if or (include "wazuh.archives.enabled" .) ((.Values.wazuh.filebeat).config) -}}
+{{- if or (include "wazuh.archives.enabled" .) ((.Values.wazuh.filebeat).config) (include "wazuh.indexRouting.enabled" .) -}}
 true
 {{- end -}}
+{{- end -}}
+
+{{/*
+Whether filebeat sends alerts to per-tenant indices, chosen by an agent label.
+*/}}
+{{- define "wazuh.indexRouting.enabled" -}}
+{{- if (((.Values.wazuh).filebeat).indexRouting).enabled -}}
+true
+{{- end -}}
+{{- end -}}
+
+{{/*
+The alerts ingest pipeline with tenant routing. Starts from the pipeline shipped in the
+manager image (files/filebeat/alerts-pipeline.json, a verbatim copy - refresh it when the
+image tag changes) and replaces its single date_index_name processor with two:
+
+  - agent.labels.<labelKey> set and matching valuePattern:
+      <index_prefix><label>-<date>   e.g. wazuh-alerts-4.x-101-2026.09
+  - otherwise the stock one, unchanged: wazuh-alerts-4.x-<date>
+
+The label is checked against valuePattern before it becomes part of an index name, so an
+agent cannot pick an arbitrary index. Both names still match the wazuh template
+(index_patterns wazuh-alerts-4.x-*) and the dashboard's wazuh-alerts-* index pattern.
+*/}}
+{{- define "wazuh.filebeat.alertsPipeline" -}}
+{{- $r := .Values.wazuh.filebeat.indexRouting -}}
+{{- $key := $r.labelKey | default "tenant" -}}
+{{- if not (regexMatch "^[a-z0-9_]+$" $key) -}}
+{{- fail (printf "wazuh.filebeat.indexRouting.labelKey must match ^[a-z0-9_]+$ (got %q)" $key) -}}
+{{- end -}}
+{{- $pattern := $r.valuePattern | default "^[a-z0-9]{1,32}$" -}}
+{{- if contains "/" $pattern -}}
+{{- fail "wazuh.filebeat.indexRouting.valuePattern must not contain /" -}}
+{{- end -}}
+{{- $cond := printf "ctx.agent?.labels?.%s instanceof String && ctx.agent.labels.%s ==~ /%s/" $key $key $pattern -}}
+{{- $pipeline := .Files.Get "files/filebeat/alerts-pipeline.json" | fromJson -}}
+{{- $processors := list -}}
+{{- $found := 0 -}}
+{{- range $pipeline.processors -}}
+{{- if hasKey . "date_index_name" -}}
+{{- $found = add1 $found -}}
+{{- $stock := get . "date_index_name" -}}
+{{- $routed := deepCopy $stock -}}
+{{- $_ := set $routed "tag" "tenant-index" -}}
+{{- $_ := set $routed "if" $cond -}}
+{{- $_ := set $routed "index_name_prefix" (printf "%s{{agent.labels.%s}}-" $stock.index_name_prefix $key) -}}
+{{- $_ := set $routed "date_rounding" ($r.dateRounding | default $stock.date_rounding) -}}
+{{- $_ := set $routed "index_name_format" ($r.indexNameFormat | default $stock.index_name_format) -}}
+{{- $default := deepCopy $stock -}}
+{{- $_ := set $default "tag" "default-index" -}}
+{{- $_ := set $default "if" (printf "!(%s)" $cond) -}}
+{{- $processors = append $processors (dict "date_index_name" $routed) -}}
+{{- $processors = append $processors (dict "date_index_name" $default) -}}
+{{- else -}}
+{{- $processors = append $processors . -}}
+{{- end -}}
+{{- end -}}
+{{- if ne $found 1 -}}
+{{- fail (printf "files/filebeat/alerts-pipeline.json must hold exactly one date_index_name processor, found %d" $found) -}}
+{{- end -}}
+{{- $_ := set $pipeline "processors" $processors -}}
+{{- toPrettyJson $pipeline | replace "\\u0026" "&" | replace "\\u003c" "<" | replace "\\u003e" ">" -}}
 {{- end -}}
 
 

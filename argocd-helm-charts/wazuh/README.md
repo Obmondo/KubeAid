@@ -165,6 +165,12 @@ wazuh:
           </agent_config>
 ```
 
+The group itself needs no API call: at start wazuh-db registers every directory under
+`etc/shared/` as a group, so a new entry here is a group after the next manager start (the
+upstream `example` group appeared this way, with no `agent_groups -a`). Removing an entry
+does not delete the group - the directory stays on the master's PVC. Assigning agents to a
+group is still an API call (`PUT /agents/{id}/group/{group}`) or `-G` at enrolment.
+
 On macOS `/etc` is a symlink to `/private/etc` and FIM does not follow it, so the stock
 agent config monitors nothing there; realtime FIM is also unsupported on macOS, so the scan
 `frequency` is the detection latency.
@@ -233,3 +239,88 @@ Things that are easy to miss:
 - The dashboard only rolls on a ConfigMap change when `autoreload.enabled` is true. The
   OIDC env vars change the pod spec, so turning SSO on rolls it anyway; later
   changes to the `openid` settings alone need a restart.
+
+## 9. Per-tenant separation
+
+For one Wazuh serving several tenants whose staff must not see each other's data, while a
+central team sees everything. Three layers, each in a different place:
+
+1. **Tenant label, per agent group.** Put the agents of a tenant in their own group and give
+   the group a label in its `agent.conf` (section 7). Labels set centrally override the
+   agent's local ones. They show up in every alert as `agent.labels.<key>`.
+
+   ```yaml
+   wazuh:
+     wazuh:
+       agentGroupConf:
+         - name: tenant-acme
+           agent: |
+             <agent_config>
+               <labels>
+                 <label key="tenant">acme</label>
+               </labels>
+             </agent_config>
+   ```
+
+2. **One alerts index per tenant.** `wazuh.filebeat.indexRouting` mounts a patched copy of
+   the wazuh module's alerts pipeline on both managers: an alert whose label matches
+   `valuePattern` goes to `wazuh-alerts-4.x-<label>-<date>`, everything else to the stock
+   `wazuh-alerts-4.x-<date>`. The names stay under the `wazuh` index template
+   (`wazuh-alerts-4.x-*`) and the dashboard's `wazuh-alerts-*` index pattern, and
+   per-tenant retention can be an ISM policy on `wazuh-alerts-4.x-<label>-*`.
+
+   ```yaml
+   wazuh:
+     wazuh:
+       filebeat:
+         indexRouting:
+           enabled: true
+           labelKey: tenant
+           valuePattern: "^[a-z0-9]{1,32}$"
+           dateRounding: M          # monthly tenant indices; empty keeps daily
+           indexNameFormat: yyyy.MM
+   ```
+
+   `files/filebeat/alerts-pipeline.json` is a verbatim copy from the manager image
+   (`/usr/share/filebeat/module/wazuh/alerts/ingest/pipeline.json`); refresh it when the
+   image tag moves. Existing alerts are not moved. The label comes from the agent, so an
+   agent that is not under your control can claim another tenant's label and write into its
+   index (it still cannot read it).
+
+3. **Index permissions per tenant.** `indexer.config.extraRoles` appends roles to
+   `roles.yml`; map them with `dashboard.sso.oidc.extraRoleMappings`. Set
+   `indexer.config.doNotFailOnForbidden: true`, or every search over `wazuh-alerts-*` by a
+   tenant user fails with 403 as soon as it touches another tenant's index. Indices the
+   manager writes for all agents at once (`wazuh-monitoring-*`, `wazuh-states-*`) cannot be
+   split by index; give tenant roles document-level security on them or leave them out.
+
+   ```yaml
+   wazuh:
+     indexer:
+       config:
+         doNotFailOnForbidden: true
+         extraRoles:
+           tenant-acme-reader:
+             cluster_permissions: [cluster_composite_ops_ro]
+             index_permissions:
+               - index_patterns: ["wazuh-alerts-4.x-acme-*"]
+                 allowed_actions: [read]
+               - index_patterns: ["wazuh-monitoring-*"]
+                 dls: '{"term": {"group.keyword": "tenant-acme"}}'
+                 allowed_actions: [read]
+     dashboard:
+       sso:
+         oidc:
+           roleMappings:
+             kibanaUser:
+               backendRoles: [tenant-acme]
+           extraRoleMappings:
+             tenant-acme-reader:
+               backend_roles: [tenant-acme]
+   ```
+
+   The Wazuh app's own views (agents, inventory, SCA, FIM) go through the Wazuh API, which
+   has a separate RBAC (section 8): give the tenant's backend role an API role whose
+   policies use the resource `agent:group:tenant-acme` (and `group:id:tenant-acme` for
+   `group:read`), so the agent list shows only that group.
+

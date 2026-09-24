@@ -3,7 +3,7 @@
 # BackendTLSPolicy / Certificate) and for the config templating fix (#173).
 #
 # Usage: charts/wazuh/tests/render_test.sh
-# Requires: helm on PATH. No cluster access needed (pure `helm template`).
+# Requires: helm, yq (v4) and jq on PATH. No cluster access needed (pure `helm template`).
 # Fetches the chart's dependencies (cert-manager) on every run, so it works
 # from a clean checkout without a manual `helm dependency build` step.
 set -uo pipefail
@@ -303,6 +303,57 @@ assert_contains "it reads the API credentials Secret" "$out" "name: wazuh-api-cr
 assert_contains "it mounts the worker's etc read-only" "$out" "subPath: wazuh/var/ossec/etc"
 out=$(render_only "$MASTER_STS" --set wazuh.worker.rulesetReloader.enabled=true)
 assert_not_contains "the master gets no sidecar" "$out" "name: ruleset-reloader"
+
+echo "== KubeAid: tenant index routing (wazuh.filebeat.indexRouting) is opt-in =="
+PIPELINE_MOUNT=/usr/share/filebeat/module/wazuh/alerts/ingest/pipeline.json
+out=$(render_only "$MANAGER_CONFIGMAP")
+assert_not_contains "no pipeline in the ConfigMap by default" "$out" "alerts-pipeline.json"
+for sts in "$MASTER_STS" "$WORKER_STS"; do
+  out=$(render_only "$sts")
+  assert_not_contains "no pipeline mount by default (${sts##*/manager/})" "$out" "$PIPELINE_MOUNT"
+done
+routing_args=(--set wazuh.filebeat.indexRouting.enabled=true --set wazuh.filebeat.indexRouting.labelKey=unit
+              --set-string 'wazuh.filebeat.indexRouting.valuePattern=^[0-9]{3}$'
+              --set wazuh.filebeat.indexRouting.dateRounding=M --set wazuh.filebeat.indexRouting.indexNameFormat=yyyy.MM)
+out=$(render_only "$MANAGER_CONFIGMAP" "${routing_args[@]}")
+assert_contains "the patched pipeline is in the ConfigMap" "$out" "alerts-pipeline.json:"
+assert_contains "filebeat.yml overwrites the pipeline in the indexer" "$out" 'filebeat.overwrite_pipelines: true'
+assert_contains "filebeat.yml keeps the entrypoint's hosts placeholder" "$out" "hosts: ['https://wazuh.indexer:9200']"
+pipeline=$(render_only "$MANAGER_CONFIGMAP" "${routing_args[@]}" | yq '.data["alerts-pipeline.json"]')
+if jq -e . >/dev/null 2>&1 <<<"$pipeline"; then echo "PASS: the pipeline is valid JSON"; pass=$((pass + 1)); else echo "FAIL: the pipeline is not valid JSON"; fail=$((fail + 1)); fi
+assert_equals "stock processors are kept, date_index_name becomes two" \
+  "$(( $(jq '.processors|length' "$CHART_DIR/files/filebeat/alerts-pipeline.json") + 1 ))" "$(jq '.processors|length' <<<"$pipeline")"
+assert_equals "tenant index prefix carries the label" '{{fields.index_prefix}}{{agent.labels.unit}}-' \
+  "$(jq -r '.processors[].date_index_name | select(.tag=="tenant-index") | .index_name_prefix' <<<"$pipeline")"
+assert_equals "tenant index is only used for a matching label" \
+  'ctx.agent?.labels?.unit instanceof String && ctx.agent.labels.unit ==~ /^[0-9]{3}$/' \
+  "$(jq -r '.processors[].date_index_name | select(.tag=="tenant-index") | .if' <<<"$pipeline")"
+assert_equals "tenant index uses the configured rounding" "M yyyy.MM" \
+  "$(jq -r '.processors[].date_index_name | select(.tag=="tenant-index") | "\(.date_rounding) \(.index_name_format)"' <<<"$pipeline")"
+assert_equals "the stock index keeps its prefix and daily rounding" '{{fields.index_prefix}} d yyyy.MM.dd' \
+  "$(jq -r '.processors[].date_index_name | select(.tag=="default-index") | "\(.index_name_prefix) \(.date_rounding) \(.index_name_format)"' <<<"$pipeline")"
+for sts in "$MASTER_STS" "$WORKER_STS"; do
+  out=$(render_only "$sts" "${routing_args[@]}")
+  assert_contains "pipeline is mounted in ${sts##*/manager/}" "$out" "$PIPELINE_MOUNT"
+  assert_contains "filebeat.yml is mounted in ${sts##*/manager/}" "$out" "$FILEBEAT_MOUNT"
+done
+expect_failure "a label key that is not [a-z0-9_]+ is refused" \
+  render --set wazuh.filebeat.indexRouting.enabled=true --set 'wazuh.filebeat.indexRouting.labelKey=a.b'
+expect_failure "an own filebeat.yml without overwrite_pipelines is refused" \
+  render --set wazuh.filebeat.indexRouting.enabled=true --set 'wazuh.filebeat.config=# mine'
+expect_success "an own filebeat.yml with overwrite_pipelines is accepted" \
+  render --set wazuh.filebeat.indexRouting.enabled=true --set-string 'wazuh.filebeat.config=filebeat.overwrite_pipelines: true'
+
+echo "== KubeAid: extra OpenSearch roles and do_not_fail_on_forbidden =="
+out=$(render_only templates/indexer/secret-securityconfig.yaml)
+assert_not_contains "do_not_fail_on_forbidden is not set by default" "$out" "do_not_fail_on_forbidden: true"
+assert_not_contains "no extra roles by default" "$out" "Extra roles"
+out=$(render_only templates/indexer/secret-securityconfig.yaml --set indexer.config.doNotFailOnForbidden=true \
+  --set 'indexer.config.extraRoles.tenant-a-reader.index_permissions[0].index_patterns[0]=wazuh-alerts-4.x-a-*')
+assert_contains "do_not_fail_on_forbidden is set when asked for" "$out" "do_not_fail_on_forbidden: true"
+roles=$(yq '.stringData["roles.yml"]' <<<"$out")
+assert_equals "the extra role lands in roles.yml" 'wazuh-alerts-4.x-a-*' "$(yq '.["tenant-a-reader"].index_permissions[0].index_patterns[0]' <<<"$roles")"
+assert_equals "the stock roles are kept" 'true' "$(yq '.manage_wazuh_index.reserved' <<<"$roles")"
 
 echo
 echo "==================================="
