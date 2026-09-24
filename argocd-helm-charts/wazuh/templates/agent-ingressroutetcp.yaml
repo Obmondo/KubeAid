@@ -11,7 +11,7 @@
 apiVersion: traefik.io/v1alpha1
 kind: IngressRouteTCP
 metadata:
-  name: {{ .Release.Name }}-agent-enrolment
+  name: {{ include "kubeaid-wazuh.fullname" . }}-agent-enrolment
   namespace: {{ .Release.Namespace }}
 spec:
   entryPoints:
@@ -19,7 +19,7 @@ spec:
   routes:
     - match: HostSNI(`*`)
       services:
-        - name: {{ .Values.agentTcpRoutes.enrolment.serviceName }}
+        - name: {{ .Values.agentTcpRoutes.enrolment.serviceName | default (include "kubeaid-wazuh.fullname" .) }}
           port: {{ .Values.agentTcpRoutes.enrolment.port }}
   tls:
     passthrough: true
@@ -27,7 +27,7 @@ spec:
 apiVersion: traefik.io/v1alpha1
 kind: IngressRouteTCP
 metadata:
-  name: {{ .Release.Name }}-agent-events
+  name: {{ include "kubeaid-wazuh.fullname" . }}-agent-events
   namespace: {{ .Release.Namespace }}
 spec:
   entryPoints:
@@ -35,6 +35,6 @@ spec:
   routes:
     - match: HostSNI(`*`)
       services:
-        - name: {{ .Values.agentTcpRoutes.events.serviceName }}
+        - name: {{ .Values.agentTcpRoutes.events.serviceName | default (printf "%s-manager-worker" (include "kubeaid-wazuh.fullname" .)) }}
           port: {{ .Values.agentTcpRoutes.events.port }}
 {{- end }}

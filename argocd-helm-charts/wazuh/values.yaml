@@ -48,15 +48,18 @@ irisIntegration:
   enabled: false
 
 # Raw TCP routes for agents outside the cluster (templates/agent-ingressroutetcp.yaml).
-# Service names follow the subchart: `<release>` serves 1515 (authd), the
-# worker Service serves 1514. Each entryPoint must exist in the traefik values.
+# Service names follow the subchart: `<fullname>` serves 1515 (authd), the
+# worker Service `<fullname>-manager-worker` serves 1514; an empty serviceName
+# uses those. <fullname> is the subchart's name (wazuh for a release called
+# wazuh, or wazuh.fullnameOverride). Each entryPoint must exist in the traefik
+# values.
 agentTcpRoutes:
   enabled: false
   enrolment:
     entryPoint: wazuh-authd
-    serviceName: wazuh
+    serviceName: ""
     port: 1515
   events:
     entryPoint: wazuh-agent
-    serviceName: wazuh-manager-worker
+    serviceName: ""
     port: 1514
