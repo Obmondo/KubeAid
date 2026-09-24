@@ -1,0 +1,400 @@
+{
+  "kind": "PersesDashboard",
+  "apiVersion": "perses.dev/v1alpha2",
+  "metadata": {
+    "name": "kubernetes-persistent-volume-overview",
+    "namespace": "perses-dev",
+    "labels": {
+      "app.kubernetes.io/component": "dashboard",
+      "app.kubernetes.io/instance": "kubernetes-persistent-volume-overview",
+      "app.kubernetes.io/name": "perses-dashboard",
+      "app.kubernetes.io/part-of": "perses-operator"
+    }
+  },
+  "spec": {
+    "config": {
+      "display": {
+        "name": "Kubernetes / Persistent Volume"
+      },
+      "variables": [
+        {
+          "kind": "ListVariable",
+          "spec": {
+            "display": {
+              "name": "cluster",
+              "hidden": false
+            },
+            "allowAllValue": false,
+            "allowMultiple": false,
+            "plugin": {
+              "kind": "PrometheusLabelValuesVariable",
+              "spec": {
+                "datasource": {
+                  "kind": "PrometheusDatasource",
+                  "name": "prometheus-datasource"
+                },
+                "labelName": "cluster",
+                "matchers": [
+                  "kubelet_volume_stats_capacity_bytes{job=\"kubelet\"}"
+                ]
+              }
+            },
+            "name": "cluster"
+          }
+        },
+        {
+          "kind": "ListVariable",
+          "spec": {
+            "display": {
+              "name": "namespace",
+              "hidden": false
+            },
+            "allowAllValue": false,
+            "allowMultiple": false,
+            "plugin": {
+              "kind": "PrometheusLabelValuesVariable",
+              "spec": {
+                "datasource": {
+                  "kind": "PrometheusDatasource",
+                  "name": "prometheus-datasource"
+                },
+                "labelName": "namespace",
+                "matchers": [
+                  "kubelet_volume_stats_capacity_bytes{cluster=\"$cluster\",job=\"kubelet\"}"
+                ]
+              }
+            },
+            "name": "namespace"
+          }
+        },
+        {
+          "kind": "ListVariable",
+          "spec": {
+            "display": {
+              "name": "PersistentVolume",
+              "hidden": false
+            },
+            "allowAllValue": false,
+            "allowMultiple": false,
+            "plugin": {
+              "kind": "PrometheusLabelValuesVariable",
+              "spec": {
+                "datasource": {
+                  "kind": "PrometheusDatasource",
+                  "name": "prometheus-datasource"
+                },
+                "labelName": "persistentvolumeclaim",
+                "matchers": [
+                  "kubelet_volume_stats_capacity_bytes{cluster=\"$cluster\",job=\"kubelet\",namespace=\"$namespace\"}"
+                ]
+              }
+            },
+            "name": "volume"
+          }
+        }
+      ],
+      "panels": {
+        "0_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Volume Space Usage",
+              "description": "Shows the space usage of persistent volume in a namespace by a PV claim."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  },
+                  "stack": "all"
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "bytes"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "(\n    sum without (instance, node) (\n      topk(\n        1,\n        (\n          kubelet_volume_stats_capacity_bytes{cluster=\"$cluster\",job=\"kubelet\",namespace=\"$namespace\",persistentvolumeclaim=\"$volume\"}\n        )\n      )\n    )\n  -\n    sum without (instance, node) (\n      topk(\n        1,\n        (\n          kubelet_volume_stats_available_bytes{cluster=\"$cluster\",job=\"kubelet\",namespace=\"$namespace\",persistentvolumeclaim=\"$volume\"}\n        )\n      )\n    )\n)",
+                      "seriesNameFormat": "Used Space"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum without (instance, node) (\n  topk(\n    1,\n    (\n      kubelet_volume_stats_available_bytes{cluster=\"$cluster\",job=\"kubelet\",namespace=\"$namespace\",persistentvolumeclaim=\"$volume\"}\n    )\n  )\n)",
+                      "seriesNameFormat": "Free Space"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "0_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Volume Space Usage",
+              "description": "Shows the space usage of persistent volume in a namespace by a PV claim."
+            },
+            "plugin": {
+              "kind": "GaugeChart",
+              "spec": {
+                "calculation": "last",
+                "format": {
+                  "unit": "percent"
+                },
+                "thresholds": {
+                  "defaultColor": "green",
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": 0
+                    },
+                    {
+                      "color": "orange",
+                      "value": 80
+                    },
+                    {
+                      "color": "red",
+                      "value": 90
+                    }
+                  ]
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "max without (instance, node) (\n      (\n          topk(\n            1,\n            kubelet_volume_stats_capacity_bytes{cluster=\"$cluster\",job=\"kubelet\",namespace=\"$namespace\",persistentvolumeclaim=\"$volume\"}\n          )\n        -\n          topk(\n            1,\n            kubelet_volume_stats_available_bytes{cluster=\"$cluster\",job=\"kubelet\",namespace=\"$namespace\",persistentvolumeclaim=\"$volume\"}\n          )\n      )\n    /\n      topk(\n        1,\n        kubelet_volume_stats_capacity_bytes{cluster=\"$cluster\",job=\"kubelet\",namespace=\"$namespace\",persistentvolumeclaim=\"$volume\"}\n      )\n  *\n    100\n)"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "1_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Volume inodes Usage",
+              "description": "Shows the inodes usage of persistent volume in a namespace by a PV claim."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  },
+                  "stack": "all"
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "bytes"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum without (instance, node) (\n  topk(\n    1,\n    (\n      kubelet_volume_stats_inodes_used{cluster=\"$cluster\",job=\"kubelet\",namespace=\"$namespace\",persistentvolumeclaim=\"$volume\"}\n    )\n  )\n)",
+                      "seriesNameFormat": "Used inodes"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "(\n    sum without (instance, node) (\n      topk(\n        1,\n        (\n          kubelet_volume_stats_inodes{cluster=\"$cluster\",job=\"kubelet\",namespace=\"$namespace\",persistentvolumeclaim=\"$volume\"}\n        )\n      )\n    )\n  -\n    sum without (instance, node) (\n      topk(\n        1,\n        (\n          kubelet_volume_stats_inodes_used{cluster=\"$cluster\",job=\"kubelet\",namespace=\"$namespace\",persistentvolumeclaim=\"$volume\"}\n        )\n      )\n    )\n)",
+                      "seriesNameFormat": "Free inodes"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "1_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Volume inodes Usage",
+              "description": "Shows the inodes usage of persistent volume in a namespace by a PV claim."
+            },
+            "plugin": {
+              "kind": "GaugeChart",
+              "spec": {
+                "calculation": "last",
+                "format": {
+                  "unit": "percent"
+                },
+                "thresholds": {
+                  "defaultColor": "green",
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": 0
+                    },
+                    {
+                      "color": "orange",
+                      "value": 80
+                    },
+                    {
+                      "color": "red",
+                      "value": 90
+                    }
+                  ]
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "max without (instance, node) (\n      topk(\n        1,\n        kubelet_volume_stats_inodes_used{cluster=\"$cluster\",job=\"kubelet\",namespace=\"$namespace\",persistentvolumeclaim=\"$volume\"}\n      )\n    /\n      topk(\n        1,\n        kubelet_volume_stats_inodes{cluster=\"$cluster\",job=\"kubelet\",namespace=\"$namespace\",persistentvolumeclaim=\"$volume\"}\n      )\n  *\n    100\n)"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "layouts": [
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Volume Space Usage"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/0_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/0_1"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Volume Inodes Usage"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/1_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/1_1"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "duration": "1h"
+    }
+  },
+  "status": {}
+}

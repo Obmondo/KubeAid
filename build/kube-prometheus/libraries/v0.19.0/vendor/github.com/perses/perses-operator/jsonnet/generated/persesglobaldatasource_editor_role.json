@@ -1,0 +1,44 @@
+{
+  "apiVersion": "rbac.authorization.k8s.io/v1",
+  "kind": "ClusterRole",
+  "metadata": {
+    "labels": {
+      "app.kubernetes.io/component": "rbac",
+      "app.kubernetes.io/created-by": "perses-operator",
+      "app.kubernetes.io/instance": "persesglobaldatasource-editor-role",
+      "app.kubernetes.io/name": "clusterrole",
+      "app.kubernetes.io/part-of": "perses-operator"
+    },
+    "name": "persesglobaldatasource-editor-role"
+  },
+  "rules": [
+    {
+      "apiGroups": [
+        "perses.dev"
+      ],
+      "resources": [
+        "persesglobaldatasources"
+      ],
+      "verbs": [
+        "create",
+        "delete",
+        "get",
+        "list",
+        "patch",
+        "update",
+        "watch"
+      ]
+    },
+    {
+      "apiGroups": [
+        "perses.dev"
+      ],
+      "resources": [
+        "persesglobaldatasources/status"
+      ],
+      "verbs": [
+        "get"
+      ]
+    }
+  ]
+}

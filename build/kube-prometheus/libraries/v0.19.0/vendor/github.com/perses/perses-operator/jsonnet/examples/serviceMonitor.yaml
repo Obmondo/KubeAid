@@ -1,0 +1,25 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/created-by: perses-operator
+    app.kubernetes.io/name: perses-operator
+    app.kubernetes.io/part-of: perses-operator
+    app.kubernetes.io/version: v0.5.0
+  name: perses-operator
+  namespace: perses-dev
+spec:
+  endpoints:
+  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    path: /metrics
+    port: https
+    scheme: https
+    tlsConfig:
+      insecureSkipVerify: true
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: controller
+      app.kubernetes.io/created-by: perses-operator
+      app.kubernetes.io/name: perses-operator
+      app.kubernetes.io/part-of: perses-operator

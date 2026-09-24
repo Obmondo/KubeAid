@@ -1,0 +1,907 @@
+{
+  "kind": "PersesDashboard",
+  "apiVersion": "perses.dev/v1alpha2",
+  "metadata": {
+    "name": "controller-manager-overview",
+    "namespace": "perses-dev",
+    "labels": {
+      "app.kubernetes.io/component": "dashboard",
+      "app.kubernetes.io/instance": "controller-manager-overview",
+      "app.kubernetes.io/name": "perses-dashboard",
+      "app.kubernetes.io/part-of": "perses-operator"
+    }
+  },
+  "spec": {
+    "config": {
+      "display": {
+        "name": "Kubernetes / Controller Manager"
+      },
+      "variables": [
+        {
+          "kind": "ListVariable",
+          "spec": {
+            "display": {
+              "name": "cluster",
+              "hidden": false
+            },
+            "allowAllValue": false,
+            "allowMultiple": false,
+            "plugin": {
+              "kind": "PrometheusLabelValuesVariable",
+              "spec": {
+                "datasource": {
+                  "kind": "PrometheusDatasource",
+                  "name": "prometheus-datasource"
+                },
+                "labelName": "cluster",
+                "matchers": [
+                  "up{job=\"kube-controller-manager\"}"
+                ]
+              }
+            },
+            "name": "cluster"
+          }
+        },
+        {
+          "kind": "ListVariable",
+          "spec": {
+            "display": {
+              "name": "instance",
+              "hidden": false
+            },
+            "allowAllValue": false,
+            "allowMultiple": false,
+            "plugin": {
+              "kind": "PrometheusLabelValuesVariable",
+              "spec": {
+                "datasource": {
+                  "kind": "PrometheusDatasource",
+                  "name": "prometheus-datasource"
+                },
+                "labelName": "instance",
+                "matchers": [
+                  "up{cluster=\"$cluster\",job=\"kube-controller-manager\"}"
+                ]
+              }
+            },
+            "name": "instance"
+          }
+        }
+      ],
+      "panels": {
+        "0_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Up",
+              "description": "Shows the status of the controller manager."
+            },
+            "plugin": {
+              "kind": "StatChart",
+              "spec": {
+                "calculation": "last",
+                "format": {
+                  "unit": "decimal"
+                },
+                "valueFontSize": 50
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum(up{cluster=\"$cluster\",job=\"kube-controller-manager\"})"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "1_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Work Queue Add Rate",
+              "description": "Shows the rate of work queue add events."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (cluster, instance, name) (\n  rate(\n    workqueue_adds_total{cluster=\"$cluster\",instance=~\"$instance\",job=\"kube-controller-manager\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "{{cluster}} {{instance}} {{name}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "1_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Work Queue Depth",
+              "description": "Shows the depth of the work queue."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (cluster, instance, name) (\n  rate(\n    workqueue_depth{cluster=\"$cluster\",instance=~\"$instance\",job=\"kube-controller-manager\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "{{cluster}} {{instance}} {{name}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "1_2": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Work Queue Latency",
+              "description": "Shows the 99th percentile latency of items queued in the work queue."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "seconds"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.99,\n  sum by (cluster, instance, name, le) (\n    rate(\n      workqueue_queue_duration_seconds_bucket{cluster=\"$cluster\",instance=~\"$instance\",job=\"kube-controller-manager\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "{{cluster}} {{instance}} {{name}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "2_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Kube API Request Rate",
+              "description": "Shows the rate of requests to the Kube API."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  },
+                  "stack": "all"
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "requests/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum(\n  rate(\n    rest_client_requests_total{cluster=~\"$cluster\",code=~\"2..\",instance=~\"$instance\",job=\"kube-controller-manager\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "2xx"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum(\n  rate(\n    rest_client_requests_total{cluster=~\"$cluster\",code=~\"3..\",instance=~\"$instance\",job=\"kube-controller-manager\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "3xx"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum(\n  rate(\n    rest_client_requests_total{cluster=~\"$cluster\",code=~\"4..\",instance=~\"$instance\",job=\"kube-controller-manager\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "4xx"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum(\n  rate(\n    rest_client_requests_total{cluster=~\"$cluster\",code=~\"5..\",instance=~\"$instance\",job=\"kube-controller-manager\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "5xx"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "2_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Post Request Latency 99th Quantile",
+              "description": "Shows the 99th quantile latency of post requests to the Kube API."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "seconds"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.99,\n  sum by (verb, le) (\n    rate(\n      rest_client_request_duration_seconds_bucket{cluster=~\"$cluster\",instance=~\"$instance\",job=\"kube-controller-manager\",verb=\"POST\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "{{verb}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "2_2": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Get Request Latency 99th Quantile",
+              "description": "Shows the 99th quantile latency of get requests to the Kube API."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "list",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "seconds"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.99,\n  sum by (verb, le) (\n    rate(\n      rest_client_request_duration_seconds_bucket{cluster=~\"$cluster\",instance=~\"$instance\",job=\"kube-controller-manager\",verb=\"GET\"}[$__rate_interval]\n    )\n  )\n)",
+                      "seriesNameFormat": "{{verb}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "3_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Memory Usage",
+              "description": "Shows various memory usage metrics of the component."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom",
+                  "values": [
+                    "last"
+                  ]
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "bytes"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "go_memstats_alloc_bytes{cluster=~\"$cluster\",instance=~\"$instance\",job=\"kube-controller-manager\"}",
+                      "seriesNameFormat": "Alloc All {{instance}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "go_memstats_heap_alloc_bytes{cluster=~\"$cluster\",instance=~\"$instance\",job=\"kube-controller-manager\"}",
+                      "seriesNameFormat": "Alloc Heap {{instance}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "rate(\n  go_memstats_alloc_bytes_total{cluster=~\"$cluster\",instance=~\"$instance\",job=\"kube-controller-manager\"}[$__rate_interval]\n)",
+                      "seriesNameFormat": "Alloc Rate All {{instance}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "rate(\n  go_memstats_heap_alloc_bytes{cluster=~\"$cluster\",instance=~\"$instance\",job=\"kube-controller-manager\"}[$__rate_interval]\n)",
+                      "seriesNameFormat": "Alloc Rate Heap {{instance}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "go_memstats_stack_inuse_bytes{cluster=~\"$cluster\",instance=~\"$instance\",job=\"kube-controller-manager\"}",
+                      "seriesNameFormat": "Inuse Stack {{instance}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "go_memstats_heap_inuse_bytes{cluster=~\"$cluster\",instance=~\"$instance\",job=\"kube-controller-manager\"}",
+                      "seriesNameFormat": "Inuse Heap {{instance}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "process_resident_memory_bytes{cluster=~\"$cluster\",instance=~\"$instance\",job=\"kube-controller-manager\"}",
+                      "seriesNameFormat": "Resident Memory {{instance}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "3_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "CPU Usage",
+              "description": "Shows the CPU usage of the component."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom",
+                  "values": [
+                    "last"
+                  ]
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "rate(\n  process_cpu_seconds_total{cluster=~\"$cluster\",instance=~\"$instance\",job=\"kube-controller-manager\"}[$__rate_interval]\n)",
+                      "seriesNameFormat": "{{instance}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "3_2": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Goroutines",
+              "description": "Shows the number of goroutines being used by the component."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom",
+                  "values": [
+                    "last"
+                  ]
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "go_goroutines{cluster=~\"$cluster\",instance=~\"$instance\",job=\"kube-controller-manager\"}",
+                      "seriesNameFormat": "{{instance}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "3_3": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "GC Duration",
+              "description": "Shows the Go garbage collection pause durations for the component."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom",
+                  "values": [
+                    "last"
+                  ]
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "seconds"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "go_gc_duration_seconds{cluster=~\"$cluster\",instance=~\"$instance\",job=\"kube-controller-manager\"}",
+                      "seriesNameFormat": "{{quantile}} - {{instance}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "layouts": [
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Controller Manager Status"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 24,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/0_0"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Work Queue"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 8,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/1_0"
+                }
+              },
+              {
+                "x": 8,
+                "y": 0,
+                "width": 8,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/1_1"
+                }
+              },
+              {
+                "x": 16,
+                "y": 0,
+                "width": 8,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/1_2"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Kube API Requests"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 8,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/2_0"
+                }
+              },
+              {
+                "x": 8,
+                "y": 0,
+                "width": 8,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/2_1"
+                }
+              },
+              {
+                "x": 16,
+                "y": 0,
+                "width": 8,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/2_2"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Resource Usage"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/3_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/3_1"
+                }
+              },
+              {
+                "x": 0,
+                "y": 8,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/3_2"
+                }
+              },
+              {
+                "x": 12,
+                "y": 8,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/3_3"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "duration": "1h"
+    }
+  },
+  "status": {}
+}

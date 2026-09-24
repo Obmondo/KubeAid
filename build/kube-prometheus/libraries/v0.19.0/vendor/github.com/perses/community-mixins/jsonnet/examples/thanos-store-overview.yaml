@@ -1,0 +1,1961 @@
+apiVersion: perses.dev/v1alpha2
+kind: PersesDashboard
+metadata:
+  labels:
+    app.kubernetes.io/component: dashboard
+    app.kubernetes.io/instance: thanos-store-overview
+    app.kubernetes.io/name: perses-dashboard
+    app.kubernetes.io/part-of: perses-operator
+  name: thanos-store-overview
+  namespace: perses-dev
+spec:
+  config:
+    display:
+      name: Thanos / Store Gateway / Overview
+    duration: 1h
+    layouts:
+    - kind: Grid
+      spec:
+        display:
+          title: Read gRPC Unary (StoreAPI Info/Labels)
+        items:
+        - content:
+            $ref: '#/spec/panels/0_0'
+          height: 10
+          width: 8
+          x: 0
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/0_1'
+          height: 10
+          width: 8
+          x: 8
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/0_2'
+          height: 10
+          width: 8
+          x: 16
+          "y": 0
+    - kind: Grid
+      spec:
+        display:
+          title: Read gRPC Stream (StoreAPI Series/Exemplars)
+        items:
+        - content:
+            $ref: '#/spec/panels/1_0'
+          height: 10
+          width: 8
+          x: 0
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/1_1'
+          height: 10
+          width: 8
+          x: 8
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/1_2'
+          height: 10
+          width: 8
+          x: 16
+          "y": 0
+    - kind: Grid
+      spec:
+        display:
+          title: Bucket Operations
+        items:
+        - content:
+            $ref: '#/spec/panels/2_0'
+          height: 10
+          width: 8
+          x: 0
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/2_1'
+          height: 10
+          width: 8
+          x: 8
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/2_2'
+          height: 10
+          width: 8
+          x: 16
+          "y": 0
+    - kind: Grid
+      spec:
+        display:
+          title: Block Operations
+        items:
+        - content:
+            $ref: '#/spec/panels/3_0'
+          height: 10
+          width: 6
+          x: 0
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/3_1'
+          height: 10
+          width: 6
+          x: 6
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/3_2'
+          height: 10
+          width: 6
+          x: 12
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/3_3'
+          height: 10
+          width: 6
+          x: 18
+          "y": 0
+    - kind: Grid
+      spec:
+        display:
+          title: Cache Operations
+        items:
+        - content:
+            $ref: '#/spec/panels/4_0'
+          height: 10
+          width: 6
+          x: 0
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/4_1'
+          height: 10
+          width: 6
+          x: 6
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/4_2'
+          height: 10
+          width: 6
+          x: 12
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/4_3'
+          height: 10
+          width: 6
+          x: 18
+          "y": 0
+    - kind: Grid
+      spec:
+        display:
+          title: Query Operations
+        items:
+        - content:
+            $ref: '#/spec/panels/5_0'
+          height: 10
+          width: 6
+          x: 0
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/5_1'
+          height: 10
+          width: 6
+          x: 6
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/5_2'
+          height: 10
+          width: 6
+          x: 12
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/5_3'
+          height: 10
+          width: 6
+          x: 18
+          "y": 0
+    - kind: Grid
+      spec:
+        display:
+          title: Query Operation Durations
+        items:
+        - content:
+            $ref: '#/spec/panels/6_0'
+          height: 10
+          width: 8
+          x: 0
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/6_1'
+          height: 10
+          width: 8
+          x: 8
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/6_2'
+          height: 10
+          width: 8
+          x: 16
+          "y": 0
+    - kind: Grid
+      spec:
+        display:
+          title: Store Sent Chunk Size
+        items:
+        - content:
+            $ref: '#/spec/panels/7_0'
+          height: 10
+          width: 24
+          x: 0
+          "y": 0
+    - kind: Grid
+      spec:
+        display:
+          title: Resources
+        items:
+        - content:
+            $ref: '#/spec/panels/8_0'
+          height: 10
+          width: 6
+          x: 0
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/8_1'
+          height: 10
+          width: 6
+          x: 6
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/8_2'
+          height: 10
+          width: 6
+          x: 12
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/8_3'
+          height: 10
+          width: 6
+          x: 18
+          "y": 0
+    panels:
+      "0_0":
+        kind: Panel
+        spec:
+          display:
+            description: Shows rate of handled Unary gRPC Read requests (StoreAPI).
+            name: Unary gRPC Read request rate
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: requests/sec
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (namespace, job, grpc_method, grpc_code) (
+                      rate(
+                        grpc_server_handled_total{grpc_method!="RemoteWrite",grpc_type="unary",job=~"$job",namespace="$namespace"}[$__rate_interval]
+                      )
+                    )
+                  seriesNameFormat: '{{namespace}} {{job}} {{grpc_method}} {{grpc_code}}'
+      "0_1":
+        kind: Panel
+        spec:
+          display:
+            description: Shows percentage of errors of Unary gRPC Read requests (StoreAPI).
+            name: Unary gRPC Read error rate
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: percent
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |2-
+                      sum by (namespace, job, grpc_code) (
+                        rate(
+                          grpc_server_handled_total{grpc_code=~"Unknown|ResourceExhausted|Internal|Unavailable|DataLoss",grpc_method!="RemoteWrite",grpc_type="unary",job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    / ignoring (grpc_code) group_left ()
+                      sum by (namespace, job) (
+                        rate(
+                          grpc_server_handled_total{grpc_method!="RemoteWrite",grpc_type="unary",job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                  seriesNameFormat: '{{namespace}} {{job}} {{grpc_method}} {{grpc_code}}'
+      "0_2":
+        kind: Panel
+        spec:
+          display:
+            description: Shows duration percentiles of handled Unary gRPC Read requests (StoreAPI).
+            name: Unary gRPC Read duration
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: seconds
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.5,
+                      sum by (namespace, job, le) (
+                        rate(
+                          grpc_server_handling_seconds_bucket{grpc_method!="RemoteWrite",grpc_type="unary",job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p50 {{namespace}} {{job}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.9,
+                      sum by (namespace, job, le) (
+                        rate(
+                          grpc_server_handling_seconds_bucket{grpc_method!="RemoteWrite",grpc_type="unary",job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p90 {{namespace}} {{job}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.99,
+                      sum by (namespace, job, le) (
+                        rate(
+                          grpc_server_handling_seconds_bucket{grpc_method!="RemoteWrite",grpc_type="unary",job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p99 {{namespace}} {{job}}
+      "1_0":
+        kind: Panel
+        spec:
+          display:
+            description: Shows rate of handled Stream gRPC Read requests (StoreAPI Series/Exemplar calls).
+            name: Stream gRPC Read request rate
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: requests/sec
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (namespace, job, grpc_method, grpc_code) (
+                      rate(
+                        grpc_server_handled_total{grpc_type="server_stream",job=~"$job",namespace="$namespace"}[$__rate_interval]
+                      )
+                    )
+                  seriesNameFormat: '{{namespace}} {{job}} {{grpc_method}} {{grpc_code}}'
+      "1_1":
+        kind: Panel
+        spec:
+          display:
+            description: Shows percentage of errors of Stream gRPC Read requests (StoreAPI Series/Exemplar calls).
+            name: Stream gRPC Read error rate
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: percent
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |2-
+                      sum by (namespace, job, grpc_code) (
+                        rate(
+                          grpc_server_handled_total{grpc_code=~"Unknown|ResourceExhausted|Internal|Unavailable|DataLoss",grpc_type="server_stream",job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    / ignoring (grpc_code) group_left ()
+                      sum by (namespace, job) (
+                        rate(
+                          grpc_server_handled_total{grpc_type="server_stream",job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                  seriesNameFormat: '{{namespace}} {{job}} {{grpc_method}} {{grpc_code}}'
+      "1_2":
+        kind: Panel
+        spec:
+          display:
+            description: Shows duration percentiles of handled Stream gRPC Read requests (StoreAPI Series/Exemplar calls).
+            name: Stream gRPC Read duration
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: seconds
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.5,
+                      sum by (namespace, job, le) (
+                        rate(
+                          grpc_server_handling_seconds_bucket{grpc_type="server_stream",job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p50 {{namespace}} {{job}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.9,
+                      sum by (namespace, job, le) (
+                        rate(
+                          grpc_server_handling_seconds_bucket{grpc_type="server_stream",job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p90 {{namespace}} {{job}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.99,
+                      sum by (namespace, job, le) (
+                        rate(
+                          grpc_server_handling_seconds_bucket{grpc_type="server_stream",job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p99 {{namespace}} {{job}}
+      "2_0":
+        kind: Panel
+        spec:
+          display:
+            description: Shows rate of executions of operations against object storage bucket.
+            name: Bucket Operations
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: requests/sec
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (namespace, job, operation) (
+                      rate(thanos_objstore_bucket_operations_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                    )
+                  seriesNameFormat: '{{job}} {{operation}} {{namespace}}'
+      "2_1":
+        kind: Panel
+        spec:
+          display:
+            description: Shows percentage of errors of operations against object storage bucket.
+            name: Bucket Operation Errors
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: percent
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |2-
+                        sum by (namespace, job, operation) (
+                          rate(
+                            thanos_objstore_bucket_operation_failures_total{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                          )
+                        )
+                      /
+                        sum by (namespace, job, operation) (
+                          rate(thanos_objstore_bucket_operations_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                        )
+                    *
+                      100
+                  seriesNameFormat: '{{job}} {{operation}} {{namespace}}'
+      "2_2":
+        kind: Panel
+        spec:
+          display:
+            description: Shows latency of operations against object storage bucket.
+            name: Bucket Operation Latency
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: seconds
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.99,
+                      sum by (namespace, job, operation, le) (
+                        rate(
+                          thanos_objstore_bucket_operation_duration_seconds_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p99 {{job}} {{operation}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.9,
+                      sum by (namespace, job, operation, le) (
+                        rate(
+                          thanos_objstore_bucket_operation_duration_seconds_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p90 {{job}} {{operation}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.5,
+                      sum by (namespace, job, operation, le) (
+                        rate(
+                          thanos_objstore_bucket_operation_duration_seconds_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p50 {{job}} {{operation}} {{namespace}}
+      "3_0":
+        kind: Panel
+        spec:
+          display:
+            description: Shows the rate of block loads from the bucket.
+            name: Block Load Rate
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: list
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: counts/sec
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (namespace, job) (
+                      rate(thanos_bucket_store_block_loads_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                    )
+                  seriesNameFormat: '{{job}} {{namespace}}'
+      "3_1":
+        kind: Panel
+        spec:
+          display:
+            description: Shows ratio of errors compared to total number of block load operations.
+            name: Block Load Errors
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: list
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: percent
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |2-
+                        sum by (namespace, job) (
+                          rate(
+                            thanos_bucket_store_block_load_failures_total{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                          )
+                        )
+                      /
+                        sum by (namespace, job) (
+                          rate(thanos_bucket_store_block_loads_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                        )
+                    *
+                      100
+                  seriesNameFormat: '{{job}} {{namespace}}'
+      "3_2":
+        kind: Panel
+        spec:
+          display:
+            description: Shows rate of block drops.
+            name: Block Drop Rate
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: list
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: counts/sec
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (namespace, job, operation) (
+                      rate(thanos_bucket_store_block_drops_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                    )
+                  seriesNameFormat: '{{job}} {{operation}} {{namespace}}'
+      "3_3":
+        kind: Panel
+        spec:
+          display:
+            description: Shows ratio of errors compared to total number of block drops.
+            name: Block Drop Errors
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: list
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: percent
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |2-
+                        sum by (namespace, job) (
+                          rate(
+                            thanos_bucket_store_block_drop_failures_total{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                          )
+                        )
+                      /
+                        sum by (namespace, job) (
+                          rate(thanos_bucket_store_block_drops_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                        )
+                    *
+                      100
+                  seriesNameFormat: '{{job}} {{namespace}}'
+      "4_0":
+        kind: Panel
+        spec:
+          display:
+            description: Shows rate of cache requests.
+            name: Cache Requests
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: requests/sec
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (namespace, job, item_type) (
+                      rate(thanos_store_index_cache_requests_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                    )
+                  seriesNameFormat: '{{job}} {{item_type}} {{namespace}}'
+      "4_1":
+        kind: Panel
+        spec:
+          display:
+            description: Shows rate of cache hits.
+            name: Cache Hits
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: requests/sec
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (namespace, job, item_type) (
+                      rate(thanos_store_index_cache_hits_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                    )
+                  seriesNameFormat: '{{job}} {{item_type}} {{namespace}}'
+      "4_2":
+        kind: Panel
+        spec:
+          display:
+            description: Shows rate of items added to cache.
+            name: Cache Items Added
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: counts/sec
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (namespace, job, item_type) (
+                      rate(
+                        thanos_store_index_cache_items_added_total{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                      )
+                    )
+                  seriesNameFormat: '{{job}} {{item_type}} {{namespace}}'
+      "4_3":
+        kind: Panel
+        spec:
+          display:
+            description: Shows rate of items evicted from cache.
+            name: Cache Items Evicted
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: counts/sec
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (namespace, job, item_type) (
+                      rate(
+                        thanos_store_index_cache_items_evicted_total{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                      )
+                    )
+                  seriesNameFormat: '{{job}} {{item_type}} {{namespace}}'
+      "5_0":
+        kind: Panel
+        spec:
+          display:
+            description: Shows the mean rate, p50, p90 and p99 for the amount of blocks touched whilst evaluating queries.
+            name: Blocks Queried
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: list
+                position: bottom
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: decimal
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |2-
+                      sum by (namespace, job) (
+                        rate(
+                          thanos_bucket_store_series_blocks_queried_sum{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    /
+                      sum by (namespace, job) (
+                        rate(
+                          thanos_bucket_store_series_blocks_queried_count{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                  seriesNameFormat: mean {{job}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.5,
+                      sum by (namespace, job, le) (
+                        rate(
+                          thanos_bucket_store_series_blocks_queried_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p50 {{job}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.9,
+                      sum by (namespace, job, le) (
+                        rate(
+                          thanos_bucket_store_series_blocks_queried_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p90 {{job}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.99,
+                      sum by (namespace, job, le) (
+                        rate(
+                          thanos_bucket_store_series_blocks_queried_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p99 {{job}} {{namespace}}
+      "5_1":
+        kind: Panel
+        spec:
+          display:
+            description: Shows the mean rate, p50, p90 and p99 of the amount of data fetched to fulfill Store API calls, split by data type.
+            name: Data Fetched
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: list
+                position: bottom
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: bytes
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |2-
+                      sum by (namespace, job, data_type) (
+                        rate(
+                          thanos_bucket_store_series_data_size_fetched_bytes_sum{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    /
+                      sum by (namespace, job, data_type) (
+                        rate(
+                          thanos_bucket_store_series_data_size_fetched_bytes_count{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                  seriesNameFormat: mean {{job}} {{data_type}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.5,
+                      sum by (namespace, job, data_type, le) (
+                        rate(
+                          thanos_bucket_store_series_data_size_fetched_bytes_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p50 {{job}} {{data_type}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.9,
+                      sum by (namespace, job, data_type, le) (
+                        rate(
+                          thanos_bucket_store_series_data_size_fetched_bytes_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p90 {{job}} {{data_type}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.99,
+                      sum by (namespace, job, data_type, le) (
+                        rate(
+                          thanos_bucket_store_series_data_size_fetched_bytes_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p99 {{job}} {{data_type}} {{namespace}}
+      "5_2":
+        kind: Panel
+        spec:
+          display:
+            description: Shows the mean rate, p50, p90 and p99 of the amount of data touched to fulfill Store API calls, split by data type.
+            name: Data Touched
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: list
+                position: bottom
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: bytes
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |2-
+                      sum by (namespace, job, data_type) (
+                        rate(
+                          thanos_bucket_store_series_data_size_touched_bytes_sum{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    /
+                      sum by (namespace, job, data_type) (
+                        rate(
+                          thanos_bucket_store_series_data_size_touched_bytes_count{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                  seriesNameFormat: mean {{job}} {{data_type}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.5,
+                      sum by (namespace, job, data_type, le) (
+                        rate(
+                          thanos_bucket_store_series_data_size_touched_bytes_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p50 {{job}} {{data_type}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.9,
+                      sum by (namespace, job, data_type, le) (
+                        rate(
+                          thanos_bucket_store_series_data_size_touched_bytes_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p90 {{job}} {{data_type}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.99,
+                      sum by (namespace, job, data_type, le) (
+                        rate(
+                          thanos_bucket_store_series_data_size_touched_bytes_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p99 {{job}} {{data_type}} {{namespace}}
+      "5_3":
+        kind: Panel
+        spec:
+          display:
+            description: Shows the mean rate, p50, p90 and p99 of the count of result series observed in the final result of queries.
+            name: Result Series
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: list
+                position: bottom
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: decimal
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |2-
+                      sum by (namespace, job) (
+                        rate(
+                          thanos_bucket_store_series_result_series_sum{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    /
+                      sum by (namespace, job) (
+                        rate(
+                          thanos_bucket_store_series_result_series_count{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                  seriesNameFormat: mean {{job}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.5,
+                      sum by (namespace, job, le) (
+                        rate(
+                          thanos_bucket_store_series_result_series_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p50 {{job}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.9,
+                      sum by (namespace, job, le) (
+                        rate(
+                          thanos_bucket_store_series_result_series_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p90 {{job}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.99,
+                      sum by (namespace, job, le) (
+                        rate(
+                          thanos_bucket_store_series_result_series_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p99 {{job}} {{namespace}}
+      "6_0":
+        kind: Panel
+        spec:
+          display:
+            description: Shows the p50, p90 and p99 of time it takes until all per-block prepares and loads for each query is finished.
+            name: Get All Series Duration
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: seconds
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.5,
+                      sum by (namespace, job, le) (
+                        rate(
+                          thanos_bucket_store_series_get_all_duration_seconds_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p50 {{job}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.9,
+                      sum by (namespace, job, le) (
+                        rate(
+                          thanos_bucket_store_series_get_all_duration_seconds_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p90 {{job}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.99,
+                      sum by (namespace, job, le) (
+                        rate(
+                          thanos_bucket_store_series_get_all_duration_seconds_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p99 {{job}} {{namespace}}
+      "6_1":
+        kind: Panel
+        spec:
+          display:
+            description: Shows the p50, p90 and p99 of the time it takes to merge sub-results from all queried blocks into single results for queries.
+            name: Merge Durations
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: seconds
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.5,
+                      sum by (namespace, job, le) (
+                        rate(
+                          thanos_bucket_store_series_merge_duration_seconds_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p50 {{job}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.9,
+                      sum by (namespace, job, le) (
+                        rate(
+                          thanos_bucket_store_series_merge_duration_seconds_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p90 {{job}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.99,
+                      sum by (namespace, job, le) (
+                        rate(
+                          thanos_bucket_store_series_merge_duration_seconds_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p99 {{job}} {{namespace}}
+      "6_2":
+        kind: Panel
+        spec:
+          display:
+            description: Shows the p50, p90 and p99 of the time it took for queries to wait at the gate.
+            name: Gate Waiting Durations
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: seconds
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.5,
+                      sum by (namespace, job, le) (
+                        rate(
+                          thanos_bucket_store_series_gate_duration_seconds_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p50 {{job}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.9,
+                      sum by (namespace, job, le) (
+                        rate(
+                          thanos_bucket_store_series_gate_duration_seconds_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p90 {{job}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.99,
+                      sum by (namespace, job, le) (
+                        rate(
+                          thanos_bucket_store_series_gate_duration_seconds_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p99 {{job}} {{namespace}}
+      "7_0":
+        kind: Panel
+        spec:
+          display:
+            description: Shows the mean rate, p50, p90 and p99 for the bytes of chunks sent for single series, which are adequate to the gRPC message size sent to querier.
+            name: Store Sent Chunk Size
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: list
+                position: bottom
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: bytes
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |2-
+                      sum by (namespace, job) (
+                        rate(
+                          thanos_bucket_store_sent_chunk_size_bytes_sum{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    /
+                      sum by (namespace, job) (
+                        rate(
+                          thanos_bucket_store_sent_chunk_size_bytes_count{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                  seriesNameFormat: mean {{job}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.5,
+                      sum by (namespace, job, le) (
+                        rate(
+                          thanos_bucket_store_sent_chunk_size_bytes_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p50 {{job}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.9,
+                      sum by (namespace, job, le) (
+                        rate(
+                          thanos_bucket_store_sent_chunk_size_bytes_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p90 {{job}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.99,
+                      sum by (namespace, job, le) (
+                        rate(
+                          thanos_bucket_store_sent_chunk_size_bytes_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p99 {{job}} {{namespace}}
+      "8_0":
+        kind: Panel
+        spec:
+          display:
+            description: Shows the CPU usage of the component.
+            name: CPU Usage
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+                values:
+                - last
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: decimal
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: rate(process_cpu_seconds_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                  seriesNameFormat: '{{pod}}'
+      "8_1":
+        kind: Panel
+        spec:
+          display:
+            description: Shows various memory usage metrics of the component.
+            name: Memory Usage
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+                values:
+                - last
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: bytes
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: go_memstats_alloc_bytes{job=~"$job",namespace="$namespace"}
+                  seriesNameFormat: Alloc All {{pod}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: go_memstats_heap_alloc_bytes{job=~"$job",namespace="$namespace"}
+                  seriesNameFormat: Alloc Heap {{pod}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: rate(go_memstats_alloc_bytes_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                  seriesNameFormat: Alloc Rate All {{pod}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: rate(go_memstats_heap_alloc_bytes{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                  seriesNameFormat: Alloc Rate Heap {{pod}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: go_memstats_stack_inuse_bytes{job=~"$job",namespace="$namespace"}
+                  seriesNameFormat: Inuse Stack {{pod}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: go_memstats_heap_inuse_bytes{job=~"$job",namespace="$namespace"}
+                  seriesNameFormat: Inuse Heap {{pod}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: process_resident_memory_bytes{job=~"$job",namespace="$namespace"}
+                  seriesNameFormat: Resident Memory {{pod}}
+      "8_2":
+        kind: Panel
+        spec:
+          display:
+            description: Shows the number of goroutines being used by the component.
+            name: Goroutines
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+                values:
+                - last
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: decimal
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: go_goroutines{job=~"$job",namespace="$namespace"}
+                  seriesNameFormat: '{{pod}}'
+      "8_3":
+        kind: Panel
+        spec:
+          display:
+            description: Shows the Go garbage collection pause durations for the component.
+            name: GC Duration
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+                values:
+                - last
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: seconds
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: go_gc_duration_seconds{job=~"$job",namespace="$namespace"}
+                  seriesNameFormat: '{{quantile}} - {{pod}}'
+    variables:
+    - kind: ListVariable
+      spec:
+        allowAllValue: false
+        allowMultiple: true
+        display:
+          hidden: false
+          name: job
+        name: job
+        plugin:
+          kind: PrometheusLabelValuesVariable
+          spec:
+            datasource:
+              kind: PrometheusDatasource
+              name: custom-datasource
+            labelName: job
+            matchers:
+            - thanos_build_info{container="thanos-store"}
+    - kind: ListVariable
+      spec:
+        allowAllValue: false
+        allowMultiple: false
+        display:
+          hidden: false
+          name: namespace
+        name: namespace
+        plugin:
+          kind: PrometheusLabelValuesVariable
+          spec:
+            datasource:
+              kind: PrometheusDatasource
+              name: custom-datasource
+            labelName: namespace
+            matchers:
+            - thanos_status{}
+status: {}

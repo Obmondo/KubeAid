@@ -1,0 +1,1427 @@
+apiVersion: perses.dev/v1alpha2
+kind: PersesDashboard
+metadata:
+  labels:
+    app.kubernetes.io/component: dashboard
+    app.kubernetes.io/instance: thanos-compact-overview
+    app.kubernetes.io/name: perses-dashboard
+    app.kubernetes.io/part-of: perses-operator
+  name: thanos-compact-overview
+  namespace: perses-dev
+spec:
+  config:
+    display:
+      name: Thanos / Compact / Overview
+    duration: 1h
+    layouts:
+    - kind: Grid
+      spec:
+        display:
+          title: TODO Operations
+        items:
+        - content:
+            $ref: '#/spec/panels/0_0'
+          height: 10
+          width: 6
+          x: 0
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/0_1'
+          height: 10
+          width: 6
+          x: 6
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/0_2'
+          height: 10
+          width: 6
+          x: 12
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/0_3'
+          height: 10
+          width: 6
+          x: 18
+          "y": 0
+    - kind: Grid
+      spec:
+        display:
+          title: Group Compactions
+        items:
+        - content:
+            $ref: '#/spec/panels/1_0'
+          height: 10
+          width: 12
+          x: 0
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/1_1'
+          height: 10
+          width: 12
+          x: 12
+          "y": 0
+    - kind: Grid
+      spec:
+        display:
+          title: Downsample Operations
+        items:
+        - content:
+            $ref: '#/spec/panels/2_0'
+          height: 10
+          width: 8
+          x: 0
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/2_1'
+          height: 10
+          width: 8
+          x: 8
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/2_2'
+          height: 10
+          width: 8
+          x: 16
+          "y": 0
+    - kind: Grid
+      spec:
+        display:
+          title: Sync Meta
+        items:
+        - content:
+            $ref: '#/spec/panels/3_0'
+          height: 10
+          width: 8
+          x: 0
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/3_1'
+          height: 10
+          width: 8
+          x: 8
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/3_2'
+          height: 10
+          width: 8
+          x: 16
+          "y": 0
+    - kind: Grid
+      spec:
+        display:
+          title: Block Deletion
+        items:
+        - content:
+            $ref: '#/spec/panels/4_0'
+          height: 10
+          width: 8
+          x: 0
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/4_1'
+          height: 10
+          width: 8
+          x: 8
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/4_2'
+          height: 10
+          width: 8
+          x: 16
+          "y": 0
+    - kind: Grid
+      spec:
+        display:
+          title: Bucket Operations
+        items:
+        - content:
+            $ref: '#/spec/panels/5_0'
+          height: 10
+          width: 8
+          x: 0
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/5_1'
+          height: 10
+          width: 8
+          x: 8
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/5_2'
+          height: 10
+          width: 8
+          x: 16
+          "y": 0
+    - kind: Grid
+      spec:
+        display:
+          title: Halted Compactors
+        items:
+        - content:
+            $ref: '#/spec/panels/6_0'
+          height: 10
+          width: 24
+          x: 0
+          "y": 0
+    - kind: Grid
+      spec:
+        display:
+          title: Garbage Collection
+        items:
+        - content:
+            $ref: '#/spec/panels/7_0'
+          height: 10
+          width: 8
+          x: 0
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/7_1'
+          height: 10
+          width: 8
+          x: 8
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/7_2'
+          height: 10
+          width: 8
+          x: 16
+          "y": 0
+    - kind: Grid
+      spec:
+        display:
+          title: Resources
+        items:
+        - content:
+            $ref: '#/spec/panels/8_0'
+          height: 10
+          width: 6
+          x: 0
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/8_1'
+          height: 10
+          width: 6
+          x: 6
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/8_2'
+          height: 10
+          width: 6
+          x: 12
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/8_3'
+          height: 10
+          width: 6
+          x: 18
+          "y": 0
+    panels:
+      "0_0":
+        kind: Panel
+        spec:
+          display:
+            description: Shows number of blocks planned to be compacted.
+            name: TODO Compaction Blocks
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: decimal
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: sum by (namespace, job) (thanos_compact_todo_compaction_blocks{job=~"$job",namespace="$namespace"})
+                  seriesNameFormat: '{{job}} {{namespace}}'
+      "0_1":
+        kind: Panel
+        spec:
+          display:
+            description: Shows number of compaction operations to be done.
+            name: TODO Compactions
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: decimal
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: sum by (namespace, job) (thanos_compact_todo_compactions{job=~"$job",namespace="$namespace"})
+                  seriesNameFormat: '{{job}} {{namespace}}'
+      "0_2":
+        kind: Panel
+        spec:
+          display:
+            description: Shows number of blocks that have crossed their retention periods.
+            name: TODO Deletions
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: decimal
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: sum by (namespace, job) (thanos_compact_todo_deletion_blocks{job=~"$job",namespace="$namespace"})
+                  seriesNameFormat: '{{job}} {{namespace}}'
+      "0_3":
+        kind: Panel
+        spec:
+          display:
+            description: Shows number of blocks to be downsampled.
+            name: TODO Downsamples
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: decimal
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: sum by (namespace, job) (thanos_compact_todo_downsample_blocks{job=~"$job",namespace="$namespace"})
+                  seriesNameFormat: '{{job}} {{namespace}}'
+      "1_0":
+        kind: Panel
+        spec:
+          display:
+            description: Shows rate of execution of compaction operations against blocks in a bucket, split by compaction resolution.
+            name: Group Compactions
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: counts/sec
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (namespace, job, resolution) (
+                      rate(thanos_compact_group_compactions_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                    )
+                  seriesNameFormat: 'Resolution: {{resolution}} - {{job}} {{namespace}}'
+      "1_1":
+        kind: Panel
+        spec:
+          display:
+            description: Shows the percentage of errors compared to the total number of executed compaction operations against blocks stored in bucket.
+            name: Group Compaction Errors
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: percent
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |2-
+                        sum by (namespace, job) (
+                          rate(
+                            thanos_compact_group_compactions_failures_total{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                          )
+                        )
+                      /
+                        sum by (namespace, job) (
+                          rate(thanos_compact_group_compactions_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                        )
+                    *
+                      100
+                  seriesNameFormat: '{{job}} {{namespace}}'
+      "2_0":
+        kind: Panel
+        spec:
+          display:
+            description: Shows rate of execution of downsample operations against blocks stored in a bucket, split by resolution.
+            name: Downsample Rate
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: counts/sec
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (namespace, job, resolution) (
+                      rate(thanos_compact_downsample_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                    )
+                  seriesNameFormat: 'Resolution: {{resolution}} - {{job}} {{namespace}}'
+      "2_1":
+        kind: Panel
+        spec:
+          display:
+            description: Shows the percentage of downsample errors compared to the total number of downsample operations done on block in buckets.
+            name: Downsample Errors
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: percent
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |2-
+                        sum by (namespace, job) (
+                          rate(thanos_compact_downsample_failed_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                        )
+                      /
+                        sum by (namespace, job) (
+                          rate(thanos_compact_downsample_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                        )
+                    *
+                      100
+                  seriesNameFormat: '{{job}} {{namespace}}'
+      "2_2":
+        kind: Panel
+        spec:
+          display:
+            description: Shows the p50, p90, and p99 of the time it takes to complete downsample operation against blocks in a bucket, split by resolution.
+            name: Downsample Durations
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: seconds
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.5,
+                      sum by (namespace, job, resolution, le) (
+                        rate(
+                          thanos_compact_downsample_duration_seconds_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: 'p50 Resolution: {{resolution}} - {{job}} {{namespace}}'
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.9,
+                      sum by (namespace, job, resolution, le) (
+                        rate(
+                          thanos_compact_downsample_duration_seconds_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: 'p90 Resolution: {{resolution}} - {{job}} {{namespace}}'
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.99,
+                      sum by (namespace, job, resolution, le) (
+                        rate(
+                          thanos_compact_downsample_duration_seconds_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: 'p99 Resolution: {{resolution}} - {{job}} {{namespace}}'
+      "3_0":
+        kind: Panel
+        spec:
+          display:
+            description: Shows rate of syncing block meta files from bucket into memory.
+            name: Sync Meta Rate
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: counts/sec
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (namespace, job) (
+                      rate(thanos_blocks_meta_syncs_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                    )
+                  seriesNameFormat: '{{job}} {{namespace}}'
+      "3_1":
+        kind: Panel
+        spec:
+          display:
+            description: Shows percentage of errors of meta file sync operation compared to total number of meta file syncs from bucket.
+            name: Sync Meta Errors
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: percent
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |2-
+                        sum by (namespace, job) (
+                          rate(thanos_blocks_meta_sync_failures_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                        )
+                      /
+                        sum by (namespace, job) (
+                          rate(thanos_blocks_meta_syncs_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                        )
+                    *
+                      100
+                  seriesNameFormat: '{{job}} {{namespace}}'
+      "3_2":
+        kind: Panel
+        spec:
+          display:
+            description: Shows p50, p90 and p99 durations of the time it takes to sync meta files from blocks in bucket.
+            name: Sync Meta Durations
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: seconds
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.5,
+                      sum by (namespace, job, le) (
+                        rate(
+                          thanos_blocks_meta_sync_duration_seconds_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p50 {{job}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.9,
+                      sum by (namespace, job, le) (
+                        rate(
+                          thanos_blocks_meta_sync_duration_seconds_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p90 {{job}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.99,
+                      sum by (namespace, job, le) (
+                        rate(
+                          thanos_blocks_meta_sync_duration_seconds_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p99 {{job}} {{namespace}}
+      "4_0":
+        kind: Panel
+        spec:
+          display:
+            description: Shows the deletion rate of blocks already marked for deletion.
+            name: Deletion Rate
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: counts/sec
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (namespace, job) (
+                      rate(thanos_compact_blocks_cleaned_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                    )
+                  seriesNameFormat: '{{job}} {{namespace}}'
+      "4_1":
+        kind: Panel
+        spec:
+          display:
+            description: Shows rate of deletion failures for blocks already marked for deletion.
+            name: Deletion Errors
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: counts/sec
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (namespace, job) (
+                      rate(
+                        thanos_compact_block_cleanup_failures_total{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                      )
+                    )
+                  seriesNameFormat: '{{job}} {{namespace}}'
+      "4_2":
+        kind: Panel
+        spec:
+          display:
+            description: Shows the rate at which blocks are marked for deletion (from GC and retention policy).
+            name: Marking Rate
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: counts/sec
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (namespace, job) (
+                      rate(
+                        thanos_compact_blocks_marked_total{job=~"$job",marker="deletion-mark.json",namespace="$namespace"}[$__rate_interval]
+                      )
+                    )
+                  seriesNameFormat: '{{job}} {{namespace}}'
+      "5_0":
+        kind: Panel
+        spec:
+          display:
+            description: Shows rate of executions of operations against object storage bucket.
+            name: Bucket Operations
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: requests/sec
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (namespace, job, operation) (
+                      rate(thanos_objstore_bucket_operations_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                    )
+                  seriesNameFormat: '{{job}} {{operation}} {{namespace}}'
+      "5_1":
+        kind: Panel
+        spec:
+          display:
+            description: Shows percentage of errors of operations against object storage bucket.
+            name: Bucket Operation Errors
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: percent
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |2-
+                        sum by (namespace, job, operation) (
+                          rate(
+                            thanos_objstore_bucket_operation_failures_total{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                          )
+                        )
+                      /
+                        sum by (namespace, job, operation) (
+                          rate(thanos_objstore_bucket_operations_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                        )
+                    *
+                      100
+                  seriesNameFormat: '{{job}} {{operation}} {{namespace}}'
+      "5_2":
+        kind: Panel
+        spec:
+          display:
+            description: Shows latency of operations against object storage bucket.
+            name: Bucket Operation Latency
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: seconds
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.99,
+                      sum by (namespace, job, operation, le) (
+                        rate(
+                          thanos_objstore_bucket_operation_duration_seconds_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p99 {{job}} {{operation}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.9,
+                      sum by (namespace, job, operation, le) (
+                        rate(
+                          thanos_objstore_bucket_operation_duration_seconds_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p90 {{job}} {{operation}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.5,
+                      sum by (namespace, job, operation, le) (
+                        rate(
+                          thanos_objstore_bucket_operation_duration_seconds_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p50 {{job}} {{operation}} {{namespace}}
+      "6_0":
+        kind: Panel
+        spec:
+          display:
+            description: Shows compactors that have been halted due to unexpected errors.
+            name: Halted Compactors
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: decimal
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: sum by (namespace, job) (thanos_compact_halted{job=~"$job",namespace="$namespace"})
+                  seriesNameFormat: '{{job}} {{namespace}}'
+      "7_0":
+        kind: Panel
+        spec:
+          display:
+            description: Shows rate of execution of removal of blocks, if their data is available as part of a block with a higher compaction level.
+            name: Garbage Collection
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: counts/sec
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (namespace, job) (
+                      rate(thanos_compact_garbage_collection_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                    )
+                  seriesNameFormat: '{{job}} {{namespace}}'
+      "7_1":
+        kind: Panel
+        spec:
+          display:
+            description: Shows the percentage of garbage collection operations that resulted in errors.
+            name: Garbage Collection Errors
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: percent
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |2-
+                        sum by (namespace, job) (
+                          rate(
+                            thanos_compact_garbage_collection_failures_total{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                          )
+                        )
+                      /
+                        sum by (namespace, job) (
+                          rate(thanos_compact_garbage_collection_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                        )
+                    *
+                      100
+                  seriesNameFormat: '{{job}} {{namespace}}'
+      "7_2":
+        kind: Panel
+        spec:
+          display:
+            description: Shows p50, p90 and p99 of how long it takes to execute garbage collection operations.
+            name: Garbage Collection Durations
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: seconds
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.5,
+                      sum by (namespace, job, le) (
+                        rate(
+                          thanos_compact_garbage_collection_duration_seconds_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p50 {{job}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.9,
+                      sum by (namespace, job, le) (
+                        rate(
+                          thanos_compact_garbage_collection_duration_seconds_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p90 {{job}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.99,
+                      sum by (namespace, job, le) (
+                        rate(
+                          thanos_compact_garbage_collection_duration_seconds_bucket{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p99 {{job}} {{namespace}}
+      "8_0":
+        kind: Panel
+        spec:
+          display:
+            description: Shows the CPU usage of the component.
+            name: CPU Usage
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+                values:
+                - last
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: decimal
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: rate(process_cpu_seconds_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                  seriesNameFormat: '{{pod}}'
+      "8_1":
+        kind: Panel
+        spec:
+          display:
+            description: Shows various memory usage metrics of the component.
+            name: Memory Usage
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+                values:
+                - last
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: bytes
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: go_memstats_alloc_bytes{job=~"$job",namespace="$namespace"}
+                  seriesNameFormat: Alloc All {{pod}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: go_memstats_heap_alloc_bytes{job=~"$job",namespace="$namespace"}
+                  seriesNameFormat: Alloc Heap {{pod}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: rate(go_memstats_alloc_bytes_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                  seriesNameFormat: Alloc Rate All {{pod}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: rate(go_memstats_heap_alloc_bytes{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                  seriesNameFormat: Alloc Rate Heap {{pod}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: go_memstats_stack_inuse_bytes{job=~"$job",namespace="$namespace"}
+                  seriesNameFormat: Inuse Stack {{pod}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: go_memstats_heap_inuse_bytes{job=~"$job",namespace="$namespace"}
+                  seriesNameFormat: Inuse Heap {{pod}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: process_resident_memory_bytes{job=~"$job",namespace="$namespace"}
+                  seriesNameFormat: Resident Memory {{pod}}
+      "8_2":
+        kind: Panel
+        spec:
+          display:
+            description: Shows the number of goroutines being used by the component.
+            name: Goroutines
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+                values:
+                - last
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: decimal
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: go_goroutines{job=~"$job",namespace="$namespace"}
+                  seriesNameFormat: '{{pod}}'
+      "8_3":
+        kind: Panel
+        spec:
+          display:
+            description: Shows the Go garbage collection pause durations for the component.
+            name: GC Duration
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+                values:
+                - last
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: seconds
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: go_gc_duration_seconds{job=~"$job",namespace="$namespace"}
+                  seriesNameFormat: '{{quantile}} - {{pod}}'
+    variables:
+    - kind: ListVariable
+      spec:
+        allowAllValue: false
+        allowMultiple: true
+        display:
+          hidden: false
+          name: job
+        name: job
+        plugin:
+          kind: PrometheusLabelValuesVariable
+          spec:
+            datasource:
+              kind: PrometheusDatasource
+              name: custom-datasource
+            labelName: job
+            matchers:
+            - thanos_build_info{container="thanos-compact"}
+    - kind: ListVariable
+      spec:
+        allowAllValue: false
+        allowMultiple: false
+        display:
+          hidden: false
+          name: namespace
+        name: namespace
+        plugin:
+          kind: PrometheusLabelValuesVariable
+          spec:
+            datasource:
+              kind: PrometheusDatasource
+              name: custom-datasource
+            labelName: namespace
+            matchers:
+            - thanos_status{}
+status: {}

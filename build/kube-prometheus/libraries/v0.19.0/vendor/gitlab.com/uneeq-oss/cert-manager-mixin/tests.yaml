@@ -1,0 +1,104 @@
+---
+rule_files:
+- manifests/prometheus_alerts.yaml
+- manifests/prometheus_rules.yaml
+
+evaluation_interval: 1m
+
+tests:
+# Absent metrics
+- interval: 1m
+  input_series:
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: CertManagerAbsent
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+        job: cert-manager
+      exp_annotations:
+        summary: 'Cert Manager has dissapeared from Prometheus service discovery.'
+        description: "New certificates will not be able to be minted, and existing ones can't be renewed until cert-manager is back."
+        runbook_url: 'https://gitlab.com/uneeq-oss/cert-manager-mixin/-/blob/master/RUNBOOK.md#certmanagerabsent'
+
+# Cert expiry
+- interval: 1m
+  input_series:
+  - series: certmanager_certificate_expiration_timestamp_seconds{namespace="cert-manager", exported_namespace="test", name="expired-ingress-cert", foo="bar"}
+    values: 1814400+0x43200  # 21d in seconds, static for 30d of samples
+  - series: certmanager_certificate_expiration_timestamp_seconds{namespace="cert-manager", exported_namespace="test", name="90d-ingress-cert"}
+    values: 7776000+0x43200  # 90d in seconds, static for 30d of samples
+  alert_rule_test:
+  - eval_time: 61m
+    alertname: CertManagerCertExpirySoon
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        exported_namespace: test
+        namespace: cert-manager
+        name: expired-ingress-cert
+      exp_annotations:
+        summary: The cert `expired-ingress-cert` is 20d 22h 59m 0s from expiry, it should have renewed over a week ago.
+        description: 'The domain that this cert covers will be unavailable after 20d 22h 59m 0s. Clients using endpoints that this cert protects will start to fail in 20d 22h 59m 0s.'
+        dashboard_url: https://grafana.example.com/d/TvuRo2iMk/cert-manager
+        runbook_url: 'https://gitlab.com/uneeq-oss/cert-manager-mixin/-/blob/master/RUNBOOK.md#certmanagercertexpirysoon'
+
+# Cert not ready
+- interval: 1m
+  input_series:
+  - series: certmanager_certificate_ready_status{namespace="cert-manager", exported_namespace="test", name="ready", condition="True"}
+    values: 1+0x30
+  - series: certmanager_certificate_ready_status{namespace="cert-manager", exported_namespace="test", name="not ready", condition="False"}
+    values: 1+0x30
+  - series: certmanager_certificate_ready_status{namespace="cert-manager", exported_namespace="test", name="who knows", condition="Unknown"}
+    values: 1+0x30
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: CertManagerCertNotReady
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+        exported_namespace: test
+        namespace: cert-manager
+        name: not ready
+        condition: "False"
+      exp_annotations:
+        summary: The cert `not ready` is not ready to serve traffic.
+        description: 'This certificate has not been ready to serve traffic for at least 10m. If the cert is being renewed or there is another valid cert,
+          the ingress controller _may_ be able to serve that instead.'
+        dashboard_url: https://grafana.example.com/d/TvuRo2iMk/cert-manager
+        runbook_url: 'https://gitlab.com/uneeq-oss/cert-manager-mixin/-/blob/master/RUNBOOK.md#certmanagercertnotready'
+    - exp_labels:
+        severity: critical
+        exported_namespace: test
+        namespace: cert-manager
+        name: who knows
+        condition: "Unknown"
+      exp_annotations:
+        summary: The cert `who knows` is not ready to serve traffic.
+        description: 'This certificate has not been ready to serve traffic for at least 10m. If the cert is being renewed or there is another valid cert,
+          the ingress controller _may_ be able to serve that instead.'
+        dashboard_url: https://grafana.example.com/d/TvuRo2iMk/cert-manager
+        runbook_url: 'https://gitlab.com/uneeq-oss/cert-manager-mixin/-/blob/master/RUNBOOK.md#certmanagercertnotready'
+
+# cert-manager rate limits
+- interval: 1m
+  input_series:
+  - series: certmanager_http_acme_client_request_count{status="200", host="normal.acme-v02.api.letsencrypt.org", path="/acme/new-order"}
+    values: 1+1x30
+  - series: certmanager_http_acme_client_request_count{status="429", host="rate-limited.acme-v02.api.letsencrypt.org", path="/acme/new-order"}
+    values: 1+1x30
+  - series: certmanager_http_acme_client_request_count{status="429", host="one-limited-request.acme-v02.api.letsencrypt.org", path="/acme/new-order"}
+    values: 1+0x30
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: CertManagerHittingRateLimits
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+        host: rate-limited.acme-v02.api.letsencrypt.org
+      exp_annotations:
+        summary: 'Cert manager hitting LetsEncrypt rate limits.'
+        description: 'Depending on the rate limit, cert-manager may be unable to generate certificates for up to a week.'
+        runbook_url: 'https://gitlab.com/uneeq-oss/cert-manager-mixin/-/blob/master/RUNBOOK.md#certmanagerhittingratelimits'
+        dashboard_url: https://grafana.example.com/d/TvuRo2iMk/cert-manager

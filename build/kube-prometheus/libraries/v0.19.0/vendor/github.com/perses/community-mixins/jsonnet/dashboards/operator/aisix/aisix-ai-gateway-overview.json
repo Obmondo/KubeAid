@@ -1,0 +1,653 @@
+{
+  "kind": "PersesDashboard",
+  "apiVersion": "perses.dev/v1alpha2",
+  "metadata": {
+    "name": "aisix-ai-gateway-overview",
+    "namespace": "perses-dev",
+    "labels": {
+      "app.kubernetes.io/component": "dashboard",
+      "app.kubernetes.io/instance": "aisix-ai-gateway-overview",
+      "app.kubernetes.io/name": "perses-dashboard",
+      "app.kubernetes.io/part-of": "perses-operator"
+    }
+  },
+  "spec": {
+    "config": {
+      "display": {
+        "name": "AISIX AI Gateway / Overview"
+      },
+      "variables": [
+        {
+          "kind": "ListVariable",
+          "spec": {
+            "display": {
+              "name": "job",
+              "hidden": false
+            },
+            "allowAllValue": true,
+            "allowMultiple": true,
+            "plugin": {
+              "kind": "PrometheusLabelValuesVariable",
+              "spec": {
+                "datasource": {
+                  "kind": "PrometheusDatasource",
+                  "name": "prometheus-datasource"
+                },
+                "labelName": "job",
+                "matchers": [
+                  "aisix_requests_total{}"
+                ]
+              }
+            },
+            "name": "job"
+          }
+        },
+        {
+          "kind": "ListVariable",
+          "spec": {
+            "display": {
+              "name": "instance",
+              "hidden": false
+            },
+            "allowAllValue": true,
+            "allowMultiple": true,
+            "plugin": {
+              "kind": "PrometheusLabelValuesVariable",
+              "spec": {
+                "datasource": {
+                  "kind": "PrometheusDatasource",
+                  "name": "prometheus-datasource"
+                },
+                "labelName": "instance",
+                "matchers": [
+                  "aisix_requests_total{job=~\"$job\"}"
+                ]
+              }
+            },
+            "name": "instance"
+          }
+        }
+      ],
+      "panels": {
+        "0_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Request rate",
+              "description": "Rate of completed AISIX requests, grouped by provider, model, and outcome."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom",
+                  "values": [
+                    "last"
+                  ]
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  },
+                  "stack": "all"
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "requests/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (provider, model, outcome) (\n  rate(aisix_requests_total{instance=~\"$instance\",job=~\"$job\"}[$__rate_interval])\n)",
+                      "seriesNameFormat": "{{provider}} / {{model}} / {{outcome}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "0_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Success ratio",
+              "description": "Percentage of completed AISIX requests whose outcome is success."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom",
+                  "values": [
+                    "last"
+                  ]
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "percent-decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  sum(\n    rate(aisix_requests_total{instance=~\"$instance\",job=~\"$job\",outcome=\"success\"}[$__rate_interval])\n  )\n/\n  sum(rate(aisix_requests_total{instance=~\"$instance\",job=~\"$job\"}[$__rate_interval]))",
+                      "seriesNameFormat": "Success"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "0_2": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "P95 end-to-end latency",
+              "description": "P95 client-perceived request latency. Streaming requests are observed at stream completion."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom",
+                  "values": [
+                    "last"
+                  ]
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "seconds"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.95,\n  sum by (le) (\n    rate(aisix_request_e2e_latency_seconds_bucket{instance=~\"$instance\",job=~\"$job\"}[$__rate_interval])\n  )\n)",
+                      "seriesNameFormat": "P95 end-to-end"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "0_3": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "P95 time to first token",
+              "description": "P95 time to first token for streaming requests. Non-streaming requests do not contribute."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom",
+                  "values": [
+                    "last"
+                  ]
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "seconds"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "histogram_quantile(\n  0.95,\n  sum by (le) (\n    rate(aisix_request_ttft_seconds_bucket{instance=~\"$instance\",job=~\"$job\"}[$__rate_interval])\n  )\n)",
+                      "seriesNameFormat": "P95 TTFT"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "1_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Token throughput by model",
+              "description": "Input and output tokens per second reported by the upstream provider."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom",
+                  "values": [
+                    "last"
+                  ]
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "counts/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (model) (\n  rate(aisix_llm_input_tokens_total{instance=~\"$instance\",job=~\"$job\"}[$__rate_interval])\n)",
+                      "seriesNameFormat": "{{model}} input"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (model) (\n  rate(aisix_llm_output_tokens_total{instance=~\"$instance\",job=~\"$job\"}[$__rate_interval])\n)",
+                      "seriesNameFormat": "{{model}} output"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "1_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Cache outcomes",
+              "description": "Rate of cache-policy outcomes. Requests without an active cache policy do not contribute."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom",
+                  "values": [
+                    "last"
+                  ]
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  },
+                  "stack": "all"
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "requests/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (outcome) (\n  rate(aisix_cache_requests_total{instance=~\"$instance\",job=~\"$job\"}[$__rate_interval])\n)",
+                      "seriesNameFormat": "{{outcome}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "1_2": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Policy enforcement",
+              "description": "Rates of rate-limit rejections, guardrail blocks, and fail-open guardrail bypass events."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom",
+                  "values": [
+                    "last"
+                  ]
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "counts/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (scope) (\n  rate(aisix_ratelimit_rejections_total{instance=~\"$instance\",job=~\"$job\"}[$__rate_interval])\n)",
+                      "seriesNameFormat": "Rate limit / {{scope}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum(rate(aisix_guardrail_blocks_total{instance=~\"$instance\",job=~\"$job\"}[$__rate_interval]))",
+                      "seriesNameFormat": "Guardrail blocks"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (reason) (\n  rate(aisix_guardrail_bypasses_total{instance=~\"$instance\",job=~\"$job\"}[$__rate_interval])\n)",
+                      "seriesNameFormat": "Guardrail bypass / {{reason}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "1_3": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "OTLP delivery failures and drops",
+              "description": "Failure and drop event rates from AISIX OTLP HTTP exporters. A zero value is not proof that tracing is enabled."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom",
+                  "values": [
+                    "last"
+                  ]
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "counts/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (exporter) (\n  rate(aisix_otlp_fanout_failures_total{instance=~\"$instance\",job=~\"$job\"}[$__rate_interval])\n)",
+                      "seriesNameFormat": "{{exporter}} failures"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (exporter, reason) (\n  rate(aisix_otlp_fanout_drops_total{instance=~\"$instance\",job=~\"$job\"}[$__rate_interval])\n)",
+                      "seriesNameFormat": "{{exporter}} drops / {{reason}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "layouts": [
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Traffic and latency"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/0_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/0_1"
+                }
+              },
+              {
+                "x": 0,
+                "y": 8,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/0_2"
+                }
+              },
+              {
+                "x": 12,
+                "y": 8,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/0_3"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Usage and policy signals"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/1_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/1_1"
+                }
+              },
+              {
+                "x": 0,
+                "y": 8,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/1_2"
+                }
+              },
+              {
+                "x": 12,
+                "y": 8,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/1_3"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "duration": "1h"
+    }
+  },
+  "status": {}
+}

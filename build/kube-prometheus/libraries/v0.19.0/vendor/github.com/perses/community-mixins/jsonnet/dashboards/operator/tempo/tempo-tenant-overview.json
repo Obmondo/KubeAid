@@ -1,0 +1,818 @@
+{
+  "kind": "PersesDashboard",
+  "apiVersion": "perses.dev/v1alpha2",
+  "metadata": {
+    "name": "tempo-tenant-overview",
+    "namespace": "perses-dev",
+    "labels": {
+      "app.kubernetes.io/component": "dashboard",
+      "app.kubernetes.io/instance": "tempo-tenant-overview",
+      "app.kubernetes.io/name": "perses-dashboard",
+      "app.kubernetes.io/part-of": "perses-operator"
+    }
+  },
+  "spec": {
+    "config": {
+      "display": {
+        "name": "Tempo / Tenant"
+      },
+      "variables": [
+        {
+          "kind": "ListVariable",
+          "spec": {
+            "display": {
+              "name": "cluster",
+              "hidden": false
+            },
+            "allowAllValue": false,
+            "allowMultiple": true,
+            "plugin": {
+              "kind": "PrometheusLabelValuesVariable",
+              "spec": {
+                "datasource": {
+                  "kind": "PrometheusDatasource",
+                  "name": "prometheus-datasource"
+                },
+                "labelName": "cluster",
+                "matchers": [
+                  "tempo_build_info{}"
+                ]
+              }
+            },
+            "name": "cluster"
+          }
+        },
+        {
+          "kind": "ListVariable",
+          "spec": {
+            "display": {
+              "name": "namespace",
+              "hidden": false
+            },
+            "allowAllValue": false,
+            "allowMultiple": false,
+            "plugin": {
+              "kind": "PrometheusLabelValuesVariable",
+              "spec": {
+                "datasource": {
+                  "kind": "PrometheusDatasource",
+                  "name": "prometheus-datasource"
+                },
+                "labelName": "namespace",
+                "matchers": [
+                  "tempo_build_info{cluster=\"$cluster\"}"
+                ]
+              }
+            },
+            "name": "namespace"
+          }
+        },
+        {
+          "kind": "ListVariable",
+          "spec": {
+            "display": {
+              "name": "tenant",
+              "hidden": false
+            },
+            "allowAllValue": false,
+            "allowMultiple": false,
+            "plugin": {
+              "kind": "PrometheusLabelValuesVariable",
+              "spec": {
+                "datasource": {
+                  "kind": "PrometheusDatasource",
+                  "name": "prometheus-datasource"
+                },
+                "labelName": "tenant",
+                "matchers": [
+                  "tempodb_blocklist_length{cluster=\"$cluster\",job=~\"($namespace)/compactor\"}"
+                ]
+              }
+            },
+            "name": "tenant"
+          }
+        }
+      ],
+      "panels": {
+        "0_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Tenant info",
+              "description": "Displays the effective Tempo limits (limit_name)"
+            },
+            "plugin": {
+              "kind": "Table",
+              "spec": {
+                "columnSettings": [
+                  {
+                    "header": "limit name",
+                    "name": "limit_name"
+                  }
+                ]
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "max by (limit_name) (\n    max by (cluster, namespace, limit_name) (\n      tempo_limits_overrides{cluster=~\"$cluster\",job=~\"($namespace)/compactor\",user=\"$tenant\"}\n    )\n  or\n    max by (cluster, namespace, limit_name) (\n      tempo_limits_defaults{cluster=~\"$cluster\",job=~\"($namespace)/compactor\"}\n    )\n)"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "1_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Distributor bytes/s",
+              "description": "Data ingestion rate (in bytes/sec) for the Tempo distributor, filtered by tenant, cluster, and namespace."
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "bytes/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum(\n  rate(\n    tempo_distributor_bytes_received_total{cluster=~\"$cluster\",job=~\"($namespace)/distributor\",tenant=\"$tenant\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "received"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "max by (ingestion_rate_limit_bytes) (\n    max by (cluster, namespace, limit_name) (\n      tempo_limits_overrides{cluster=~\"$cluster\",job=~\"($namespace)/compactor\",limit_name=\"ingestion_rate_limit_bytes\",user=\"$tenant\"}\n    )\n  or\n    max by (cluster, namespace, limit_name) (\n      tempo_limits_defaults{cluster=~\"$cluster\",job=~\"($namespace)/compactor\",limit_name=\"ingestion_rate_limit_bytes\"}\n    )\n)",
+                      "seriesNameFormat": "limit"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "max by (ingestion_burst_size_bytes) (\n    max by (cluster, namespace, limit_name) (\n      tempo_limits_overrides{cluster=~\"$cluster\",job=~\"($namespace)/compactor\",limit_name=\"ingestion_burst_size_bytes\",user=\"$tenant\"}\n    )\n  or\n    max by (cluster, namespace, limit_name) (\n      tempo_limits_defaults{cluster=~\"$cluster\",job=~\"($namespace)/compactor\",limit_name=\"ingestion_burst_size_bytes\"}\n    )\n)",
+                      "seriesNameFormat": "burst limit"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "1_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Distributor span/s",
+              "description": "Rate of Spans per Second for Tempo Distributor"
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum(\n  rate(\n    tempo_distributor_spans_received_total{cluster=~\"$cluster\",job=~\"($namespace)/distributor\",tenant=\"$tenant\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "accepted"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (reason) (\n  rate(\n    tempo_discarded_spans_total{cluster=~\"$cluster\",job=~\"($namespace)/distributor\",tenant=\"$tenant\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "refused {{ reason }}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "1_2": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Live traces",
+              "description": "Tempo ingester traces in memory"
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "max(tempo_ingester_live_traces{cluster=~\"$cluster\",job=~\"($namespace)/ingester\",tenant=\"$tenant\"})",
+                      "seriesNameFormat": "live traces"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "max by (max_global_traces_per_user) (\n    max by (cluster, namespace, limit_name) (\n      tempo_limits_overrides{cluster=~\"$cluster\",job=~\"($namespace)/compactor\",limit_name=\"max_global_traces_per_user\",user=\"$tenant\"}\n    )\n  or\n    max by (cluster, namespace, limit_name) (\n      tempo_limits_defaults{cluster=~\"$cluster\",job=~\"($namespace)/compactor\",limit_name=\"max_global_traces_per_user\"}\n    )\n)",
+                      "seriesNameFormat": "global limit"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "max by (max_local_traces_per_user) (\n    max by (cluster, namespace, limit_name) (\n      tempo_limits_overrides{cluster=~\"$cluster\",job=~\"($namespace)/compactor\",limit_name=\"max_local_traces_per_user\",user=\"$tenant\"}\n    )\n  or\n    max by (cluster, namespace, limit_name) (\n      tempo_limits_defaults{cluster=~\"$cluster\",job=~\"($namespace)/compactor\",limit_name=\"max_local_traces_per_user\"}\n    )\n)",
+                      "seriesNameFormat": "local limit"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "2_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Queries/s (ID lookup)",
+              "description": "Rate per second of traces queries handled by Tempo's query-frontend"
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (status) (\n  rate(\n    tempo_query_frontend_queries_total{cluster=~\"$cluster\",job=~\"($namespace)/query-frontend\",op=\"traces\",tenant=\"$tenant\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "{{ status }}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "2_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Queries/s (search)",
+              "description": "Rate per second of Tempo search queries processed by the query-frontend"
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (status) (\n  rate(\n    tempo_query_frontend_queries_total{cluster=~\"$cluster\",job=~\"($namespace)/query-frontend\",op=\"search\",tenant=\"$tenant\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "{{ status }}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "3_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Blockslist length",
+              "description": "Average number of blocks currently listed in the blocklist of the Tempo compactor"
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "avg(tempodb_blocklist_length{cluster=~\"$cluster\",job=~\"($namespace)/compactor\",tenant=\"$tenant\"})",
+                      "seriesNameFormat": "length"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "3_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Outstanding compactions",
+              "description": "Average number of Tempo blocks awaiting compaction per compactor instance"
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "  sum(\n    tempodb_compaction_outstanding_blocks{cluster=~\"$cluster\",job=~\"($namespace)/compactor\",tenant=\"$tenant\"}\n  )\n/\n  count(tempo_build_info{cluster=~\"$cluster\",job=~\"($namespace)/compactor\"})",
+                      "seriesNameFormat": "blocks"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "4_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Bytes/s",
+              "description": "Rate of trace data (in bytes/sec) ingested by the Tempo metrics generato"
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "bytes/sec"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum(\n  rate(\n    tempo_metrics_generator_bytes_received_total{cluster=~\"$cluster\",job=~\"($namespace)/metrics-generator\",tenant=\"$tenant\"}[$__rate_interval]\n  )\n)",
+                      "seriesNameFormat": "rate"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "4_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Active series",
+              "description": "Number of active metric series registered in the Tempo Metrics Generator"
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom"
+                },
+                "visual": {
+                  "areaOpacity": 1,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "decimal"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum(\n  tempo_metrics_generator_registry_active_series{cluster=~\"$cluster\",job=~\"($namespace)/metrics-generator\",tenant=\"$tenant\"}\n)",
+                      "seriesNameFormat": "{{ tenant }}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "max by (metrics_generator_max_active_series) (\n    max by (cluster, namespace, limit_name) (\n      tempo_limits_overrides{cluster=~\"$cluster\",job=~\"($namespace)/compactor\",limit_name=\"metrics_generator_max_active_series\",user=\"$tenant\"}\n    )\n  or\n    max by (cluster, namespace, limit_name) (\n      tempo_limits_defaults{cluster=~\"$cluster\",job=~\"($namespace)/compactor\",limit_name=\"metrics_generator_max_active_series\"}\n    )\n)",
+                      "seriesNameFormat": "limit"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "layouts": [
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Tenant Info"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 24,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/0_0"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Ingestion"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 8,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/1_0"
+                }
+              },
+              {
+                "x": 8,
+                "y": 0,
+                "width": 8,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/1_1"
+                }
+              },
+              {
+                "x": 16,
+                "y": 0,
+                "width": 8,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/1_2"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Reads"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/2_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/2_1"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Storage"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/3_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/3_1"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Metrics Generator"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/4_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/4_1"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "duration": "1h"
+    }
+  },
+  "status": {}
+}

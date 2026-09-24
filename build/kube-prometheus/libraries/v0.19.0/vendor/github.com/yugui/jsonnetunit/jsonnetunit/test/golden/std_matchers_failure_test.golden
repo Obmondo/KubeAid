@@ -1,0 +1,11 @@
+testEq: Expected 1 to be 2
+testGe: Expected 1 to be greater than or equal to 2
+testGt: Expected 1 to be greater than 2
+testGtEq: Expected 1 to be greater than 1
+testLe: Expected 2 to be less than or equal to 1
+testLt: Expected 2 to be less than 1
+testLtEq: Expected 2 to be less than 2
+testNe: Expected 1 not to be 1
+testThatFunction: Expected 1 to satisfy the function
+testThatObject: Expected 1 to satisfy \{"actual": 1, "result": false\}
+testThatObjectDesc: Expected 1 to satisfy the condition that the value is 2

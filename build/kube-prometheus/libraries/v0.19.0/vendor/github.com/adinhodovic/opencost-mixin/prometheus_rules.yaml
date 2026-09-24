@@ -1,0 +1,57 @@
+"groups":
+- "interval": "5m"
+  "name": "opencost.rules.workload"
+  "rules":
+  - "expr": |
+      sum by (cluster, namespace, workload_type, workload) (
+        (
+          sum by (cluster, namespace, pod, instance) (container_memory_allocation_bytes)
+          * on(cluster, instance) group_left()
+          (avg by (cluster, instance) (node_ram_hourly_cost) / 1024 / 1024 / 1024)
+        )
+        * on(cluster, namespace, pod) group_left(workload_type, workload)
+        max by (cluster, namespace, pod, workload_type, workload) (namespace_workload_pod:kube_pod_owner:relabel)
+      )
+    "record": "workload:opencost_ram_cost:sum"
+  - "expr": |
+      sum by (cluster, namespace, workload_type, workload) (
+        (
+          sum by (cluster, namespace, pod, instance) (container_cpu_allocation)
+          * on(cluster, instance) group_left()
+          avg by (cluster, instance) (node_cpu_hourly_cost)
+        )
+        * on(cluster, namespace, pod) group_left(workload_type, workload)
+        max by (cluster, namespace, pod, workload_type, workload) (namespace_workload_pod:kube_pod_owner:relabel)
+      )
+    "record": "workload:opencost_cpu_cost:sum"
+  - "expr": |
+      sum by (cluster, namespace, persistentvolumeclaim, workload_type, workload) (
+        max by (cluster, namespace, persistentvolumeclaim, workload_type, workload) (
+          max by (cluster, namespace, pod, persistentvolumeclaim) (kube_pod_spec_volumes_persistentvolumeclaims_info{job="kube-state-metrics"})
+          * on(cluster, namespace, pod) group_left(workload_type, workload)
+          max by (cluster, namespace, pod, workload_type, workload) (namespace_workload_pod:kube_pod_owner:relabel)
+        )
+        * on(cluster, namespace, persistentvolumeclaim) group_left()
+        sum by (cluster, namespace, persistentvolumeclaim) (
+          (
+            sum by (cluster, persistentvolume) (kube_persistentvolume_capacity_bytes{job="kube-state-metrics"} / 1024 / 1024 / 1024)
+            * sum by (cluster, persistentvolume) (pv_hourly_cost)
+          )
+          * on(cluster, persistentvolume) group_left(persistentvolumeclaim, namespace)
+          max by (cluster, persistentvolume, persistentvolumeclaim, namespace) (
+            label_replace(kube_persistentvolumeclaim_info{job="kube-state-metrics"}, "persistentvolume", "$1", "volumename", "(.*)")
+          )
+        )
+      )
+    "record": "workload:opencost_pvc_cost:sum"
+  - "expr": |
+      sum by (cluster, namespace, workload_type, workload) (
+        (
+          sum by (cluster, namespace, pod, instance) (container_gpu_allocation)
+          * on(cluster, instance) group_left()
+          avg by (cluster, instance) (node_gpu_hourly_cost)
+        )
+        * on(cluster, namespace, pod) group_left(workload_type, workload)
+        max by (cluster, namespace, pod, workload_type, workload) (namespace_workload_pod:kube_pod_owner:relabel)
+      )
+    "record": "workload:opencost_gpu_cost:sum"

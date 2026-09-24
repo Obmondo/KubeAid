@@ -1,0 +1,1099 @@
+{
+  "kind": "PersesDashboard",
+  "apiVersion": "perses.dev/v1alpha2",
+  "metadata": {
+    "name": "blackbox-overview",
+    "namespace": "perses-dev",
+    "labels": {
+      "app.kubernetes.io/component": "dashboard",
+      "app.kubernetes.io/instance": "blackbox-overview",
+      "app.kubernetes.io/name": "perses-dashboard",
+      "app.kubernetes.io/part-of": "perses-operator"
+    }
+  },
+  "spec": {
+    "config": {
+      "display": {
+        "name": "Blackbox Exporter / Overview"
+      },
+      "variables": [
+        {
+          "kind": "ListVariable",
+          "spec": {
+            "display": {
+              "name": "job",
+              "hidden": false
+            },
+            "allowAllValue": false,
+            "allowMultiple": false,
+            "plugin": {
+              "kind": "PrometheusLabelValuesVariable",
+              "spec": {
+                "datasource": {
+                  "kind": "PrometheusDatasource",
+                  "name": "prometheus-datasource"
+                },
+                "labelName": "job",
+                "matchers": [
+                  "probe_success{}"
+                ]
+              }
+            },
+            "name": "job"
+          }
+        },
+        {
+          "kind": "ListVariable",
+          "spec": {
+            "display": {
+              "name": "instance",
+              "hidden": false
+            },
+            "allowAllValue": false,
+            "allowMultiple": false,
+            "plugin": {
+              "kind": "PrometheusLabelValuesVariable",
+              "spec": {
+                "datasource": {
+                  "kind": "PrometheusDatasource",
+                  "name": "prometheus-datasource"
+                },
+                "labelName": "instance",
+                "matchers": [
+                  "probe_success{job=\"$job\"}"
+                ]
+              }
+            },
+            "name": "instance"
+          }
+        }
+      ],
+      "panels": {
+        "0_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Status Map",
+              "description": "Shows Probe success, either 1 if up, or 0 if down"
+            },
+            "plugin": {
+              "kind": "StatChart",
+              "spec": {
+                "calculation": "last",
+                "format": {
+                  "unit": "decimal"
+                },
+                "sparkline": {
+                  "width": 1
+                },
+                "thresholds": {
+                  "defaultColor": "green",
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": 0
+                    },
+                    {
+                      "color": "green",
+                      "value": 1
+                    }
+                  ]
+                },
+                "valueFontSize": 50
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "max by (instance) (probe_success{job=~\"$job\"})",
+                      "seriesNameFormat": "{{instance}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "1_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Probes",
+              "description": "Counts Probes Success"
+            },
+            "plugin": {
+              "kind": "StatChart",
+              "spec": {
+                "calculation": "last",
+                "format": {
+                  "unit": "decimal"
+                },
+                "sparkline": {
+                  "width": 1
+                },
+                "thresholds": {
+                  "defaultColor": "green",
+                  "mode": "absolute"
+                },
+                "valueFontSize": 50
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "count(probe_success{job=~\"$job\"})"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "1_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Probes Success",
+              "description": "Percentage of Probes Success"
+            },
+            "plugin": {
+              "kind": "StatChart",
+              "spec": {
+                "calculation": "last",
+                "format": {
+                  "unit": "percent-decimal"
+                },
+                "sparkline": {
+                  "width": 1
+                },
+                "thresholds": {
+                  "defaultColor": "red",
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "yellow",
+                      "value": 0.99
+                    },
+                    {
+                      "color": "green",
+                      "value": 0.999
+                    }
+                  ]
+                },
+                "valueFontSize": 50
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "(count(probe_success{job=~\"$job\"} == 1) or vector(0)) / count(probe_success{job=~\"$job\"})"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "1_2": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Probes SSL",
+              "description": "Proportion of HTTP probes that successfully used SSL"
+            },
+            "plugin": {
+              "kind": "StatChart",
+              "spec": {
+                "calculation": "last",
+                "format": {
+                  "unit": "percent-decimal"
+                },
+                "sparkline": {
+                  "width": 1
+                },
+                "thresholds": {
+                  "defaultColor": "red",
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "yellow",
+                      "value": 0.99
+                    },
+                    {
+                      "color": "green",
+                      "value": 0.999
+                    }
+                  ]
+                },
+                "valueFontSize": 50
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "count(probe_http_ssl{job=~\"$job\"} == 1) / count(probe_http_version{job=~\"$job\"})"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "1_3": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Probe Average Duration",
+              "description": "Duration in Seconds"
+            },
+            "plugin": {
+              "kind": "StatChart",
+              "spec": {
+                "calculation": "last",
+                "format": {
+                  "unit": "seconds"
+                },
+                "sparkline": {
+                  "width": 1
+                },
+                "thresholds": {
+                  "defaultColor": "green",
+                  "mode": "absolute"
+                },
+                "valueFontSize": 50
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "avg(probe_duration_seconds{job=~\"$job\"})"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "2_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Uptime",
+              "description": "Max uptime by instance"
+            },
+            "plugin": {
+              "kind": "StatChart",
+              "spec": {
+                "calculation": "last",
+                "format": {
+                  "unit": "percent-decimal"
+                },
+                "sparkline": {
+                  "width": 1
+                },
+                "thresholds": {
+                  "defaultColor": "red",
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "yellow",
+                      "value": 0.99
+                    },
+                    {
+                      "color": "green",
+                      "value": 0.999
+                    }
+                  ]
+                },
+                "valueFontSize": 50
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "max by (instance) (probe_success{instance=~\"$instance\",job=~\"$job\"})",
+                      "seriesNameFormat": "{{instance}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "2_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Uptime 30d",
+              "description": "30 days uptime"
+            },
+            "plugin": {
+              "kind": "StatChart",
+              "spec": {
+                "calculation": "last",
+                "format": {
+                  "unit": "percent-decimal"
+                },
+                "sparkline": {
+                  "width": 1
+                },
+                "thresholds": {
+                  "defaultColor": "red",
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "yellow",
+                      "value": 0.99
+                    },
+                    {
+                      "color": "green",
+                      "value": 0.999
+                    }
+                  ]
+                },
+                "valueFontSize": 50
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "avg_over_time(probe_success{instance=~\"$instance\",job=~\"$job\"}[30d])",
+                      "seriesNameFormat": "{{instance}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "3_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Probe Duration",
+              "description": "Shows Probe duration in seconds"
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "seconds"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "sum by (instance) (\n  avg by (phase, instance) (probe_http_duration_seconds{instance=~\"$instance\",job=~\"$job\"})\n)",
+                      "seriesNameFormat": "HTTP duration"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "avg by (instance) (probe_duration_seconds{instance=~\"$instance\",job=~\"$job\"})",
+                      "seriesNameFormat": "Total probe duration"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "3_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Probe Phases",
+              "description": "Shows Probe duration in seconds"
+            },
+            "plugin": {
+              "kind": "TimeSeriesChart",
+              "spec": {
+                "legend": {
+                  "mode": "table",
+                  "position": "bottom",
+                  "size": "small"
+                },
+                "visual": {
+                  "areaOpacity": 0.5,
+                  "display": "line",
+                  "lineWidth": 0.25,
+                  "palette": {
+                    "mode": "auto"
+                  }
+                },
+                "yAxis": {
+                  "format": {
+                    "unit": "seconds"
+                  }
+                }
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "avg by (phase) (probe_http_duration_seconds{instance=~\"$instance\",job=~\"$job\"})",
+                      "seriesNameFormat": "{{phase}}"
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "avg by (phase) (probe_icmp_duration_seconds{instance=~\"$instance\",job=~\"$job\"})",
+                      "seriesNameFormat": "{{phase}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "4_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Latest Response Code",
+              "description": "Shows Probe Last Status Code"
+            },
+            "plugin": {
+              "kind": "StatChart",
+              "spec": {
+                "calculation": "last",
+                "format": {
+                  "unit": "decimal"
+                },
+                "sparkline": {
+                  "width": 1
+                },
+                "thresholds": {
+                  "defaultColor": "green",
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": 500
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 400
+                    },
+                    {
+                      "color": "blue",
+                      "value": 300
+                    }
+                  ]
+                },
+                "valueFontSize": 50
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "max by (instance) (probe_http_status_code{instance=~\"$instance\",job=~\"$job\"})",
+                      "seriesNameFormat": "{{instance}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "4_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "SSL Version",
+              "description": "Shows Probe TLS Version"
+            },
+            "plugin": {
+              "kind": "StatChart",
+              "spec": {
+                "calculation": "last",
+                "format": {
+                  "unit": "decimal"
+                },
+                "sparkline": {
+                  "width": 1
+                },
+                "thresholds": {
+                  "defaultColor": "green",
+                  "mode": "absolute"
+                },
+                "valueFontSize": 50
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "max by (instance, version) (probe_tls_version_info{instance=~\"$instance\",job=~\"$job\"})",
+                      "seriesNameFormat": "{{version}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "4_2": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "SSL Certificate Expiry",
+              "description": "Shows When SSL Cert Will Expire"
+            },
+            "plugin": {
+              "kind": "StatChart",
+              "spec": {
+                "calculation": "last",
+                "format": {
+                  "unit": "decimal"
+                },
+                "sparkline": {
+                  "width": 1
+                },
+                "thresholds": {
+                  "defaultColor": "green",
+                  "mode": "absolute"
+                },
+                "valueFontSize": 50
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "min by (instance) (probe_ssl_earliest_cert_expiry{instance=~\"$instance\",job=~\"$job\"}) - time()"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "4_3": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Redirects",
+              "description": "Shows Probes HTTP Redirects"
+            },
+            "plugin": {
+              "kind": "StatChart",
+              "spec": {
+                "calculation": "last",
+                "format": {
+                  "unit": "decimal"
+                },
+                "sparkline": {
+                  "width": 1
+                },
+                "thresholds": {
+                  "defaultColor": "blue",
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "name": "No",
+                      "value": 0
+                    },
+                    {
+                      "color": "blue",
+                      "name": "Yes",
+                      "value": 1
+                    }
+                  ]
+                },
+                "valueFontSize": 50
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "max by (instance) (probe_http_redirects{instance=~\"$instance\",job=~\"$job\"})"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "4_4": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "HTTP Version",
+              "description": "Shows Probes HTTP Version"
+            },
+            "plugin": {
+              "kind": "StatChart",
+              "spec": {
+                "calculation": "last",
+                "format": {
+                  "unit": "decimal"
+                },
+                "sparkline": {
+                  "width": 1
+                },
+                "thresholds": {
+                  "defaultColor": "blue",
+                  "mode": "absolute"
+                },
+                "valueFontSize": 50
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "max by (instance) (probe_http_version{instance=~\"$instance\",job=~\"$job\"})",
+                      "seriesNameFormat": "{{version}}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "5_0": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Average Latency",
+              "description": "Average Duration in Seconds by Instance"
+            },
+            "plugin": {
+              "kind": "StatChart",
+              "spec": {
+                "calculation": "mean",
+                "format": {
+                  "unit": "seconds"
+                },
+                "sparkline": {
+                  "width": 1
+                },
+                "thresholds": {
+                  "defaultColor": "green",
+                  "mode": "absolute"
+                },
+                "valueFontSize": 50
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "avg by (instance) (probe_duration_seconds{instance=~\"$instance\",job=~\"$job\"})"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "5_1": {
+          "kind": "Panel",
+          "spec": {
+            "display": {
+              "name": "Average DNS Lookup Time",
+              "description": "Average DNS lookup Time per instance"
+            },
+            "plugin": {
+              "kind": "StatChart",
+              "spec": {
+                "calculation": "mean",
+                "format": {
+                  "unit": "seconds"
+                },
+                "sparkline": {
+                  "width": 1
+                },
+                "thresholds": {
+                  "defaultColor": "green",
+                  "mode": "absolute"
+                },
+                "valueFontSize": 50
+              }
+            },
+            "queries": [
+              {
+                "kind": "TimeSeriesQuery",
+                "spec": {
+                  "plugin": {
+                    "kind": "PrometheusTimeSeriesQuery",
+                    "spec": {
+                      "datasource": {
+                        "kind": "PrometheusDatasource",
+                        "name": "prometheus-datasource"
+                      },
+                      "query": "avg by (instance) (probe_dns_lookup_time_seconds{instance=~\"$instance\",job=~\"$job\"})"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "layouts": [
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Summary"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 24,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/0_0"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Probes Stats"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 6,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/1_0"
+                }
+              },
+              {
+                "x": 6,
+                "y": 0,
+                "width": 6,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/1_1"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 6,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/1_2"
+                }
+              },
+              {
+                "x": 18,
+                "y": 0,
+                "width": 6,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/1_3"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Probes Uptimes Stats"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/2_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/2_1"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Probes"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/3_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 10,
+                "content": {
+                  "$ref": "#/spec/panels/3_1"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Probes Additional Stats"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 4,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/4_0"
+                }
+              },
+              {
+                "x": 4,
+                "y": 0,
+                "width": 4,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/4_1"
+                }
+              },
+              {
+                "x": 8,
+                "y": 0,
+                "width": 4,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/4_2"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 4,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/4_3"
+                }
+              },
+              {
+                "x": 16,
+                "y": 0,
+                "width": 4,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/4_4"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Grid",
+          "spec": {
+            "display": {
+              "title": "Probes Avg Duration Stats"
+            },
+            "items": [
+              {
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/5_0"
+                }
+              },
+              {
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 8,
+                "content": {
+                  "$ref": "#/spec/panels/5_1"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "duration": "1h"
+    }
+  },
+  "status": {}
+}

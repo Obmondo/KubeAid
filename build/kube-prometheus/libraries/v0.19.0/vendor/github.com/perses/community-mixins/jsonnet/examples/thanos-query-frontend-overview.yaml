@@ -1,0 +1,680 @@
+apiVersion: perses.dev/v1alpha2
+kind: PersesDashboard
+metadata:
+  labels:
+    app.kubernetes.io/component: dashboard
+    app.kubernetes.io/instance: thanos-query-frontend-overview
+    app.kubernetes.io/name: perses-dashboard
+    app.kubernetes.io/part-of: perses-operator
+  name: thanos-query-frontend-overview
+  namespace: perses-dev
+spec:
+  config:
+    display:
+      name: Thanos / Query Frontend / Overview
+    duration: 1h
+    layouts:
+    - kind: Grid
+      spec:
+        display:
+          title: Query Frontend API
+        items:
+        - content:
+            $ref: '#/spec/panels/0_0'
+          height: 10
+          width: 6
+          x: 0
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/0_1'
+          height: 10
+          width: 6
+          x: 6
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/0_2'
+          height: 10
+          width: 6
+          x: 12
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/0_3'
+          height: 10
+          width: 6
+          x: 18
+          "y": 0
+    - kind: Grid
+      spec:
+        display:
+          title: Query Frontend Cache Operations
+        items:
+        - content:
+            $ref: '#/spec/panels/1_0'
+          height: 10
+          width: 6
+          x: 0
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/1_1'
+          height: 10
+          width: 6
+          x: 6
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/1_2'
+          height: 10
+          width: 6
+          x: 12
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/1_3'
+          height: 10
+          width: 6
+          x: 18
+          "y": 0
+    - kind: Grid
+      spec:
+        display:
+          title: Resources
+        items:
+        - content:
+            $ref: '#/spec/panels/2_0'
+          height: 10
+          width: 6
+          x: 0
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/2_1'
+          height: 10
+          width: 6
+          x: 6
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/2_2'
+          height: 10
+          width: 6
+          x: 12
+          "y": 0
+        - content:
+            $ref: '#/spec/panels/2_3'
+          height: 10
+          width: 6
+          x: 18
+          "y": 0
+    panels:
+      "0_0":
+        kind: Panel
+        spec:
+          display:
+            description: Shows rate of requests on query frontend API.
+            name: Query Request Rate
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: requests/sec
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (namespace, job, handler, code) (
+                      rate(
+                        http_requests_total{handler="query-frontend",job=~"$job",namespace="$namespace"}[$__rate_interval]
+                      )
+                    )
+                  seriesNameFormat: '{{code}} - {{job}} {{namespace}}'
+      "0_1":
+        kind: Panel
+        spec:
+          display:
+            description: Shows rate of queries passing through Query Frontend.
+            name: Query Rate
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: requests/sec
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (namespace, job, handler, code) (
+                      rate(
+                        thanos_query_frontend_queries_total{job=~"$job",namespace="$namespace",op="query_range"}[$__rate_interval]
+                      )
+                    )
+                  seriesNameFormat: '{{code}} - {{job}} {{namespace}}'
+      "0_2":
+        kind: Panel
+        spec:
+          display:
+            description: Shows the percentage of errors compared to the total number of requests on query frontend API.
+            name: Query Error Rate
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: percent
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |2-
+                        sum by (namespace, job, code) (
+                          rate(
+                            http_requests_total{code=~"5..",handler="query-frontend",job=~"$job",namespace="$namespace"}[$__rate_interval]
+                          )
+                        )
+                      / ignoring (code) group_left ()
+                        sum by (namespace, job) (
+                          rate(
+                            http_requests_total{handler="query-frontend",job=~"$job",namespace="$namespace"}[$__rate_interval]
+                          )
+                        )
+                    *
+                      100
+                  seriesNameFormat: '{{code}} - {{job}} {{namespace}}'
+      "0_3":
+        kind: Panel
+        spec:
+          display:
+            description: Shows p50, p90 and p99 of the time taken to respond to a query via the query frontend API.
+            name: Query Duration
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: seconds
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.5,
+                      sum by (namespace, job, le) (
+                        rate(
+                          http_request_duration_seconds_bucket{handler="query-frontend",job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p50 {{job}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.9,
+                      sum by (namespace, job, le) (
+                        rate(
+                          http_request_duration_seconds_bucket{handler="query-frontend",job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p90 {{job}} {{namespace}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    histogram_quantile(
+                      0.99,
+                      sum by (namespace, job, le) (
+                        rate(
+                          http_request_duration_seconds_bucket{handler="query-frontend",job=~"$job",namespace="$namespace"}[$__rate_interval]
+                        )
+                      )
+                    )
+                  seriesNameFormat: p99 {{job}} {{namespace}}
+      "1_0":
+        kind: Panel
+        spec:
+          display:
+            description: Shows rate of cache requests by cortex.
+            name: Cache Requests
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: requests/sec
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (namespace, job, tripperware) (
+                      rate(
+                        cortex_cache_request_duration_seconds_count{job=~"$job",namespace="$namespace"}[$__rate_interval]
+                      )
+                    )
+                  seriesNameFormat: '{{tripperware}} - {{job}} {{namespace}}'
+      "1_1":
+        kind: Panel
+        spec:
+          display:
+            description: Shows rate of cache hits by cortex.
+            name: Cache Hits
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: counts/sec
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (namespace, job, tripperware) (
+                      rate(cortex_cache_hits_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                    )
+                  seriesNameFormat: '{{tripperware}} - {{job}} {{namespace}}'
+      "1_2":
+        kind: Panel
+        spec:
+          display:
+            description: Shows rate of cache misses by cortex.
+            name: Cache Misses
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: counts/sec
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (namespace, job, tripperware) (
+                      rate(querier_cache_misses_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                    )
+                  seriesNameFormat: '{{tripperware}} - {{job}} {{namespace}}'
+      "1_3":
+        kind: Panel
+        spec:
+          display:
+            description: Shows rate of keys fetched from cache by cortex.
+            name: Fetched Keys
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+              visual:
+                areaOpacity: 1
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+                stack: all
+              yAxis:
+                format:
+                  unit: decimal
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: |-
+                    sum by (namespace, job, tripperware) (
+                      rate(cortex_cache_fetched_keys_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                    )
+                  seriesNameFormat: '{{tripperware}} - {{job}} {{namespace}}'
+      "2_0":
+        kind: Panel
+        spec:
+          display:
+            description: Shows the CPU usage of the component.
+            name: CPU Usage
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+                values:
+                - last
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: decimal
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: rate(process_cpu_seconds_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                  seriesNameFormat: '{{pod}}'
+      "2_1":
+        kind: Panel
+        spec:
+          display:
+            description: Shows various memory usage metrics of the component.
+            name: Memory Usage
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+                values:
+                - last
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: bytes
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: go_memstats_alloc_bytes{job=~"$job",namespace="$namespace"}
+                  seriesNameFormat: Alloc All {{pod}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: go_memstats_heap_alloc_bytes{job=~"$job",namespace="$namespace"}
+                  seriesNameFormat: Alloc Heap {{pod}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: rate(go_memstats_alloc_bytes_total{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                  seriesNameFormat: Alloc Rate All {{pod}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: rate(go_memstats_heap_alloc_bytes{job=~"$job",namespace="$namespace"}[$__rate_interval])
+                  seriesNameFormat: Alloc Rate Heap {{pod}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: go_memstats_stack_inuse_bytes{job=~"$job",namespace="$namespace"}
+                  seriesNameFormat: Inuse Stack {{pod}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: go_memstats_heap_inuse_bytes{job=~"$job",namespace="$namespace"}
+                  seriesNameFormat: Inuse Heap {{pod}}
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: process_resident_memory_bytes{job=~"$job",namespace="$namespace"}
+                  seriesNameFormat: Resident Memory {{pod}}
+      "2_2":
+        kind: Panel
+        spec:
+          display:
+            description: Shows the number of goroutines being used by the component.
+            name: Goroutines
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+                values:
+                - last
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: decimal
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: go_goroutines{job=~"$job",namespace="$namespace"}
+                  seriesNameFormat: '{{pod}}'
+      "2_3":
+        kind: Panel
+        spec:
+          display:
+            description: Shows the Go garbage collection pause durations for the component.
+            name: GC Duration
+          plugin:
+            kind: TimeSeriesChart
+            spec:
+              legend:
+                mode: table
+                position: bottom
+                values:
+                - last
+              visual:
+                areaOpacity: 0.5
+                display: line
+                lineWidth: 0.25
+                palette:
+                  mode: auto
+              yAxis:
+                format:
+                  unit: seconds
+          queries:
+          - kind: TimeSeriesQuery
+            spec:
+              plugin:
+                kind: PrometheusTimeSeriesQuery
+                spec:
+                  datasource:
+                    kind: PrometheusDatasource
+                    name: custom-datasource
+                  query: go_gc_duration_seconds{job=~"$job",namespace="$namespace"}
+                  seriesNameFormat: '{{quantile}} - {{pod}}'
+    variables:
+    - kind: ListVariable
+      spec:
+        allowAllValue: false
+        allowMultiple: true
+        display:
+          hidden: false
+          name: job
+        name: job
+        plugin:
+          kind: PrometheusLabelValuesVariable
+          spec:
+            datasource:
+              kind: PrometheusDatasource
+              name: custom-datasource
+            labelName: job
+            matchers:
+            - thanos_build_info{container="thanos-query-frontend"}
+    - kind: ListVariable
+      spec:
+        allowAllValue: false
+        allowMultiple: false
+        display:
+          hidden: false
+          name: namespace
+        name: namespace
+        plugin:
+          kind: PrometheusLabelValuesVariable
+          spec:
+            datasource:
+              kind: PrometheusDatasource
+              name: custom-datasource
+            labelName: namespace
+            matchers:
+            - thanos_status{}
+status: {}

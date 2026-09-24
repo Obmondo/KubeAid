@@ -1,0 +1,47 @@
+---
+# Define stages to run in pipeline
+stages:
+- lint
+- test
+
+dummy-stage:
+  only:
+  - merge_requests
+  stage: lint
+  script:
+  - echo "Changed file list:"
+  - git diff --name-only $(git log -n 1 origin/master --pretty=%H)...${CI_COMMIT_SHA}
+
+jsonnet:
+  image: golang
+  artifacts:
+    name: "$CI_JOB_NAME"
+    paths:
+    - manifests
+  only:
+  - merge_requests
+  variables:
+    JSONNET_VERSION: "0.16.0"
+  stage: lint
+  script:
+  - go mod init dummymod
+  - go get github.com/google/go-jsonnet/cmd/jsonnet@v${JSONNET_VERSION}
+  - go get github.com/google/go-jsonnet/cmd/jsonnetfmt@v${JSONNET_VERSION}
+  - make lint-jsonnet
+  - make dashboards_out prometheus_alerts.yaml prometheus_rules.yaml
+
+prometheus-test:
+  image:
+    name: prom/prometheus:latest
+    entrypoint: [""]
+  dependencies:
+  - jsonnet
+  needs:
+  - jsonnet
+  only:
+  - merge_requests
+  stage: test
+  script:
+  - promtool check rules manifests/prometheus_rules.yaml
+  - promtool check rules manifests/prometheus_alerts.yaml
+  - promtool test rules tests.yaml

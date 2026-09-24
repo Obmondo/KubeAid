@@ -1,0 +1,19 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/created-by: perses-operator
+    app.kubernetes.io/name: perses-operator
+    app.kubernetes.io/part-of: perses-operator
+    app.kubernetes.io/version: v0.5.0
+  name: perses-operator
+  namespace: perses-dev
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: perses-operator
+subjects:
+- kind: ServiceAccount
+  name: perses-operator
+  namespace: perses-dev
