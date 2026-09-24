@@ -3,11 +3,33 @@ cluster-api-operator:
     cluster-api:
       version: v1.11.10
       createNamespace: false
+      deployment:
+        affinity: &preferWorkers
+          nodeAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                preference:
+                  matchExpressions:
+                    - key: node-role.kubernetes.io/control-plane
+                      operator: DoesNotExist
   bootstrap:
     kubeadm:
       version: v1.11.10
       createNamespace: false
+      deployment:
+        affinity: *preferWorkers
   controlPlane:
     kubeadm:
       version: v1.11.10
       createNamespace: false
+      deployment:
+        affinity: *preferWorkers
+
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist

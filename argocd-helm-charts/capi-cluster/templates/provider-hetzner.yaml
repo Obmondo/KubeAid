@@ -20,6 +20,15 @@ spec:
   version: {{ .Values.global.caph.version }}
   fetchConfig:
     url: https://github.com/syself/cluster-api-provider-hetzner/releases/download/{{ .Values.global.caph.version }}/infrastructure-components.yaml
+  deployment:
+    affinity:
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+                - key: node-role.kubernetes.io/control-plane
+                  operator: DoesNotExist
   manager:
     cacheNamespace: {{ $namespace }}
     # BUG : ClusterAPI renders --metrics-bind-addr but CAPH wants --metrics-bind-address.
