@@ -10,11 +10,15 @@ The following Kubernetes versions are supported and work as we test against thes
 
 > **Note:** In CI we test only the last two releases on a regular basis.
 
-| kube-prometheus | Kubernetes 1.26 | Kubernetes 1.27 | Kubernetes 1.28 | Kubernetes 1.32 | Kubernetes 1.33 | Kubernetes 1.34 | Kubernetes 1.35 |
-|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| v0.13.0 | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ |
-| v0.16.0 | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✗ |
-| **v0.17.0** | ✗ | ✗ | ✗ | ✗ | **✓** | **✓** | **✓** |
+| kube-prometheus | Kubernetes 1.26 | Kubernetes 1.27 | Kubernetes 1.28 | Kubernetes 1.32 | Kubernetes 1.33 | Kubernetes 1.34 | Kubernetes 1.35 | Kubernetes 1.36 | Kubernetes 1.37 |
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| v0.13.0 | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| v0.16.0 | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ |
+| v0.17.0 | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ |
+| v0.18.0 | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ |
+| **v0.19.0** | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | **✓** | **✓** | **✓** |
+
+You can refer the upstream kube-prometheus x kubernetes [Compatibility Matrix](https://github.com/prometheus-operator/kube-prometheus#compatibility) to find latest updates.
 
 You can also run `./build/kube-prometheus/build.sh --versions` to see this table in the terminal.
 
