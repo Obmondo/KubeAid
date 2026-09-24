@@ -168,3 +168,68 @@ wazuh:
 On macOS `/etc` is a symlink to `/private/etc` and FIM does not follow it, so the stock
 agent config monitors nothing there; realtime FIM is also unsupported on macOS, so the scan
 `frequency` is the detection latency.
+
+## 8. Single sign-on (OpenID Connect)
+
+The subchart already carries the plumbing under `wazuh.dashboard.sso.oidc`: an
+`openid_auth_domain` in the indexer's `config.yml`, the `openid` settings in
+`opensearch_dashboards.yml`, and the client id/secret as env vars on both the indexer
+and the dashboard, read from `existingSecret`. Roles come from one flat claim
+(`config.rolesKey`, default `roles`) and become backend roles, which
+`roleMappings.{allAccess,readall,kibanaUser,kibanaServer}.backendRoles` and
+`extraRoleMappings` map onto OpenSearch roles.
+
+```yaml
+wazuh:
+  dashboard:
+    sso:
+      oidc:
+        enabled: true
+        url: https://idp.example.com/realms/example/.well-known/openid-configuration
+        logoutUrl: https://idp.example.com/realms/example/protocol/openid-connect/logout
+        issuer: https://idp.example.com/realms/example
+        scope: "openid profile email"
+        existingSecret: wazuh-dashboard-oidc  # keys OPENSEARCH_OIDC_CLIENT_ID / _SECRET
+        roleMappings:
+          allAccess:
+            backendRoles: [administrator]
+          readall:
+            backendRoles: [analyst]
+          kibanaUser:
+            backendRoles: [analyst]
+    # Keep the internal users as break-glass: the dashboard then offers both an
+    # SSO button and the username/password form.
+    basicAuth:
+      enabled: true
+      order: 0
+      challenge: false
+```
+
+The IdP client's redirect URI is `<dashboard URL>/auth/openid/login`. The claim named by
+`rolesKey` must be in the **ID token**: the dashboard forwards the ID token to the
+indexer as the bearer credential.
+
+Things that are easy to miss:
+
+- **Security config is applied by the `wazuh-indexer` Job**, a `post-install,post-upgrade`
+  Helm hook that runs `securityadmin.sh` over the rendered files. Argo CD runs it as a
+  PostSync hook on every sync, so a values change reaches the security index without a
+  manual `securityadmin.sh` run. It uploads *every* file, so changes made through the
+  security REST API or the dashboard's Security UI are overwritten on the next sync.
+- **Both the indexer and the dashboard call the IdP**: the indexer fetches the JWKS to
+  validate tokens, the dashboard exchanges the authorization code. Both NetworkPolicies
+  are deny-by-default, so each needs an `extraEgresses` rule to the IdP (or to the
+  ingress controller in front of it), and the IdP hostname must resolve to something
+  that routes from inside the cluster. `extraSpec.pod.hostAliases` on `indexer` and
+  `dashboard` covers the case where it only resolves correctly outside.
+- **The Wazuh app has its own RBAC.** With `run_as: true` (the image's default) the
+  dashboard calls the Wazuh API on behalf of the logged-in user, and the API grants
+  roles through its own rules matched against that user's backend roles, for example
+  `{"FIND": {"backend_roles": "administrator"}}` on the `administrator` role. Those rules
+  live in the manager's RBAC database, not in this chart: create them through the API
+  (`POST /security/rules`, then `POST /security/roles/{id}/rules`) or the dashboard's
+  Server management > Security > Roles mapping. Without one, an SSO user logs in to
+  OpenSearch Dashboards but the Wazuh app reports it has no permissions.
+- The dashboard only rolls on a ConfigMap change when `autoreload.enabled` is true. The
+  OIDC env vars change the pod spec, so turning SSO on rolls it anyway; later
+  changes to the `openid` settings alone need a restart.

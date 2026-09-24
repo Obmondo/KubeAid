@@ -549,6 +549,9 @@ dashboard:
       roleMappings:
         allAccess:
           backendRoles: []
+        ## Backend roles mapped to the built-in readall role (read on every index).
+        readall:
+          backendRoles: []
         kibanaServer:
           backendRoles: []
         kibanaUser:
@@ -587,6 +590,9 @@ dashboard:
         rolesKey: "Roles"
       roleMappings:
         allAccess:
+          backendRoles: []
+        ## Backend roles mapped to the built-in readall role (read on every index).
+        readall:
           backendRoles: []
         kibanaServer:
           backendRoles: []
