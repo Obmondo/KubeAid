@@ -99,6 +99,31 @@ app.kubernetes.io/instance: {{ .Release.Name }}
     secretKeyRef:
       name: {{ .Values.secrets.existingSecret }}
       key: IRIS_ADM_PASSWORD
+{{- with .Values.authentication }}
+- name: IRIS_AUTHENTICATION_TYPE
+  value: {{ .type | quote }}
+- name: IRIS_AUTHENTICATION_LOCAL_FALLBACK
+  value: {{ ternary "True" "False" .localFallback | quote }}
+- name: IRIS_AUTHENTICATION_CREATE_USER_IF_NOT_EXIST
+  value: {{ ternary "True" "False" .createUserIfNotExist | quote }}
+{{- if eq .type "oidc" }}
+- name: OIDC_ISSUER_URL
+  value: {{ required "authentication.oidc.issuerUrl is required when authentication.type is oidc" .oidc.issuerUrl | quote }}
+- name: OIDC_CLIENT_ID
+  value: {{ required "authentication.oidc.clientId is required when authentication.type is oidc" .oidc.clientId | quote }}
+- name: OIDC_CLIENT_SECRET
+  valueFrom:
+    secretKeyRef:
+      name: {{ required "authentication.oidc.existingSecret is required when authentication.type is oidc" .oidc.existingSecret }}
+      key: {{ .oidc.secretKey }}
+- name: OIDC_SCOPES
+  value: {{ .oidc.scopes | quote }}
+- name: OIDC_MAPPING_USERNAME
+  value: {{ .oidc.mappingUsername | quote }}
+- name: OIDC_MAPPING_EMAIL
+  value: {{ .oidc.mappingEmail | quote }}
+{{- end }}
+{{- end }}
 {{- end }}
 
 {{- define "dfir-iris.volumeMounts" -}}

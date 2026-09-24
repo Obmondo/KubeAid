@@ -19,6 +19,10 @@ spec:
         {{- include "dfir-iris.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: app
     spec:
+      {{- with .Values.hostAliases }}
+      hostAliases:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:

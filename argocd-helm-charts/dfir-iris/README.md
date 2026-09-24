@@ -42,11 +42,43 @@ class (CephFS) to remove that constraint.
   create step should be skipped. Not yet verified on a cluster; confirm on the first deploy
   and, if the entrypoint insists on a superuser, point `postgres.existingSecret` at the CNPG
   superuser Secret instead.
-- The `/login` readiness probe expects local authentication. When switching
-  `IRIS_AUTHENTICATION_TYPE` to OIDC, adjust the probe path.
+- The `/login` readiness probe works with every authentication type: with OIDC and
+  `localFallback: false` it answers with a redirect, which the probe counts as ready.
 
-## 4. SSO
+## 4. SSO (OIDC)
 
-IRIS supports OIDC (`IRIS_AUTHENTICATION_TYPE=oidc` plus `OIDC_*` variables). It maps only
-username and email, not roles; assign customers and roles in IRIS by hand. Add the variables
-through an extra Secret and `envFrom` once needed.
+IRIS 2.4 has one authentication type at a time (`local`, `ldap` or `oidc`). With `oidc`
+the login page shows a "Use SSO" button; `localFallback: true` keeps the username/password
+form beside it, which is the break-glass path for the local administrator.
+
+```yaml
+authentication:
+  type: oidc
+  localFallback: true
+  createUserIfNotExist: false
+  oidc:
+    issuerUrl: https://keycloak.example.com/auth/realms/myrealm
+    clientId: iris
+    existingSecret: dfir-iris-oidc   # key OIDC_CLIENT_SECRET
+```
+
+On the identity provider, create a confidential client with the standard (authorization
+code) flow, redirect URI `https://<ingress.host>/oidc-authorize`, and the `profile` and
+`email` scopes so the ID token carries `preferred_username` and `email`. IRIS reads the
+discovery document from `issuerUrl` at startup, so the pods must reach that URL; if the
+hostname resolves to an address the pods cannot use, add a `hostAliases` entry.
+
+What IRIS does and does not do (checked against the 2.4.20 source):
+
+- Users are matched on the username claim against IRIS logins, including existing local
+  and service accounts, so keep IdP usernames distinct from local ones (`administrator`,
+  service accounts).
+- With `createUserIfNotExist: true` a first login creates the user in the default
+  organisation only: no group, no customer, no permissions. With `false` an administrator
+  pre-creates the user (login equal to the username claim) and gets a 404 page otherwise.
+  `IRIS_NEW_USERS_DEFAULT_GROUP` applies to LDAP only.
+- Groups and roles are not mapped from the token; assign groups and customers in
+  Manage > Users by hand.
+- API keys (`Authorization: Bearer` or `X-IRIS-AUTH`) are checked independently of the
+  authentication type, so integrations keep working.
+- MFA enforcement is skipped for OIDC logins.

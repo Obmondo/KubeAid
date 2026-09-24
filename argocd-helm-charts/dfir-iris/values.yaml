@@ -59,6 +59,44 @@ admin:
 
 logLevel: info
 
+# Web UI authentication. IRIS 2.4 supports one type at a time: local, ldap or
+# oidc. With oidc the login page gets a "Use SSO" button; localFallback keeps
+# the username/password form next to it (break-glass for the local
+# administrator). API keys (Authorization: Bearer / X-IRIS-AUTH) work with
+# every type, so integrations and service accounts are unaffected.
+authentication:
+  type: local
+  # IRIS_AUTHENTICATION_LOCAL_FALLBACK. With oidc and false, /login redirects
+  # straight to the identity provider and local passwords stop working.
+  localFallback: true
+  # IRIS_AUTHENTICATION_CREATE_USER_IF_NOT_EXIST. OIDC users created on first
+  # login join the default organisation only: no group, no customer, so no
+  # permissions until an administrator assigns them. With false, only users
+  # pre-created in IRIS (login = the mapped username claim) can sign in.
+  createUserIfNotExist: false
+  oidc:
+    # e.g. https://keycloak.example.com/auth/realms/myrealm. Must equal the
+    # "iss" of the tokens; IRIS reads the discovery document from it. Register
+    # https://<ingress.host>/oidc-authorize as redirect URI on the client.
+    issuerUrl: ""
+    clientId: ""
+    # Secret holding the client secret (key below). Required when type is oidc.
+    existingSecret: ""
+    secretKey: OIDC_CLIENT_SECRET
+    scopes: openid email profile
+    # ID token claims. The username claim is matched against IRIS logins,
+    # including existing local users: an IdP user whose claim equals a local
+    # login (e.g. administrator) signs in as that user.
+    mappingUsername: preferred_username
+    mappingEmail: email
+
+# Extra /etc/hosts entries for app and worker, e.g. when the identity
+# provider's public hostname resolves to an address the pods cannot use.
+hostAliases: []
+#  - ip: 10.0.0.10
+#    hostnames:
+#      - keycloak.example.com
+
 app:
   replicas: 1
   resources:
