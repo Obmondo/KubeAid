@@ -806,6 +806,11 @@ wazuh:
       valuePattern: "^[a-z0-9]{1,32}$"
       dateRounding: ""
       indexNameFormat: ""
+  ## @param wazuh.agentGroupConfConfigMap Name of a ConfigMap managed outside this chart whose keys `<group>.conf` become `etc/shared/<group>/agent.conf` on the managers (KubeAid addition)
+  ## Copied at container start like agentGroupConf, so a change needs a manager restart
+  ## (this chart cannot hash a ConfigMap it does not render). A group that is also in
+  ## agentGroupConf keeps the agentGroupConf content.
+  agentGroupConfConfigMap: ""
   ## @skip wazuh.agentGroupConf
   agentGroupConf:
     - name: example

@@ -11,11 +11,21 @@ Invoked by wazuh-integratord as:
 where hook_url is the IRIS base URL and the options file (from <options> in
 ossec.conf) may carry:
 
-    {"customer_map": {"101": 2, "102": 3}, "default_customer_id": 1,
+    {"customer_map": {"001": 2, "002": 3}, "default_customer_id": 1,
      "dashboard_url": "https://wazuh.example.com", "tenant_field": "tenant"}
 
 The tenant is read from an agent label, so case routing follows the same
 label the indices are routed by.
+
+Two keys keep per-tenant data out of ossec.conf:
+
+    "options_file": "/path/options.json"
+        JSON object merged under the inline options (inline keys win). Read
+        on every alert, so a mounted ConfigMap can change without a restart.
+    "customer_names": {"001": "Tenant A"}
+        tenant label -> IRIS customer name, for tenants not in customer_map.
+        The id is looked up through GET /manage/customers/list, because IRIS
+        assigns customer ids itself and they differ per installation.
 
 Deliberately NOT modelled on the bundled shuffle integration: that one filters
 a hardcoded SKIP_RULE_IDS list to work around Shuffle starting containers, and
@@ -99,15 +109,38 @@ def collect_iocs(alert):
     return iocs
 
 
-def build_alert(alert, options):
+def lookup_customer_id(hook_url, api_key, name, timeout):
+    """IRIS customer id for a customer name, or None."""
+    request = urllib.request.Request(
+        "%s/manage/customers/list" % hook_url.rstrip("/"),
+        headers={"Authorization": "Bearer %s" % api_key})
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as reply:
+            body = json.loads(reply.read())
+    except (urllib.error.URLError, ValueError) as exc:
+        debug("custom-iris: cannot list IRIS customers: %s" % exc)
+        return None
+    for customer in body.get("data") or []:
+        if customer.get("customer_name") == name:
+            return customer.get("customer_id")
+    debug("custom-iris: no IRIS customer named %r" % name)
+    return None
+
+
+def build_alert(alert, options, resolve_customer=None):
     rule = alert.get("rule") or {}
     agent = alert.get("agent") or {}
     level = int(rule.get("level") or 0)
 
     tenant_field = options.get("tenant_field", "tenant")
     tenant = ((agent.get("labels") or {}).get(tenant_field)) or ""
-    customer_id = options.get("customer_map", {}).get(
-        str(tenant), options.get("default_customer_id", 1))
+    customer_id = options.get("customer_map", {}).get(str(tenant))
+    if customer_id is None and tenant and resolve_customer:
+        name = (options.get("customer_names") or {}).get(str(tenant))
+        if name:
+            customer_id = resolve_customer(name)
+    if customer_id is None:
+        customer_id = options.get("default_customer_id", 1)
 
     tags = ["wazuh", "rule:%s" % rule.get("id", "?"), "level:%d" % level]
     tags += [g for g in (rule.get("groups") or []) if g]
@@ -204,6 +237,15 @@ def main(argv):
                     options = json.load(handle)
             except (OSError, ValueError) as exc:
                 debug("custom-iris: ignoring unreadable options file %s: %s" % (arg, exc))
+    if options.get("options_file"):
+        try:
+            with open(options["options_file"]) as handle:
+                merged = json.load(handle)
+            merged.update(options)
+            options = merged
+        except (OSError, ValueError) as exc:
+            debug("custom-iris: ignoring unreadable options_file %s: %s"
+                  % (options["options_file"], exc))
 
     with open(alert_file) as handle:
         alert = json.load(handle)
@@ -214,7 +256,10 @@ def main(argv):
         debug("custom-iris: level %d below min_level %d, skipping" % (level, minimum))
         return 0
 
-    payload = build_alert(alert, options)
+    timeout = int(options.get("timeout", 20))
+    payload = build_alert(
+        alert, options,
+        resolve_customer=lambda name: lookup_customer_id(hook_url, api_key, name, timeout))
     url = "%s/alerts/add" % hook_url.rstrip("/")
 
     request = urllib.request.Request(
@@ -225,7 +270,7 @@ def main(argv):
                  "Content-Type": "application/json"},
     )
     try:
-        with urllib.request.urlopen(request, timeout=int(options.get("timeout", 20))) as reply:
+        with urllib.request.urlopen(request, timeout=timeout) as reply:
             status, raw = reply.status, reply.read()
     except urllib.error.HTTPError as exc:
         debug("custom-iris: IRIS refused alert (HTTP %d): %s" % (exc.code, exc.read()[:500]))

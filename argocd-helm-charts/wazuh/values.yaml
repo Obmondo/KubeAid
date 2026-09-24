@@ -42,7 +42,7 @@ wazuh:
 # alert becomes an IRIS alert carrying the full SIEM context.
 #
 # This only creates the ConfigMap. Mount it and declare the <integration> block
-# in the same values file - README section 3 has the exact snippet, including
+# in the same values file - README section 10 has the exact snippet, including
 # the Secret that holds the IRIS API key so it never reaches git.
 irisIntegration:
   enabled: false

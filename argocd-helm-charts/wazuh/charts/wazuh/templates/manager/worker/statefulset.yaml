@@ -98,6 +98,13 @@ spec:
             secretName: filebeat-tls
         - name: result-config
           emptyDir: {}
+        {{- with .Values.wazuh.agentGroupConfConfigMap }}
+        # KubeAid: agent group confs from a ConfigMap managed outside this chart.
+        - name: agent-group-conf-extra
+          configMap:
+            name: {{ . }}
+            optional: true
+        {{- end }}
       {{- with .Values.wazuh.worker.additionalVolumes }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -124,6 +131,31 @@ spec:
               name: config
               readOnly: true
               subPath: script.sh
+        {{- if .Values.wazuh.agentGroupConfConfigMap }}
+        # KubeAid: every key <group>.conf of wazuh.agentGroupConfConfigMap becomes
+        # etc/shared/<group>/agent.conf, next to the wazuh.agentGroupConf groups.
+        - name: agent-group-conf
+          image: {{ .Values.wazuh.initContainer.image }}
+          imagePullPolicy: {{ .Values.wazuh.images.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - |
+              for f in /agent-group-conf-extra/*.conf; do
+                [ -f "$f" ] || continue
+                g=$(basename "$f" .conf)
+                mkdir -p "/wazuh-config-mount/etc/shared/$g"
+                cp "$f" "/wazuh-config-mount/etc/shared/$g/agent.conf"
+              done
+          resources:
+            {{- toYaml .Values.wazuh.initContainer.resources | nindent 12 }}
+          volumeMounts:
+            - mountPath: /wazuh-config-mount/etc/
+              name: result-config
+            - mountPath: /agent-group-conf-extra
+              name: agent-group-conf-extra
+              readOnly: true
+        {{- end }}
         {{- with .Values.wazuh.extraInitContainers }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -181,6 +213,23 @@ spec:
                       break
                     fi
                     sleep 2
+                  done
+                  {{- end }}
+                  {{- if .Values.wazuh.agentGroupConfConfigMap }}
+                  # Same for the groups from wazuh.agentGroupConfConfigMap, whose
+                  # names are only known at runtime.
+                  for d in /wazuh-config-mount/etc/shared/*/; do
+                    g=$(basename "$d")
+                    for i in $(seq 1 90); do
+                      if [ -f "/var/ossec/etc/shared/$g/agent.conf" ]; then
+                        sleep 3
+                        chown -R wazuh:wazuh "/var/ossec/etc/shared/$g"
+                        chmod 2770 "/var/ossec/etc/shared/$g"
+                        chmod 660 "/var/ossec/etc/shared/$g"/* 2>/dev/null || true
+                        break
+                      fi
+                      sleep 2
+                    done
                   done
                   {{- end }}
                   true

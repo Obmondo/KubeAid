@@ -171,6 +171,13 @@ upstream `example` group appeared this way, with no `agent_groups -a`). Removing
 does not delete the group - the directory stays on the master's PVC. Assigning agents to a
 group is still an API call (`PUT /agents/{id}/group/{group}`) or `-G` at enrolment.
 
+Groups whose names are only known elsewhere (one per tenant, for example) can come from a
+ConfigMap this chart does not render: set `wazuh.agentGroupConfConfigMap` to its name and
+each key `<group>.conf` becomes `etc/shared/<group>/agent.conf` on both managers, copied by
+an init container at start. This chart cannot hash that ConfigMap, so a change needs a
+manager restart (or a Reloader annotation in `wazuh.{master,worker}.annotations`). A group
+listed in both places keeps the `agentGroupConf` content.
+
 On macOS `/etc` is a symlink to `/private/etc` and FIM does not follow it, so the stock
 agent config monitors nothing there; realtime FIM is also unsupported on macOS, so the scan
 `frequency` is the detection latency.
@@ -324,3 +331,44 @@ central team sees everything. Three layers, each in a different place:
    policies use the resource `agent:group:tenant-acme` (and `group:id:tenant-acme` for
    `group:read`), so the agent list shows only that group.
 
+## 10. DFIR-IRIS integration (`irisIntegration`)
+
+`irisIntegration.enabled` renders the `<fullname>-iris-integration` ConfigMap with
+`custom-iris` and `custom-iris.py`. Mount both files into `/var/ossec/integrations` on
+master and worker (`subPath`, one file each) and declare the `<integration>` block in
+`wazuh.{master,worker}.extraConf`, with the IRIS API key read from a mounted Secret:
+
+```yaml
+<integration>
+  <name>custom-iris</name>
+  <hook_url>http://dfir-iris-app.dfir-iris.svc.cluster.local:8000</hook_url>
+  <api_key>file:/var/ossec/integrations/.iris_key</api_key>
+  <level>10</level>
+  <alert_format>json</alert_format>
+  <options>{"min_level": 10, "default_customer_id": 1, "tenant_field": "tenant"}</options>
+</integration>
+```
+
+The tenant comes from the agent label named by `tenant_field` and picks the IRIS customer:
+
+- `customer_map`: `{"<label>": <IRIS customer id>}`, inline.
+- `customer_names`: `{"<label>": "<IRIS customer name>"}` for labels not in
+  `customer_map`; the id is looked up with `GET /manage/customers/list`, since IRIS assigns
+  ids itself.
+- `options_file`: path to a JSON object merged under the inline options (inline keys win),
+  read for every alert. With a mounted ConfigMap (not `subPath`) the per-tenant part stays
+  out of `ossec.conf` and changes without a manager restart.
+
+Alerts without a matching label go to `default_customer_id`.
+
+## Local patches to the vendored subchart
+
+`charts/wazuh` is upstream 2.0.7 with KubeAid changes that sections 5 to 9 describe (the
+`checksum/config` annotation, the ruleset reloader, `agentGroupConf` ownership, index
+routing, extra roles and role mappings). Re-apply them when updating the subchart. Added
+with the security-operations umbrella chart:
+
+- `wazuh.agentGroupConfConfigMap` (section 7): an optional ConfigMap volume, the
+  `agent-group-conf` init container and a second ownership loop in the `postStart` hook,
+  in `templates/manager/{master,worker}/statefulset.yaml`, plus the value in `values.yaml`.
+  Nothing renders while it is empty.
