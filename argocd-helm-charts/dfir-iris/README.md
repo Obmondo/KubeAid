@@ -103,6 +103,10 @@ exactly what `keycloakSync.mapping` yields.
   because an SSO login with that name would sign in as the local account.
 - `dryRun: true` (the default) only logs what it would change. Read the job log,
   then set it to false.
+- `keycloakSync.mappingConfigMap.name` reads the mapping from a ConfigMap managed
+  elsewhere (same JSON shape, key `mappingConfigMap.key`) instead of
+  `keycloakSync.mapping`. The security-operations umbrella chart uses it to
+  render one entry per tenant. The file is read on every run.
 
 Prerequisites: a confidential Keycloak client with a service account holding
 `realm-management` `view-users`, and the API key of an IRIS user with

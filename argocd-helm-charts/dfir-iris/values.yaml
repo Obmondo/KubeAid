@@ -140,6 +140,13 @@ keycloakSync:
     #  analyst: {groups: [Analysts], customers: ["*"]}
     groups: {}
     #  site-a: {groups: [Analysts], customers: ["Site A"]}
+  # Read the mapping from a ConfigMap managed elsewhere instead of `mapping`
+  # above, e.g. one rendered per tenant by the security-operations umbrella
+  # chart. Same JSON shape ({"roles": {...}, "groups": {...}}). The sync reads it
+  # on every run, so a change needs no restart.
+  mappingConfigMap:
+    name: ""
+    key: mapping.json
   activeDeadlineSeconds: 240
   resources:
     requests:

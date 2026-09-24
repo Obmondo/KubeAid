@@ -37,7 +37,7 @@ spec:
             {{- include "dfir-iris.selectorLabels" . | nindent 12 }}
             app.kubernetes.io/component: keycloak-sync
           annotations:
-            checksum/sync: {{ printf "%s%s" (.Files.Get "files/keycloak-sync.py") (toJson $s) | sha256sum }}
+            checksum/sync: {{ printf "%s%s" (.Files.Get "files/keycloak-sync.py") (toJson (omit $s "mappingConfigMap")) | sha256sum }}
         spec:
           restartPolicy: Never
           {{- with .Values.hostAliases }}
@@ -73,7 +73,11 @@ spec:
                       name: {{ $s.existingSecret }}
                       key: {{ $s.irisApiKeySecretKey }}
                 - name: MAPPING_FILE
+                  {{- if $s.mappingConfigMap.name }}
+                  value: /mapping/{{ $s.mappingConfigMap.key }}
+                  {{- else }}
                   value: /sync/mapping.json
+                  {{- end }}
                 - name: PROTECTED_LOGINS
                   value: {{ join "," $protected | quote }}
                 - name: DEACTIVATE_ORPHANS
@@ -93,8 +97,18 @@ spec:
                 - name: sync
                   mountPath: /sync
                   readOnly: true
+                {{- if $s.mappingConfigMap.name }}
+                - name: mapping
+                  mountPath: /mapping
+                  readOnly: true
+                {{- end }}
           volumes:
             - name: sync
               configMap:
                 name: {{ $fullname }}-keycloak-sync
+            {{- if $s.mappingConfigMap.name }}
+            - name: mapping
+              configMap:
+                name: {{ $s.mappingConfigMap.name }}
+            {{- end }}
 {{- end }}
