@@ -965,6 +965,30 @@ wazuh:
       pod: {}
       container: {}
 
+    ## @param wazuh.worker.rulesetReloader.enabled Run a sidecar that reloads the worker's analysisd after the master's ruleset has synced to it (files/ruleset-reloader.sh).
+    ## @param wazuh.worker.rulesetReloader.settleSeconds Seconds the synced ruleset must stay unchanged before the reload.
+    ## @param wazuh.worker.rulesetReloader.pollSeconds Seconds between checks of the ruleset on disk.
+    ## @param wazuh.worker.rulesetReloader.resources Resources of the sidecar.
+    ## @param wazuh.worker.rulesetReloader.securityContext securityContext of the sidecar. 999 is the wazuh user of the manager image, which owns /var/ossec/etc.
+    rulesetReloader:
+      enabled: false
+      settleSeconds: 90
+      pollSeconds: 30
+      resources:
+        requests:
+          cpu: 5m
+          memory: 16Mi
+        limits:
+          memory: 64Mi
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+
 agent:
   ## @param agent.enabled Enable the agent.
   enabled: true

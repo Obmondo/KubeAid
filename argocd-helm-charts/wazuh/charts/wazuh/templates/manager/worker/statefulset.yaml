@@ -30,6 +30,13 @@ spec:
         {{- end }}
       name: wazuh-manager-worker
       annotations:
+        {{- /* KubeAid: roll the manager whenever the rendered ConfigMap changes. ossec.conf,
+             local_rules.xml, local_decoder.xml and the agent group confs are copied out of
+             it into /var/ossec/etc only at container start, so a synced change would
+             otherwise stay inactive until someone restarts the pod. Unlike the upstream
+             autoreload block below this hashes nothing random: the Secrets it also hashes
+             carry randAlphaNum defaults and would roll the pod on every render. */}}
+        checksum/config: {{ include (print $.Template.BasePath "/manager/configmap.yaml") . | sha256sum }}
         {{- if .Values.autoreload.enabled }}
         checksum/configmap: {{ include (print $.Template.BasePath "/manager/configmap.yaml") . | sha256sum }}
         checksum/filebeat-certificate: {{ include (print $.Template.BasePath "/certs/filebeat/certificate.yaml") . | sha256sum }}
@@ -269,6 +276,41 @@ spec:
           {{- with .Values.wazuh.worker.additionalEnv }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
+        {{- with .Values.wazuh.worker.rulesetReloader }}
+        {{- if .enabled }}
+        # KubeAid: reloads this worker's analysisd once the master's ruleset has synced
+        # to it, after every start and after later syncs. See files/ruleset-reloader.sh.
+        - name: ruleset-reloader
+          image: "{{ $.Values.wazuh.images.repository }}:{{ $.Values.wazuh.images.tag }}"
+          imagePullPolicy: {{ $.Values.wazuh.images.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+{{ $.Files.Get "files/ruleset-reloader.sh" | indent 14 }}
+          env:
+            - name: RELOAD_SETTLE_SECONDS
+              value: {{ .settleSeconds | quote }}
+            - name: RELOAD_POLL_SECONDS
+              value: {{ .pollSeconds | quote }}
+          envFrom:
+            - secretRef:
+                name: {{ $.Values.wazuh.apiCred.existingSecret | default "wazuh-api-cred" }}
+          {{- with .resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: {{ include "wazuh.fullname" $ }}-manager-worker
+              mountPath: /var/ossec/etc
+              subPath: wazuh/var/ossec/etc
+              readOnly: true
+        {{- end }}
+        {{- end }}
   volumeClaimTemplates:
     - apiVersion: v1
       kind: PersistentVolumeClaim

@@ -24,6 +24,10 @@
 
   Enabling this only places the files. The <integration> block itself goes in
   wazuh.master.extraConf / wazuh.worker.extraConf - see the chart README.
+
+  The managers' checksum/config annotation cannot cover this ConfigMap (a
+  subchart cannot hash a parent template), and subPath mounts never update, so
+  after a change to files/custom-iris* restart both managers once by hand.
 */}}
 {{- if .Values.irisIntegration.enabled }}
 apiVersion: v1

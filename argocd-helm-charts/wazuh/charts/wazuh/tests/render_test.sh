@@ -74,6 +74,17 @@ assert_not_contains() {
   fi
 }
 
+assert_equals() {
+  local name="$1" expected="$2" actual="$3"
+  if [ -n "$expected" ] && [ "$expected" = "$actual" ]; then
+    echo "PASS: $name"
+    pass=$((pass + 1))
+  else
+    echo "FAIL: $name (expected '$expected', got '$actual')"
+    fail=$((fail + 1))
+  fi
+}
+
 LISTENERSET=templates/dashboard/listenerset.yaml
 HTTPROUTE=templates/dashboard/httproute.yaml
 BACKENDTLSPOLICY=templates/dashboard/backendtlspolicy.yaml
@@ -264,6 +275,34 @@ assert_not_contains "the generated config is not also emitted" "$out" 'filebeat.
 assert_contains "an override alone does not enable archives" "$out" '<logall_json>no</logall_json>'
 out=$(render_only "$MASTER_STS" "${override_args[@]}")
 assert_contains "an override alone still mounts filebeat.yml" "$out" "$FILEBEAT_MOUNT"
+
+echo "== KubeAid: checksum/config rolls the managers on a config change, and only then =="
+config_sum() { render_only "$1" "${@:2}" | grep 'checksum/config:' | awk '{print $2}'; }
+for sts in "$MASTER_STS" "$WORKER_STS"; do
+  base=$(config_sum "$sts")
+  assert_equals "checksum is stable across renders (${sts##*/manager/})" "$base" "$(config_sum "$sts")"
+  assert_equals "an unrelated value leaves it alone (${sts##*/manager/})" "$base" \
+    "$(config_sum "$sts" --set wazuh.worker.storageSize=70Gi)"
+  for change in 'wazuh.localRules=<group/>' 'wazuh.master.extraConf=<!-- x -->' \
+                'wazuh.worker.extraConf=<!-- x -->' 'wazuh.agentGroupConf[0].agent=<agent_config/>'; do
+    changed=$(config_sum "$sts" --set-string "$change")
+    if [ -n "$changed" ] && [ "$changed" != "$base" ]; then
+      echo "PASS: ${change%%=*} changes the checksum (${sts##*/manager/})"; pass=$((pass + 1))
+    else
+      echo "FAIL: ${change%%=*} did not change the checksum (${sts##*/manager/})"; fail=$((fail + 1))
+    fi
+  done
+done
+
+echo "== KubeAid: the worker's ruleset-reloader sidecar is opt-in =="
+out=$(render_only "$WORKER_STS")
+assert_not_contains "no sidecar by default" "$out" "name: ruleset-reloader"
+out=$(render_only "$WORKER_STS" --set wazuh.worker.rulesetReloader.enabled=true)
+assert_contains "the sidecar is added when enabled" "$out" "name: ruleset-reloader"
+assert_contains "it reads the API credentials Secret" "$out" "name: wazuh-api-cred"
+assert_contains "it mounts the worker's etc read-only" "$out" "subPath: wazuh/var/ossec/etc"
+out=$(render_only "$MASTER_STS" --set wazuh.worker.rulesetReloader.enabled=true)
+assert_not_contains "the master gets no sidecar" "$out" "name: ruleset-reloader"
 
 echo
 echo "==================================="

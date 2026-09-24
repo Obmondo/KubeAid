@@ -32,6 +32,13 @@ spec:
         {{- end }}
       name: wazuh-manager-master
       annotations:
+        {{- /* KubeAid: roll the manager whenever the rendered ConfigMap changes. ossec.conf,
+             local_rules.xml, local_decoder.xml and the agent group confs are copied out of
+             it into /var/ossec/etc only at container start, so a synced change would
+             otherwise stay inactive until someone restarts the pod. Unlike the upstream
+             autoreload block below this hashes nothing random: the Secrets it also hashes
+             carry randAlphaNum defaults and would roll the pod on every render. */}}
+        checksum/config: {{ include (print $.Template.BasePath "/manager/configmap.yaml") . | sha256sum }}
         {{- if .Values.autoreload.enabled }}
         checksum/configmap: {{ include (print $.Template.BasePath "/manager/configmap.yaml") . | sha256sum }}
         checksum/filebeat-certificate: {{ include (print $.Template.BasePath "/certs/filebeat/certificate.yaml") . | sha256sum }}
