@@ -27,13 +27,15 @@ spec:
                 values:
                   - {{ .Values.global.rabbitmq.instanceName }}
           topologyKey: kubernetes.io/hostname
+  {{- /* Quoted: the API stores quantities as strings, and Argo CD does not normalise
+       them in custom resources, so a bare 1 stays OutOfSync against "1". */}}
   resources:
     requests:
-      cpu: {{ .Values.global.rabbitmq.resources.requests.cpu }}
-      memory: {{ .Values.global.rabbitmq.resources.requests.memory }}
+      cpu: {{ .Values.global.rabbitmq.resources.requests.cpu | quote }}
+      memory: {{ .Values.global.rabbitmq.resources.requests.memory | quote }}
     limits:
-      cpu: {{ .Values.global.rabbitmq.resources.limits.cpu }}
-      memory: {{ .Values.global.rabbitmq.resources.limits.memory }}
+      cpu: {{ .Values.global.rabbitmq.resources.limits.cpu | quote }}
+      memory: {{ .Values.global.rabbitmq.resources.limits.memory | quote }}
   {{- if .Values.global.rabbitmq.image }}
   image: {{ .Values.global.rabbitmq.image.repository }}:{{ .Values.global.rabbitmq.image.tag }}
   {{- end }}

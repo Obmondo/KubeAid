@@ -331,6 +331,10 @@ misp:
     enabled: false
   misp:
     fullnameOverride: misp
+    # Valkey keeps its data on a ReadWriteOnce volume: a rolling update would
+    # start the new pod while the old one still holds the volume (Multi-Attach).
+    valkey:
+      deploymentStrategy: Recreate
   wazuhCdbExport:
     # One target per tenant manager; a parent chart cannot compute these from
     # `tenants`, so list them (checks.mispTargets). The credentials Secrets are
