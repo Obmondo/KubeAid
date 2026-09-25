@@ -32,6 +32,12 @@ spec:
     - {{ include "wazuh.indexer.fullname" $ }}-indexer-{{ $i }}.{{ include "wazuh.indexer.fullname" $ }}-indexer-nodes.{{ $.Release.Namespace }}.svc.cluster.local
     {{- end }}
   issuerRef:
-    # Indexer have to use the CA Issuer so that the certificate can be validated with node-tls secret
-    name: {{ include "wazuh.fullname" . }}-ca-issuer
+    # Indexer have to use the CA Issuer so that the certificate can be validated with node-tls secret.
+    # KubeAid patch: with certificates.issuer.name set (a shared CA issuer), the node certificate
+    # comes from it directly, so ca.crt is that CA and indexers of several releases trust each
+    # other (cross-cluster search).
+    name: {{ .Values.certificates.issuer.name | default (printf "%s-ca-issuer" (include "wazuh.fullname" .)) }}
+    {{- if and .Values.certificates.issuer.name (eq .Values.certificates.issuer.type "ClusterIssuer") }}
+    kind: ClusterIssuer
+    {{- end }}
 {{- end }}

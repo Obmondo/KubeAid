@@ -67,6 +67,14 @@ spec:
         - name: dashboard-certs
           secret:
             secretName: dashboard-tls
+        {{- with .Values.dashboard.wazuhAppConfigSecret }}
+        # KubeAid patch: wazuh.yml of the Wazuh app from a Secret (several API hosts).
+        - name: wazuh-app-config
+          secret:
+            # Not optional: a missing key under subPath would become a directory.
+            # The pod waits in ContainerCreating until the Secret exists.
+            secretName: {{ . }}
+        {{- end }}
       {{- if .Values.wazuh.images.imagePullSecrets.enabled }}
       imagePullSecrets:
       {{- range .Values.wazuh.images.imagePullSecrets.secret }}
@@ -115,6 +123,12 @@ spec:
               name: dashboard-certs
               readOnly: true
               subPath: ca.crt
+            {{- if .Values.dashboard.wazuhAppConfigSecret }}
+            - mountPath: /usr/share/wazuh-dashboard/data/wazuh/config/wazuh.yml
+              name: wazuh-app-config
+              readOnly: true
+              subPath: wazuh.yml
+            {{- end }}
           ports:
             - containerPort: {{ .Values.dashboard.service.httpPort }}
               name: dashboard

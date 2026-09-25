@@ -361,6 +361,42 @@ The tenant comes from the agent label named by `tenant_field` and picks the IRIS
 
 Alerts without a matching label go to `default_customer_id`.
 
+## 11. One Wazuh per tenant
+
+The alternative to section 9 when tenants must be separated completely: every tenant gets
+its own release (manager, indexer, dashboard) in its own namespace, and a central team
+searches all of them from a central indexer with OpenSearch cross-cluster search. An agent
+can then only enrol with, and send to, its own tenant's manager, and an indexer only ever
+holds one tenant's data. `tests/values-tenant.yaml` is a complete example, checked by
+`tests/tenant_render_test.sh`.
+
+- **Master only.** `wazuh.worker.enabled: false` and `agents-events` (1514) added to
+  `wazuh.master.service.ports`; the agent routes then point at the master Service
+  (`agentTcpRoutes.events.serviceName: <fullname>`). One manager takes a few thousand
+  agents; add workers when a tenant outgrows it.
+- **One port pair per tenant.** Agent traffic is not TLS on 1514, so Traefik cannot route
+  it by host name: give each tenant its own entry points (`agentTcpRoutes.*.entryPoint`)
+  or its own address.
+- **Shared CA.** `certificates.issuer` names one CA ClusterIssuer for all releases, so the
+  indexers trust each other (the node certificate follows it, see the patches below).
+  `certificates.subject.organization` differs per tenant, which makes each indexer's node
+  DN unique; `indexer.config.nodesDn` adds the central indexer's DN so it may connect.
+- **No generated passwords.** Set `existingSecret` for `indexer.cred`, `dashboard.cred`,
+  `wazuh.apiCred` and `wazuh.authd`, plus `passwordHash` for the indexer and dashboard
+  users (the chart's `lookup` of the Secret does not run under Argo CD). The chart
+  defaults are public. Also set `wazuh.key`.
+- **Fixed IRIS customer.** The IRIS integration's `customer_name` option sends every alert
+  of the manager to one IRIS customer (section 10).
+- **Network policies** stay deny-by-default; open indexer 9300 to the central namespace,
+  manager 55000 to whoever manages the API, and egress to IRIS, with the `extraIngresses`
+  / `extraEgresses` values.
+- **`agent.enabled: false`**: the cluster's own nodes are not a tenant's endpoints.
+
+The central instance is the same chart with `wazuh.enabled: false` (no manager), an indexer
+and a dashboard whose Wazuh app lists every tenant manager (`dashboard.wazuhAppConfigSecret`).
+The remote clusters are set with `PUT _cluster/settings` (`cluster.remote.<alias>.seeds`);
+index patterns such as `*:wazuh-alerts-*` then search every tenant.
+
 ## Local patches to the vendored subchart
 
 `charts/wazuh` is upstream 2.0.7 with KubeAid changes that sections 5 to 9 describe (the
@@ -371,4 +407,11 @@ with the security-operations umbrella chart:
 - `wazuh.agentGroupConfConfigMap` (section 7): an optional ConfigMap volume, the
   `agent-group-conf` init container and a second ownership loop in the `postStart` hook,
   in `templates/manager/{master,worker}/statefulset.yaml`, plus the value in `values.yaml`.
+  Nothing renders while it is empty.
+- `certificates.issuer` for the indexer node certificate (section 11):
+  `templates/certs/node/certificate.yaml` and `templates/certs/node.crp.yaml` use
+  `certificates.issuer.name` when set, instead of the release's own `<fullname>-ca-issuer`,
+  so `ca.crt` is the shared CA.
+- `dashboard.wazuhAppConfigSecret` (section 11): a Secret volume mounted over
+  `data/wazuh/config/wazuh.yml` in `templates/dashboard/deployment.yaml`, plus the value.
   Nothing renders while it is empty.

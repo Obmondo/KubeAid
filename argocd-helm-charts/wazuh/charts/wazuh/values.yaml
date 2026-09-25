@@ -509,6 +509,13 @@ dashboard:
 
   ## @param dashboard.additionalEnv Possibility to define additional env vars in the pod.
   additionalEnv: []
+  ## KubeAid patch. Name of a Secret whose key wazuh.yml replaces the Wazuh app config
+  ## (data/wazuh/config/wazuh.yml), e.g. to list several manager APIs. The image's start
+  ## script leaves the file alone when it contains the host id 1513629884013, so give the
+  ## first host that id and put checks/pattern settings in the file, not in env vars.
+  ## Empty: the image writes a single host from WAZUH_API_URL and the API credentials.
+  ## @param dashboard.wazuhAppConfigSecret Secret with wazuh.yml for the Wazuh app.
+  wazuhAppConfigSecret: ""
   ## @param dashboard.enable_ssl with this you will be able to access kibana on http port instead of
   enable_ssl: false
   ## @param dashboard.config Configuration of the dashboard parameters, this should not be changed.

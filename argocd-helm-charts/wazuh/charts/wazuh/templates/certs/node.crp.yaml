@@ -8,7 +8,10 @@ metadata:
 spec:
   selector:
     issuerRef:
-      name: {{ include "wazuh.fullname" . }}-ca-issuer
+      name: {{ .Values.certificates.issuer.name | default (printf "%s-ca-issuer" (include "wazuh.fullname" .)) }}
+      {{- if and .Values.certificates.issuer.name (eq .Values.certificates.issuer.type "ClusterIssuer") }}
+      kind: ClusterIssuer
+      {{- end }}
   allowed:
     # ── This policy is ONLY for end-entity certs, not for CAs
     isCA: false

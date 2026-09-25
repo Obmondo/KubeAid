@@ -27,6 +27,12 @@ Two keys keep per-tenant data out of ossec.conf:
         The id is looked up through GET /manage/customers/list, because IRIS
         assigns customer ids itself and they differ per installation.
 
+One key serves a manager that belongs to a single tenant:
+
+    "customer_name": "Tenant A"
+        every alert of this manager goes to this IRIS customer (looked up by
+        name as above). The agent label is then only used for tags.
+
 Deliberately NOT modelled on the bundled shuffle integration: that one filters
 a hardcoded SKIP_RULE_IDS list to work around Shuffle starting containers, and
 it silently drops rule 80710 (auditd promiscuous mode, level 10) along with the
@@ -134,7 +140,11 @@ def build_alert(alert, options, resolve_customer=None):
 
     tenant_field = options.get("tenant_field", "tenant")
     tenant = ((agent.get("labels") or {}).get(tenant_field)) or ""
-    customer_id = options.get("customer_map", {}).get(str(tenant))
+    customer_id = None
+    if options.get("customer_name") and resolve_customer:
+        customer_id = resolve_customer(options["customer_name"])
+    if customer_id is None:
+        customer_id = options.get("customer_map", {}).get(str(tenant))
     if customer_id is None and tenant and resolve_customer:
         name = (options.get("customer_names") or {}).get(str(tenant))
         if name:
