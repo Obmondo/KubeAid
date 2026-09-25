@@ -159,6 +159,9 @@ reconciler:
     repository: ghcr.io/obmondo/siem-reconciler
     tag: ""
     pullPolicy: IfNotPresent
+  # Pull secrets for a private registry, e.g. [{name: registry-pull}]: Secrets of
+  # type kubernetes.io/dockerconfigjson in this namespace (seal them yourself).
+  imagePullSecrets: []
   # Print the plan only. Read the job log first, then set false.
   dryRun: true
   schedule: "*/10 * * * *"

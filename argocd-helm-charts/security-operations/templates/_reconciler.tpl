@@ -10,6 +10,10 @@ metadata:
 spec:
   serviceAccountName: siem-reconciler
   restartPolicy: Never
+  {{- with $r.imagePullSecrets }}
+  imagePullSecrets:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   securityContext:
     runAsNonRoot: true
     runAsUser: 65534

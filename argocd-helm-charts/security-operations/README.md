@@ -77,6 +77,7 @@ component blocks exactly as for the standalone charts (see their READMEs), one l
 | `ai.irisLogin`, `ai.irisGroups` | `svc_ai`, `[Automation]` | IRIS login of the triage job; the reconciler gives it these groups and every tenant as customer |
 | `publicIngress.velociraptorHost` | `""` | Hostname Velociraptor clients dial |
 | `reconciler.*` | disabled | Section 6; `reconciler.secrets` and `reconciler.components` override what goes into `siem-tenants` |
+| `reconciler.imagePullSecrets` | `[]` | Pull secrets (`[{name: ...}]`) for a private registry, in the release namespace |
 | `wazuh`, `velociraptor`, `dfir-iris`, `misp`, `ollama` | see values.yaml | Passed to the component charts |
 
 `tenants[].code` must match `^[a-z0-9]{1,32}$` and be unique; `name` must be unique. The code

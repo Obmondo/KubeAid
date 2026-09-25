@@ -211,11 +211,20 @@ if render -f "$SCRIPT_DIR/values-2-tenants.yaml" --set reconciler.enabled=true -
   [ "$args" = '["--config","/etc/siem/tenants.json","--dry-run=true"]' ] && ok "reconciler args" || ko "reconciler args: $args"
   yq 'select(.kind == "Job" and .metadata.name == "siem-reconciler-postsync") | .metadata.annotations["argocd.argoproj.io/hook"]' "$TMP/rec.yaml" | grep -x PostSync >/dev/null \
     && ok "reconciler PostSync job" || ko "reconciler PostSync job"
+  [ "$(yq 'select(.kind == "CronJob" and .metadata.name == "siem-reconciler") | .spec.jobTemplate.spec.template.spec.imagePullSecrets' "$TMP/rec.yaml")" = "null" ] \
+    && ok "no pull secrets by default" || ko "pull secrets rendered by default"
   outside=$(objects "$TMP/rec.yaml" | awk -v ns="$NS" '$3 != ns && $1 ~ /^Role/ {print $1" "$2" "$3}' | sort | tr '\n' ';')
   [ "$outside" = "Role security-operations-siem-reconciler keycloakx;Role security-operations-siem-reconciler wazuh-001;Role security-operations-siem-reconciler wazuh-002;RoleBinding security-operations-siem-reconciler keycloakx;RoleBinding security-operations-siem-reconciler wazuh-001;RoleBinding security-operations-siem-reconciler wazuh-002;" ] \
     && ok "reconciler RBAC: Keycloak Secret reader and each tenant namespace" || ko "reconciler RBAC outside $NS: $outside"
 else
   ko "renders with the reconciler"; cat "$TMP/err"
+fi
+if render -f "$SCRIPT_DIR/values-2-tenants.yaml" --set reconciler.enabled=true --set reconciler.image.tag=test \
+     --set-json 'reconciler.imagePullSecrets=[{"name":"registry-pull"}]' >"$TMP/pull.yaml"; then
+  [ "$(yq -N 'select((.kind == "Job" or .kind == "CronJob") and (.metadata.name | test("^siem-reconciler"))) | (.spec.template.spec.imagePullSecrets // .spec.jobTemplate.spec.template.spec.imagePullSecrets)[0].name' "$TMP/pull.yaml" | sort -u)" = "registry-pull" ] \
+    && ok "reconciler pull secrets on Job and CronJob" || ko "reconciler pull secrets: $(yq -N 'select(.kind == "Job" or .kind == "CronJob") | .metadata.name' "$TMP/pull.yaml")"
+else
+  ko "renders with reconciler pull secrets"; cat "$TMP/err"
 fi
 expect_failure "reconciler needs an image tag" "reconciler.image.tag is required" -f "$SCRIPT_DIR/values-2-tenants.yaml" --set reconciler.enabled=true
 
