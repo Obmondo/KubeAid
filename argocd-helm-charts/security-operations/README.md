@@ -78,6 +78,7 @@ component blocks exactly as for the standalone charts (see their READMEs), one l
 | `publicIngress.velociraptorHost` | `""` | Hostname Velociraptor clients dial |
 | `reconciler.*` | disabled | Section 6; `reconciler.secrets` and `reconciler.components` override what goes into `siem-tenants` |
 | `reconciler.imagePullSecrets` | `[]` | Pull secrets (`[{name: ...}]`) for a private registry, in the release namespace |
+| `reconciler.hostAliases` | `[]` | Host name pins for the reconciler pod (e.g. an internal-only Keycloak) |
 | `wazuh`, `velociraptor`, `dfir-iris`, `misp`, `ollama` | see values.yaml | Passed to the component charts |
 
 `tenants[].code` must match `^[a-z0-9]{1,32}$` and be unique; `name` must be unique. The code

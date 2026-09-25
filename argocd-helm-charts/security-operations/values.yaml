@@ -162,6 +162,9 @@ reconciler:
   # Pull secrets for a private registry, e.g. [{name: registry-pull}]: Secrets of
   # type kubernetes.io/dockerconfigjson in this namespace (seal them yourself).
   imagePullSecrets: []
+  # Pin host names for the reconciler pod, e.g. a Keycloak that is only reachable
+  # through an internal ingress: [{ip: 10.0.0.10, hostnames: [keycloak.example.com]}].
+  hostAliases: []
   # Print the plan only. Read the job log first, then set false.
   dryRun: true
   schedule: "*/10 * * * *"

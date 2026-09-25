@@ -220,9 +220,12 @@ else
   ko "renders with the reconciler"; cat "$TMP/err"
 fi
 if render -f "$SCRIPT_DIR/values-2-tenants.yaml" --set reconciler.enabled=true --set reconciler.image.tag=test \
-     --set-json 'reconciler.imagePullSecrets=[{"name":"registry-pull"}]' >"$TMP/pull.yaml"; then
+     --set-json 'reconciler.imagePullSecrets=[{"name":"registry-pull"}]' \
+     --set-json 'reconciler.hostAliases=[{"ip":"10.0.0.10","hostnames":["keycloak.example.com"]}]' >"$TMP/pull.yaml"; then
   [ "$(yq -N 'select((.kind == "Job" or .kind == "CronJob") and (.metadata.name | test("^siem-reconciler"))) | (.spec.template.spec.imagePullSecrets // .spec.jobTemplate.spec.template.spec.imagePullSecrets)[0].name' "$TMP/pull.yaml" | sort -u)" = "registry-pull" ] \
     && ok "reconciler pull secrets on Job and CronJob" || ko "reconciler pull secrets: $(yq -N 'select(.kind == "Job" or .kind == "CronJob") | .metadata.name' "$TMP/pull.yaml")"
+  [ "$(yq -N 'select(.kind == "CronJob" and .metadata.name == "siem-reconciler") | .spec.jobTemplate.spec.template.spec.hostAliases[0].hostnames[0]' "$TMP/pull.yaml")" = "keycloak.example.com" ] \
+    && ok "reconciler host aliases" || ko "reconciler host aliases"
 else
   ko "renders with reconciler pull secrets"; cat "$TMP/err"
 fi
