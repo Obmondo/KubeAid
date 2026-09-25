@@ -342,6 +342,12 @@ velociraptor:
     api:
       service:
         enabled: true
+    # Log users in under their Keycloak username, the name KeycloakSync creates
+    # and grants them under (the chart default "email" would not match it).
+    gui:
+      oidc:
+        claims:
+          username: preferred_username
     # Mints the reconciler's API client (user siem-reconciler, administrator) before
     # the server starts and stores it in Secret velociraptor-api-client, which the
     # reconciler reads. This chart grants the velociraptor ServiceAccount access to
