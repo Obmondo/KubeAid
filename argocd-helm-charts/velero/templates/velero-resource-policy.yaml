@@ -1,3 +1,29 @@
+{{- /*
+Collect the skip policies into a list of label maps.
+
+skipVolumePolicies is normally a MAP keyed by a name, because Helm merges maps but
+replaces lists (helm/helm#3767). With a map a cluster adds its own entries in its own
+values file without copying the defaults, and can drop a default by setting that key
+to null:
+
+    skipVolumePolicies:
+      prometheus:                       # added by the cluster
+        app.kubernetes.io/name: prometheus
+      cloudnativePg: null               # opt out of a chart default
+
+A plain list is still accepted for clusters that have not migrated, in which case it
+replaces the defaults as before.
+*/ -}}
+{{- $entries := list }}
+{{- if kindIs "slice" .Values.skipVolumePolicies }}
+  {{- $entries = .Values.skipVolumePolicies }}
+{{- else if .Values.skipVolumePolicies }}
+  {{- range $name, $labels := .Values.skipVolumePolicies }}
+    {{- if $labels }}
+      {{- $entries = append $entries $labels }}
+    {{- end }}
+  {{- end }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -6,12 +32,13 @@ metadata:
   labels:
     argocd.argoproj.io/instance: velero
 data:
-  # Skip Velero volume backups for CloudNativePG PVCs (covered by CNPG's own WAL/base backups).
+  # Skip Velero volume backups for PVCs whose data is re-creatable or covered by another
+  # mechanism - CloudNativePG's own WAL/base backups, for instance.
   policy.yaml: |
     version: v1
     volumePolicies:
-    {{- if .Values.skipVolumePolicies }}
-    {{- range .Values.skipVolumePolicies }}
+    {{- if $entries }}
+    {{- range $entries }}
       - conditions:
           pvcLabels:
             {{- range $key, $value := . }}
