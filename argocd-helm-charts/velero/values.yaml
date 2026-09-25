@@ -7,13 +7,25 @@ schedule:
   weeklyTTL: 2160h
   excludedResources:
     - workloadconfigurationscansummaries.spdx.softwarecomposition.kubescape.io
+# PVCs matching any of these label sets have their volume data skipped, while their
+# Kubernetes objects are still backed up.
+#
+# Keyed by name rather than a plain list: Helm merges maps but replaces lists
+# (helm/helm#3767), so a cluster adds entries in its own values file without copying
+# these defaults, and can opt out of one by setting its key to null.
 skipVolumePolicies:
-  - app: rabbitmq
-  - redis_setup_type: cluster
-  - redis_setup_type: standalone
-  - app: mongodb-replica-set-svc
-  - app.kubernetes.io/name: opensearch
-  - app.kubernetes.io/managed-by: cloudnative-pg
+  rabbitmq:
+    app: rabbitmq
+  redisCluster:
+    redis_setup_type: cluster
+  redisStandalone:
+    redis_setup_type: standalone
+  mongodbReplicaSet:
+    app: mongodb-replica-set-svc
+  opensearch:
+    app.kubernetes.io/name: opensearch
+  cloudnativePg:
+    app.kubernetes.io/managed-by: cloudnative-pg
 velero:
   revisionHistoryLimit: "0"
   configuration:
