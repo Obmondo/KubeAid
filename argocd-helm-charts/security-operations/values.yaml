@@ -113,6 +113,9 @@ tenantWazuh:
   hostPrefix: wazuh-
   # Public host name the agents dial, for the enrolment bundle; with tenants[].agentPorts.
   agentHost: ""
+  # Wazuh agent package version in the enrolment bundle's install commands. Keep it
+  # at or below the managers' version (an agent newer than its manager is refused).
+  agentVersion: "4.14.3-1"
   # Secrets in each tenant namespace (sealed by the operator or kubeaid-cli).
   apiCredSecret: wazuh-api-cred
   authdSecret: wazuh-authd-pass

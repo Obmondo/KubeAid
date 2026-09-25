@@ -68,6 +68,7 @@ component blocks exactly as for the standalone charts (see their READMEs), one l
 | `tenantWazuh.namespaceLabel` | `security-operations.kubeaid.io/tenant` | Label (value: code) on tenant namespaces, for network policies |
 | `tenantWazuh.hostPrefix` | `wazuh-` | Tenant dashboard host `<prefix><code>.<domain>` |
 | `tenantWazuh.agentHost` | `""` | Public host the agents dial, for the enrolment bundles |
+| `tenantWazuh.agentVersion` | `4.14.3-1` | Agent package in the bundles' install commands; not newer than the managers |
 | `tenantWazuh.{apiCredSecret,authdSecret}` | `wazuh-api-cred`, `wazuh-authd-pass` | Secrets in each tenant namespace the reconciler reads |
 | `tenantWazuh.{managerService,indexerNodesService}` | `wazuh`, `wazuh-indexer-nodes` | Service names of a tenant release (`fullnameOverride: wazuh`) |
 | `socCA.*` | enabled, `soc-ca` in `cert-manager` | CA ClusterIssuer every Wazuh instance uses |

@@ -159,6 +159,8 @@ extra=$(jq -r '(keys - ["domain","tenantGroupPrefix","keycloak","operators","ten
   && ok "cross-cluster search remotes" || ko "remotes: $(jq -c .components.wazuhCentral <<<"$cfg")"
 [ "$(jq -r '[.enrolment[] | .tenant + ":" + .managerHost + ":" + (.registrationPort|tostring) + "/" + (.eventsPort|tostring) + "@" + .namespace] | join(",")' <<<"$cfg")" = "001:agents.example.com:20015/20014@wazuh-001,002:agents.example.com:20025/20024@wazuh-002" ] \
   && ok "enrolment bundles" || ko "enrolment: $(jq -c .enrolment <<<"$cfg")"
+[ "$(jq -r '[.enrolment[].agentVersion] | unique | join(",")' <<<"$cfg")" = "4.14.3-1" ] \
+  && ok "enrolment agent version matches the managers" || ko "agentVersion: $(jq -c '[.enrolment[].agentVersion]' <<<"$cfg")"
 [ "$(jq -r '[.secretCopies[] | .to.namespace + "/" + .to.name + ":" + .to.key] | join(",")' <<<"$cfg")" = "wazuh-001/iris-api-key:API_KEY,$NS/wazuh-api-cred-001:API_USERNAME,$NS/wazuh-api-cred-001:API_PASSWORD,wazuh-002/iris-api-key:API_KEY,$NS/wazuh-api-cred-002:API_USERNAME,$NS/wazuh-api-cred-002:API_PASSWORD" ] \
   && ok "Secret copies" || ko "secretCopies: $(jq -c .secretCopies <<<"$cfg")"
 [ "$(yq 'select(.kind == "Namespace" and .metadata.name == "wazuh-002") | .metadata.labels["security-operations.kubeaid.io/tenant"]' "$R2")" = "002" ] \

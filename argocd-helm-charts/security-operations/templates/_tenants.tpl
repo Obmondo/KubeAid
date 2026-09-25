@@ -173,7 +173,7 @@ app.kubernetes.io/part-of: security-operations
 {{- if $tw.agentHost -}}
 {{- range $t := include "secops.tenants" . | fromJsonArray -}}
 {{- with $t.agentPorts -}}
-{{- $out = append $out (dict "tenant" $t.code "namespace" $t.namespace "name" "enrolment-bundle" "managerHost" $tw.agentHost "registrationPort" (int .registration) "eventsPort" (int .events) "authdSecretRef" (dict "namespace" $t.namespace "name" $tw.authdSecret "key" "authd.pass")) -}}
+{{- $out = append $out (dict "tenant" $t.code "namespace" $t.namespace "name" "enrolment-bundle" "managerHost" $tw.agentHost "registrationPort" (int .registration) "eventsPort" (int .events) "authdSecretRef" (dict "namespace" $t.namespace "name" $tw.authdSecret "key" "authd.pass") "agentVersion" $tw.agentVersion) -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}
