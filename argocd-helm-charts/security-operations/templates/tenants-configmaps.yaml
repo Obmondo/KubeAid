@@ -1,0 +1,82 @@
+{{- $tenants := include "secops.tenants" . | fromJsonArray }}
+{{- $ops := .Values.operators }}
+{{- if .Values.velociraptor.enabled }}
+---
+# Velociraptor server artifacts, mounted at /etc/siem:
+#   group-map.json  Keycloak group -> {role, orgs}: each tenant's group gets its own org.
+#   role-map.json   Keycloak realm role -> {role, orgs}: the central team, every org.
+#   org-map.json    IRIS customer name -> Velociraptor org name.
+{{- $vr := .Values.toolRoles.velociraptor }}
+{{- $gmap := dict }}
+{{- $omap := dict }}
+{{- range $tenants }}
+{{- $_ := set $gmap .group (dict "role" $vr.tenant "orgs" (list .name)) }}
+{{- $_ := set $omap .name .name }}
+{{- end }}
+{{- $rmap := dict $ops.adminRole (dict "role" $vr.admin "orgs" (list "*")) $ops.analystRole (dict "role" $vr.analyst "orgs" (list "*")) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: velociraptor-tenants
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: velociraptor
+data:
+  group-map.json: |
+    {{- toPrettyJson $gmap | nindent 4 }}
+  role-map.json: |
+    {{- toPrettyJson $rmap | nindent 4 }}
+  org-map.json: |
+    {{- toPrettyJson $omap | nindent 4 }}
+{{- end }}
+{{- if (index .Values "dfir-iris").enabled }}
+---
+# DFIR-IRIS keycloakSync mapping (keycloakSync.mappingConfigMap): the central
+# team's realm roles see every customer, each tenant group only its own.
+{{- $ir := .Values.toolRoles.iris }}
+{{- $groups := dict }}
+{{- range $tenants }}
+{{- $_ := set $groups .group (dict "groups" $ir.tenant "customers" (list .name)) }}
+{{- end }}
+{{- $roles := dict $ops.adminRole (dict "groups" $ir.admin "customers" (list "*")) $ops.analystRole (dict "groups" $ir.analyst "customers" (list "*")) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dfir-iris-tenants
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: dfir-iris
+data:
+  mapping.json: |
+    {{- toPrettyJson (dict "roles" $roles "groups" $groups) | nindent 4 }}
+{{- end }}
+---
+# Input of the siem-reconciler (templates/reconciler.yaml), in the schema of
+# kubeaid-cli pkg/siem/config (unknown fields are rejected there). Rendered
+# whether or not the reconciler runs.
+{{- $tenantsOut := list }}
+{{- range $tenants }}
+{{- $t := dict "code" .code "name" .name "retentionDays" .retentionDays }}
+{{- if .idp }}{{ $_ := set $t "idp" .idp }}{{ end }}
+{{- $tenantsOut = append $tenantsOut $t }}
+{{- end }}
+{{- $clients := include "secops.clients" . | fromYamlArray }}
+{{- $cfg := dict "domain" .Values.domain "tenantGroupPrefix" .Values.tenantGroupPrefix "keycloak" (omit .Values.keycloak "clients") "operators" $ops "tenants" $tenantsOut "clients" $clients "secrets" (include "secops.secrets" (dict "root" . "clients" $clients) | fromYamlArray) "components" (include "secops.components" . | fromYaml) }}
+{{- with include "secops.enrolment" . | fromYamlArray }}{{ $_ := set $cfg "enrolment" . }}{{ end }}
+{{- with include "secops.secretCopies" . | fromYamlArray }}{{ $_ := set $cfg "secretCopies" . }}{{ end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: siem-tenants
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    # Input of the reconciler Sync hook (wave -1).
+    argocd.argoproj.io/sync-wave: "-2"
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: reconciler
+data:
+  tenants.json: |
+    {{- toPrettyJson $cfg | nindent 4 }}

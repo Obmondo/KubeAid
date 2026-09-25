@@ -1,0 +1,9 @@
+dependencies:
+- name: misp
+  repository: file://charts/misp
+  version: 5.0.1
+- name: kubeaid-addons
+  repository: file://../kubeaid-addons
+  version: 1.1.0
+digest: sha256:070adb80d21a9caf1b2b6ee1dc6b10510902c0d3acca86429f094163b0e90cfd
+generated: "2026-09-25T02:23:56.205553+05:30"

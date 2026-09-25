@@ -1,0 +1,32 @@
+{{- if .Values.dashboard.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  # Name is only "dashboard" because of Certicates commonName
+  name: {{ include "wazuh.fullname" . }}-dashboard
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ include "wazuh.fullname" . }}-dashboard
+  annotations:
+    {{- toYaml .Values.dashboard.service.annotations | nindent 4 }}
+spec:
+  type: {{ .Values.dashboard.service.type }}
+  {{- if .Values.global.dualStack.enabled }}
+  {{- if .Values.global.dualStack.ipFamilyPolicy }}
+  ipFamilyPolicy: {{ .Values.global.dualStack.ipFamilyPolicy }}
+  {{- end }}
+  {{- if .Values.global.dualStack.ipFamilies }}
+  ipFamilies:
+    {{- toYaml .Values.global.dualStack.ipFamilies | nindent 4 }}
+  {{- end }}
+  {{- end }}
+  ports:
+    - name: dashboard
+      port: {{ .Values.dashboard.service.httpPort }}
+      targetPort: {{ .Values.dashboard.service.httpPort }}
+      {{- if and (eq (.Values.dashboard.service.type | default "ClusterIP") "NodePort") .Values.dashboard.service.nodePort }}
+      nodePort: {{ .Values.dashboard.service.nodePort }}
+      {{- end }}
+  selector:
+    app: {{ include "wazuh.fullname" . }}-dashboard
+{{- end }}

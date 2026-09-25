@@ -1,0 +1,38 @@
+apiVersion: v2
+name: security-operations
+description: >-
+  Central side of a multi-tenant security operations stack as one release in one
+  namespace: a Wazuh search across every tenant's own Wazuh (cross-cluster
+  search), Velociraptor (DFIR), DFIR-IRIS (case management), MISP (threat intel)
+  and Ollama (local model for alert triage), configured from one tenants list.
+type: application
+version: 0.2.0
+keywords:
+  - siem
+  - soc
+  - dfir
+  - multi-tenant
+# The components are the KubeAid wrapper charts next to this one, symlinked into
+# charts/ (as dfir-iris does with kubeaid-addons), so a change to a wrapper is
+# picked up without re-packaging. Each can be switched off with <name>.enabled.
+dependencies:
+  - name: wazuh
+    version: 1.0.0
+    repository: file://../wazuh
+    condition: wazuh.enabled
+  - name: velociraptor
+    version: 1.0.0
+    repository: file://../velociraptor
+    condition: velociraptor.enabled
+  - name: dfir-iris
+    version: 0.4.0
+    repository: file://../dfir-iris
+    condition: dfir-iris.enabled
+  - name: misp
+    version: 1.1.0
+    repository: file://../misp
+    condition: misp.enabled
+  - name: ollama
+    version: 1.1.0
+    repository: file://../ollama
+    condition: ollama.enabled

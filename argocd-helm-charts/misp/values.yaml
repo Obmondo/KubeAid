@@ -1,0 +1,168 @@
+# MariaDB for MISP, provisioned through the mariadb-operator chart (install it first).
+# The operator names the Service after the MariaDB resource, so env.mysqlHost below
+# must match externalMariadb.name.
+externalMariadb:
+  enabled: true
+  name: misp-mariadb
+  database: misp
+  username: misp
+  # kubernetes.io/basic-auth Secret with keys username and password, created as a
+  # sealed Secret in kubeaid-config. MISP and MariaDB both read it.
+  credentialsSecret: mysql-credentials
+  storage: 10Gi
+  storageClass: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      memory: 2Gi
+
+misp:
+  instanceEnv:
+    mispBaseurl: https://misp.example.com
+    ingressHostName: misp.example.com
+
+  env:
+    mysqlHost: misp-mariadb
+    mysqlDatabase: misp
+    # The vendored valkey subchart names its Service "valkey" regardless of release name.
+    redisHost: valkey
+    redisPort: 6379
+    # Must match valkey.auth.aclUsers.default.password; move both to a sealed
+    # Secret if the chart grows support for it.
+    redisPassword: change-me
+    # OIDC against Keycloak: set oidcEnable true, the realm URL, and put the
+    # client id/secret into the Secret named by oidcCredentialsSecretName.
+    oidcEnable: false
+    oidcProviderUrl: ""
+    disableSSLRedirect: "true"
+
+  # Secrets are created out of band (sealed), never from values.
+  setk8sSecrets: false
+  mysqlCredentialsSecretName: mysql-credentials
+  oidcCredentialsSecretName: oidc-credentials
+  setAPIKey: true
+  apiKeySecretValue: misp-api-key
+
+  misp:
+    misp:
+      image:
+        # Pinned: from 2.5.47 misp-core runs nginx in a separate container
+        # (misp-docker's two-container layout), so with this chart's single
+        # container nothing listens on :80 and the probes never pass. 2.5.44 is
+        # the release the subchart (5.0.1) was built for.
+        # https://github.com/MISP/misp-docker/pkgs/container/misp-docker%2Fmisp-core
+        tag: v2.5.44
+        pullPolicy: IfNotPresent
+      resources:
+        requests:
+          cpu: 500m
+          memory: 2Gi
+        limits:
+          memory: 4Gi
+    ingress:
+      enabled: true
+      className: nginx
+      annotations: {}
+
+  modules:
+    mispModules:
+      image:
+        tag: latest
+        pullPolicy: IfNotPresent
+
+  pvc:
+    attachments:
+      storageRequest: 20Gi
+
+  # Upstream subchart; kept for the queue, unlike the removed Bitnami MariaDB.
+  valkey:
+    enabled: true
+    auth:
+      enabled: true
+      aclUsers:
+        default:
+          permissions: "~* &* +@all"
+          password: change-me
+
+  # Removed dependencies; keep them off so the templates render nothing.
+  mariadb:
+    enabled: false
+  smtp:
+    enabled: false
+  tls:
+    useTLS: false
+
+# MISP -> Wazuh CDB list export (templates/wazuh-cdb-export.yaml). Feeds the
+# three lists that Wazuh's stock IoC rule pack (rules 99901-99920) matches
+# against, through the manager API, and reloads analysisd on every node. The
+# Wazuh side needs the flat list names registered and the rule pack pointed at
+# them - README section 5 has the exact values.
+wazuhCdbExport:
+  enabled: false
+  schedule: "*/15 * * * *"
+  image:
+    repository: python
+    tag: 3.13-alpine
+  misp:
+    # Defaults to http://misp, the subchart's Service (named "misp" whatever
+    # the release is called), so it resolves from any pod in this namespace.
+    url: ""
+    # Secret holding the MISP auth key (the same one section 2 creates).
+    apiKeySecret: misp-api-key
+    apiKeySecretKey: key
+    # Only export attributes of published events. Off by default: on a fresh
+    # instance nothing is published yet and the lists would stay empty.
+    publishedOnly: false
+    pageSize: 5000
+  wazuh:
+    # The manager API: https://<master Service>.<namespace>.svc.cluster.local:55000,
+    # or https://wazuh:55000 when Wazuh runs in this namespace (the
+    # security-operations umbrella chart).
+    url: ""
+    # Secret with the API login. Same key names as the Wazuh chart's own
+    # wazuh-api-cred, so a sealed copy of that Secret into this namespace works.
+    credentialsSecret: ""
+    usernameKey: API_USERNAME
+    passwordKey: API_PASSWORD
+    # The Wazuh chart's API presents the certificate bundled with the Wazuh
+    # package (CN=wazuh.com, self-signed), not one from the cluster CA, so there
+    # is nothing to verify against. Turn on only after replacing that cert.
+    verifyTls: false
+  # Several managers (one Wazuh per tenant) instead of `wazuh`: each entry gets the
+  # same lists; MISP is queried once per run. `name` is a label for the logs and the
+  # mount path; `credentialsSecret` (keys usernameKey/passwordKey, default
+  # API_USERNAME/API_PASSWORD) must be in this namespace. A manager that fails does
+  # not stop the others; the job then exits non-zero.
+  #   - name: "001"
+  #     url: https://wazuh.wazuh-001.svc:55000
+  #     credentialsSecret: wazuh-api-cred-001
+  #     verifyTls: false
+  targets: []
+  # Safety cap per list; a CDB list of hundreds of thousands of keys is fine for
+  # Wazuh but a runaway feed should not be.
+  maxEntriesPerList: 200000
+  # List name -> MISP attribute types. Names must match ^[-\w]+$ (the API cannot
+  # write into subdirectories). These three are what the stock rule pack needs.
+  lists:
+    - name: misp-malware-hashes
+      types: [sha256]
+    - name: misp-malicious-ip
+      types: [ip-dst, ip-src, "ip-dst|port", "ip-src|port"]
+    - name: misp-malicious-domains
+      types: [domain, hostname]
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+
+# kubeaid-addons subchart (Chart.yaml). Renders nothing with this chart's
+# defaults; it is there so a kubeaid-config can add its global.* extras (network
+# policies, backups) to the MISP namespace. Set false when another chart in the
+# same release already carries kubeaid-addons, as the security-operations
+# umbrella does.
+kubeaid-addons:
+  enabled: true

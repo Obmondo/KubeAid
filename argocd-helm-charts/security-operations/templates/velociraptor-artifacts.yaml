@@ -1,0 +1,17 @@
+{{- if .Values.velociraptor.enabled }}
+# Velociraptor artifacts (files/velociraptor plus velociraptorArtifacts.extraFiles),
+# loaded by the server at start from velociraptor.velociraptor.customArtifacts.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: velociraptor-artifacts
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: velociraptor
+data:
+  {{- range $name, $content := include "secops.velociraptorArtifacts" . | fromYaml }}
+  {{ $name }}: |
+    {{- $content | trimSuffix "\n" | nindent 4 }}
+  {{- end }}
+{{- end }}

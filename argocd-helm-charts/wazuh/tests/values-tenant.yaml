@@ -1,0 +1,147 @@
+# One Wazuh per tenant (README section 11): master only, own indexer and dashboard,
+# certificates from a shared CA issuer, a fixed IRIS customer, and cross-cluster search
+# from a central indexer in another namespace. Rendered by tests/tenant_render_test.sh.
+irisIntegration:
+  enabled: true
+# The tenant's own port pair on a shared external address; no Traefik entry point.
+agentService:
+  enabled: true
+  externalIPs: [192.0.2.10]
+  registrationPort: 20015
+  eventsPort: 20014
+wazuh:
+  fullnameOverride: wazuh
+  # Cluster nodes are not a tenant's endpoints.
+  agent:
+    enabled: false
+  certificates:
+    issuer:
+      name: soc-ca
+      type: ClusterIssuer
+    subject:
+      # Makes the node DN unique per tenant: CN=wazuh-indexer,O=tenant-001,...
+      organization: tenant-001
+  indexer:
+    replicas: 1
+    cred:
+      existingSecret: wazuh-indexer-cred
+      passwordHash: "$2a$12$examplehashexamplehashexamplehashexamplehashexampleha"
+    config:
+      # The central search indexer may connect as a node (cross-cluster search).
+      extraNodesDn:
+        - "CN=wazuh-indexer,O=central,L=California,C=US"
+    networkPolicy:
+      extraIngresses:
+        - ports:
+            - protocol: TCP
+              port: 9300
+          from:
+            - namespaceSelector:
+                matchLabels:
+                  kubernetes.io/metadata.name: security-operations
+              podSelector:
+                matchLabels:
+                  app: wazuh-indexer
+  dashboard:
+    cred:
+      existingSecret: wazuh-dashboard-cred
+      passwordHash: "$2a$12$examplehashexamplehashexamplehashexamplehashexampleha"
+  wazuh:
+    key: "0123456789abcdef0123456789abcdef"
+    apiCred:
+      existingSecret: wazuh-api-cred
+    authd:
+      existingSecret: wazuh-authd-pass
+    worker:
+      enabled: false
+    master:
+      service:
+        ports:
+          - name: registration
+            protocol: TCP
+            port: 1515
+            targetPort: 1515
+          - name: api
+            protocol: TCP
+            port: 55000
+            targetPort: 55000
+          - name: agents-events
+            protocol: TCP
+            port: 1514
+            targetPort: 1514
+      additionalVolumes:
+        - name: iris-integration
+          configMap:
+            name: wazuh-iris-integration
+            defaultMode: 0755
+        # IRIS API key (key API_KEY), copied into the tenant namespace.
+        - name: iris-api-key
+          secret:
+            secretName: iris-api-key
+            optional: true
+            defaultMode: 0444
+      additionalVolumeMounts:
+        - name: iris-integration
+          mountPath: /var/ossec/integrations/custom-iris
+          subPath: custom-iris
+          readOnly: true
+        - name: iris-integration
+          mountPath: /var/ossec/integrations/custom-iris.py
+          subPath: custom-iris.py
+          readOnly: true
+        # Directory mount: a subPath of a not-yet-existing Secret stays an empty
+        # directory for the pod's lifetime; this picks the key up when it appears.
+        - name: iris-api-key
+          mountPath: /var/ossec/integrations/iris
+          readOnly: true
+      networkPolicy:
+        extraIngresses:
+          # Agents from outside the cluster (agentService).
+          - ports:
+              - protocol: TCP
+                port: 1514
+              - protocol: TCP
+                port: 1515
+            from:
+              - ipBlock:
+                  cidr: 0.0.0.0/0
+          # Reconciler and MISP list export in the central namespace.
+          - ports:
+              - protocol: TCP
+                port: 55000
+            from:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: security-operations
+        extraEgresses:
+          # IRIS integration (8000) and MISP (80) in the central namespace.
+          - ports:
+              - protocol: TCP
+                port: 8000
+            to:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: security-operations
+                podSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: dfir-iris
+                    app.kubernetes.io/component: app
+          - ports:
+              - protocol: TCP
+                port: 80
+            to:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: security-operations
+                podSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: misp
+      extraConf: |
+        <integration>
+          <name>custom-iris</name>
+          <hook_url>http://dfir-iris-app.security-operations.svc:8000</hook_url>
+          <api_key>file:/var/ossec/integrations/iris/API_KEY</api_key>
+          <level>10</level>
+          <alert_format>json</alert_format>
+          <options>{"min_level": 10, "customer_name": "Tenant 001"}</options>
+        </integration>

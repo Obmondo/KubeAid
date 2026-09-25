@@ -1,0 +1,1218 @@
+## @param nameOverride String to partially override the names of the components.
+##
+nameOverride: null
+## @param fullnameOverride String to fully override the fullname of the components.
+##
+fullnameOverride: null
+## @param autoreload.enabled if enabled annotations will be added to recreated the statefulset on config changes.
+##
+autoreload:
+  enabled: false
+
+## @section global These parameters control the global networking behavior across all services.
+##
+global:
+  ## @param global.dualStack.enabled Enables dual-stack networking logic globally.
+  ## @param global.dualStack.ipFamilyPolicy Sets the IP family policy for Kubernetes Services.
+  ## @param global.dualStack.ipFamilies A list defining the order of IP families.
+  dualStack:
+    enabled: false
+    ipFamilyPolicy: ""
+    ipFamilies: []
+
+## @section cert-manager This are the parameters for the official sub-chart for cert-manager, here you
+## can set all available values of the official Chart.
+## Ref: https://github.com/cert-manager/cert-manager/blob/master/deploy/charts/cert-manager/values.yaml
+##
+cert-manager:
+  ## @param cert-manager.enabled this enabled or disables the sub-chart getting deployed.
+  ##
+  enabled: false
+## @section certificates If cert-manager is present, the certificates can be generated automatically.
+##
+certificates:
+  ## @param certificates.enabled deploy all certificates and issuer configuration with certmanager if enabled
+  enabled: true
+  ## @param certificates.requestPolicy.enabled Enable CertificateRequestPolicy
+  requestPolicy:
+    enabled: false
+  ## Parameters for the issuer.
+  ##
+  issuer:
+    ## @param certificates.issuer.name of the issuer used for signing the certificates. If this is null
+    ## a new selfsigned issuer will be created with the chart.
+    ##
+    name: null
+    ## @param certificates.issuer.type defines the type of the issuer, possible values are issuer and
+    ## ClusterIssuer.
+    ##
+    type: issuer
+  ## @param certificates.duration timeframe for validity of cert.
+  ##
+  duration: 2160h # 90d
+  ## @param certificates.renewBefore timeframe before the cert gets renewed.
+  ##
+  renewBefore: 360h # 15d
+  ## @param certificates.subject.organization Organization for the internal certificate.
+  ## @param certificates.subject.country Country for the internal certificate.
+  ## @param certificates.subject.locality Locality for the internal certificate.
+  ##
+  subject:
+    organization: Company
+    country: US
+    locality: California
+
+## @section externalIndexer configuration of the wazuh indexer.
+##
+externalIndexer:
+  ## @param externalIndexer.enabled defines if we use external indexer or not
+  enabled: false
+  ## @param externalIndexer.host defines external indexer address
+  host: https://wazuh-indexer.example.com
+  ## @param externalIndexer.port defines external indexer port
+  port: 9200
+
+## @section indexer configuration of the wazuh indexer.
+##
+indexer:
+  ## @param indexer.enabled defines if we deploy indexer or not
+  enabled: true
+
+  ## @param indexer.serviceAccount.create Create service account for indexer
+  ## @param indexer.serviceAccount.annotations Annotations for indexer service account
+  ## @param indexer.serviceAccount.name Name of the indexer service account
+  serviceAccount:
+    create: false
+    annotations: {}
+    name: "wazuh-indexer"
+  ## @param indexer.replicas number of replicas used in statefulset.
+  ##
+  replicas: 3
+  ## @param indexer.annotations additional annotations set on statefulset.
+  ##
+  annotations: {}
+  ## @param indexer.extraPodLabels Extra labels to add to the indexer pods.
+  ##
+  extraPodLabels: {}
+  ## @param indexer.updateStrategy updateStrategy for the statefulset.
+  ##
+  updateStrategy: RollingUpdate
+  ## Parameters for the image of the indexer.
+  ##
+  images:
+    ## @param indexer.images.repository name of the image used.
+    repository: wazuh/wazuh-indexer
+    ## @param indexer.images.tag Tag of the image.
+    ## @param indexer.images.pullPolicy pullPolicy of the image.
+    tag: "4.14.3"
+    pullPolicy: IfNotPresent
+    ## @param indexer.images.imagePullSecrets.enabled Enable pulling image using secret.
+    ## @param indexer.images.imagePullSecrets.secret Map of secret names to authenticate.
+    imagePullSecrets:
+      enabled: false
+      secret: {}
+  ## @param indexer.resources.requests.cpu Minimum CPU assigned to the pod.
+  ## @param indexer.resources.requests.memory Minimum memory assigned to the pod.
+  ## @param indexer.resources.limits.cpu Maximum CPU used by the pod.
+  ## @param indexer.resources.limits.memory Maximum memory used by the pod.
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+  ## @param indexer.pdb.enabled Enables pdb for indexer.
+  ## @skip indexer.pdb.maxUnavailable
+  pdb:
+    enabled: true
+    maxUnavailable: 1
+  ## @param indexer.livenessProbe.periodSeconds How often to perform the probe.
+  ## @param indexer.livenessProbe.timeoutSeconds When the probe times out.
+  ## @param indexer.livenessProbe.failureThreshold Minimum failures for the probe to be considered failed after having succeeded.
+  ## @param indexer.livenessProbe.successThreshold Minimum successes for the probe to be considered successful after having failed.
+  ## @param indexer.livenessProbe.initialDelaySeconds Delay before liveness probe is initiated.
+  ## @skip indexer.livenessProbe.tcpSocket
+  livenessProbe:
+    periodSeconds: 20
+    timeoutSeconds: 5
+    failureThreshold: 10
+    successThreshold: 1
+    initialDelaySeconds: 10
+    tcpSocket:
+      port: 9200
+  ## @param indexer.readinessProbe.periodSeconds How often to perform the probe.
+  ## @param indexer.readinessProbe.timeoutSeconds When the probe times out.
+  ## @param indexer.readinessProbe.failureThreshold Minimum failures for the probe to be considered failed after having succeeded.
+  ## @param indexer.readinessProbe.successThreshold Minimum successes for the probe to be considered successful after having failed.
+  ## @param indexer.readinessProbe.initialDelaySeconds Delay before liveness probe is initiated.
+  ## @skip indexer.readinessProbe.tcpSocket
+  readinessProbe:
+    periodSeconds: 20
+    timeoutSeconds: 5
+    failureThreshold: 10
+    successThreshold: 1
+    initialDelaySeconds: 10
+    tcpSocket:
+      port: 9200
+  ## @param indexer.securityContext.fsGroup Set the pods Security Context fsGroup.
+  securityContext:
+    fsGroup: 1000
+  ## @param indexer.networkPolicy.enabled Specifies whether a NetworkPolicy should be created.
+  networkPolicy:
+    enabled: true
+    ## @param indexer.networkPolicy.extraIngresses specify additional ingress rules for the NetworkPolicy.
+    extraIngresses: []
+    ## @param indexer.networkPolicy.extraEgresses specify additional egress rules for the NetworkPolicy.
+    extraEgresses: []
+  ## @param indexer.service.type Type of the created service.
+  ## @param indexer.service.annotations Annotations of the created service.
+  ## @param indexer.service.httpPort Port for the http endpoint.
+  ## @param indexer.service.nodes Port for the nodes endpoint.
+  ## @param indexer.service.metrics Port for the metrics endpoint.
+  service:
+    type: ClusterIP
+    annotations: {}
+    httpPort: 9200
+    nodes: 9300
+    metrics: 9600
+  ## @param indexer.nodeSelector nodeSelector
+  nodeSelector: {}
+
+  ## @param indexer.tolerations Tolerations for indexer pods
+  tolerations: []
+
+  ## @param indexer.affinity Affinity rules for indexer pods
+  affinity: {}
+
+  ## @param indexer.dnsPolicy DNS policy for the pod
+  dnsPolicy: ""
+
+  ## @param indexer.dnsConfig DNS configuration for the pod
+  dnsConfig: {}
+  # Example:
+  # dnsConfig:
+  #   nameservers:
+  #     - 1.2.3.4
+  #   searches:
+  #     - ns1.svc.cluster-domain.example
+  #     - my.dns.search.suffix
+  #   options:
+  #     - name: ndots
+  #       value: "2"
+
+  ## @param indexer.additionalEnv Possibility to define additional env vars in the pod.
+  additionalEnv: []
+  ## @param indexer.additionalVolumes Possibility to define additional volumes in the pod.
+  additionalVolumes: []
+  ## @param indexer.additionalVolumeMounts Possibility to define additional volumeMounts in the pod.
+  additionalVolumeMounts: []
+  ## Optional overrides for the indexer config files. Each value defaults to the
+  ## content shipped in the chart (opensearch.yml in the configmap, the OpenSearch
+  ## security files in the securityconfig secret). Leave empty to use that default;
+  ## set a value to manage the config through values.yaml instead.
+  ## @param indexer.config.opensearch Override for opensearch.yml. If empty, the chart default is used.
+  ## @param indexer.config.internalUsers Override for internal_users.yml. If empty, the chart default is used.
+  ## @param indexer.config.securityConfig Override for config.yml (OpenSearch security config). If empty, the chart default is used.
+  ## @param indexer.config.rolesMapping Override for roles_mapping.yml. If empty, the chart default is used.
+  ## @param indexer.config.roles Override for roles.yml. If empty, the chart default is used.
+  ## @param indexer.config.tenants Override for tenants.yml. If empty, the chart default is used.
+  ## @param indexer.config.nodesDn Override for nodes_dn.yml. If empty, the chart default is used.
+  ## @param indexer.config.whitelist Override for whitelist.yml. If empty, the chart default is used.
+  config:
+    opensearch: ""
+    internalUsers: ""
+    securityConfig: ""
+    rolesMapping: ""
+    roles: ""
+    tenants: ""
+    nodesDn: ""
+    whitelist: ""
+    ## KubeAid patch. Extra node DNs appended to plugins.security.nodes_dn in opensearch.yml,
+    ## e.g. the node certificate DN of a central indexer that searches this one with
+    ## cross-cluster search. nodes_dn.yml (nodesDn above) is only read when the security
+    ## plugin's dynamic nodes_dn config is enabled, which it is not by default.
+    ## @param indexer.config.extraNodesDn Extra node certificate DNs.
+    extraNodesDn: []
+    ## Extra roles appended to roles.yml (also after an indexer.config.roles override), as
+    ## a map in the security plugin's roles.yml format. Map them with
+    ## dashboard.sso.*.extraRoleMappings or indexer.ldap.extraRoleMappings.
+    ## @param indexer.config.extraRoles Extra OpenSearch security roles.
+    extraRoles: {}
+    ## With false (the default) a search over a wildcard such as wazuh-alerts-* fails with
+    ## 403 as soon as it covers one index the user may not read. Set true when some users
+    ## may read only part of an index family (per-tenant indices): the search then runs on
+    ## the indices they may read. Ignored with an indexer.config.securityConfig override.
+    ## @param indexer.config.doNotFailOnForbidden Set do_not_fail_on_forbidden in config.yml.
+    doNotFailOnForbidden: false
+  ## @param indexer.additionalConfigs Additional configurations to add to the configmap
+  additionalConfigs: {}
+  ## LDAP / Active Directory authentication for the indexer (OpenSearch Security)
+  ## @param indexer.ldap.enabled Enable LDAP authentication domain
+  ## @param indexer.ldap.order Auth domain order (lower = higher priority)
+  ## @param indexer.ldap.enableSSL Enable SSL
+  ## @param indexer.ldap.enableStartTLS Enable Start TLS
+  ## @param indexer.ldap.enableSSLClientAuth Enable SSL client auth
+  ## @param indexer.ldap.verifyHostnames Verify hostnames
+  ## @param indexer.ldap.hosts List of LDAP hosts (host:port)
+  ## @param indexer.ldap.bindDn Distinguished name for LDAP bind user
+  ## @param indexer.ldap.existingSecret Kubernetes Secret containing the LDAP bind password
+  ## @param indexer.ldap.bindPasswordKey Key in the secret containing the bind password
+  ## @param indexer.ldap.userbase LDAP search base for users
+  ## @param indexer.ldap.usersearch LDAP user search filter ({0} is replaced with the username)
+  ## @param indexer.ldap.usernameAttribute LDAP attribute used as username (null = use DN)
+  ldap:
+    enabled: false
+    order: 5
+    enableSSL: false
+    enableStartTLS: false
+    enableSSLClientAuth: false
+    verifyHostnames: true
+    hosts:
+      - localhost:389
+    bindDn: null
+    existingSecret: ""
+    bindPasswordKey: "password"
+    userbase: "ou=people,dc=example,dc=com"
+    usersearch: "(sAMAccountName={0})"
+    usernameAttribute: null
+    ## @skip indexer.ldap.authz
+    authz:
+      enabled: false
+      hosts: []
+      bindDn: null
+      existingSecret: ""
+      bindPasswordKey: "password"
+      rolebase: "ou=groups,dc=example,dc=com"
+      rolesearch: "(member={0})"
+      userroleattribute: null
+      userrolename: disabled
+      rolename: cn
+      resolveNestedRoles: true
+      userbase: "ou=people,dc=example,dc=com"
+      usersearch: "(uid={0})"
+    ## @skip indexer.ldap.roleMappings
+    roleMappings:
+      allAccess:
+        backendRoles: []
+      readall:
+        backendRoles: []
+      manageSnapshots:
+        backendRoles: []
+      kibanaServer:
+        backendRoles: []
+      kibanaUser:
+        backendRoles: []
+      manageWazuhIndex:
+        backendRoles: []
+    ## @skip indexer.ldap.extraRoleMappings
+    extraRoleMappings: {}
+    # Example for a custom role:
+    # wazuh_admin:
+    #   reserved: false
+    #   backend_roles:
+    #     - "group"
+
+  ## @skip indexer.sysctlImage
+  sysctlImage:
+    enabled: false
+    images:
+      repository: bitnamilegacy/os-shell
+      tag: 12-debian-12-r43
+
+  ## @param indexer.initContainers Possibility to define additional init containers in the pod.
+  initContainers: []
+
+  ## @skip indexer.env
+  env:
+    OPENSEARCH_JAVA_OPTS: "-Xms1g -Xmx1g -Dlog4j2.formatMsgNoLookups=true"
+    CLUSTER_NAME: "wazuh"
+    NETWORK_HOST: "0.0.0.0"
+    DISABLE_INSTALL_DEMO_CONFIG: "true"
+  ## @param indexer.pvc.extraLabels Add addtional labels to the PersistentVolumeClaim metadata
+  pvc:
+    extraLabels: {}
+  ## @param indexer.storageSize Defines the size of the pvc used by the statefulset.
+  ## @param indexer.storageClass Defines the storageClass of the pvc used by the statefulset.
+  storageSize: 50Gi
+  storageClass: null
+  ## @param indexer.cred.existingSecret Name of the existingSecret which holds the key "INDEXER_PASSWORD".
+  ## @param indexer.cred.password Value of the password for the admin user.
+  ## @param indexer.cred.passwordHash Hash of the password for the admin user.
+  cred:
+    existingSecret: ""
+    passwordHash: "$2a$12$zGWIT7wkPKT/zww3bmMyp.KuWXH4RzgxiB91Q8NGFcqpyPy.R2Rcq"
+    password: "WazuhSecretPassword"
+
+  ## @skip indexer.extraSpec
+  extraSpec:
+    statefulSet: {}
+    pod: {}
+    container: {}
+
+  ## @section indexer.snapshot Configuration for OpenSearch snapshot repositories.
+  ## Ref: https://docs.opensearch.org/latest/tuning-your-cluster/availability-and-recovery/snapshots/snapshot-restore/
+  ##
+  snapshot:
+    ## @param indexer.snapshot.enabled Enable snapshot repository configuration on the indexer.
+    ##
+    enabled: false
+    ## @param indexer.snapshot.fs.path Path inside the container where snapshots are stored.
+    ## This path is set as path.repo in opensearch.yml and must be accessible by all indexer nodes.
+    ##
+    fs:
+      path: /mnt/snapshots
+      ## @param indexer.snapshot.fs.storageSize Size of the PVC used for the snapshot volume.
+      ##
+      storageSize: 50Gi
+      ## @param indexer.snapshot.fs.storageClass StorageClass for the snapshot PVC.
+      ## Must support ReadWriteMany access mode (e.g. azurefile, azurefile-csi, efs-sc, nfs-client).
+      ## Standard block storage (managed-csi, gp3, etc.) will NOT work.
+      ##
+      storageClass: ""
+      ## @param indexer.snapshot.fs.accessModes Access modes for the snapshot PVC.
+      ##
+      accessModes:
+        - ReadWriteMany
+      ## @param indexer.snapshot.fs.existingClaim Name of an existing PVC to use instead of creating one.
+      ## If set, storageSize, storageClass, and accessModes are ignored.
+      ##
+      existingClaim: ""
+
+  ## Override the indexer job annotations from the default Helm hooks
+  ## @param indexer.job.annotations Annotations to add to the indexer job.
+  ## @param indexer.job.resources.requests.cpu Minimum CPU assigned to the job pod.
+  ## @param indexer.job.resources.requests.memory Minimum memory assigned to the job pod.
+  ## @param indexer.job.resources.limits.cpu Maximum CPU used by the job pod.
+  ## @param indexer.job.resources.limits.memory Maximum memory used by the job pod.
+  job:
+    annotations: {}
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+  # Example:
+  # job:
+  #   annotations:
+  #     argocd.argoproj.io/hook: PostSync
+  #     argocd.argoproj.io/hook-delete-policy: HookSucceeded,BeforeHookCreation
+
+## @section dashboard configuration of the wazuh dashboard. Kibana for elasticsearch with Wazuh plugins
+dashboard:
+  ## @param dashboard.enabled defines if we deploy dashboard or not
+  enabled: true
+  ## @param dashboard.serviceAccount.create Create service account
+  ## @param dashboard.serviceAccount.annotations Annotations for service account
+  ## @param dashboard.serviceAccount.name Name of the service account
+  serviceAccount:
+    create: false
+    annotations: {}
+    name: "wazuh-dashboard"
+  ## @param dashboard.replicas number of replicas used in deployment.
+  replicas: 1
+  ## @param dashboard.annotations additional annotations set on deployment.
+  annotations: {}
+  ## @param dashboard.extraPodLabels Extra labels to add to the dashboard pods.
+  extraPodLabels: {}
+  ## @param dashboard.images.repository name of the image used.
+  ## @param dashboard.images.tag Tag of the image.
+  ## @param dashboard.images.pullPolicy pullPolicy of the image.
+  ## @param dashboard.images.updateStrategy updateStrategy of the image.
+  images:
+    repository: wazuh/wazuh-dashboard
+    tag: "4.14.3"
+    pullPolicy: IfNotPresent
+    updateStrategy: OnDelete
+  ## @param dashboard.resources.requests.cpu Minimum CPU assigned to the pod.
+  ## @param dashboard.resources.requests.memory Minimum memory assigned to the pod.
+  ## @param dashboard.resources.limits.cpu Maximum CPU used by the pod.
+  ## @param dashboard.resources.limits.memory Maximum memory used by the pod.
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  ## @param dashboard.pdb.enabled Enables pdb for dashboard.
+  ## @skip dashboard.pdb.maxUnavailable
+  pdb:
+    enabled: false
+    maxUnavailable: 1
+  ## @param dashboard.livenessProbe.periodSeconds How often to perform the probe.
+  ## @param dashboard.livenessProbe.timeoutSeconds When the probe times out.
+  ## @param dashboard.livenessProbe.failureThreshold Minimum failures for the probe to be considered failed.
+  ## @param dashboard.livenessProbe.successThreshold Minimum successes.
+  ## @param dashboard.livenessProbe.initialDelaySeconds Delay before liveness probe.
+  ## @skip dashboard.livenessProbe.httpGet
+  livenessProbe:
+    periodSeconds: 20
+    timeoutSeconds: 5
+    failureThreshold: 10
+    successThreshold: 1
+    initialDelaySeconds: 10
+    httpGet:
+      path: /api/status
+      port: 5601
+  ## @param dashboard.readinessProbe.periodSeconds How often to perform the probe.
+  ## @param dashboard.readinessProbe.timeoutSeconds When the probe times out.
+  ## @param dashboard.readinessProbe.failureThreshold Minimum failures for the probe to be considered failed.
+  ## @param dashboard.readinessProbe.successThreshold Minimum successes.
+  ## @param dashboard.readinessProbe.initialDelaySeconds Delay before liveness probe.
+  ## @skip dashboard.readinessProbe.httpGet
+  readinessProbe:
+    periodSeconds: 20
+    timeoutSeconds: 5
+    failureThreshold: 10
+    successThreshold: 1
+    initialDelaySeconds: 10
+    httpGet:
+      path: /api/status
+      port: 5601
+  ## @param dashboard.securityContext Parameter to configure the securityContext of the pod.
+  securityContext: {}
+  ## @param dashboard.networkPolicy.enabled Specifies whether a NetworkPolicy should be created.
+  ## @param dashboard.networkPolicy.extraIngresses specify additional ingress rules for the NetworkPolicy.
+  ## @param dashboard.networkPolicy.extraEgresses specify additional egress rules for the NetworkPolicy.
+  networkPolicy:
+    enabled: true
+    extraIngresses: []
+    extraEgresses: []
+  ## @param dashboard.service.type Type of the created service.
+  ## @param dashboard.service.annotations Annotations of the created service.
+  ## @param dashboard.service.httpPort Port for the http endpoint.
+  service:
+    type: ClusterIP
+    annotations: {}
+    httpPort: 5601
+  ## @param dashboard.nodeSelector nodeSelector
+  nodeSelector: {}
+
+  ## @param dashboard.tolerations Tolerations
+  tolerations: []
+
+  ## @param dashboard.affinity Affinity
+  affinity: {}
+
+  ## @param dashboard.dnsPolicy DNS policy for the pod
+  dnsPolicy: ""
+
+  ## @param dashboard.dnsConfig DNS configuration for the pod
+  dnsConfig: {}
+  # Example:
+  # dnsConfig:
+  #   nameservers:
+  #     - 1.2.3.4
+  #   searches:
+  #     - ns1.svc.cluster-domain.example
+  #     - my.dns.search.suffix
+  #   options:
+  #     - name: ndots
+  #       value: "2"
+
+  ## @param dashboard.additionalEnv Possibility to define additional env vars in the pod.
+  additionalEnv: []
+  ## KubeAid patch. Name of a Secret whose key wazuh.yml replaces the Wazuh app config
+  ## (data/wazuh/config/wazuh.yml), e.g. to list several manager APIs. The image's start
+  ## script leaves the file alone when it contains the host id 1513629884013, so give the
+  ## first host that id and put checks/pattern settings in the file, not in env vars.
+  ## Empty: the image writes a single host from WAZUH_API_URL and the API credentials.
+  ## @param dashboard.wazuhAppConfigSecret Secret with wazuh.yml for the Wazuh app.
+  wazuhAppConfigSecret: ""
+  ## @param dashboard.enable_ssl with this you will be able to access kibana on http port instead of
+  enable_ssl: false
+  ## @param dashboard.config Configuration of the dashboard parameters, this should not be changed.
+  config: |
+    {{ include "wazuh.dashboard.config" . }}
+
+  ## @param dashboard.cred.existingSecret Name of the existingSecret
+  ## @param dashboard.cred.password Value of the password for the kibanaserver user.
+  ## @param dashboard.cred.username Value of the username
+  ## @param dashboard.cred.passwordHash Hash of the password
+  cred:
+    existingSecret: ""
+    username: "kibanaserver"
+    password: "kibanaserver"
+    passwordHash: "$2a$12$7NCZ.l9ntPhou5zNjZIU4uqXNNWMF7SyF6Y6mcjhHTB6Z1eQubHC."
+
+  ## @param dashboard.basicAuth.enabled Enable basicAuth
+  ## @param dashboard.basicAuth.order Order for basicAuth
+  ## @param dashboard.basicAuth.challenge Challenge for basicAuth
+  basicAuth:
+    enabled: true
+    order: 4
+    challenge: true
+
+  ## @param dashboard.server.extraConf Set extra config for Wazuh Dashboard
+  server:
+    extraConf: {}
+
+  ## @skip dashboard.sso
+  sso:
+    oidc:
+      enabled: false
+      primary: false
+      url: ""
+      logoutUrl: ""
+      ## Public dashboard URL used as OIDC base_redirect_url. Defaults to
+      ## https://<dashboard.ingress.host>, or to the chart-managed Gateway listener URL.
+      ## Set explicitly for direct Gateway attachment.
+      baseRedirectUrl: ""
+      scope: "openid profile email address phone"
+      issuer: ""
+      order: 1
+      existingSecret: ""
+      clientIdKey: "OPENSEARCH_OIDC_CLIENT_ID"
+      clientSecretKey: "OPENSEARCH_OIDC_CLIENT_SECRET"
+      config:
+        subjectKey: "preferred_username"
+        rolesKey: "roles"
+      roleMappings:
+        allAccess:
+          backendRoles: []
+        ## Backend roles mapped to the built-in readall role (read on every index).
+        readall:
+          backendRoles: []
+        kibanaServer:
+          backendRoles: []
+        kibanaUser:
+          backendRoles: []
+      extraRoleMappings: {}
+      customizeLoginButton:
+        enabled: false
+        text: "Log In with Single sign-on (OIDC)"
+        imageUrl: ""
+        showImage: false
+      idp:
+        enableSSL: false
+        pemtrustedcasFilePath: ""
+        pemtrustedcasContent: |-
+          -----BEGIN CERTIFICATE-----
+          -----END CERTIFICATE-----
+
+    saml:
+      enabled: false
+      primary: false
+      metadataUrl: ""
+      idpEntityId: ""
+      enableSSL: false
+      pemtrustedcasFilePath: ""
+      pemtrustedcasContent: |-
+        -----BEGIN CERTIFICATE-----
+        -----END CERTIFICATE-----
+      spEntityId: "wazuh-saml"
+      ## Public dashboard URL used as SAML kibana_url. Defaults to https://<dashboard.ingress.host>,
+      ## or to the chart-managed Gateway listener URL. When
+      ## dashboard.gateway.listenerSet.enabled=false, set this explicitly.
+      kibanaUrl: ""
+      order: 1
+      exchangeKey: ""
+      config:
+        rolesKey: "Roles"
+      roleMappings:
+        allAccess:
+          backendRoles: []
+        ## Backend roles mapped to the built-in readall role (read on every index).
+        readall:
+          backendRoles: []
+        kibanaServer:
+          backendRoles: []
+        kibanaUser:
+          backendRoles: []
+      extraRoleMappings: {}
+
+  ## @param dashboard.ingress.enabled Enable ingress record generation for dashboard.
+  ## @param dashboard.ingress.className Defines the ingress class name used.
+  ## @param dashboard.ingress.tls Allows to use specific tls certificate.
+  ## @param dashboard.ingress.annotations Used for detailed configuration.
+  ## @param dashboard.ingress.host Defines the hostname and URL under which the dashboard gets
+  ingress:
+    enabled: false
+    className: ""
+    tls: []
+    annotations: {}
+    host: "wazuh.example.com"
+
+  ## @param dashboard.gateway.enabled Enable Gateway API resources (HTTPRoute + parent) for dashboard, as an alternative to dashboard.ingress.
+  ## @param dashboard.gateway.host Defines the hostname under which the dashboard is exposed through the Gateway.
+  ## @param dashboard.gateway.annotations Annotations to add on the ListenerSet.
+  ## @param dashboard.gateway.parentRef.group Group of the parent Gateway reference.
+  ## @param dashboard.gateway.parentRef.kind Kind of the parent Gateway reference.
+  ## @param dashboard.gateway.parentRef.name Name of the parent Gateway. Required when dashboard.gateway.enabled is true.
+  ## @param dashboard.gateway.parentRef.namespace Namespace of the parent Gateway. Leave empty when the Gateway is in the same namespace.
+  ## @param dashboard.gateway.listenerSet.enabled Create a dedicated ListenerSet and attach the HTTPRoute to it. Disable to attach the HTTPRoute directly to the parent Gateway, for Gateways that do not allow ListenerSets (spec.allowedListeners).
+  ## @param dashboard.gateway.tls.enabled Terminate edge TLS (client to Gateway) on the listener for the dashboard hostname.
+  ## @param dashboard.gateway.tls.secretName Name of the Secret holding the edge TLS certificate. Defaults to "<fullname>-dashboard-letsencrypt" when tls.certificate.create is true.
+  ## @param dashboard.gateway.tls.certificate.create Let the chart create a cert-manager Certificate for the edge TLS secret. Set to false to reuse an existing Secret referenced by tls.secretName.
+  ## @param dashboard.gateway.tls.issuerRef.name Name of the cert-manager issuer used to sign the edge TLS certificate. Required when tls.certificate.create is true.
+  ## @param dashboard.gateway.tls.issuerRef.kind Kind of the issuer used for signing the edge TLS certificate (Issuer or ClusterIssuer).
+  ## @param dashboard.gateway.tls.issuerRef.group Group of the issuer used for signing the edge TLS certificate.
+  ## @param dashboard.gateway.backendTLS.caCertificateRef.name Name of an existing ConfigMap (key ca.crt) used by the Gateway to validate the dashboard backend TLS certificate. Required when dashboard.gateway.enabled and dashboard.enable_ssl are both true.
+  gateway:
+    enabled: false
+    host: "wazuh.example.com"
+    annotations: {}
+    parentRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: ""
+      namespace: ""
+    listenerSet:
+      enabled: true
+    tls:
+      enabled: false
+      secretName: ""
+      certificate:
+        create: true
+      issuerRef:
+        name: ""
+        kind: ClusterIssuer
+        group: cert-manager.io
+    backendTLS:
+      caCertificateRef:
+        name: ""
+
+  ## @skip dashboard.extraSpec
+  extraSpec:
+    deployment: {}
+    pod: {}
+    container: {}
+
+## @section wazuh configuration of the wazuh core component.
+##
+wazuh:
+  ## @param wazuh.enabled enable the deployment of wazuh core component
+  enabled: true
+  ## @param wazuh.serviceAccount.create Create service account
+  ## @param wazuh.serviceAccount.annotations Annotations for service account
+  ## @param wazuh.serviceAccount.name Name of the service account
+  serviceAccount:
+    create: false
+    annotations: {}
+    name: "wazuh-manager"
+  ## @param wazuh.syslog_enable Enables the syslog of the wazuh instance.
+  syslog_enable: true
+  ## Without this only alerts are indexed, so events matching no rule are dropped. Sets
+  ## <logall_json> on the managers and enables filebeat's archives fileset; both are needed,
+  ## so it is one switch. Archives are unfiltered, expect much more indexer storage.
+  ## Does not apply to a file replaced by masterConf, workerConf or filebeat.config.
+  ## @param wazuh.archives.enabled Index every event, not just alerts.
+  archives:
+    enabled: false
+  ## @param wazuh.key Defines the key of the wazuh cluster.
+  key: "c98b62a9b6169ac5f67dae55ae4a9088"
+  ## @param wazuh.images.repository name of the image used.
+  ## @param wazuh.images.tag Tag of the image.
+  ## @param wazuh.images.pullPolicy pullPolicy of the image.
+  ## @param wazuh.images.imagePullSecrets.enabled Enable pulling image using secret.
+  ## @param wazuh.images.imagePullSecrets.secret Map of secret names to authenticate.
+  images:
+    repository: wazuh/wazuh-manager
+    tag: "4.14.3"
+    pullPolicy: IfNotPresent
+    imagePullSecrets:
+      enabled: false
+      secret: {}
+  ## @param wazuh.loadBalancer.enabled Enable LoadBalancer service for external agent connections
+  ## @param wazuh.loadBalancer.annotations Annotations for LoadBalancer service
+  ## @param wazuh.loadBalancer.ports Inline array of port names to expose; empty means all ports are included
+  ## @param wazuh.loadBalancer.loadBalancerSourceRanges List of CIDR ranges allowed to reach the LoadBalancer; rendered whenever non-empty
+  ## @param wazuh.loadBalancer.externalTrafficPolicy External traffic policy for the LoadBalancer (e.g. Local or Cluster); omitted if empty
+  ## @param wazuh.loadBalancer.internalTrafficPolicy Internal traffic policy for the LoadBalancer (e.g. Cluster or Local); omitted if empty
+  ## @param wazuh.loadBalancer.allocateLoadBalancerNodePorts Whether to allocate node ports for the LoadBalancer; omitted if null
+  loadBalancer:
+    enabled: false
+    annotations: {}
+    ports: ["registration", "agents-events"]
+    loadBalancerSourceRanges: []
+    externalTrafficPolicy: ""
+    internalTrafficPolicy: ""
+    allocateLoadBalancerNodePorts: null
+  ## @param wazuh.service.annotations Annotations of the created service.
+  ## @param wazuh.service.port Port for the http endpoint.
+  service:
+    annotations: {}
+    port: 1516
+  ## @param wazuh.nodeSelector nodeSelector
+  nodeSelector: {}
+  ## @skip wazuh.env
+  env:
+    FILEBEAT_SSL_VERIFICATION_MODE: full
+  ## @param wazuh.apiCred.existingSecret name of the existingSecret
+  ## @param wazuh.apiCred.username name of the username.
+  ## @param wazuh.apiCred.password password of the user.
+  apiCred:
+    existingSecret: ""
+    username: "wazuh-wui"
+    password: "MyS3cr37P450r.*-"
+  ## @param wazuh.authd.enabled enable password-based agent registration
+  ## @param wazuh.authd.existingSecret name of the existingSecret
+  ## @param wazuh.authd.pass password of the authd.
+  authd:
+    enabled: true
+    existingSecret: ""
+    pass: "password"
+  ## @param wazuh.initContainer.image Image used by the update-index container
+  ## @param wazuh.initContainer.resources.requests.cpu Minimum CPU assigned to the pod.
+  ## @param wazuh.initContainer.resources.requests.memory Minimum memory assigned to the pod.
+  ## @param wazuh.initContainer.resources.limits.cpu Maximum CPU used by the pod.
+  ## @param wazuh.initContainer.resources.limits.memory Maximum memory used by the pod.
+  initContainer:
+    image: alpine
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+
+  ## @param wazuh.extraInitContainers Parameters for the additional initContainers.
+  extraInitContainers: []
+
+  ## Optional overrides for the manager config files. Each value defaults to the file
+  ## shipped in `files/` (or, for master/worker, the generated ossec config). Leave empty
+  ## to use that default; set a value to manage the config through values.yaml instead.
+  ## @param wazuh.script Override for script.sh. If empty, files/script.sh is used.
+  script: ""
+  ## Replaces the generated config, so wazuh.archives.enabled does not apply: set
+  ## <logall_json>yes</logall_json> here if you want archives.
+  ## @param wazuh.masterConf Override for master.conf. If empty, the generated ossec config is used.
+  masterConf: ""
+  ## @param wazuh.workerConf Override for worker.conf. If empty, the generated ossec config is used.
+  workerConf: ""
+  ## @param wazuh.localDecoder Override for local_decoder.xml. If empty, files/local_decoder.xml is used.
+  localDecoder: ""
+  ## @param wazuh.localRules Override for local_rules.xml. If empty, files/local_rules.xml is used.
+  localRules: ""
+  ## @param wazuh.internalOptions Override for internal_options.conf. If empty, files/internal_options.conf is used.
+  internalOptions: ""
+  ## Replaces the whole file. Keep the `hosts:` line and the commented-out `#username:`,
+  ## `#password:` and `#ssl.*` keys: the entrypoint fills those in from the env vars, and
+  ## ships nothing without them. wazuh.archives.enabled does not apply, set archives here.
+  ## @param wazuh.filebeat.config Override for filebeat.yml. If empty, the generated config is used.
+  filebeat:
+    config: ""
+    ## Per-tenant alert indices. An agent label (set in the agent's ossec.conf or, better,
+    ## in its group's agent.conf, see agentGroupConf) picks the index:
+    ##   <label key="tenant">acme</label>  ->  wazuh-alerts-4.x-acme-<date>
+    ## Alerts without the label, or whose value does not match valuePattern, keep the
+    ## stock wazuh-alerts-4.x-<date>. Both stay under the wazuh index template
+    ## (wazuh-alerts-4.x-*) and the dashboard's wazuh-alerts-* index pattern, so per-tenant
+    ## access is a matter of index permissions on wazuh-alerts-4.x-<tenant>-*.
+    ## Mounts a patched copy of the module's alerts pipeline (files/filebeat/) on the
+    ## managers and turns on filebeat.overwrite_pipelines so it replaces the one already in
+    ## the indexer. Turning this off again does NOT restore the stock pipeline in the
+    ## indexer: delete it (DELETE _ingest/pipeline/filebeat-<version>-wazuh-alerts-pipeline)
+    ## and restart the managers, and filebeat uploads the stock one.
+    ## @param wazuh.filebeat.indexRouting.enabled Route alerts to per-tenant indices by agent label.
+    ## @param wazuh.filebeat.indexRouting.labelKey Agent label key ([a-z0-9_]+); read from agent.labels.<key>.
+    ## @param wazuh.filebeat.indexRouting.valuePattern Painless regex the label value must match to be used in an index name.
+    ## @param wazuh.filebeat.indexRouting.dateRounding date_index_name rounding for tenant indices (y, M, w, d, h); empty keeps the stock daily.
+    ## @param wazuh.filebeat.indexRouting.indexNameFormat Date format for tenant indices (e.g. yyyy.MM); empty keeps the stock yyyy.MM.dd.
+    indexRouting:
+      enabled: false
+      labelKey: tenant
+      valuePattern: "^[a-z0-9]{1,32}$"
+      dateRounding: ""
+      indexNameFormat: ""
+  ## @param wazuh.agentGroupConfConfigMap Name of a ConfigMap managed outside this chart whose keys `<group>.conf` become `etc/shared/<group>/agent.conf` on the managers (KubeAid addition)
+  ## Copied at container start like agentGroupConf, so a change needs a manager restart
+  ## (this chart cannot hash a ConfigMap it does not render). A group that is also in
+  ## agentGroupConf keeps the agentGroupConf content.
+  agentGroupConfConfigMap: ""
+  ## @skip wazuh.agentGroupConf
+  agentGroupConf:
+    - name: example
+      agent: |
+        <agent_config>
+          <localfile>
+            <location>journald</location>
+            <log_format>journald</log_format>
+          </localfile>
+        </agent_config>
+
+  master:
+    ## @param wazuh.master.enabled Enable the master
+    enabled: true
+    ## @param wazuh.master.annotations additional annotations set on statefulset.
+    annotations: {}
+    ## @param wazuh.master.extraPodLabels Extra labels to add to the master pods.
+    extraPodLabels: {}
+    ## @param wazuh.master.resources.requests.cpu Minimum CPU assigned to the pod.
+    ## @param wazuh.master.resources.requests.memory Minimum memory assigned to the pod.
+    ## @param wazuh.master.resources.limits.cpu Maximum CPU used by the pod.
+    ## @param wazuh.master.resources.limits.memory Maximum memory used by the pod.
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+
+    ## @param wazuh.master.tolerations Tolerations for master pods
+    tolerations: []
+
+    ## @param wazuh.master.affinity Affinity rules for master pods
+    affinity: {}
+
+    ## @param wazuh.master.dnsPolicy DNS policy for the pod
+    dnsPolicy: ""
+
+    ## @param wazuh.master.dnsConfig DNS configuration for the pod
+    dnsConfig: {}
+
+    ## @param wazuh.master.service.type Type of the created service.
+    ## @param wazuh.master.service.annotations Annotations of the created service.
+    ## @skip wazuh.master.service.ports
+    service:
+      type: ClusterIP
+      annotations: {}
+      ports:
+        - name: registration
+          protocol: TCP
+          port: 1515
+          targetPort: 1515
+        - name: api
+          protocol: TCP
+          port: 55000
+          targetPort: 55000
+
+    ## @param wazuh.master.configVolume.defaultMode defaultMode for the manager config volume. If not set, defaults to 0500.
+    configVolume:
+      defaultMode: "0755"
+
+    ## @param wazuh.master.livenessProbe Parameter to configure the livenessProbe.
+    livenessProbe: {}
+    ## @param wazuh.master.readinessProbe Parameter to configure the readinessProbe.
+    readinessProbe: {}
+    ## @param wazuh.master.additionalEnv Possibility to define additional env vars in the pod.
+    additionalEnv: []
+    ## @param wazuh.master.additionalVolumes Possibility to define additional volumes in the pod.
+    additionalVolumes: []
+    ## @param wazuh.master.additionalVolumeMounts Possibility to define additional volumeMounts in the pod.
+    additionalVolumeMounts: []
+    ## @param wazuh.master.securityContext.capabilities.add Additional capabilities.
+    securityContext:
+      capabilities:
+        add: ["SYS_CHROOT"]
+    ## @param wazuh.master.networkPolicy.enabled Specifies whether a NetworkPolicy should be created.
+    ## @param wazuh.master.networkPolicy.extraIngresses specify additional ingress rules
+    ## @param wazuh.master.networkPolicy.extraEgresses specify additional egress rules
+    networkPolicy:
+      enabled: true
+      extraIngresses: []
+      extraEgresses: []
+    ## @param wazuh.master.pvc.extraLabels Add addtional labels to the PersistentVolumeClaim metadata
+    pvc:
+      extraLabels: {}
+    ## @param wazuh.master.storageSize Defines the size of the pvc used by the statefulset.
+    ## @param wazuh.master.storageClass Defines the storageClass of the pvc used by the statefulset.
+    storageSize: 50Gi
+    storageClass: null
+    ## @param wazuh.master.conf Config for the wazuh master, do not change!
+    conf: |
+      {{ include "wazuh.master.conf" . }}
+    ## @param wazuh.master.extraConf Gets appended to the wazuh.master.conf.
+    extraConf: ""
+    ## @skip wazuh.master.extraSpec
+    extraSpec:
+      statefulSet: {}
+      pod: {}
+      container: {}
+
+  worker:
+    ## @param wazuh.worker.enabled Enable the worker
+    enabled: true
+    ## @param wazuh.worker.replicas number of replicas used in statefulset.
+    replicas: 2
+    ## @param wazuh.worker.annotations additional annotations set on deployment.
+    annotations: {}
+    ## @param wazuh.worker.extraPodLabels Extra labels to add to the worker pods.
+    extraPodLabels: {}
+    ## @param wazuh.worker.resources.requests.cpu Minimum CPU assigned to the pod.
+    ## @param wazuh.worker.resources.requests.memory Minimum memory assigned to the pod.
+    ## @param wazuh.worker.resources.limits.cpu Maximum CPU used by the pod.
+    ## @param wazuh.worker.resources.limits.memory Maximum memory used by the pod.
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+
+    ## @param wazuh.worker.tolerations Tolerations for worker pods
+    tolerations: []
+
+    ## @param wazuh.worker.affinity Affinity rules for worker pods
+    affinity: {}
+
+    ## @param wazuh.worker.dnsPolicy DNS policy for the pod
+    dnsPolicy: ""
+
+    ## @param wazuh.worker.dnsConfig DNS configuration for the pod
+    dnsConfig: {}
+
+    ## @param wazuh.worker.configVolume.defaultMode defaultMode for the worker config volume. If not set, defaults to 0500.
+    configVolume:
+      defaultMode: "0755"
+
+    ## @param wazuh.worker.podAntiAffinity Pod anti-affinity setting
+    podAntiAffinity: "soft"
+
+    ## @param wazuh.worker.podAntiAffinityTopologyKey Topology key for anti-affinity
+    podAntiAffinityTopologyKey: kubernetes.io/hostname
+    ## @param wazuh.worker.service.type Type of the created service.
+    ## @param wazuh.worker.service.annotations Annotations of the created service.
+    ## @skip wazuh.worker.service.ports
+    service:
+      type: ClusterIP
+      annotations: {}
+      ports:
+        - name: agents-events
+          protocol: TCP
+          port: 1514
+          targetPort: 1514
+    ## @param wazuh.worker.pdb.enabled Enables pdb for worker.
+    ## @skip wazuh.worker.pdb.maxUnavailable
+    pdb:
+      enabled: true
+      maxUnavailable: 1
+    ## @param wazuh.worker.livenessProbe Parameter to configure the livenessProbe.
+    livenessProbe: {}
+    ## @param wazuh.worker.readinessProbe Parameter to configure the readinessProbe.
+    readinessProbe: {}
+    ## @param wazuh.worker.additionalEnv Possibility to define additional env vars in the pod.
+    additionalEnv: []
+    ## @param wazuh.worker.additionalVolumes Possibility to define additional volumes vars in the pod.
+    additionalVolumes: []
+    ## @param wazuh.worker.additionalVolumeMounts Possibility to define additional volumeMounts vars in the pod.
+    additionalVolumeMounts: []
+    ## @param wazuh.worker.securityContext.capabilities.add Additional capabilities.
+    securityContext:
+      capabilities:
+        add: ["SYS_CHROOT"]
+    ## @param wazuh.worker.networkPolicy.enabled Specifies whether a NetworkPolicy should be created.
+    ## @param wazuh.worker.networkPolicy.extraIngresses specify additional ingress rules
+    ## @param wazuh.worker.networkPolicy.extraEgresses specify additional egress rules
+    networkPolicy:
+      enabled: true
+      extraIngresses: []
+      extraEgresses: []
+    ## @param wazuh.worker.pvc.extraLabels Add addtional labels to the PersistentVolumeClaim metadata
+    pvc:
+      extraLabels: {}
+    ## @param wazuh.worker.storageSize Defines the size of the pvc used by the statefulset.
+    ## @param wazuh.worker.storageClass Defines the storageClass of the pvc used by the statefulset.
+    storageSize: 50Gi
+    storageClass: null
+    ## @param wazuh.worker.conf Config for the wazuh worker, do not change!
+    conf: |
+      {{ include "wazuh.worker.conf" . }}
+    ## @param wazuh.worker.extraConf Gets appended to the wazuh.worker.conf.
+    extraConf: ""
+
+    ## @skip wazuh.worker.extraSpec
+    extraSpec:
+      statefulSet: {}
+      pod: {}
+      container: {}
+
+    ## @param wazuh.worker.rulesetReloader.enabled Run a sidecar that reloads the worker's analysisd after the master's ruleset has synced to it (files/ruleset-reloader.sh).
+    ## @param wazuh.worker.rulesetReloader.settleSeconds Seconds the synced ruleset must stay unchanged before the reload.
+    ## @param wazuh.worker.rulesetReloader.pollSeconds Seconds between checks of the ruleset on disk.
+    ## @param wazuh.worker.rulesetReloader.resources Resources of the sidecar.
+    ## @param wazuh.worker.rulesetReloader.securityContext securityContext of the sidecar. 999 is the wazuh user of the manager image, which owns /var/ossec/etc.
+    rulesetReloader:
+      enabled: false
+      settleSeconds: 90
+      pollSeconds: 30
+      resources:
+        requests:
+          cpu: 5m
+          memory: 16Mi
+        limits:
+          memory: 64Mi
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+
+agent:
+  ## @param agent.enabled Enable the agent.
+  enabled: true
+
+  ## @param agent.namePrefix Prefix for the agent name.
+  namePrefix: ""
+
+  ## @param agent.serviceAccount.create defines wazuh agent serviceAccount.
+  ## @param agent.serviceAccount.annotations Annotations for the service account
+  ## @param agent.serviceAccount.name Name of the service account
+  serviceAccount:
+    create: false
+    annotations: {}
+    name: "wazuh-agent"
+
+  ## @param agent.debug.enabled Enable debug mode for the agent.
+  ## @param agent.debug.level Run the agent processes in debug mode.
+  ## @param agent.debug.modules List of agent processes for which debugging is enabled.
+  debug:
+    enabled: false
+    level: 1
+    modules:
+      - agent
+      - wazuh_modules
+
+  ## @param agent.service.port Port for the service.
+  ## @param agent.service.type Type of the created service.
+  ## @param agent.service.annotations Annotations of the created service.
+  service:
+    port: 5000
+    type: ClusterIP
+    annotations: {}
+
+  ## @param agent.labels Extra labels for the agent.
+  labels: {}
+
+  ## @param agent.annotations Extra annotations for the agent.
+  annotations: {}
+
+  ## @param agent.podAnnotations Extra annotations for the agent.
+  podAnnotations: {}
+
+  ## @param agent.extraPodLabels Extra labels to add to the agent pods.
+  extraPodLabels: {}
+
+  ## @param agent.images.repository Repository
+  ## @param agent.images.tag Tag
+  ## @param agent.images.pullPolicy Pull Policy
+  images:
+    repository: kinseii/wazuh-agent
+    tag: "4.14.1"
+    pullPolicy: IfNotPresent
+
+  ## @param agent.podSecurityContext Additional capabilities.
+  podSecurityContext: {}
+
+  ## @skip agent.securityContext
+  securityContext:
+    privileged: true
+
+  ## @skip agent.resources
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+  ## @param agent.nodeSelector nodeSelector
+  nodeSelector: {}
+
+  ## @param agent.affinity affinity
+  affinity: {}
+
+  ## @param agent.tolerations tolerations
+  tolerations: []
+
+  ## @param agent.dnsPolicy DNS policy for the pod.
+  dnsPolicy: ""
+
+  ## @param agent.dnsConfig DNS configuration for the pod.
+  dnsConfig: {}
+
+  ## @skip agent.joinManager
+  joinManager:
+    managerHost: ""
+    apiPort: "55000"
+    agentsEvents: "1514"
+    workerHost: ""
+    scheme: https
+    wazuh:
+      group: default
+
+  ## @skip agent.apiCred
+  apiCred:
+    existingSecret: ""
+    username: "wazuh-wui"
+    password: "MyS3cr37P450r.*-"
+
+  ## @skip agent.livenessProbe
+  livenessProbe: {}
+
+  ## @skip agent.volumes
+  volumes:
+    - name: var-run
+      hostPath:
+        path: /var/run
+    - name: dev
+      hostPath:
+        path: /dev
+    - name: sys
+      hostPath:
+        path: /sys
+    - name: proc
+      hostPath:
+        path: /proc
+    - name: etc
+      hostPath:
+        path: /etc
+    - name: boot
+      hostPath:
+        path: /boot
+    - name: usr
+      hostPath:
+        path: /usr
+    - name: modules
+      hostPath:
+        path: /lib/modules
+    - name: log
+      hostPath:
+        path: /var/log
+
+  ## @skip agent.volumeMounts
+  volumeMounts:
+    - mountPath: /var/run
+      name: var-run
+    - mountPath: /host/dev
+      name: dev
+    - mountPath: /host/sys
+      name: sys
+      readOnly: true
+    - mountPath: /host/proc
+      name: proc
+      readOnly: true
+    - mountPath: /host/etc
+      name: etc
+      readOnly: true
+    - mountPath: /host/boot
+      name: boot
+      readOnly: true
+    - mountPath: /host/usr
+      name: usr
+      readOnly: true
+    - mountPath: /host/lib/modules
+      name: modules
+      readOnly: true
+    - mountPath: /host/var/log
+      name: log
+      readOnly: true
+
+  ## @skip agent.extraSpec
+  extraSpec:
+    daemonSet: {}
+    pod: {}
+    container: {}
+
+  ## @skip agent.extraContainers
+  extraContainers: []

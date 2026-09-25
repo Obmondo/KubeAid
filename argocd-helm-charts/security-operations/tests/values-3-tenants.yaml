@@ -1,0 +1,24 @@
+# Generic three-tenant fixture: values-2-tenants.yaml plus tenant 003 and nothing else for render_test.sh.
+domain: example.com
+keycloak:
+  url: https://keycloak.example.com/auth
+  realm: soc
+tenantWazuh:
+  agentHost: agents.example.com
+tenants:
+  - code: "001"
+    name: Tenant A
+    agentPorts:
+      registration: 20015
+      events: 20014
+  - code: "002"
+    name: Tenant B
+    retentionDays: 90
+    agentPorts:
+      registration: 20025
+      events: 20024
+  - code: "003"
+    name: Tenant C
+    agentPorts:
+      registration: 20035
+      events: 20034

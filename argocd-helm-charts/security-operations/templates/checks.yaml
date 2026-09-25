@@ -1,0 +1,42 @@
+{{- /*
+  Render-time checks between `tenants` and component values this chart cannot
+  derive (README, "What is not derived from tenants"). Renders nothing.
+*/}}
+{{- $tenants := include "secops.tenants" . | fromJsonArray }}
+{{- $x := .Values.misp.wazuhCdbExport | default dict }}
+{{- if and .Values.misp.enabled $x.enabled .Values.checks.mispTargets }}
+{{- $names := dict }}
+{{- range ($x.targets | default list) }}{{ $_ := set $names (toString .name) true }}{{ end }}
+{{- range $tenants }}
+{{- if not (hasKey $names .code) }}
+{{- fail (printf "tenant %s: add a misp.wazuhCdbExport.targets entry named %q (README, section \"What is not derived from tenants\"), or set checks.mispTargets: false" .code .code) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- $seen := dict }}
+{{- range $tenants }}
+{{- with .agentPorts }}
+{{- range $p := list .registration .events }}
+{{- if hasKey $seen (toString $p) }}{{ fail (printf "agent port %v is used twice (tenants[].agentPorts)" $p) }}{{ end }}
+{{- $_ := set $seen (toString $p) true }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if .Values.velociraptor.enabled }}
+{{- $v := .Values.velociraptor.velociraptor | default dict }}
+{{- /* Velociraptor reads its artifacts only at start: the pod annotation must follow them. */}}
+{{- $want := include "secops.velociraptorArtifactsChecksum" . }}
+{{- $have := index ($v.podAnnotations | default dict) "checksum/server-artifacts" | default "" }}
+{{- if ne $want $have }}
+{{- fail (printf "the Velociraptor artifacts changed: set velociraptor.velociraptor.podAnnotations.checksum/server-artifacts to %s (it is %q), so the server restarts and loads them" $want $have) }}
+{{- end }}
+{{- $ac := $v.apiClient | default dict }}
+{{- if and .Values.reconciler.enabled $ac.enabled }}
+{{- /* The publisher runs `siem-reconciler publish-api-client`: same image as the reconciler. */}}
+{{- $pi := $ac.publisherImage | default dict }}
+{{- $ri := .Values.reconciler.image }}
+{{- if or (ne (toString $pi.repository) (toString $ri.repository)) (ne (toString $pi.tag) (toString $ri.tag)) }}
+{{- fail (printf "velociraptor.velociraptor.apiClient.publisherImage (%s:%s) must equal reconciler.image (%s:%s)" (toString $pi.repository) (toString $pi.tag) (toString $ri.repository) (toString $ri.tag)) }}
+{{- end }}
+{{- end }}
+{{- end }}

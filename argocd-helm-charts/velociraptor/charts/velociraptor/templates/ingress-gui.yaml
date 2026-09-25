@@ -1,0 +1,38 @@
+{{- if .Values.gui.ingress.enabled }}
+{{- $fullName := include "velociraptor.fullname" . }}
+{{- $svcPort := .Values.gui.service.port }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}-gui
+  labels:
+    {{- include "velociraptor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gui
+  {{- with .Values.gui.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.gui.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.gui.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    {{- range .Values.gui.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ $fullName }}-gui
+                port:
+                  number: {{ $svcPort }}
+          {{- end }}
+    {{- end }}
+{{- end }}

@@ -1,0 +1,106 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["domain", "keycloak", "operators", "tenants", "tenantGroupPrefix", "tenantWazuh"],
+  "properties": {
+    "domain": {"type": "string", "minLength": 1},
+    "hosts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "wazuh": {"type": "string"},
+        "iris": {"type": "string"},
+        "misp": {"type": "string"},
+        "velociraptor": {"type": "string"}
+      }
+    },
+    "keycloak": {
+      "type": "object",
+      "required": ["url", "realm", "adminSecretRef"],
+      "additionalProperties": false,
+      "properties": {
+        "adminUsername": {"type": "string"},
+        "caFile": {"type": "string"},
+        "insecureSkipVerify": {"type": "boolean"},
+        "bruteForceProtected": {"type": "boolean"},
+        "otpPolicy": {"type": "object"},
+        "requireTOTP": {"type": "boolean"},
+        "mfaFlow": {"type": "object"},
+        "url": {"type": "string", "pattern": "^https?://"},
+        "realm": {"type": "string", "minLength": 1},
+        "adminSecretRef": {
+          "type": "object",
+          "required": ["namespace", "name", "key"],
+          "properties": {
+            "namespace": {"type": "string", "minLength": 1},
+            "name": {"type": "string", "minLength": 1},
+            "key": {"type": "string", "minLength": 1}
+          }
+        },
+        "clients": {"type": "array", "items": {"type": "object"}}
+      }
+    },
+    "operators": {
+      "type": "object",
+      "required": ["adminRole", "analystRole"],
+      "properties": {
+        "adminRole": {"type": "string", "minLength": 1},
+        "analystRole": {"type": "string", "minLength": 1},
+        "analystGroup": {"type": "string"}
+      }
+    },
+    "tenants": {
+      "description": "One entry per tenant. Uniqueness of code and name is checked by the templates.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "name"],
+        "properties": {
+          "code": {
+            "description": "Lower-case letters and digits, no dashes: namespace, host and cross-cluster search alias suffix.",
+            "type": "string",
+            "pattern": "^[a-z0-9]{1,32}$"
+          },
+          "name": {"type": "string", "minLength": 1},
+          "retentionDays": {"type": "integer", "minimum": 1},
+          "idp": {"type": "object"},
+          "agentPorts": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["registration", "events"],
+            "properties": {
+              "registration": {"type": "integer", "minimum": 1, "maximum": 65535},
+              "events": {"type": "integer", "minimum": 1, "maximum": 65535}
+            }
+          }
+        }
+      }
+    },
+    "tenantGroupPrefix": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "tenantWazuh": {
+      "type": "object",
+      "required": ["namespacePrefix", "namespaceLabel", "hostPrefix", "apiCredSecret", "authdSecret", "managerService", "indexerNodesService"],
+      "properties": {
+        "namespacePrefix": {"type": "string", "pattern": "^[a-z0-9]([a-z0-9-]*)?$"},
+        "namespaceLabel": {"type": "string", "minLength": 1},
+        "hostPrefix": {"type": "string"},
+        "agentHost": {"type": "string"},
+        "agentVersion": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+$"},
+        "apiCredSecret": {"type": "string", "minLength": 1},
+        "authdSecret": {"type": "string", "minLength": 1},
+        "managerService": {"type": "string", "minLength": 1},
+        "indexerNodesService": {"type": "string", "minLength": 1}
+      }
+    },
+    "defaultRetentionDays": {"type": "integer", "minimum": 1},
+    "reconciler": {
+      "type": "object",
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "dryRun": {"type": "boolean"},
+        "postSync": {"type": "boolean"}
+      }
+    }
+  }
+}

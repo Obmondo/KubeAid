@@ -1,0 +1,247 @@
+# PostgreSQL and RabbitMQ come from kubeaid-addons (CNPG Cluster + RabbitmqCluster).
+# CNPG exposes the owner's credentials in <instanceName>-pgsql-app and the
+# read-write Service at <instanceName>-pgsql-rw; the RabbitMQ operator writes
+# <instanceName>-default-user with username/password/host/port.
+global:
+  postgresql:
+    enabled: true
+    instanceName: iris
+    instances: 1
+    size: 10Gi
+    database: iris_db
+    owner: raptor
+    monitoring:
+      enablePodMonitor: true
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        memory: 1Gi
+    backups:
+      enabled: false
+    logicalbackup:
+      enabled: false
+  rabbitmq:
+    enabled: true
+    instanceName: iris-rabbitmq
+    replicas: 1
+
+image:
+  repository: ghcr.io/dfir-iris/iriswebapp_app
+  tag: v2.4.20
+  pullPolicy: IfNotPresent
+
+# Connection details. Defaults follow the kubeaid-addons naming above; change
+# them only when pointing at databases you provisioned elsewhere.
+postgres:
+  host: iris-pgsql-rw
+  port: 5432
+  database: iris_db
+  # Secret with keys username and password (CNPG format). IRIS uses the same
+  # role for its "admin" (POSTGRES_USER, creates the database) and its runtime
+  # user (POSTGRES_ADMIN_USER), which is fine when the database already exists.
+  existingSecret: iris-pgsql-app
+rabbitmq:
+  # Secret with keys username and password (RabbitMQ operator format).
+  existingSecret: iris-rabbitmq-default-user
+  host: iris-rabbitmq
+  port: 5672
+
+# Application secrets, sealed in kubeaid-config. Keys:
+#   IRIS_SECRET_KEY, IRIS_SECURITY_PASSWORD_SALT, IRIS_ADM_PASSWORD
+secrets:
+  existingSecret: dfir-iris
+
+admin:
+  username: administrator
+  email: admin@example.com
+
+logLevel: info
+
+# Web UI authentication. IRIS 2.4 supports one type at a time: local, ldap or
+# oidc. With oidc the login page gets a "Use SSO" button; localFallback keeps
+# the username/password form next to it (break-glass for the local
+# administrator). API keys (Authorization: Bearer / X-IRIS-AUTH) work with
+# every type, so integrations and service accounts are unaffected.
+authentication:
+  type: local
+  # IRIS_AUTHENTICATION_LOCAL_FALLBACK. With oidc and false, /login redirects
+  # straight to the identity provider and local passwords stop working.
+  localFallback: true
+  # IRIS_AUTHENTICATION_CREATE_USER_IF_NOT_EXIST. OIDC users created on first
+  # login join the default organisation only: no group, no customer, so no
+  # permissions until an administrator assigns them. With false, only users
+  # pre-created in IRIS (login = the mapped username claim) can sign in.
+  createUserIfNotExist: false
+  oidc:
+    # e.g. https://keycloak.example.com/auth/realms/myrealm. Must equal the
+    # "iss" of the tokens; IRIS reads the discovery document from it. Register
+    # https://<ingress.host>/oidc-authorize as redirect URI on the client.
+    issuerUrl: ""
+    clientId: ""
+    # Secret holding the client secret (key below). Required when type is oidc.
+    existingSecret: ""
+    secretKey: OIDC_CLIENT_SECRET
+    scopes: openid email profile
+    # ID token claims. The username claim is matched against IRIS logins,
+    # including existing local users: an IdP user whose claim equals a local
+    # login (e.g. administrator) signs in as that user.
+    mappingUsername: preferred_username
+    mappingEmail: email
+
+# Extra /etc/hosts entries for app and worker, e.g. when the identity
+# provider's public hostname resolves to an address the pods cannot use.
+hostAliases: []
+#  - ip: 10.0.0.10
+#    hostnames:
+#      - keycloak.example.com
+
+# Keycloak -> IRIS access sync. IRIS's OIDC login reads only the username and
+# email claims, so group and customer membership cannot come from the token.
+# This CronJob reads realm roles and groups from Keycloak and sets each user's
+# IRIS groups and customers to exactly what the mapping yields: it creates
+# missing users, activates them, and on the next run revokes what was removed
+# in Keycloak (no mapped group or customer, or disabled/deleted in Keycloak,
+# means the IRIS user is deactivated). Keycloak becomes the one place where
+# access is granted and taken away.
+#
+# Needs a confidential Keycloak client with a service account holding the
+# realm-management role view-users (read only), and the API key of an IRIS
+# user with server_administrator. Both go into existingSecret.
+keycloakSync:
+  enabled: false
+  schedule: "*/5 * * * *"
+  # Start with a dry run and read the job log before letting it write.
+  dryRun: true
+  # Deactivate IRIS users that are not enabled Keycloak users (service
+  # accounts and protectedLogins are never touched).
+  deactivateOrphans: true
+  # IRIS logins the sync never touches. admin.username is always added. A
+  # Keycloak user with one of these names is reported and skipped: an SSO
+  # login with that name would sign in as the local account.
+  protectedLogins: []
+  keycloak:
+    url: ""        # e.g. https://keycloak.example.com/auth
+    realm: ""
+    clientId: ""
+  # Secret with the Keycloak client secret and the IRIS API key.
+  existingSecret: ""
+  keycloakSecretKey: KEYCLOAK_CLIENT_SECRET
+  irisApiKeySecretKey: IRIS_API_KEY
+  # Defaults to this release's app Service.
+  irisUrl: ""
+  # Keycloak realm role or group name -> IRIS group names and customer names.
+  # "*" means every customer. Groups the mapping names are owned by the sync;
+  # other IRIS groups a user has are left alone.
+  mapping:
+    roles: {}
+    #  administrator: {groups: [Administrators], customers: ["*"]}
+    #  analyst: {groups: [Analysts], customers: ["*"]}
+    groups: {}
+    #  site-a: {groups: [Analysts], customers: ["Site A"]}
+  # Read the mapping from a ConfigMap managed elsewhere instead of `mapping`
+  # above, e.g. one rendered per tenant by the security-operations umbrella
+  # chart. Same JSON shape ({"roles": {...}, "groups": {...}}). The sync reads it
+  # on every run, so a change needs no restart.
+  mappingConfigMap:
+    name: ""
+    key: mapping.json
+  activeDeadlineSeconds: 240
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+# AI triage with a self-hosted model (Ollama). A CronJob reads New alerts that
+# have no ai: tag, asks the model for severity, false-positive likelihood,
+# category, a short summary and a suggested next step, and appends that to the
+# alert's note with tags ai:triaged, ai:sev:<level>, ai:fp:<...>. Advisory only:
+# it never changes severity or status, never escalates and never triggers a
+# response, because alert content comes from logs an attacker can write.
+# Kept out of the detection path so a slow or absent model never delays alerts.
+aiTriage:
+  enabled: false
+  # Start with a dry run: the job log shows each answer and its latency.
+  dryRun: true
+  schedule: "* * * * *"
+  # e.g. http://ollama.ollama.svc:11434 - keep the model service without
+  # internet egress; nothing leaves the cluster.
+  ollamaUrl: ""
+  model: llama3.1:8b
+  # Alerts per run and seconds per model call. On CPU an 8B model needs about
+  # 30-70 s per alert; size maxPerRun x timeout below activeDeadlineSeconds.
+  maxPerRun: 3
+  timeoutSeconds: 180
+  # Skip alerts whose Wazuh rule level is below this (0 = all IRIS alerts).
+  minLevel: 0
+  # Secret with the API key of an IRIS user that can read and update alerts
+  # of the customers concerned (e.g. a dedicated service account in a group
+  # with alerts_read and alerts_write).
+  existingSecret: ""
+  irisApiKeySecretKey: IRIS_API_KEY
+  irisUrl: ""
+  activeDeadlineSeconds: 900
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+app:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      memory: 2Gi
+
+worker:
+  replicas: 1
+  # Celery worker processes per pod
+  numberOfChild: 2
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      memory: 2Gi
+
+# One volume shared by app and worker for downloads, user templates and server
+# data. With ReadWriteOnce the worker is pinned to the app's node by affinity;
+# use ReadWriteMany (rook-ceph CephFS) to lift that.
+persistence:
+  enabled: true
+  existingClaim: ""
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 20Gi
+
+service:
+  type: ClusterIP
+  port: 8000
+
+# TLS terminates at the ingress; the upstream nginx container is not used.
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  host: iris.example.com
+  tls: []
+  #  - secretName: iris-tls
+  #    hosts:
+  #      - iris.example.com
+
+podSecurityContext:
+  fsGroup: 1000
+securityContext:
+  runAsNonRoot: false
+  allowPrivilegeEscalation: false
+
+nodeSelector: {}
+tolerations: []

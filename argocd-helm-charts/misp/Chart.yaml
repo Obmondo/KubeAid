@@ -1,0 +1,21 @@
+apiVersion: v2
+name: misp
+version: 1.1.0
+# Upstream: https://github.com/cmu-sei/misp-helm (CMU SEI, Apache-2.0-style licence).
+# The chart is not published to any Helm repository, so it is vendored under
+# charts/misp from commit b9eab5c4674c98bf31fba3e184eb2111dc083f66 (chart 5.0.1,
+# MISP 2.5.44) with its mariadb and smtp dependencies removed. To update, copy the
+# repo again, drop those two dependencies and run `helm dependency update charts/misp`.
+# Local patch to re-apply: extraEnv, hostAliases and checksum/env in
+# charts/misp/templates/deployment-misp.yaml (see README section 1).
+dependencies:
+  - name: misp
+    version: 5.0.1
+    repository: file://charts/misp
+  - name: kubeaid-addons
+    version: 1.1.0
+    repository: file://../kubeaid-addons
+    # On by default. The security-operations umbrella turns it off: dfir-iris
+    # carries the same subchart, and one release must render its global
+    # postgresql/rabbitmq objects only once.
+    condition: kubeaid-addons.enabled

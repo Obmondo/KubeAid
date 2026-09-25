@@ -1,0 +1,67 @@
+{{- if .Values.indexer.enabled }}
+{{- if .Values.indexer.networkPolicy.enabled -}}
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: {{ include "wazuh.indexer.fullname" . }}-indexer
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ include "wazuh.indexer.fullname" . }}-indexer
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: {{ .Values.indexer.service.nodes }}
+      from:
+        - podSelector:
+            matchLabels:
+              app: {{ include "wazuh.indexer.fullname" . }}-indexer
+    - ports:
+        - protocol: TCP
+          port: {{ .Values.indexer.service.httpPort }}
+      from:
+        - podSelector:
+            matchLabels:
+              app: {{ include "wazuh.fullname" . }}-dashboard
+        - podSelector:
+            matchLabels:
+              app: {{ include "wazuh.fullname" . }}-manager
+        - podSelector:
+            matchLabels:
+              app: {{ include "wazuh.indexer.fullname" . }}-indexer
+        - podSelector:
+            matchLabels:
+              job-name: {{ include "wazuh.indexer.fullname" . }}-indexer
+    {{- with .Values.indexer.networkPolicy.extraIngresses }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  egress:
+    - ports:
+        - protocol: TCP
+          port: {{ .Values.indexer.service.nodes }}
+      to:
+        - podSelector:
+            matchLabels:
+              app: {{ include "wazuh.indexer.fullname" . }}-indexer
+    # DNS
+    {{- range $dnsServerLabelsList := list "kube-dns" "coredns" }}
+    - ports:
+        - protocol: UDP
+          port: 53
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: {{ $dnsServerLabelsList }}
+    {{- end }}
+    {{- with .Values.indexer.networkPolicy.extraEgresses }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end -}}
+{{- end }}
