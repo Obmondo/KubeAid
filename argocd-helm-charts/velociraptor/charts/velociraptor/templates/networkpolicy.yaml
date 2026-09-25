@@ -41,6 +41,15 @@ spec:
         - protocol: TCP
           port: {{ .Values.frontend.apiPort }}
     {{- end }}
+    {{- /* KubeAid patch: API clients (api.service.enabled). */}}
+    {{- if and .Values.api.service.enabled .Values.networkPolicy.apiAllowedFrom }}
+    # API clients: the gRPC API (API.bind_address must be 0.0.0.0).
+    - from:
+        {{- toYaml .Values.networkPolicy.apiAllowedFrom | nindent 8 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.frontend.apiPort }}
+    {{- end }}
     {{- if .Values.serviceMonitor.enabled }}
     # Metrics: allow Prometheus to scrape the monitoring port.
     - from:

@@ -40,7 +40,37 @@
               }
             }
           }
+        },
+        "overlayExtra": { "type": "object" }
+      }
+    },
+    "api": {
+      "type": "object",
+      "properties": {
+        "service": {
+          "type": "object",
+          "properties": { "enabled": { "type": "boolean" } }
         }
+      }
+    },
+    "apiClient": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "name": { "type": "string", "minLength": 1 },
+        "role": { "type": "string", "minLength": 1 },
+        "secretName": { "type": "string", "minLength": 1 },
+        "secretKey": { "type": "string", "minLength": 1 },
+        "publisherImage": {
+          "type": "object",
+          "properties": {
+            "repository": { "type": "string" },
+            "tag": { "type": "string" },
+            "pullPolicy": { "type": "string", "enum": ["Always", "IfNotPresent", "Never"] }
+          }
+        },
+        "imagePullSecrets": { "type": "array" },
+        "resources": { "type": "object" }
       }
     },
     "frontend": {
@@ -161,6 +191,7 @@
         "frontendAllowedCIDRs": { "type": "array", "items": { "type": "string" } },
         "guiAllowedFrom": { "type": "array" },
         "metricsAllowedFrom": { "type": "array" },
+        "apiAllowedFrom": { "type": "array" },
         "oidcEgressCIDRs": { "type": "array", "items": { "type": "string" } },
         "oidcEgressPort": { "type": "integer" },
         "extraEgress": { "type": "array" }

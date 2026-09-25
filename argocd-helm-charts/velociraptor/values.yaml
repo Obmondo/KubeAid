@@ -54,3 +54,13 @@ frontendTcpRoute:
 # Needed on Cilium because the upstream chart only gates that port by CIDR, which
 # does not match in-cluster pods. Each item is a standard NetworkPolicyPeer.
 frontendAllowedFrom: []
+
+# Egress to the Kubernetes API (templates/ciliumnetworkpolicy-apiserver.yaml, Cilium
+# only) for the api_client publisher init container; rendered only while
+# velociraptor.apiClient.enabled. Needed when velociraptor.networkPolicy.enabled.
+# The ports are the kubernetes Service port and the API server's own port.
+apiServerEgress:
+  enabled: false
+  ports:
+    - 443
+    - 6443

@@ -57,6 +57,13 @@ config:
       # Pin by digest in production.
       digest: "sha256:b1d117c609ba990436ad1649299e2f6c378f62cb562caf30b6f2fb6144713422"
       pullPolicy: IfNotPresent
+  # KubeAid patch. Arbitrary, non-secret config merged into the overlay (after the
+  # chart's own keys, so it wins on a conflict; maps merge, lists replace). A non-empty
+  # value turns the overlay on. Example, the gRPC API for in-cluster API clients:
+  #   overlayExtra:
+  #     API:
+  #       bind_address: 0.0.0.0
+  overlayExtra: {}
 
 ## replicaCount controls the number of MASTER pods. Keep at 1: the master holds
 ## the single-writer metadata datastore. Scale client capacity with frontend.minions
@@ -128,6 +135,45 @@ frontend:
     nodeSelector: {}
     tolerations: []
     affinity: {}
+
+## KubeAid patch. gRPC API (frontend.apiPort) for API clients such as the
+## siem-reconciler. The server binds it to 127.0.0.1 unless the config sets
+## API.bind_address: 0.0.0.0 (e.g. with config.overlayExtra). The Service is
+## <fullname>-api; with frontend.minions it is rendered anyway. Admit clients with
+## networkPolicy.apiAllowedFrom.
+api:
+  service:
+    enabled: false
+
+## KubeAid patch. API client bootstrap: before the server starts, an init container
+## runs `velociraptor config api_client` against the (merged) config and the datastore,
+## which registers the user with `role` and writes an api_client YAML into an emptyDir;
+## a second init container (publisherImage, the siem-reconciler image) stores that file
+## in Secret <secretName> key <secretKey> in the release namespace
+## (`siem-reconciler publish-api-client`). Every pod start mints a fresh certificate.
+## Only the publisher gets a ServiceAccount token (a projected volume; the server
+## container stays without one). The ServiceAccount needs get/update/patch on that
+## Secret and create on Secrets (create cannot be limited by resourceNames); the chart
+## grants nothing itself. With networkPolicy.enabled the pod also needs egress to the
+## Kubernetes API, which a NetworkPolicy ipBlock cannot express on Cilium.
+apiClient:
+  enabled: false
+  name: siem-reconciler
+  role: administrator
+  secretName: velociraptor-api-client
+  secretKey: api_client.yaml
+  publisherImage:
+    repository: ""
+    tag: ""
+    pullPolicy: IfNotPresent
+  # Appended to imagePullSecrets for the publisher image.
+  imagePullSecrets: []
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
 
 ## GUI = admin web UI. Keep internal / behind VPN or authenticated Ingress.
 gui:
@@ -315,6 +361,9 @@ networkPolicy:
   # is enabled). Empty = allow all in-cluster; set to the Prometheus namespace to
   # tighten. Each item is a standard NetworkPolicyPeer.
   metricsAllowedFrom: []
+  # KubeAid patch. Sources allowed to reach the gRPC API port (frontend.apiPort) when
+  # api.service.enabled. Each item is a standard NetworkPolicyPeer.
+  apiAllowedFrom: []
   # Egress to the OIDC IdP, allowed only when gui.oidc.enabled (discovery is
   # fetched at boot). NetworkPolicy is CIDR-based (no DNS), so list the IdP's
   # CIDR(s). Default 0.0.0.0/0 = reach any HTTPS endpoint — TIGHTEN in production.

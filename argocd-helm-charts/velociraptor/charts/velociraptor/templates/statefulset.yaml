@@ -40,7 +40,12 @@ spec:
       hostAliases:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.imagePullSecrets }}
+      {{- /* KubeAid patch: apiClient.imagePullSecrets for the publisher image. */}}
+      {{- $pullSecrets := .Values.imagePullSecrets }}
+      {{- if .Values.apiClient.enabled }}
+      {{- $pullSecrets = concat (.Values.imagePullSecrets | default list) (.Values.apiClient.imagePullSecrets | default list) }}
+      {{- end }}
+      {{- with $pullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -51,6 +56,8 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       {{- $init := include "velociraptor.overlayInitContainer" . }}
+      {{- /* KubeAid patch: API client bootstrap after the config merge. */}}
+      {{- $init = print $init (include "velociraptor.apiClientInitContainers" .) }}
       {{- if trim $init }}
       initContainers:
         {{- $init | nindent 8 }}
@@ -74,7 +81,7 @@ spec:
             - name: gui
               containerPort: {{ .Values.gui.containerPort }}
               protocol: TCP
-            {{- if .Values.frontend.minions.enabled }}
+            {{- if eq (include "velociraptor.apiExposed" .) "true" }}
             - name: api
               containerPort: {{ .Values.frontend.apiPort }}
               protocol: TCP
@@ -115,6 +122,9 @@ spec:
       volumes:
         {{- include "velociraptor.configVolumes" . | nindent 8 }}
         {{- include "velociraptor.customArtifactsVolume" . | nindent 8 }}
+        {{- if .Values.apiClient.enabled }}
+        {{- include "velociraptor.apiClientVolumes" . | nindent 8 }}
+        {{- end }}
         {{- if .Values.tmpDir.enabled }}
         - name: tmp
           emptyDir:

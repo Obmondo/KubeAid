@@ -72,7 +72,105 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 
 {{/* "true" when a config overlay (init-container merge) is needed. */}}
 {{- define "velociraptor.overlayEnabled" -}}
-{{- if or .Values.gui.oidc.enabled .Values.config.initializeServer .Values.customArtifacts.enabled -}}true{{- end -}}
+{{- if or .Values.gui.oidc.enabled .Values.config.initializeServer .Values.customArtifacts.enabled .Values.config.overlayExtra -}}true{{- end -}}
+{{- end }}
+
+{{/* KubeAid patch. "true" when the container exposes the gRPC API port and the API Service is rendered. */}}
+{{- define "velociraptor.apiExposed" -}}
+{{- if or .Values.frontend.minions.enabled .Values.api.service.enabled -}}true{{- end -}}
+{{- end }}
+
+{{/*
+  KubeAid patch. API client bootstrap (apiClient): mint an api_client config with the
+  server binary against the (merged) config and the datastore, then store it in a
+  Secret with the siem-reconciler image. Runs after config-merge, before the server.
+*/}}
+{{- define "velociraptor.apiClientInitContainers" -}}
+{{- if .Values.apiClient.enabled }}
+{{- $pi := .Values.apiClient.publisherImage }}
+- name: api-client
+  image: {{ include "velociraptor.image" . }}
+  imagePullPolicy: {{ .Values.image.pullPolicy }}
+  args:
+    - --config
+    - {{ .Values.config.mountPath }}
+    - config
+    - api_client
+    - --name
+    - {{ .Values.apiClient.name | quote }}
+    - --role
+    - {{ .Values.apiClient.role | quote }}
+    - /api-client/api_client.yaml
+  securityContext:
+    {{- toYaml .Values.securityContext | nindent 4 }}
+  resources:
+    {{- toYaml .Values.apiClient.resources | nindent 4 }}
+  volumeMounts:
+    {{- include "velociraptor.configVolumeMount" . | nindent 4 }}
+    - name: datastore
+      mountPath: {{ .Values.persistence.mountPath }}
+    - name: api-client
+      mountPath: /api-client
+    {{- if .Values.tmpDir.enabled }}
+    - name: tmp
+      mountPath: /tmp
+    {{- end }}
+- name: api-client-publish
+  image: "{{ required "apiClient.publisherImage.repository is required when apiClient.enabled" $pi.repository }}:{{ required "apiClient.publisherImage.tag is required when apiClient.enabled" $pi.tag }}"
+  imagePullPolicy: {{ $pi.pullPolicy | default "IfNotPresent" }}
+  command:
+    - /usr/local/bin/siem-reconciler
+  args:
+    - publish-api-client
+    - --file
+    - /api-client/api_client.yaml
+    - --name
+    - {{ .Values.apiClient.secretName | quote }}
+    - --key
+    - {{ .Values.apiClient.secretKey | quote }}
+  env:
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+  securityContext:
+    {{- toYaml .Values.securityContext | nindent 4 }}
+  resources:
+    {{- toYaml .Values.apiClient.resources | nindent 4 }}
+  volumeMounts:
+    - name: api-client
+      mountPath: /api-client
+      readOnly: true
+    - name: api-client-token
+      mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      readOnly: true
+{{- end }}
+{{- end }}
+
+{{/* KubeAid patch. Volumes of the API client bootstrap: the api_client file and the publisher's token. */}}
+{{- define "velociraptor.apiClientVolumes" -}}
+{{- if .Values.apiClient.enabled }}
+- name: api-client
+  emptyDir:
+    medium: Memory
+    sizeLimit: 1Mi
+- name: api-client-token
+  projected:
+    sources:
+      - serviceAccountToken:
+          path: token
+          expirationSeconds: 3607
+      - configMap:
+          name: kube-root-ca.crt
+          items:
+            - key: ca.crt
+              path: ca.crt
+      - downwardAPI:
+          items:
+            - path: namespace
+              fieldRef:
+                fieldPath: metadata.namespace
+{{- end }}
 {{- end }}
 
 {{/* Secret + key holding the OIDC client secret. */}}
@@ -175,5 +273,45 @@ oauth_client_secret
   mountPath: {{ .Values.config.mountPath }}
   subPath: {{ .Values.config.secretKey }}
   readOnly: true
+{{- end }}
+{{- end }}
+
+{{/*
+  Overlay keys the chart derives from its values (gui.oidc, config.initializeServer,
+  customArtifacts), unindented. KubeAid patch: split out of secret-config-overlay.yaml so
+  config.overlayExtra can be merged over it.
+*/}}
+{{- define "velociraptor.overlayGenerated" -}}
+{{- if .Values.gui.oidc.enabled }}
+GUI:
+  public_url: {{ required "gui.publicUrl is required when gui.oidc.enabled (OIDC redirects)" .Values.gui.publicUrl | quote }}
+  authenticator:
+    type: oidc
+    oidc_issuer: {{ required "gui.oidc.issuer is required when gui.oidc.enabled" .Values.gui.oidc.issuer | quote }}
+    oidc_name: {{ .Values.gui.oidc.name | quote }}
+    oauth_client_id: {{ .Values.gui.oidc.clientId | quote }}
+{{- with .Values.gui.oidc.avatar }}
+    avatar: {{ . | quote }}
+{{- end }}
+{{- if .Values.gui.oidc.debug }}
+    oidc_debug: true
+{{- end }}
+{{- with .Values.gui.oidc.sessionExpiryMin }}
+    default_session_expiry_min: {{ . | int }}
+{{- end }}
+{{- with .Values.gui.oidc.claims }}
+    claims:
+      {{- toYaml . | nindent 6 }}
+{{- end }}
+{{- end }}
+{{- if .Values.config.initializeServer }}
+Frontend:
+  initial_server_artifacts:
+    - Container.InitializeServer
+{{- end }}
+{{- if .Values.customArtifacts.enabled }}
+defaults:
+  artifact_definitions_directories:
+    - {{ .Values.customArtifacts.path | quote }}
 {{- end }}
 {{- end }}

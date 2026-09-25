@@ -1,6 +1,10 @@
+{{- /* KubeAid patch: also rendered for API clients (api.service.enabled). */}}
+{{- if eq (include "velociraptor.apiExposed" .) "true" }}
+# Master API (gRPC) Service — minions reach the master's RemoteFileDataStore here,
+# API clients (api.service.enabled) the API.
 {{- if .Values.frontend.minions.enabled }}
-# Master API (gRPC) Service — minions reach the master's RemoteFileDataStore here.
 # Set API.hostname in the server config to: {{ include "velociraptor.fullname" . }}-api.{{ .Release.Namespace }}.svc
+{{- end }}
 apiVersion: v1
 kind: Service
 metadata:
