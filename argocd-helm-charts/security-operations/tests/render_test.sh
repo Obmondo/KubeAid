@@ -157,6 +157,8 @@ extra=$(jq -r '(keys - ["domain","tenantGroupPrefix","keycloak","operators","ten
   && ok "one Wazuh manager per tenant" || ko "wazuh managers: $(jq -c .components.wazuh <<<"$cfg")"
 [ "$(jq -r '[.components.wazuhCentral.remotes[] | .alias + "=" + .seeds[0]] | join(",")' <<<"$cfg")" = "001=wazuh-indexer-nodes.wazuh-001.svc:9300,002=wazuh-indexer-nodes.wazuh-002.svc:9300" ] \
   && ok "cross-cluster search remotes" || ko "remotes: $(jq -c .components.wazuhCentral <<<"$cfg")"
+[ "$(jq -c '[.components.wazuhCentral.dashboardURL, .components.wazuhCentral.indexPatterns[0]]' <<<"$cfg")" = '["http://wazuh-dashboard:5601",{"default":true,"timeFieldName":"timestamp","title":"*:wazuh-alerts-*"}]' ] \
+  && ok "central dashboard index pattern" || ko "index patterns: $(jq -c .components.wazuhCentral <<<"$cfg")"
 [ "$(jq -r '[.enrolment[] | .tenant + ":" + .managerHost + ":" + (.registrationPort|tostring) + "/" + (.eventsPort|tostring) + "@" + .namespace] | join(",")' <<<"$cfg")" = "001:agents.example.com:20015/20014@wazuh-001,002:agents.example.com:20025/20024@wazuh-002" ] \
   && ok "enrolment bundles" || ko "enrolment: $(jq -c .enrolment <<<"$cfg")"
 [ "$(jq -r '[.enrolment[].agentVersion] | unique | join(",")' <<<"$cfg")" = "4.14.3-1" ] \

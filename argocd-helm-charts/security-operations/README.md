@@ -127,6 +127,9 @@ The `wazuh` component runs without a manager (`wazuh.wazuh.wazuh.{enabled,master
   namespace.
 - **Permissions** of a central user are checked on every tenant cluster, so the operator roles
   need role mappings on the tenant indexers as well as here.
+- **Index patterns**: the reconciler keeps `centralSearch.indexPatterns` (default
+  `*:wazuh-alerts-*`, the default index) in the dashboard's saved objects; the Wazuh app
+  does not create cross-cluster patterns itself.
 - **Dashboard**: the Wazuh app lists every tenant manager API from Secret `wazuh-app-config`
   (`dashboard.wazuhAppConfigSecret`), which the reconciler writes from the tenants' API
   logins. The dashboard waits for it on first start.

@@ -123,6 +123,15 @@ tenantWazuh:
   managerService: wazuh
   indexerNodesService: wazuh-indexer-nodes
 
+# Central search dashboard: index patterns the reconciler keeps in its saved
+# objects. The Wazuh app never creates them itself here, because no local index
+# matches a cross-cluster pattern. One may be the default index.
+centralSearch:
+  indexPatterns:
+    - title: "*:wazuh-alerts-*"
+      timeFieldName: timestamp
+      default: true
+
 # CA shared by the central and every tenant Wazuh (certificates.issuer in each), so
 # the indexers trust each other for cross-cluster search. cert-manager keeps the
 # CA key in `namespace` (its cluster resource namespace).

@@ -150,7 +150,12 @@ app.kubernetes.io/part-of: security-operations
 {{- end -}}
 {{- $idx := (.Values.wazuh.wazuh.indexer | default dict) -}}
 {{- $credSecret := ((($idx.cred | default dict).existingSecret) | default "indexer-cred") -}}
-{{- $_ := set $c "wazuhCentral" (dict "url" "https://wazuh-indexer:9200" "credSecretRef" (dict "namespace" $ns "name" $credSecret "usernameKey" "INDEXER_USERNAME" "passwordKey" "INDEXER_PASSWORD") "insecureSkipVerify" true "remotes" $remotes "dashboardConfigSecret" (dict "namespace" $ns "name" "wazuh-app-config")) -}}
+{{- $central := dict "url" "https://wazuh-indexer:9200" "credSecretRef" (dict "namespace" $ns "name" $credSecret "usernameKey" "INDEXER_USERNAME" "passwordKey" "INDEXER_PASSWORD") "insecureSkipVerify" true "remotes" $remotes "dashboardConfigSecret" (dict "namespace" $ns "name" "wazuh-app-config") -}}
+{{- with .Values.centralSearch.indexPatterns -}}
+{{- $_ := set $central "dashboardURL" "http://wazuh-dashboard:5601" -}}
+{{- $_ := set $central "indexPatterns" . -}}
+{{- end -}}
+{{- $_ := set $c "wazuhCentral" $central -}}
 {{- end -}}
 {{- if .Values.velociraptor.enabled -}}
 {{- $_ := set $c "velociraptor" (dict "apiClientSecretRef" (dict "namespace" $ns "name" "velociraptor-api-client" "key" "api_client.yaml")) -}}
