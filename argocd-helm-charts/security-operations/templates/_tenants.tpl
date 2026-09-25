@@ -130,7 +130,11 @@ app.kubernetes.io/part-of: security-operations
 {{- if (index .Values "dfir-iris").enabled -}}
 {{- $iris := dict "url" "http://dfir-iris-app:8000" "apiKeySecretRef" (dict "namespace" $ns "name" "iris-keycloak-sync" "key" "IRIS_API_KEY") -}}
 {{- if .Values.ai.irisLogin -}}
-{{- $_ := set $iris "serviceAccounts" (list (dict "login" .Values.ai.irisLogin "groups" .Values.ai.irisGroups)) -}}
+{{- $sa := dict "login" .Values.ai.irisLogin "groups" .Values.ai.irisGroups "create" true -}}
+{{- with .Values.ai.irisKeySecret -}}
+{{- $_ := set $sa "apiKeySecretRef" (dict "namespace" $ns "name" . "key" "IRIS_API_KEY") -}}
+{{- end -}}
+{{- $_ := set $iris "serviceAccounts" (list $sa) -}}
 {{- end -}}
 {{- $_ := set $c "iris" $iris -}}
 {{- end -}}

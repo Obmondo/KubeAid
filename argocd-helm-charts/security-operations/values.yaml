@@ -147,11 +147,15 @@ checks:
   # With misp.wazuhCdbExport.enabled, every tenant needs a target named after its code.
   mispTargets: true
 
-# Local model for IRIS alert triage (dfir-iris aiTriage + ollama). IRIS login of
-# the triage service account, which the reconciler gives every tenant as customer.
+# Local model for IRIS alert triage (dfir-iris aiTriage + ollama). The reconciler
+# creates the IRIS service account irisLogin, gives it irisGroups and every tenant
+# as customer, and keeps its API key in Secret irisKeySecret (key IRIS_API_KEY),
+# which dfir-iris.aiTriage.existingSecret reads. Analysts is a stock IRIS group
+# with alert read and write.
 ai:
   irisLogin: svc_ai
-  irisGroups: [Automation]
+  irisGroups: [Analysts]
+  irisKeySecret: iris-ai-triage
 
 # Public entry points. Everything else is meant for the internal ingress class.
 # The Wazuh agent entry is per tenant (tenantWazuh.agentHost, tenants[].agentPorts).
@@ -427,6 +431,8 @@ dfir-iris:
       key: mapping.json
   aiTriage:
     ollamaUrl: http://ollama:11434
+    # Created and kept by the reconciler (ai.irisKeySecret).
+    existingSecret: iris-ai-triage
 
 misp:
   enabled: true

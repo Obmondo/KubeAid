@@ -74,7 +74,7 @@ component blocks exactly as for the standalone charts (see their READMEs), one l
 | `socCA.*` | enabled, `soc-ca` in `cert-manager` | CA ClusterIssuer every Wazuh instance uses |
 | `defaultRetentionDays` | `365` | Alert retention when a tenant sets none |
 | `checks.mispTargets` | `true` | Fail the render when the MISP export lacks a tenant's manager |
-| `ai.irisLogin`, `ai.irisGroups` | `svc_ai`, `[Automation]` | IRIS login of the triage job; the reconciler gives it these groups and every tenant as customer |
+| `ai.irisLogin`, `ai.irisGroups`, `ai.irisKeySecret` | `svc_ai`, `[Analysts]`, `iris-ai-triage` | IRIS service account of the triage job; the reconciler creates it, gives it these groups and every tenant as customer, and keeps its API key in that Secret (key `IRIS_API_KEY`, read by `dfir-iris.aiTriage.existingSecret`). Turn the job on with `dfir-iris.aiTriage.enabled` |
 | `publicIngress.velociraptorHost` | `""` | Hostname Velociraptor clients dial |
 | `reconciler.*` | disabled | Section 6; `reconciler.secrets` and `reconciler.components` override what goes into `siem-tenants` |
 | `reconciler.imagePullSecrets` | `[]` | Pull secrets (`[{name: ...}]`) for a private registry, in the release namespace |
