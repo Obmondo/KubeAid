@@ -297,6 +297,13 @@ velociraptor:
 dfir-iris:
   enabled: true
   fullnameOverride: dfir-iris
+  # IRIS creates its second database (iris_tasks) itself on first start, which
+  # the CNPG app role may not do: publish the superuser Secret and use it.
+  global:
+    postgresql:
+      enableSuperuserAccess: true
+  postgres:
+    existingSecret: iris-pgsql-superuser
   keycloakSync:
     # Roles and one group per tenant, from the dfir-iris-tenants ConfigMap.
     mappingConfigMap:
