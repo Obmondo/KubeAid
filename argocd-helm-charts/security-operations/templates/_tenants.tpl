@@ -158,7 +158,17 @@ app.kubernetes.io/part-of: security-operations
 {{- $_ := set $c "wazuhCentral" $central -}}
 {{- end -}}
 {{- if .Values.velociraptor.enabled -}}
-{{- $_ := set $c "velociraptor" (dict "apiClientSecretRef" (dict "namespace" $ns "name" "velociraptor-api-client" "key" "api_client.yaml")) -}}
+{{- $v := .Values.velociraptor.velociraptor | default dict -}}
+{{- $ac := $v.apiClient | default dict -}}
+{{- $velo := dict "apiClientSecretRef" (dict "namespace" $ns "name" ($ac.secretName | default "velociraptor-api-client") "key" ($ac.secretKey | default "api_client.yaml")) -}}
+{{- if (($v.api | default dict).service | default dict).enabled -}}
+{{- /* The api_client file names localhost; dial the API Service instead. */ -}}
+{{- $_ := set $velo "address" (printf "%s-api:%v" ($v.fullnameOverride | default "velociraptor") ((($v.frontend | default dict).apiPort) | default 8001)) -}}
+{{- end -}}
+{{- with include "secops.velociraptorMonitoring" . | fromYamlArray -}}
+{{- $_ := set $velo "serverMonitoring" . -}}
+{{- end -}}
+{{- $_ := set $c "velociraptor" $velo -}}
 {{- end -}}
 {{- range $k, $v := (.Values.reconciler.components | default dict) -}}
 {{- if hasKey $c $k -}}{{- $_ := set $c $k (mergeOverwrite (get $c $k) $v) -}}{{- end -}}
@@ -202,6 +212,54 @@ app.kubernetes.io/part-of: security-operations
 {{- range $k := list "API_USERNAME" "API_PASSWORD" -}}
 {{- $out = append $out (dict "from" (dict "namespace" $t.namespace "name" $tw.apiCredSecret "key" $k) "to" (dict "namespace" $ns "name" (printf "wazuh-api-cred-%s" $t.code) "key" $k)) -}}
 {{- end -}}
+{{- end -}}
+{{- end -}}
+{{- toYaml $out -}}
+{{- end -}}
+
+{{/*
+  Velociraptor artifact files, as YAML: files/velociraptor/*.yaml by base name, with
+  velociraptorArtifacts.extraFiles merged over (null drops a file).
+*/}}
+{{- define "secops.velociraptorArtifacts" -}}
+{{- $out := dict -}}
+{{- range $path, $_ := .Files.Glob "files/velociraptor/*.yaml" -}}
+{{- $_ := set $out (base $path) ($.Files.Get $path) -}}
+{{- end -}}
+{{- range $k, $v := (.Values.velociraptorArtifacts.extraFiles | default dict) -}}
+{{- if kindIs "invalid" $v -}}{{- $_ := unset $out $k -}}{{- else -}}{{- $_ := set $out $k (toString $v) -}}{{- end -}}
+{{- end -}}
+{{- toYaml $out -}}
+{{- end -}}
+
+{{/* sha256 of the Velociraptor artifact files (pod annotation checksum/server-artifacts). */}}
+{{- define "secops.velociraptorArtifactsChecksum" -}}
+{{- include "secops.velociraptorArtifacts" . | fromYaml | toJson | sha256sum -}}
+{{- end -}}
+
+{{/*
+  Server monitoring entries for the reconciler, as a YAML list, from
+  velociraptorArtifacts.monitoring: enabled entries (IrisCollector only with
+  dfir-iris), parameters as strings, KeycloakSync's KcUrl/KcRealm from keycloak
+  and its Protected users including the reconciler's API client.
+*/}}
+{{- define "secops.velociraptorMonitoring" -}}
+{{- $out := list -}}
+{{- $mon := .Values.velociraptorArtifacts.monitoring | default dict -}}
+{{- range $name := keys $mon | sortAlpha -}}
+{{- $m := index $mon $name | default dict -}}
+{{- $skip := or (not $m.enabled) (and (eq $name "Custom.Server.IrisCollector") (not (index $.Values "dfir-iris").enabled)) -}}
+{{- if not $skip -}}
+{{- $p := dict -}}
+{{- if eq $name "Custom.Server.KeycloakSync" -}}
+{{- $_ := set $p "KcUrl" $.Values.keycloak.url -}}
+{{- $_ := set $p "KcRealm" $.Values.keycloak.realm -}}
+{{- /* The reconciler's own API user has no Keycloak user: never remove it. */ -}}
+{{- $apiUser := ((($.Values.velociraptor.velociraptor | default dict).apiClient | default dict).name) | default "siem-reconciler" -}}
+{{- $_ := set $p "Protected" (printf "^(admin|VelociraptorServer|svc_.*|%s)$" (regexQuoteMeta $apiUser)) -}}
+{{- end -}}
+{{- range $k, $v := ($m.parameters | default dict) -}}{{- $_ := set $p $k (toString $v) -}}{{- end -}}
+{{- $out = append $out (dict "artifact" $name "parameters" $p) -}}
 {{- end -}}
 {{- end -}}
 {{- toYaml $out -}}

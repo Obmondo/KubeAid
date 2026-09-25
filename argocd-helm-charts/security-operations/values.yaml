@@ -164,6 +164,8 @@ publicIngress:
 # published; the chart renders its input either way.
 reconciler:
   enabled: false
+  # velociraptor.velociraptor.apiClient.publisherImage must name the same image
+  # (checked at render time while both are enabled).
   image:
     repository: ghcr.io/obmondo/siem-reconciler
     tag: ""
@@ -187,11 +189,10 @@ reconciler:
   # Secrets created with random values when missing ({namespace, name, keys:
   # [{key, generator}]}). Empty: one per client secretRef.
   secrets: []
-  # Merged over the derived component settings in siem-tenants, e.g.
+  # Merged over the derived component settings in siem-tenants (lists replace), e.g.
   #   velociraptor:
-  #     serverMonitoring:
-  #       - artifact: Custom.Server.KeycloakSync
-  #         parameters: {DryRun: "N"}
+  #     address: velociraptor-api:8001
+  # The Velociraptor server monitoring entries come from velociraptorArtifacts.monitoring.
   components: {}
   resources:
     requests:
@@ -199,6 +200,45 @@ reconciler:
       memory: 64Mi
     limits:
       memory: 256Mi
+
+# Velociraptor server artifacts. files/velociraptor/*.yaml ship with the chart
+# (Custom.Server.IrisCollector: IRIS case -> endpoint collection -> results on the
+# case, and automatic response to mapped alerts; Custom.Server.KeycloakSync: Keycloak
+# users -> Velociraptor users and org grants; Custom.MacOS.Remediation.RemoveByHash)
+# and are rendered into ConfigMap velociraptor-artifacts, which the Velociraptor pod
+# loads at start (velociraptor.velociraptor.customArtifacts). The server artifacts
+# read the tenant maps in /etc/siem (velociraptor-tenants), the IRIS API key in
+# /etc/iris and the iris-sync client secret in /etc/keycloak (extraVolumes below).
+velociraptorArtifacts:
+  # More artifact files, name -> YAML text; null drops a shipped one. Every change to
+  # the ConfigMap content needs the pod annotation checksum/server-artifacts in
+  # velociraptor.velociraptor.podAnnotations updated (the render fails with the new
+  # value otherwise), because Velociraptor reads artifacts only when it starts.
+  extraFiles: {}
+  # Server event artifacts the reconciler keeps in the server monitoring table, with
+  # the parameters it enforces; unlisted parameters keep their value in the table or
+  # the artifact default. enabled: false stops managing one (it is never removed).
+  monitoring:
+    # Needs dfir-iris.
+    Custom.Server.IrisCollector:
+      enabled: true
+      parameters:
+        IrisUrl: http://dfir-iris-app:8000
+        IrisKeyFile: /etc/iris/API_KEY
+        OrgMapFile: /etc/siem/org-map.json
+    Custom.Server.KeycloakSync:
+      enabled: true
+      parameters:
+        # KcUrl and KcRealm default to keycloak.url and keycloak.realm; set them here
+        # when Velociraptor reaches Keycloak by another URL (its egress allows the
+        # ingress controller only). Protected defaults to the local accounts plus the
+        # reconciler's API user (velociraptor.velociraptor.apiClient.name).
+        KcClientId: iris-sync
+        KcSecretFile: /etc/keycloak/client_secret
+        RoleMapFile: /etc/siem/role-map.json
+        GroupMapFile: /etc/siem/group-map.json
+        # "Y" only logs the plan (Velociraptor server event log).
+        DryRun: "N"
 
 # ---------------------------------------------------------------------------
 # Component charts. Everything below is passed through unchanged. fullnameOverride
@@ -282,19 +322,83 @@ wazuh:
 
 velociraptor:
   enabled: true
+  # Egress to the Kubernetes API for the api-client-publish init container
+  # (CiliumNetworkPolicy, rendered only while apiClient.enabled).
+  apiServerEgress:
+    enabled: true
   velociraptor:
     fullnameOverride: velociraptor
-    # Tenant maps for server artifacts (group-map.json, role-map.json,
-    # org-map.json in /etc/siem), from the velociraptor-tenants ConfigMap.
+    # The gRPC API for the reconciler (Service velociraptor-api, port 8001). The
+    # reconciler dials it by that name (components.velociraptor.address in
+    # siem-tenants) and checks the server certificate against its pinned name.
+    config:
+      overlayExtra:
+        API:
+          bind_address: 0.0.0.0
+    api:
+      service:
+        enabled: true
+    # Mints the reconciler's API client (user siem-reconciler, administrator) before
+    # the server starts and stores it in Secret velociraptor-api-client, which the
+    # reconciler reads. This chart grants the velociraptor ServiceAccount access to
+    # that Secret (templates/velociraptor-api-client.yaml). publisherImage must be the
+    # reconciler image (reconciler.image; a parent chart cannot copy one value into a
+    # subchart's, so set both), and imagePullSecrets its pull secrets. Off by default
+    # like the reconciler, whose image has no default tag.
+    apiClient:
+      enabled: false
+      name: siem-reconciler
+      secretName: velociraptor-api-client
+      secretKey: api_client.yaml
+      publisherImage:
+        repository: ghcr.io/obmondo/siem-reconciler
+        tag: ""
+      imagePullSecrets: []
+    # Server artifacts from files/velociraptor (velociraptorArtifacts above).
+    customArtifacts:
+      enabled: true
+      existingConfigMap: velociraptor-artifacts
+    podAnnotations:
+      # sha256 of the velociraptor-artifacts data; templates/checks.yaml fails the
+      # render with the new value when the artifacts change.
+      checksum/server-artifacts: 97b1418a6ad84e174cf1da3cb355a56f3fe15f69451756b32868623dc7d6a34f
+    # /etc/siem: tenant maps for the server artifacts (group-map.json, role-map.json,
+    # org-map.json), from the velociraptor-tenants ConfigMap.
+    # /etc/iris/API_KEY: IRIS API key for Custom.Server.IrisCollector.
+    # /etc/keycloak/client_secret: iris-sync client secret for Custom.Server.KeycloakSync.
+    # Both Secrets are optional, so Velociraptor starts without IRIS; the artifact
+    # then reports the missing key.
     extraVolumes:
       - name: tenants
         configMap:
           name: velociraptor-tenants
+      - name: iris-api-key
+        secret:
+          secretName: iris-api-key
+          optional: true
+      - name: keycloak-sync
+        secret:
+          secretName: iris-keycloak-sync
+          optional: true
+          items:
+            - key: KEYCLOAK_CLIENT_SECRET
+              path: client_secret
     extraVolumeMounts:
       - name: tenants
         mountPath: /etc/siem
         readOnly: true
+      - name: iris-api-key
+        mountPath: /etc/iris
+        readOnly: true
+      - name: keycloak-sync
+        mountPath: /etc/keycloak
+        readOnly: true
     networkPolicy:
+      # The reconciler reaches the gRPC API.
+      apiAllowedFrom:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: siem-reconciler
       # Server artifacts poll the IRIS API.
       extraEgress:
         - to:

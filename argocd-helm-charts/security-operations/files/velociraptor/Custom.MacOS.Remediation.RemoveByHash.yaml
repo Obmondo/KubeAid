@@ -1,0 +1,35 @@
+name: Custom.MacOS.Remediation.RemoveByHash
+description: |
+  Remove every regular file under the given paths whose SHA-256 matches the
+  indicator, and report what was removed. Pairs with the FIM rule that
+  matches file hashes against the MISP-fed list: the alert puts the hash on the
+  case as an indicator, the analyst tags the asset
+  velociraptor:collect:Custom.MacOS.Remediation.RemoveByHash, and the collector
+  passes every sha256 indicator on the case as Hashes.
+  macOS has no built-in quarantine artifact; this is the file-level response.
+type: CLIENT
+parameters:
+  - name: Hashes
+    default: ""
+    description: |
+      Comma-separated SHA-256 values to remove. Filled by the IRIS collector from
+      the case's sha256 indicators; empty removes nothing.
+  - name: Globs
+    default: /etc/**,/tmp/**
+    description: Comma-separated globs to search; keep them narrow.
+  - name: MaxSize
+    type: int
+    default: "10485760"
+sources:
+  - query: |
+      -- execve and stat are plugins, not functions: use them in subqueries
+      -- lowercase and split; junk or empty entries can never equal a real SHA-256
+      LET HashList = split(string=lowcase(string=Hashes), sep=',')
+      LET hits = SELECT OSPath, Size, hash(path=OSPath).SHA256 AS sha
+        FROM glob(globs=split(string=Globs, sep=','))
+        WHERE Hashes AND NOT IsDir AND Size < MaxSize AND hash(path=OSPath).SHA256 in HashList
+      SELECT OSPath, Size, sha,
+             { SELECT ReturnCode FROM execve(argv=['/bin/rm', '-f', OSPath.String]) } AS rm_rc,
+             if(condition={ SELECT Size FROM stat(filename=OSPath.String) }, then=false, else=true) AS removed
+      FROM hits
+

@@ -12,7 +12,8 @@
 # app.kubernetes.io/instance alone (one release = one instance label for every
 # component); the 3-tenant render differs from the 2-tenant one only by tenant
 # 003 entries; schema and template checks reject bad input; the reconciler
-# renders when enabled, with Secret access in each tenant namespace.
+# renders when enabled, with Secret access in each tenant namespace; the
+# Velociraptor API, API client bootstrap and server artifacts.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -79,6 +80,7 @@ stray=$(awk '$2 ~ /security-operations/' "$TMP/objs2")
 
 for want in "StatefulSet wazuh-indexer" "Service wazuh-indexer-nodes" "Deployment wazuh-dashboard" \
             "StatefulSet velociraptor" "Service velociraptor-frontend" "Service velociraptor-gui" \
+            "Service velociraptor-api" "ConfigMap velociraptor-artifacts" \
             "Deployment dfir-iris-app" "Deployment dfir-iris-worker" "Service dfir-iris-app" \
             "Deployment misp" "Service misp" "MariaDB misp-mariadb" \
             "Deployment ollama" "Service ollama" \
@@ -238,6 +240,82 @@ else
   ko "renders with reconciler pull secrets"; cat "$TMP/err"
 fi
 expect_failure "reconciler needs an image tag" "reconciler.image.tag is required" -f "$SCRIPT_DIR/values-2-tenants.yaml" --set reconciler.enabled=true
+
+# --- Velociraptor API and server artifacts --------------------------------
+velo=$(jq -c '.components.velociraptor' <<<"$cfg")
+[ "$(jq -r '.address' <<<"$velo")" = "velociraptor-api:8001" ] && ok "reconciler dials the Velociraptor API Service" || ko "velociraptor address: $velo"
+extra=$(jq -r 'keys - ["apiClientSecretRef","apiClientFile","address","serverMonitoring"] | .[]' <<<"$velo")
+[ -z "$extra" ] && ok "components.velociraptor keeps to the reconciler schema" || ko "unknown velociraptor fields: $extra"
+[ "$(jq -r '[.serverMonitoring[].artifact] | join(",")' <<<"$velo")" = "Custom.Server.IrisCollector,Custom.Server.KeycloakSync" ] \
+  && ok "server monitoring entries" || ko "serverMonitoring: $velo"
+[ "$(jq -r '.serverMonitoring[1].parameters | .KcUrl + " " + .KcRealm + " " + .KcClientId + " " + .DryRun + " " + .GroupMapFile' <<<"$velo")" = "https://keycloak.example.com/auth soc iris-sync N /etc/siem/group-map.json" ] \
+  && ok "KeycloakSync parameters from keycloak" || ko "KeycloakSync parameters: $velo"
+[ "$(jq -r '.serverMonitoring[1].parameters.Protected' <<<"$velo")" = '^(admin|VelociraptorServer|svc_.*|siem-reconciler)$' ] \
+  && ok "KeycloakSync never removes the reconciler's API user" || ko "KeycloakSync Protected: $velo"
+[ "$(jq -r '.serverMonitoring[0].parameters | .IrisUrl + " " + .IrisKeyFile + " " + .OrgMapFile' <<<"$velo")" = "http://dfir-iris-app:8000 /etc/iris/API_KEY /etc/siem/org-map.json" ] \
+  && ok "IrisCollector parameters" || ko "IrisCollector parameters: $velo"
+if render -f "$SCRIPT_DIR/values-2-tenants.yaml" --set dfir-iris.enabled=false >"$TMP/noiris.yaml"; then
+  [ "$(yq 'select(.kind == "ConfigMap" and .metadata.name == "siem-tenants") | .data["tenants.json"]' "$TMP/noiris.yaml" | jq -r '[.components.velociraptor.serverMonitoring[].artifact] | join(",")')" = "Custom.Server.KeycloakSync" ] \
+    && ok "no IrisCollector without IRIS" || ko "IrisCollector without IRIS"
+else
+  ko "render without IRIS"; cat "$TMP/err"
+fi
+[ "$(yq 'select(.kind == "Secret" and .metadata.name == "velociraptor-config-overlay") | .stringData["overlay.yaml"]' "$R2" | yq '.API.bind_address')" = "0.0.0.0" ] \
+  && ok "API bound to all interfaces through the overlay" || ko "overlay API.bind_address"
+[ "$(yq -N 'select(.kind == "NetworkPolicy" and .metadata.name == "velociraptor") | .spec.ingress[] | select(.ports[0].port == 8001) | .from[0].podSelector.matchLabels["app.kubernetes.io/name"]' "$R2")" = "siem-reconciler" ] \
+  && ok "API port admits the reconciler" || ko "API NetworkPolicy"
+sts=$(yq -o=json -I=0 'select(.kind == "StatefulSet" and .metadata.name == "velociraptor") | .spec.template.spec' "$R2")
+[ "$(jq -r '[.containers[0].ports[].name] | join(",")' <<<"$sts")" = "frontend,gui,api,metrics" ] && ok "API container port" || ko "ports: $(jq -c '.containers[0].ports' <<<"$sts")"
+[ "$(jq -r '.volumes[] | select(.name == "custom-artifacts") | .configMap.name' <<<"$sts")" = "velociraptor-artifacts" ] \
+  && ok "server loads the chart's artifacts" || ko "custom-artifacts volume: $(jq -c .volumes <<<"$sts")"
+[ "$(jq -r '[.containers[0].volumeMounts[] | select(.name == "tenants" or .name == "iris-api-key" or .name == "keycloak-sync") | .mountPath] | join(",")' <<<"$sts")" = "/etc/siem,/etc/iris,/etc/keycloak" ] \
+  && ok "artifact inputs mounted" || ko "mounts: $(jq -c '.containers[0].volumeMounts' <<<"$sts")"
+[ "$(jq -c '.volumes[] | select(.name == "keycloak-sync") | .secret.items' <<<"$sts")" = '[{"key":"KEYCLOAK_CLIENT_SECRET","path":"client_secret"}]' ] \
+  && ok "only the Keycloak client secret in /etc/keycloak" || ko "keycloak-sync volume"
+[ "$(jq -r '[.initContainers[].name] | join(",")' <<<"$sts")" = "config-merge" ] && ok "no API client bootstrap by default" || ko "init containers: $(jq -c '[.initContainers[].name]' <<<"$sts")"
+[ "$(jq -r '.automountServiceAccountToken' <<<"$sts")" = "false" ] && ok "no ServiceAccount token by default" || ko "automount"
+grep -q "^Role velociraptor-api-client " "$TMP/objs2" && ko "API client RBAC without apiClient" || ok "no API client RBAC by default"
+# Every file in files/velociraptor is shipped unchanged.
+for f in "$CHART_DIR"/files/velociraptor/*.yaml; do
+  n=$(basename "$f")
+  if yq "select(.kind == \"ConfigMap\" and .metadata.name == \"velociraptor-artifacts\") | .data[\"$n\"]" "$R2" | diff -q - "$f" >/dev/null; then
+    ok "artifact $n shipped"
+  else
+    ko "artifact $n differs from files/velociraptor"
+  fi
+done
+expect_failure "artifact change needs a new checksum" "checksum/server-artifacts to" -f "$SCRIPT_DIR/values-2-tenants.yaml" --set-json 'velociraptorArtifacts.extraFiles={"Custom.Extra.yaml":"name: Custom.Extra\n"}'
+
+# API client bootstrap with the reconciler
+AC=(-f "$SCRIPT_DIR/values-2-tenants.yaml" --set reconciler.enabled=true --set reconciler.image.tag=test
+    --set velociraptor.velociraptor.apiClient.enabled=true --set velociraptor.velociraptor.apiClient.publisherImage.tag=test
+    --set-json 'velociraptor.velociraptor.apiClient.imagePullSecrets=[{"name":"registry-pull"}]')
+if render "${AC[@]}" >"$TMP/ac.yaml"; then
+  ok "renders with the API client bootstrap"
+  sts=$(yq -o=json -I=0 'select(.kind == "StatefulSet" and .metadata.name == "velociraptor") | .spec.template.spec' "$TMP/ac.yaml")
+  [ "$(jq -r '[.initContainers[].name] | join(",")' <<<"$sts")" = "config-merge,api-client,api-client-publish" ] \
+    && ok "API client init containers after the config merge" || ko "init containers: $(jq -c '[.initContainers[].name]' <<<"$sts")"
+  [ "$(jq -r '.initContainers[1].args | join(" ")' <<<"$sts")" = "--config /etc/velociraptor/server.config.yaml config api_client --name siem-reconciler --role administrator /api-client/api_client.yaml" ] \
+    && ok "api_client minted with the merged config" || ko "api-client args: $(jq -c '.initContainers[1].args' <<<"$sts")"
+  [ "$(jq -r '.initContainers[1].volumeMounts[] | select(.name == "datastore") | .mountPath' <<<"$sts")" = "/datastore" ] \
+    && ok "api_client sees the datastore" || ko "api-client mounts"
+  [ "$(jq -r '.initContainers[2].image + " " + (.initContainers[2].command + .initContainers[2].args | join(" "))' <<<"$sts")" = "ghcr.io/obmondo/siem-reconciler:test /usr/local/bin/siem-reconciler publish-api-client --file /api-client/api_client.yaml --name velociraptor-api-client --key api_client.yaml" ] \
+    && ok "publisher runs the reconciler image" || ko "publisher: $(jq -c '.initContainers[2]' <<<"$sts")"
+  [ "$(jq -r '.initContainers[2].env[] | select(.name == "POD_NAMESPACE") | .valueFrom.fieldRef.fieldPath' <<<"$sts")" = "metadata.namespace" ] \
+    && ok "publisher namespace from the downward API" || ko "POD_NAMESPACE"
+  [ "$(jq -r '[.automountServiceAccountToken, ([.containers[0].volumeMounts[].name] | index("api-client-token")), ([.initContainers[2].volumeMounts[].name] | index("api-client-token") != null)] | map(tostring) | join(",")' <<<"$sts")" = "false,null,true" ] \
+    && ok "only the publisher gets a token" || ko "token mounts"
+  [ "$(jq -r '[.imagePullSecrets[].name] | join(",")' <<<"$sts")" = "registry-pull" ] && ok "publisher pull secret" || ko "pull secrets: $(jq -c .imagePullSecrets <<<"$sts")"
+  [ "$(yq -o=json -I=0 'select(.kind == "Role" and .metadata.name == "velociraptor-api-client") | .rules' "$TMP/ac.yaml")" = '[{"apiGroups":[""],"resources":["secrets"],"resourceNames":["velociraptor-api-client"],"verbs":["get","update","patch"]},{"apiGroups":[""],"resources":["secrets"],"verbs":["create"]}]' ] \
+    && ok "API client Role on its Secret" || ko "API client Role"
+  [ "$(yq -N 'select(.kind == "RoleBinding" and .metadata.name == "velociraptor-api-client") | .subjects[0].name' "$TMP/ac.yaml")" = "velociraptor" ] \
+    && ok "API client Role bound to the Velociraptor ServiceAccount" || ko "API client RoleBinding"
+  [ "$(yq -N 'select(.kind == "CiliumNetworkPolicy" and .metadata.name == "velociraptor-apiserver") | .spec.egress[0].toEntities[0]' "$TMP/ac.yaml")" = "kube-apiserver" ] \
+    && ok "publisher reaches the Kubernetes API" || ko "API server egress"
+else
+  ko "renders with the API client bootstrap"; cat "$TMP/err"
+fi
+expect_failure "publisher image must be the reconciler image" "must equal reconciler.image" "${AC[@]}" --set velociraptor.velociraptor.apiClient.publisherImage.tag=other
 
 echo
 echo "==================================="

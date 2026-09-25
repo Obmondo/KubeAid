@@ -1,0 +1,328 @@
+name: Custom.Server.IrisCollector
+description: |
+  Run a Velociraptor artifact on a client when its IRIS asset is tagged
+  velociraptor:collect (default artifact) or velociraptor:collect:ArtifactName,
+  and write the flow's results onto the case timeline. Tag lifecycle:
+  collect[:ArtifactName] -> pending:ORG:FLOW:ArtifactName -> done:ORG:FLOW or error:...
+  Tenancy: every case belongs to an IRIS customer, and each customer maps to exactly
+  one Velociraptor org (OrgMap / OrgMapFile override, else the org with the customer's
+  exact name, else the root org for customers listed in RootCustomers only). The client is looked
+  up, collected from and read back ONLY in that org; no other org is ever searched.
+  No mapping ends as velociraptor:error:no-org, no client of that hostname in the
+  mapped org as velociraptor:error:no-client, both with a red event on the case.
+  Parameters come from the case's indicators: for every parameter the artifact
+  declares that is named in IocMap, the case's IOCs of the listed IRIS types are
+  passed comma-separated. Parameters with no matching IOC keep the artifact's
+  default. The values used are written onto the case with the results.
+  Only CLIENT artifacts whose name matches AllowedArtifacts run; anything else
+  ends as velociraptor:error:not-allowed with a red event on the case.
+  Automatic response: a New IRIS alert whose rule is in AutoRules for the
+  endpoint's OS is escalated to a case (assets and IOCs imported) and its asset
+  tagged, so the same path runs without an analyst and is logged on the case. The
+  endpoint and its OS are looked up in the org of the alert's customer only; an
+  alert whose customer maps to no org, or whose host is not in that org, is left
+  New for an analyst.
+type: SERVER_EVENT
+parameters:
+  - name: IrisUrl
+    default: http://dfir-iris-app:8000
+  - name: IrisKeyFile
+    default: /etc/iris/API_KEY
+    description: File holding the IRIS API key (mounted from a Secret).
+  # Not `Artifact`: inside an artifact's scope that name is the built-in namespace
+  # for calling other artifacts and it shadows a parameter - collect_client() then
+  # sees a Go object and logs "Unknown artifact &{...}". Cost a night to find.
+  - name: CollectArtifact
+    default: Generic.Client.Info
+    description: Artifact to collect when the tag names none.
+  - name: PollSeconds
+    type: int
+    default: "30"
+  - name: AllowedArtifacts
+    description: |
+      Regex of artifact names an IRIS tag may run. Anyone who can edit an asset in
+      IRIS can trigger these on that endpoint, so keep it to response artifacts
+      the SOC has reviewed.
+    default: '^(Generic\.Client\.Info|Custom\.(MacOS|Windows|Linux)\..+)$'
+  - name: OrgMap
+    description: |
+      JSON: IRIS customer name or customer id (as a string) -> Velociraptor org id
+      or org name, e.g. {"Tenant A": "OTOUG", "3": "Tenant B"}. Overrides the default
+      mapping, which is the org whose name equals the customer's name exactly (and is
+      the only org with that name). The org must exist, and a name must be unique.
+      Mapping to "root" is refused unless the customer is also listed in RootCustomers.
+      Entries here win over OrgMapFile.
+    default: '{}'
+  - name: OrgMapFile
+    description: |
+      File with a JSON object of the same shape as OrgMap, read on every cycle when
+      set (the security-operations chart mounts its tenant map there). A missing or
+      empty file counts as {}.
+    default: /etc/siem/org-map.json
+  - name: RootCustomers
+    description: |
+      JSON list of IRIS customer names or ids (as strings) whose cases and alerts are
+      served from the root org. Every other customer must map to its own org.
+    default: '["IrisInitialClient"]'
+  - name: AutoRules
+    description: |
+      JSON: Wazuh rule id -> {Velociraptor OS name (darwin, windows, linux) ->
+      artifact}. A New alert tagged rule:<id> from an endpoint with a mapped OS is
+      escalated and responded to automatically. Empty object disables it.
+    default: '{"99901": {"darwin": "Custom.MacOS.Remediation.RemoveByHash"}}'
+  - name: IocMap
+    description: |
+      JSON: artifact parameter name -> IRIS IOC types whose values fill it.
+      An artifact opts in by declaring a parameter with one of these names.
+    default: '{"Hashes": ["sha256"], "MD5s": ["md5"], "SHA1s": ["sha1"], "Paths": ["filename"], "IPs": ["ip-dst", "ip-src", "ip-any"], "Domains": ["domain", "hostname"]}'
+export: |
+  LET KEY = regex_replace(source=read_file(filename=IrisKeyFile), re='\\s+$', replace='')
+  LET H = dict(Authorization='Bearer ' + KEY, `Content-Type`='application/json')
+  LET cases = SELECT case_id FROM foreach(
+      row={ SELECT parse_json(data=Content).data AS d FROM http_client(url=IrisUrl + '/manage/cases/list', headers=H) },
+      query={ SELECT case_id FROM foreach(row=d) })
+  LET assets(tag) = SELECT * FROM foreach(row=cases, query={
+      SELECT case_id, asset_id, asset_name, asset_type_id, asset_ip, asset_description, asset_domain,
+             asset_compromise_status_id, analysis_status_id, asset_tags
+      FROM foreach(row={ SELECT parse_json(data=Content).data.assets AS assets
+                         FROM http_client(url=IrisUrl + '/case/assets/list', params=dict(cid=case_id), headers=H) },
+                   query={ SELECT * FROM foreach(row=assets) })
+      WHERE asset_tags =~ tag })
+  LET retag(cid, aid, aname, atype, aip, adesc, adom, acomp, ast, atags, newtag) =
+      SELECT parse_json(data=Content).message AS msg
+      FROM http_client(url=IrisUrl + '/case/assets/update/' + str(str=aid) + '?cid=' + str(str=cid), method='POST', headers=H,
+           data=serialize(format='json', item=dict(
+               asset_name=aname, asset_type_id=atype,
+               asset_ip=if(condition=aip, then=aip, else=''),
+               asset_description=if(condition=adesc, then=adesc, else=''),
+               asset_domain=if(condition=adom, then=adom, else=''),
+               asset_info='',
+               asset_compromise_status_id=if(condition=acomp, then=acomp, else=0),
+               analysis_status_id=if(condition=ast, then=ast, else=1),
+               asset_tags=regex_replace(source=atags, re='velociraptor:[^,]*', replace=newtag),
+               ioc_links=[], custom_attributes=dict())))
+
+  LET note(cid, title, content) = SELECT parse_json(data=Content).message AS m
+      FROM http_client(url=IrisUrl + '/case/timeline/events/add?cid=' + str(str=cid), method='POST', headers=H,
+           data=serialize(format='json', item=dict(
+               event_title=title,
+               event_date=regex_replace(source=timestamp(epoch=now()).String, re='(\\.\\d+)?Z$', replace='.000'),
+               event_tz='+00:00', event_category_id=1, event_content=content, event_raw='',
+               event_source='Velociraptor IrisCollector', event_assets=[], event_iocs=[], event_tags='velociraptor',
+               event_in_summary=false, event_in_graph=false, event_color='#dc3545',
+               event_sync_iocs_assets=false, custom_attributes=dict())))
+
+  -- tenancy: IRIS customer -> exactly one Velociraptor org. len() of a stored query is 0
+  -- on this server, so uniqueness is "row 0 and no row 1". query(org_id='') would run in
+  -- the root org, so every org-scoped helper below only runs for a non-empty org.
+  LET OMAPFILE = if(condition=OrgMapFile, then=read_file(filename=OrgMapFile), else='')
+  LET OMAP = if(condition=OMAPFILE, then=parse_json(data=OMAPFILE), else=dict()) + parse_json(data=OrgMap)
+  LET RLIST = parse_json_array(data=RootCustomers)
+  LET orgbyname(n) = SELECT OrgId FROM orgs() WHERE Name = n
+  LET orgexists(o) = SELECT OrgId FROM orgs() WHERE OrgId = o
+  -- a map value is an org id or the name of exactly one org; anything else stays as
+  -- given and then fails orgexists
+  LET orgref(s) = SELECT OrgId FROM orgs() WHERE OrgId = s OR Name = s
+  LET orgresolve(s) = if(condition=orgref(s=s)[0].OrgId AND NOT orgref(s=s)[1].OrgId, then=orgref(s=s)[0].OrgId, else=s)
+  LET orgpick(cid, cname) = if(condition=get(item=OMAP, field=str(str=cid)), then=orgresolve(s=get(item=OMAP, field=str(str=cid))),
+      else=if(condition=get(item=OMAP, field=str(str=cname)), then=orgresolve(s=get(item=OMAP, field=str(str=cname))),
+      else=if(condition=orgbyname(n=cname)[0].OrgId AND NOT orgbyname(n=cname)[1].OrgId, then=orgbyname(n=cname)[0].OrgId,
+      else=if(condition=str(str=cname) in RLIST OR str(str=cid) in RLIST, then='root', else=''))))
+  LET orgrow(cid, cname) = SELECT o FROM foreach(row={ SELECT orgpick(cid=cid, cname=cname) AS o FROM scope() })
+      WHERE o AND orgexists(o=o)[0].OrgId = o
+        AND (o != 'root' OR str(str=cname) in RLIST OR str(str=cid) in RLIST)
+  LET orgfor(cid, cname) = orgrow(cid=cid, cname=cname)[0].o
+  LET caseinfo(cid) = SELECT parse_json(data=Content).data AS d
+      FROM http_client(url=IrisUrl + '/manage/cases/' + str(str=cid), headers=H)
+  -- clients(), flows() and source() take no org argument: run them inside query(org_id=),
+  -- which starts an empty scope, so values go in through env
+  LET hostin(org, host) = SELECT * FROM foreach(row={ SELECT org FROM scope() WHERE org AND host },
+      query={ SELECT client_id FROM query(org_id=org, env=dict(h=host),
+                  query={ SELECT client_id FROM clients(search='host:' + h) LIMIT 1 }) })
+  LET osin(org, c) = SELECT * FROM foreach(row={ SELECT org FROM scope() WHERE org AND c },
+      query={ SELECT os FROM query(org_id=org, env=dict(c=c),
+                  query={ SELECT os_info.system AS os FROM clients(client_id=c) }) })
+  LET flowin(org, c, f) = SELECT * FROM foreach(row={ SELECT org FROM scope() WHERE org AND c AND f },
+      query={ SELECT * FROM query(org_id=org, env=dict(c=c, f=f),
+                  query={ SELECT state, status, artifacts_with_results AS sources, request.specs AS specs
+                          FROM flows(client_id=c, flow_id=f) }) })
+  LET orgname(o) = SELECT Name FROM orgs() WHERE OrgId = o
+  -- tagged assets with the case's customer and the org it maps to
+  LET withcase(tag) = SELECT *, caseinfo(cid=case_id)[0].d AS ci FROM assets(tag=tag)
+  LET routed(tag) = SELECT *, ci.customer_id AS cust_id, ci.customer_name AS cust_name,
+          orgfor(cid=ci.customer_id, cname=ci.customer_name) AS org_id
+      FROM withcase(tag=tag)
+
+  -- parameters from the case's IOCs. enumerate() + GROUP BY 1 gives one row with a
+  -- list; the one-row one-column subquery in envrows then collapses to the joined string.
+  LET IMAP = parse_json(data=IocMap)
+  LET iocs(cid) = SELECT ioc_value, ioc_type FROM foreach(
+      row={ SELECT parse_json(data=Content).data.ioc AS l
+            FROM http_client(url=IrisUrl + '/case/ioc/list', params=dict(cid=cid), headers=H) },
+      query={ SELECT * FROM foreach(row=l) })
+  LET vals(cid, types) = SELECT enumerate(items=ioc_value) AS v FROM iocs(cid=cid)
+      WHERE ioc_type in types GROUP BY 1
+  LET envrows(cid, art) = SELECT name AS _key,
+          { SELECT join(array=v, sep=',') AS j FROM vals(cid=cid, types=get(item=IMAP, field=name)) } AS _value
+      FROM foreach(row={ SELECT parameters FROM artifact_definitions(names=art) },
+                   query={ SELECT name FROM foreach(row=parameters) })
+      WHERE get(item=IMAP, field=name)
+  LET envof(cid, art) = to_dict(item={ SELECT * FROM envrows(cid=cid, art=art) WHERE _value })
+
+  -- scheduler: collect[:Artifact] -> route to the case's org -> collect_client(org_id=) -> pending:<org>:<flow>:<Artifact>
+  LET tagged = SELECT *,
+          parse_string_with_regex(string=asset_tags, regex='velociraptor:collect:(?P<art>[A-Za-z0-9._]+)').art AS tag_art
+      FROM routed(tag='velociraptor:collect')
+  LET run = SELECT *, if(condition=tag_art, then=tag_art, else=CollectArtifact) AS art,
+          hostin(org=org_id, host=asset_name)[0].client_id AS client_id
+      FROM tagged
+  LET unrouted = SELECT *, if(condition=org_id, then='no-client', else='no-org') AS reason FROM run WHERE NOT client_id
+  LET refusedroute = SELECT *,
+          log(message=format(format='IrisCollector: case %v asset %v: customer %v (%v) org %v: %v', args=[case_id, asset_id, cust_name, cust_id, org_id, reason])) AS logged,
+          note(cid=case_id, title='Velociraptor: ' + art + ' not run on ' + asset_name + ' (' + reason + ')',
+               content=if(condition=org_id,
+                   then='No client with hostname ' + asset_name + ' is enrolled in the Velociraptor org ' + orgname(o=org_id)[0].Name + ' (' + org_id + ') that serves the customer of this case, ' + str(str=cust_name) + '. Other orgs are never searched. Nothing ran on any endpoint.',
+                   else='The customer of this case, ' + str(str=cust_name) + ' (id ' + str(str=cust_id) + ') is not mapped to a Velociraptor org (no OrgMap or OrgMapFile entry, no org of that name, not in RootCustomers). Nothing ran on any endpoint.')) AS ev,
+          retag(cid=case_id, aid=asset_id, aname=asset_name, atype=asset_type_id, aip=asset_ip,
+                adesc=asset_description, adom=asset_domain, acomp=asset_compromise_status_id,
+                ast=analysis_status_id, atags=asset_tags, newtag='velociraptor:error:' + reason) AS retag
+      FROM unrouted
+  LET started = SELECT * FROM run WHERE client_id
+  -- a subquery on the left of = silently ends the program, and the type is lower
+  -- case ('client'), so look it up as a stored query and index the first row
+  LET arttype(art) = SELECT type FROM artifact_definitions(names=art)
+  LET allowed(art) = if(condition=art =~ AllowedArtifacts,
+                        then=(arttype(art=art)[0].type = 'client'), else=false)
+  LET denied = SELECT *,
+          log(message=format(format='IrisCollector: case %v asset %v: %v not allowed', args=[case_id, asset_id, art])) AS logged,
+          note(cid=case_id, title='Velociraptor: ' + art + ' refused on ' + asset_name,
+               content='The asset tag asked for ' + art + ', which is not a client artifact matching AllowedArtifacts (' + AllowedArtifacts + '). Nothing ran on the endpoint.') AS ev,
+          retag(cid=case_id, aid=asset_id, aname=asset_name, atype=asset_type_id, aip=asset_ip,
+                adesc=asset_description, adom=asset_domain, acomp=asset_compromise_status_id,
+                ast=analysis_status_id, atags=asset_tags, newtag='velociraptor:error:not-allowed') AS retag
+      FROM started WHERE NOT allowed(art=art)
+  LET withenv = SELECT *, envof(cid=case_id, art=art) AS env FROM started WHERE allowed(art=art) AND org_id
+  LET scheduled = SELECT *,
+          collect_client(org_id=org_id, client_id=client_id, artifacts=[art],
+                         spec=to_dict(item={ SELECT art AS _key, env AS _value FROM scope() })).flow_id AS flow_id
+      FROM withenv
+  LET schedule = SELECT case_id, asset_id, asset_name, org_id, client_id, art, env, flow_id,
+         log(message=format(format='IrisCollector: case %v asset %v (%v) org %v %v %v -> %v', args=[case_id, asset_id, asset_name, org_id, art, env, flow_id])) AS logged,
+         retag(cid=case_id, aid=asset_id, aname=asset_name, atype=asset_type_id, aip=asset_ip,
+               adesc=asset_description, adom=asset_domain, acomp=asset_compromise_status_id,
+               ast=analysis_status_id, atags=asset_tags, newtag='velociraptor:pending:' + org_id + ':' + flow_id + ':' + art) AS retag
+      FROM scheduled WHERE flow_id
+
+  -- writeback: pending:<org>:<flow>:<Artifact> -> FINISHED -> every result source on the timeline -> done | error.
+  -- Old tags pending:<flow>:<Artifact> were all scheduled in the root org. The org in the tag
+  -- must equal the org the case's customer maps to now, so a hand-edited tag cannot pull
+  -- another tenant's flow onto this case.
+  LET pending = SELECT *,
+          parse_string_with_regex(string=asset_tags, regex='velociraptor:pending:(?:(?P<org>[A-Za-z0-9]+):)?(?P<flow>F\\.[A-Z0-9]+):(?P<art>[A-Za-z0-9._]+)') AS p
+      FROM routed(tag='velociraptor:pending:')
+  LET pendorg = SELECT *, if(condition=p.org, then=p.org, else='root') AS tag_org, p.flow AS flow_id, p.art AS art,
+          hostin(org=org_id, host=asset_name)[0].client_id AS client_id
+      FROM pending WHERE p.flow
+  LET mismatched = SELECT *,
+          if(condition=NOT org_id, then='no-org', else=if(condition=tag_org != org_id, then='org-mismatch', else='no-client')) AS reason
+      FROM pendorg WHERE NOT org_id OR tag_org != org_id OR NOT client_id
+  -- a flow id this client does not have in this org would otherwise sit on pending forever
+  LET withflow = SELECT *, flowin(org=org_id, c=client_id, f=flow_id)[0] AS fl
+      FROM pendorg WHERE org_id AND tag_org = org_id AND client_id
+  LET noflow = SELECT *, 'no-flow' AS reason FROM withflow WHERE NOT fl.state
+  LET wbrefused = SELECT *,
+          log(message=format(format='IrisCollector: case %v asset %v flow %v: tag org %v, customer %v (%v) org %v: %v', args=[case_id, asset_id, flow_id, tag_org, cust_name, cust_id, org_id, reason])) AS logged,
+          note(cid=case_id, title='Velociraptor: results of ' + flow_id + ' not written (' + reason + ')',
+               content='The asset tag names flow ' + flow_id + ' in org ' + tag_org + '. The customer of this case, ' + str(str=cust_name) + ' maps to org ' + if(condition=org_id, then=org_id, else='(none)') + '. Results are only read from the org the case belongs to, for a flow of the client of hostname ' + asset_name + ' in that org (' + if(condition=client_id, then=client_id, else='none enrolled') + '); nothing was read.') AS ev,
+          retag(cid=case_id, aid=asset_id, aname=asset_name, atype=asset_type_id, aip=asset_ip,
+                adesc=asset_description, adom=asset_domain, acomp=asset_compromise_status_id,
+                ast=analysis_status_id, atags=asset_tags, newtag='velociraptor:error:' + reason + ':' + flow_id) AS retag
+      FROM chain(a={ SELECT * FROM mismatched }, b={ SELECT * FROM noflow })
+  LET finished = SELECT *, fl.state AS state, fl.status AS status, fl.sources AS sources, fl.specs AS specs
+      FROM withflow
+  LET rows(org, cid, fid, src) = SELECT * FROM foreach(row={ SELECT org FROM scope() WHERE org },
+      query={ SELECT * FROM query(org_id=org, env=dict(c=cid, f=fid, s=src),
+                  query={ SELECT * FROM source(client_id=c, flow_id=f, artifact=s) LIMIT 50 }) })
+  LET kv(e) = SELECT format(format='%v=%v', args=[key, value]) AS s FROM foreach(row=e)
+  -- a LET whose whole body is a {subquery} also silently ends the program: stored query + [0]
+  LET paramrows(specs) = SELECT join(array=enumerate(items=s), sep='; ') AS j FROM kv(e=specs[0].parameters.env) GROUP BY 1
+  -- a flow that ended in ERROR is reported on the case too, then tagged error:<org>:<flow>;
+  -- otherwise a failed remediation would sit on pending forever
+  LET written = SELECT *,
+          { SELECT parse_json(data=Content).message AS m
+            FROM http_client(url=IrisUrl + '/case/timeline/events/add?cid=' + str(str=case_id), method='POST', headers=H,
+                 data=serialize(format='json', item=dict(
+                     event_title='Velociraptor: ' + art + ' on ' + asset_name + if(condition=(state = 'ERROR'), then=' FAILED', else=''),
+                     event_date=regex_replace(source=timestamp(epoch=now()).String, re='(\\.\\d+)?Z$', replace='.000'),
+                     event_tz='+00:00', event_category_id=1,
+                     event_content='Flow ' + flow_id + ' (' + art + ') ' + state + ' on client ' + client_id + ' in org ' + org_id + '. '
+                         + if(condition=(state = 'ERROR'), then='Error: ' + status + ' ', else='')
+                         + 'Result sources: ' + join(array=sources, sep=', ') + '. Rows in the raw field. Triggered by the velociraptor:collect tag on asset ' + str(str=asset_id) + '. '
+                         + 'Parameters from the case IOCs: ' + if(condition=paramrows(specs=specs)[0].j, then=paramrows(specs=specs)[0].j, else='none (artifact defaults)') + '.',
+                     event_raw=serialize(format='json', item={ SELECT _value AS source, rows(org=org_id, cid=client_id, fid=flow_id, src=_value) AS rows FROM foreach(row=sources) }),
+                     event_source='Velociraptor ' + flow_id,
+                     event_assets=[], event_iocs=[], event_tags='velociraptor,' + art,
+                     event_in_summary=false, event_in_graph=false, event_color=if(condition=(state = 'ERROR'), then='#dc3545', else=''),
+                     event_sync_iocs_assets=false, custom_attributes=dict()))) } AS ev
+      FROM finished WHERE state = 'FINISHED' OR state = 'ERROR'
+  LET writeback = SELECT case_id, asset_id, asset_name, org_id, flow_id, art, ev AS event,
+         log(message=format(format='IrisCollector: %v (%v) org %v -> case %v: %v', args=[flow_id, art, org_id, case_id, ev])) AS logged,
+         retag(cid=case_id, aid=asset_id, aname=asset_name, atype=asset_type_id, aip=asset_ip,
+               adesc=asset_description, adom=asset_domain, acomp=asset_compromise_status_id,
+               ast=analysis_status_id, atags=asset_tags,
+               newtag=if(condition=(ev = 'Event added' AND state = 'FINISHED'), then='velociraptor:done:' + org_id + ':' + flow_id, else='velociraptor:error:' + org_id + ':' + flow_id)) AS retag
+      FROM written
+  -- automatic response: New alert, customer -> org, host and OS looked up in that org only,
+  -- rule mapped for that OS -> escalate -> tag (the scheduler then routes the case again)
+  LET AMAP = parse_json(data=AutoRules)
+  LET newalerts = SELECT * FROM foreach(
+      row={ SELECT parse_json(data=Content).data.alerts AS l
+            FROM http_client(url=IrisUrl + '/alerts/filter', params=dict(per_page=50, alert_status_id=2), headers=H) },
+      query={ SELECT alert_id, alert_title, alert_tags, alert_customer_id, customer.customer_name AS cust_name, assets, iocs FROM foreach(row=l) })
+  LET mapped = SELECT *,
+          parse_string_with_regex(string=alert_tags, regex='(^|,)rule:(?P<rule>[0-9]+)(,|$)').rule AS rule,
+          assets[0].asset_name AS hostname,
+          orgfor(cid=alert_customer_id, cname=cust_name) AS org_id
+      FROM newalerts WHERE assets
+  LET located = SELECT *, hostin(org=org_id, host=hostname)[0].client_id AS client_id
+      FROM mapped WHERE rule AND get(item=AMAP, field=rule) AND org_id
+  -- a {subquery} passed as a function argument is not collapsed; make it a column first
+  LET withos = SELECT *, osin(org=org_id, c=client_id)[0].os AS os FROM located WHERE client_id
+  LET autos = SELECT *, get(item=get(item=AMAP, field=rule), field=os) AS art FROM withos
+  LET escalated = SELECT *,
+          { SELECT parse_json(data=Content).data.case_id AS c
+            FROM http_client(url=IrisUrl + '/alerts/escalate/' + str(str=alert_id), method='POST', headers=H,
+                 data=serialize(format='json', item=dict(
+                     iocs_import_list=if(condition=iocs, then=iocs.ioc_uuid, else=[]),
+                     assets_import_list=assets.asset_uuid,
+                     note='Escalated automatically by Velociraptor: Wazuh rule ' + rule + ' is mapped to ' + art + ' (AutoRules), endpoint in org ' + org_id + '.',
+                     import_as_event=true, case_tags='auto-response,rule:' + rule,
+                     case_title=alert_title, case_template_id=null))) } AS case_id
+      FROM autos WHERE art AND allowed(art=art)
+  LET autorespond = SELECT alert_id, rule, art, org_id, case_id, hostname,
+          log(message=format(format='IrisCollector: alert %v rule %v org %v -> case %v, tagging for %v', args=[alert_id, rule, org_id, case_id, art])) AS logged,
+          { SELECT retag(cid=case_id, aid=asset_id, aname=asset_name, atype=asset_type_id, aip=asset_ip,
+                         adesc=asset_description, adom=asset_domain, acomp=asset_compromise_status_id,
+                         ast=analysis_status_id, atags=if(condition=asset_tags, then=asset_tags + ',velociraptor:x', else='velociraptor:x'),
+                         newtag='velociraptor:collect:' + art) AS r
+            FROM foreach(row={ SELECT parse_json(data=Content).data.assets AS a
+                               FROM http_client(url=IrisUrl + '/case/assets/list', params=dict(cid=case_id), headers=H) },
+                         query={ SELECT * FROM foreach(row=a) })
+            WHERE asset_name = hostname } AS tagged
+      FROM escalated WHERE case_id
+sources:
+  - name: autorespond
+    query: |
+      SELECT * FROM foreach(row={ SELECT * FROM clock(period=PollSeconds) }, query={ SELECT * FROM autorespond })
+  - name: scheduler
+    query: |
+      SELECT * FROM foreach(row={ SELECT * FROM clock(period=PollSeconds) },
+                            query={ SELECT * FROM chain(a={ SELECT case_id, asset_id, art, reason AS flow_id FROM refusedroute },
+                                                        b={ SELECT case_id, asset_id, art, 'refused' AS flow_id FROM denied },
+                                                        c={ SELECT case_id, asset_id, art, flow_id FROM schedule }) })
+  - name: writeback
+    query: |
+      SELECT * FROM foreach(row={ SELECT * FROM clock(period=PollSeconds) },
+                            query={ SELECT * FROM chain(a={ SELECT case_id, asset_id, art, reason AS flow_id FROM wbrefused },
+                                                        b={ SELECT case_id, asset_id, art, flow_id FROM writeback }) })
+
