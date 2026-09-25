@@ -339,6 +339,11 @@ velociraptor:
       overlayExtra:
         API:
           bind_address: 0.0.0.0
+          # With a 0.0.0.0 bind, Velociraptor derives the API address its own
+          # GUI dials from the public frontend host name, where 8001 is not
+          # open; keep the GUI on the loopback. The reconciler dials the
+          # velociraptor-api Service instead.
+          hostname: localhost
     api:
       service:
         enabled: true
