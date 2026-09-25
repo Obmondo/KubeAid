@@ -36,6 +36,18 @@ spec:
           protocol: UDP
         - port: 53
           protocol: TCP
+    {{- if .Values.networkPolicy.allowModelDownload }}
+    # Temporary: HTTPS to the internet (not the private ranges) so the
+    # postStart hook can pull ollama.ollama.models.pull. Switch it off again
+    # once the model is on the volume.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10]
+      ports:
+        - port: 443
+          protocol: TCP
+    {{- end }}
     {{- with .Values.networkPolicy.extraEgress }}
     {{- toYaml . | nindent 4 }}
     {{- end }}

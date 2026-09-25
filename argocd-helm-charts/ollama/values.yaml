@@ -40,3 +40,6 @@ networkPolicy:
   #      matchLabels:
   #        app.kubernetes.io/component: ai-triage
   extraEgress: []
+  # Open HTTPS egress to the internet so models.pull can run; turn it off (and
+  # empty models.pull) once the model is on the volume.
+  allowModelDownload: false

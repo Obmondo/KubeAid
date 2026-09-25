@@ -45,3 +45,8 @@ With egress closed, `ollama.ollama.models.pull` must be empty: the chart pulls
 models in a postStart hook, and a failed pull kills the container. Pull the
 model once with egress open (or copy it onto the volume, or serve it from an
 internal OCI registry), then enable the policy and empty the pull list.
+
+To pull with the policy on, set `networkPolicy.allowModelDownload: true` together
+with the pull list: it adds HTTPS egress to the internet (private ranges
+excluded). Once the pod is ready with the model on the volume, set it back to
+`false` and empty the pull list.
