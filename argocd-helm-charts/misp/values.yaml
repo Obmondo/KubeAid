@@ -48,9 +48,12 @@ misp:
   misp:
     misp:
       image:
-        # Upstream defaults to the floating "latest" tag; pin a release tag
-        # from https://github.com/MISP/misp-docker/pkgs/container/misp-docker%2Fmisp-core
-        tag: latest
+        # Pinned: from 2.5.47 misp-core runs nginx in a separate container
+        # (misp-docker's two-container layout), so with this chart's single
+        # container nothing listens on :80 and the probes never pass. 2.5.44 is
+        # the release the subchart (5.0.1) was built for.
+        # https://github.com/MISP/misp-docker/pkgs/container/misp-docker%2Fmisp-core
+        tag: v2.5.44
         pullPolicy: IfNotPresent
       resources:
         requests:
