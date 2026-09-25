@@ -36,7 +36,7 @@ done
 check "node DN carries the tenant" "CN=wazuh-indexer,O=tenant-001,L=California,C=US" \
   "$(q 'select(.kind=="ConfigMap" and .metadata.name=="wazuh-indexer-config") | .data["opensearch.yml"]' | yq '.["plugins.security.nodes_dn"][0]')"
 check "central search DN allowed" "CN=wazuh-indexer,O=central,L=California,C=US" \
-  "$(q 'select(.kind=="ConfigMap" and .metadata.name=="wazuh-indexer-config") | .data["nodes_dn.yml"]' | yq '.central_search.nodes_dn[0]')"
+  "$(q 'select(.kind=="ConfigMap" and .metadata.name=="wazuh-indexer-config") | .data["opensearch.yml"]' | yq '.["plugins.security.nodes_dn"][1]')"
 check "indexer 9300 open to the central namespace" "security-operations" \
   "$(q 'select(.kind=="NetworkPolicy" and .metadata.name=="wazuh-indexer") | .spec.ingress[] | select(.ports[0].port==9300 and .from[0].namespaceSelector) | .from[0].namespaceSelector.matchLabels["kubernetes.io/metadata.name"]')"
 check "no generated passwords" "" \

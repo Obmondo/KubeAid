@@ -123,7 +123,7 @@ The `wazuh` component runs without a manager (`wazuh.wazuh.wazuh.{enabled,master
   search every tenant, `<code>:wazuh-alerts-*` one.
 - **Trust**: all Wazuh instances get their certificates from the ClusterIssuer `socCA.name`
   (`certificates.issuer`). The central node DN is `CN=wazuh-indexer,O=central,...`; each tenant
-  indexer admits it in `indexer.config.nodesDn`, and its NetworkPolicy admits 9300 from this
+  indexer admits it in `indexer.config.extraNodesDn`, and its NetworkPolicy admits 9300 from this
   namespace.
 - **Permissions** of a central user are checked on every tenant cluster, so the operator roles
   need role mappings on the tenant indexers as well as here.

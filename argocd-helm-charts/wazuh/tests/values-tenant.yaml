@@ -28,13 +28,8 @@ wazuh:
       passwordHash: "$2a$12$examplehashexamplehashexamplehashexamplehashexampleha"
     config:
       # The central search indexer may connect as a node (cross-cluster search).
-      nodesDn: |
-        _meta:
-          type: "nodes_dn"
-          config_version: 2
-        central_search:
-          nodes_dn:
-            - "CN=wazuh-indexer,O=central,L=California,C=US"
+      extraNodesDn:
+        - "CN=wazuh-indexer,O=central,L=California,C=US"
     networkPolicy:
       extraIngresses:
         - ports:

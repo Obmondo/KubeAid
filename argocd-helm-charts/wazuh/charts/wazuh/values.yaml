@@ -228,6 +228,12 @@ indexer:
     tenants: ""
     nodesDn: ""
     whitelist: ""
+    ## KubeAid patch. Extra node DNs appended to plugins.security.nodes_dn in opensearch.yml,
+    ## e.g. the node certificate DN of a central indexer that searches this one with
+    ## cross-cluster search. nodes_dn.yml (nodesDn above) is only read when the security
+    ## plugin's dynamic nodes_dn config is enabled, which it is not by default.
+    ## @param indexer.config.extraNodesDn Extra node certificate DNs.
+    extraNodesDn: []
     ## Extra roles appended to roles.yml (also after an indexer.config.roles override), as
     ## a map in the security plugin's roles.yml format. Map them with
     ## dashboard.sso.*.extraRoleMappings or indexer.ldap.extraRoleMappings.

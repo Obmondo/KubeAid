@@ -383,7 +383,7 @@ holds one tenant's data. `tests/values-tenant.yaml` is a complete example, check
 - **Shared CA.** `certificates.issuer` names one CA ClusterIssuer for all releases, so the
   indexers trust each other (the node certificate follows it, see the patches below).
   `certificates.subject.organization` differs per tenant, which makes each indexer's node
-  DN unique; `indexer.config.nodesDn` adds the central indexer's DN so it may connect.
+  DN unique; `indexer.config.extraNodesDn` adds the central indexer's DN so it may connect.
 - **No generated passwords.** Set `existingSecret` for `indexer.cred`, `dashboard.cred`,
   `wazuh.apiCred` and `wazuh.authd`, plus `passwordHash` for the indexer and dashboard
   users (the chart's `lookup` of the Secret does not run under Argo CD). The chart
@@ -415,6 +415,9 @@ with the security-operations umbrella chart:
   `templates/certs/node/certificate.yaml` and `templates/certs/node.crp.yaml` use
   `certificates.issuer.name` when set, instead of the release's own `<fullname>-ca-issuer`,
   so `ca.crt` is the shared CA.
+- `indexer.config.extraNodesDn` (section 11): extra DNs appended to `plugins.security.nodes_dn`
+  in `templates/indexer/configmap.yaml`, plus the value. `nodes_dn.yml` is not read unless
+  dynamic nodes_dn config is enabled, so a cross-cluster search node must be listed here.
 - `dashboard.wazuhAppConfigSecret` (section 11): a Secret volume mounted over
   `data/wazuh/config/wazuh.yml` in `templates/dashboard/deployment.yaml`, plus the value.
   Nothing renders while it is empty.

@@ -38,6 +38,10 @@ data:
     plugins.security.enable_snapshot_restore_privilege: true
     plugins.security.nodes_dn:
       - CN={{ include "wazuh.indexer.fullname" . }}-indexer,O={{ .Values.certificates.subject.organization }},L={{ .Values.certificates.subject.locality }},C={{ .Values.certificates.subject.country }}
+      {{- /* KubeAid patch: more node DNs, e.g. a cross-cluster search node of another release. */}}
+      {{- range .Values.indexer.config.extraNodesDn }}
+      - {{ . | quote }}
+      {{- end }}
     plugins.security.restapi.roles_enabled:
     - "all_access"
     - "security_rest_api_access"
