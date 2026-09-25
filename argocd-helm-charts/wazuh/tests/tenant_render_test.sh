@@ -20,10 +20,15 @@ check "no worker" "" "$(q 'select(.kind=="StatefulSet" and .metadata.name=="wazu
 check "no in-cluster agent" "" "$(q 'select(.kind=="DaemonSet") | .metadata.name')"
 check "master service takes enrolment, API and events" "1515,55000,1514" \
   "$(q 'select(.kind=="Service" and .metadata.name=="wazuh") | .spec.ports | map(.port) | join(",")')"
-check "events route goes to the master service" "wazuh" \
-  "$(q 'select(.kind=="IngressRouteTCP" and .metadata.name=="wazuh-agent-events") | .spec.routes[0].services[0].name')"
-check "events route uses the tenant entry point" "wazuh-001-agent" \
-  "$(q 'select(.kind=="IngressRouteTCP" and .metadata.name=="wazuh-agent-events") | .spec.entryPoints[0]')"
+check "agent Service maps the tenant ports" "20015:1515,20014:1514" \
+  "$(q 'select(.kind=="Service" and .metadata.name=="wazuh-agents") | .spec.ports | map((.port|tostring) + ":" + (.targetPort|tostring)) | join(",")')"
+check "agent Service on the external address" "192.0.2.10" \
+  "$(q 'select(.kind=="Service" and .metadata.name=="wazuh-agents") | .spec.externalIPs[0]')"
+check "agent Service selects the master" "master" \
+  "$(q 'select(.kind=="Service" and .metadata.name=="wazuh-agents") | .spec.selector["node-type"]')"
+check "no Traefik routes" "" "$(q 'select(.kind=="IngressRouteTCP") | .metadata.name')"
+check "manager admits agents from outside" "0.0.0.0/0" \
+  "$(q 'select(.kind=="NetworkPolicy" and .metadata.name=="wazuh-manager-master") | .spec.ingress[] | select(.ports[0].port==1514) | .from[0].ipBlock.cidr')"
 for c in wazuh-node wazuh-admin wazuh-dashboard wazuh-filebeat; do
   check "$c from the shared ClusterIssuer" "soc-ca/ClusterIssuer" \
     "$(q "select(.kind==\"Certificate\" and .metadata.name==\"$c\") | .spec.issuerRef.name + \"/\" + .spec.issuerRef.kind")"

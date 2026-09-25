@@ -372,11 +372,14 @@ holds one tenant's data. `tests/values-tenant.yaml` is a complete example, check
 
 - **Master only.** `wazuh.worker.enabled: false` and `agents-events` (1514) added to
   `wazuh.master.service.ports`; the agent routes then point at the master Service
-  (`agentTcpRoutes.events.serviceName: <fullname>`). One manager takes a few thousand
-  agents; add workers when a tenant outgrows it.
+  (`agentService`, below). One manager takes a few thousand
+  agents; add workers when a tenant outgrows it (then `agentService.nodeType: worker`).
 - **One port pair per tenant.** Agent traffic is not TLS on 1514, so Traefik cannot route
-  it by host name: give each tenant its own entry points (`agentTcpRoutes.*.entryPoint`)
-  or its own address.
+  it by host name. `agentService` gives each tenant its own ports on a shared external
+  address (a Service with `externalIPs`, mapped to 1515 and 1514 on the master), so adding a
+  tenant changes nothing cluster-wide; the manager's NetworkPolicy must then admit 1514/1515
+  from outside (`wazuh.master.networkPolicy.extraIngresses`, see the example). Per-tenant
+  Traefik entry points (`agentTcpRoutes.*.entryPoint`) or an address per tenant also work.
 - **Shared CA.** `certificates.issuer` names one CA ClusterIssuer for all releases, so the
   indexers trust each other (the node certificate follows it, see the patches below).
   `certificates.subject.organization` differs per tenant, which makes each indexer's node

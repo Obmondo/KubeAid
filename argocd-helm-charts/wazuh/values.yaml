@@ -63,3 +63,18 @@ agentTcpRoutes:
     entryPoint: wazuh-agent
     serviceName: ""
     port: 1514
+
+# Direct Service for agents outside the cluster (templates/agent-service.yaml), the
+# alternative to agentTcpRoutes that needs no Traefik entry point: externalIPs on
+# this release's own ports, mapped to 1515 (enrolment) and 1514 (events) on the
+# manager. Used for one Wazuh per tenant (README section 11): each tenant gets its
+# own port pair on the same address. nodeType selects the pods: master when the
+# release runs without workers, worker otherwise (then enrolment is forwarded to
+# the master by the worker).
+agentService:
+  enabled: false
+  externalIPs: []
+  registrationPort: null
+  eventsPort: null
+  nodeType: master
+

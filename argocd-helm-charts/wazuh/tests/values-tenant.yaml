@@ -3,14 +3,12 @@
 # from a central indexer in another namespace. Rendered by tests/tenant_render_test.sh.
 irisIntegration:
   enabled: true
-agentTcpRoutes:
+# The tenant's own port pair on a shared external address; no Traefik entry point.
+agentService:
   enabled: true
-  enrolment:
-    entryPoint: wazuh-001-authd
-  events:
-    entryPoint: wazuh-001-agent
-    # Master only: the master takes agent events too.
-    serviceName: wazuh
+  externalIPs: [192.0.2.10]
+  registrationPort: 20015
+  eventsPort: 20014
 wazuh:
   fullnameOverride: wazuh
   # Cluster nodes are not a tenant's endpoints.
@@ -102,6 +100,15 @@ wazuh:
           readOnly: true
       networkPolicy:
         extraIngresses:
+          # Agents from outside the cluster (agentService).
+          - ports:
+              - protocol: TCP
+                port: 1514
+              - protocol: TCP
+                port: 1515
+            from:
+              - ipBlock:
+                  cidr: 0.0.0.0/0
           # Reconciler and MISP list export in the central namespace.
           - ports:
               - protocol: TCP
