@@ -215,7 +215,7 @@ wazuh:
         type: ClusterIssuer
       subject:
         # Node DN CN=wazuh-indexer,O=central,...; every tenant indexer admits it in
-        # indexer.config.nodesDn.
+        # indexer.config.extraNodesDn.
         organization: central
     wazuh:
       # No manager: agents only talk to their tenant's manager. The chart gates

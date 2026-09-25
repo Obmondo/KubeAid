@@ -91,7 +91,7 @@ uniqueness, namespace length and that no agent port is used twice.
 1. Add an entry to `tenants` (with `agentPorts` for an enrolment bundle).
 2. Deploy the tenant's Wazuh release into `<namespacePrefix><code>` (wazuh chart README,
    section 11): its own credentials Secrets, `certificates.issuer` = the SOC CA, the central
-   indexer DN in `indexer.config.nodesDn`, the fixed IRIS customer. kubeaid-cli renders it.
+   indexer DN in `indexer.config.extraNodesDn`, the fixed IRIS customer. kubeaid-cli renders it.
 3. Add the tenant's manager to `misp.wazuhCdbExport.targets` when the export is on.
 4. Sync. With the reconciler, the Keycloak group, role and dashboard client, the IRIS
    customer, the Velociraptor org, the manager's API role mappings, the cross-cluster search
