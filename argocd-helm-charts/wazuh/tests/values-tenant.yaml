@@ -89,9 +89,10 @@ wazuh:
           mountPath: /var/ossec/integrations/custom-iris.py
           subPath: custom-iris.py
           readOnly: true
+        # Directory mount: a subPath of a not-yet-existing Secret stays an empty
+        # directory for the pod's lifetime; this picks the key up when it appears.
         - name: iris-api-key
-          mountPath: /var/ossec/integrations/.iris_key
-          subPath: API_KEY
+          mountPath: /var/ossec/integrations/iris
           readOnly: true
       networkPolicy:
         extraIngresses:
@@ -139,7 +140,7 @@ wazuh:
         <integration>
           <name>custom-iris</name>
           <hook_url>http://dfir-iris-app.security-operations.svc:8000</hook_url>
-          <api_key>file:/var/ossec/integrations/.iris_key</api_key>
+          <api_key>file:/var/ossec/integrations/iris/API_KEY</api_key>
           <level>10</level>
           <alert_format>json</alert_format>
           <options>{"min_level": 10, "customer_name": "Tenant 001"}</options>

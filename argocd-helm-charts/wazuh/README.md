@@ -336,13 +336,17 @@ central team sees everything. Three layers, each in a different place:
 `irisIntegration.enabled` renders the `<fullname>-iris-integration` ConfigMap with
 `custom-iris` and `custom-iris.py`. Mount both files into `/var/ossec/integrations` on
 master and worker (`subPath`, one file each) and declare the `<integration>` block in
-`wazuh.{master,worker}.extraConf`, with the IRIS API key read from a mounted Secret:
+`wazuh.{master,worker}.extraConf`, with the IRIS API key read from a mounted Secret.
+Mount that Secret as a directory (for example at `/var/ossec/integrations/iris`), not with
+`subPath`: a `subPath` of a Secret that does not exist yet (optional volume) becomes an
+empty directory for the pod's lifetime, while a directory mount picks the key up when the
+Secret appears.
 
 ```yaml
 <integration>
   <name>custom-iris</name>
   <hook_url>http://dfir-iris-app.dfir-iris.svc.cluster.local:8000</hook_url>
-  <api_key>file:/var/ossec/integrations/.iris_key</api_key>
+  <api_key>file:/var/ossec/integrations/iris/API_KEY</api_key>
   <level>10</level>
   <alert_format>json</alert_format>
   <options>{"min_level": 10, "default_customer_id": 1, "tenant_field": "tenant"}</options>
