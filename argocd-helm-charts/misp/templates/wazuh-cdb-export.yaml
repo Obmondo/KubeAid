@@ -90,6 +90,10 @@ spec:
                   value: {{ $x.misp.publishedOnly | quote }}
                 - name: MISP_PAGE_SIZE
                   value: {{ $x.misp.pageSize | quote }}
+                {{- if $x.targets }}
+                - name: WAZUH_TARGETS
+                  value: {{ $x.targets | toJson | quote }}
+                {{- else }}
                 - name: WAZUH_URL
                   value: {{ required "wazuhCdbExport.wazuh.url is required (https://<manager service>:55000)" $x.wazuh.url | quote }}
                 - name: WAZUH_USER
@@ -104,6 +108,7 @@ spec:
                       key: {{ $x.wazuh.passwordKey }}
                 - name: WAZUH_VERIFY_TLS
                   value: {{ $x.wazuh.verifyTls | quote }}
+                {{- end }}
                 - name: MAX_PER_LIST
                   value: {{ $x.maxEntriesPerList | quote }}
                 - name: LISTS
@@ -114,8 +119,23 @@ spec:
                 - name: script
                   mountPath: /scripts
                   readOnly: true
+                {{- range $i, $t := $x.targets }}
+                - name: {{ printf "wazuh-creds-%d" $i }}
+                  mountPath: {{ printf "/wazuh-creds/%s" (required (printf "wazuhCdbExport.targets[%d].name is required" $i) $t.name) }}
+                  readOnly: true
+                {{- end }}
           volumes:
             - name: script
               configMap:
                 name: {{ include "kubeaid-misp.fullname" . }}-wazuh-cdb-export
+            {{- range $i, $t := $x.targets }}
+            - name: {{ printf "wazuh-creds-%d" $i }}
+              secret:
+                secretName: {{ required (printf "wazuhCdbExport.targets[%d].credentialsSecret is required" $i) $t.credentialsSecret }}
+                items:
+                  - key: {{ $t.usernameKey | default "API_USERNAME" }}
+                    path: API_USERNAME
+                  - key: {{ $t.passwordKey | default "API_PASSWORD" }}
+                    path: API_PASSWORD
+            {{- end }}
 {{- end }}

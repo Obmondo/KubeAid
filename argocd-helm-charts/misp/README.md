@@ -211,6 +211,20 @@ wazuhCdbExport:
 The API user needs `lists:update` and `cluster:restart`; the chart's default `wazuh-wui`
 (administrator) has both.
 
+With one Wazuh per tenant (Wazuh chart README section 11), list every manager in
+`wazuhCdbExport.targets` instead of `wazuh`. MISP is queried once per run and each manager
+gets the same lists; one failing manager does not stop the others, but fails the job:
+
+```yaml
+wazuhCdbExport:
+  enabled: true
+  targets:
+    - name: "001"
+      url: https://wazuh.wazuh-001.svc:55000
+      credentialsSecret: wazuh-api-cred-001   # copy of that tenant's API Secret, in this namespace
+      verifyTls: false
+```
+
 ### 5.1 The Wazuh side
 
 Three things in the Wazuh chart's values, all through hooks it already has. First, the API's

@@ -127,6 +127,16 @@ wazuhCdbExport:
     # package (CN=wazuh.com, self-signed), not one from the cluster CA, so there
     # is nothing to verify against. Turn on only after replacing that cert.
     verifyTls: false
+  # Several managers (one Wazuh per tenant) instead of `wazuh`: each entry gets the
+  # same lists; MISP is queried once per run. `name` is a label for the logs and the
+  # mount path; `credentialsSecret` (keys usernameKey/passwordKey, default
+  # API_USERNAME/API_PASSWORD) must be in this namespace. A manager that fails does
+  # not stop the others; the job then exits non-zero.
+  #   - name: "001"
+  #     url: https://wazuh.wazuh-001.svc:55000
+  #     credentialsSecret: wazuh-api-cred-001
+  #     verifyTls: false
+  targets: []
   # Safety cap per list; a CDB list of hundreds of thousands of keys is fine for
   # Wazuh but a runaway feed should not be.
   maxEntriesPerList: 200000
