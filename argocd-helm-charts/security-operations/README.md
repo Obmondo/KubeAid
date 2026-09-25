@@ -135,7 +135,9 @@ The `wazuh` component runs without a manager (`wazuh.wazuh.wazuh.{enabled,master
 
 ## 6. Reconciler
 
-`reconciler.enabled` adds a CronJob (every 10 minutes) and an Argo CD PostSync Job running
+`reconciler.enabled` adds a CronJob (every 10 minutes), an Argo CD Sync hook Job that runs
+before the components (sync wave -1, after the reconciler's RBAC and input at -2, so the
+Secrets and Keycloak clients the components need exist when they start), and a PostSync Job, all running
 `ghcr.io/obmondo/siem-reconciler` with `--config /etc/siem/tenants.json --dry-run=<reconciler.dryRun>`,
 a ServiceAccount that manages Secrets in the release namespace and in each tenant namespace,
 and a Role in Keycloak's namespace that can read only `keycloak.adminSecretRef`. It sets up
@@ -147,7 +149,9 @@ still needs its `username` key set by hand), keeps copies in step (the IRIS API 
 every tenant namespace, every tenant's API login here as `wazuh-api-cred-<code>` for the MISP
 export) and writes the per-tenant enrolment bundles. It never changes users; the IRIS and
 Velociraptor Keycloak syncs own those. Start with `dryRun: true` and read the job log. It is
-off by default until the image is published; `siem-tenants` renders either way.
+off by default until the image is published; `siem-tenants` renders either way. The hook Jobs
+pass `--exit-zero`: objects that cannot be reconciled yet (a component still starting) are
+reported without failing the sync; the CronJob stays strict.
 
 ## 7. Wiring
 

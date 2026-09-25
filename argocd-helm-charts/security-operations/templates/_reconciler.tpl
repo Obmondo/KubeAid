@@ -1,5 +1,11 @@
-{{/* Pod template shared by the reconciler CronJob and its PostSync Job. */}}
+{{/*
+  Pod template shared by the reconciler CronJob and its Argo CD hook Jobs.
+  (dict "root" $ "hook" bool): hook runs pass --exit-zero, so objects that
+  cannot be reconciled yet (a component still starting) do not fail the sync.
+*/}}
 {{- define "secops.reconciler.pod" -}}
+{{- $hook := .hook -}}
+{{- with .root -}}
 {{- $r := .Values.reconciler -}}
 metadata:
   labels:
@@ -31,6 +37,9 @@ spec:
         - --config
         - /etc/siem/tenants.json
         - --dry-run={{ $r.dryRun }}
+        {{- if $hook }}
+        - --exit-zero
+        {{- end }}
       securityContext:
         allowPrivilegeEscalation: false
         readOnlyRootFilesystem: true
@@ -46,4 +55,5 @@ spec:
     - name: config
       configMap:
         name: siem-tenants
+{{- end }}
 {{- end }}

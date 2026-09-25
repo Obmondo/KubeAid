@@ -211,6 +211,12 @@ if render -f "$SCRIPT_DIR/values-2-tenants.yaml" --set reconciler.enabled=true -
   [ "$args" = '["--config","/etc/siem/tenants.json","--dry-run=true"]' ] && ok "reconciler args" || ko "reconciler args: $args"
   yq 'select(.kind == "Job" and .metadata.name == "siem-reconciler-postsync") | .metadata.annotations["argocd.argoproj.io/hook"]' "$TMP/rec.yaml" | grep -x PostSync >/dev/null \
     && ok "reconciler PostSync job" || ko "reconciler PostSync job"
+  [ "$(yq -N 'select(.kind == "Job" and .metadata.name == "siem-reconciler-sync") | .metadata.annotations["argocd.argoproj.io/hook"] + "@" + .metadata.annotations["argocd.argoproj.io/sync-wave"]' "$TMP/rec.yaml")" = "Sync@-1" ] \
+    && ok "reconciler Sync hook before the components" || ko "reconciler Sync hook"
+  [ "$(yq -N -o=json -I=0 'select(.kind == "Job" and .metadata.name == "siem-reconciler-sync") | .spec.template.spec.containers[0].args[-1]' "$TMP/rec.yaml")" = '"--exit-zero"' ] \
+    && ok "hook runs do not fail the sync" || ko "hook args"
+  [ "$(yq -N 'select(.kind == "ConfigMap" and .metadata.name == "siem-tenants") | .metadata.annotations["argocd.argoproj.io/sync-wave"]' "$TMP/rec.yaml")" = "-2" ] \
+    && ok "reconciler input before its hook" || ko "siem-tenants wave"
   [ "$(yq 'select(.kind == "CronJob" and .metadata.name == "siem-reconciler") | .spec.jobTemplate.spec.template.spec.imagePullSecrets' "$TMP/rec.yaml")" = "null" ] \
     && ok "no pull secrets by default" || ko "pull secrets rendered by default"
   outside=$(objects "$TMP/rec.yaml" | awk -v ns="$NS" '$3 != ns && $1 ~ /^Role/ {print $1" "$2" "$3}' | sort | tr '\n' ';')

@@ -10,6 +10,9 @@ metadata:
   labels:
     {{- include "secops.labels" . | nindent 4 }}
     app.kubernetes.io/component: reconciler
+  annotations:
+    # Before the components: the Sync hook below runs with these.
+    argocd.argoproj.io/sync-wave: "-2"
 ---
 # Secrets it creates if missing and never overwrites (OIDC client secrets, API
 # keys), the ones it keeps in step (Wazuh app config, copies of tenant API
@@ -22,6 +25,9 @@ metadata:
   labels:
     {{- include "secops.labels" . | nindent 4 }}
     app.kubernetes.io/component: reconciler
+  annotations:
+    # Before the components: the Sync hook below runs with these.
+    argocd.argoproj.io/sync-wave: "-2"
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
@@ -35,6 +41,9 @@ metadata:
   labels:
     {{- include "secops.labels" . | nindent 4 }}
     app.kubernetes.io/component: reconciler
+  annotations:
+    # Before the components: the Sync hook below runs with these.
+    argocd.argoproj.io/sync-wave: "-2"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -53,6 +62,9 @@ metadata:
   labels:
     {{- include "secops.labels" . | nindent 4 }}
     app.kubernetes.io/component: reconciler
+  annotations:
+    # Before the components: the Sync hook below runs with these.
+    argocd.argoproj.io/sync-wave: "-2"
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
@@ -67,6 +79,9 @@ metadata:
   labels:
     {{- include "secops.labels" . | nindent 4 }}
     app.kubernetes.io/component: reconciler
+  annotations:
+    # Before the components: the Sync hook below runs with these.
+    argocd.argoproj.io/sync-wave: "-2"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -94,7 +109,31 @@ spec:
       backoffLimit: 0
       activeDeadlineSeconds: {{ $r.activeDeadlineSeconds }}
       template:
-        {{- include "secops.reconciler.pod" . | nindent 8 }}
+        {{- include "secops.reconciler.pod" (dict "root" . "hook" false) | nindent 8 }}
+{{- if $r.syncHook }}
+---
+# Runs during the sync, after the reconciler's RBAC and input (wave -2) and before
+# the components (wave 0), so the Secrets and Keycloak clients the components
+# need exist when they start. Objects that are not reachable yet are reported and
+# skipped (--exit-zero); the CronJob and the PostSync run finish them.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $name }}-sync
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: reconciler
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/sync-wave: "-1"
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: {{ $r.activeDeadlineSeconds }}
+  template:
+    {{- include "secops.reconciler.pod" (dict "root" . "hook" true) | nindent 4 }}
+{{- end }}
 {{- if $r.postSync }}
 ---
 apiVersion: batch/v1
@@ -112,6 +151,6 @@ spec:
   backoffLimit: 0
   activeDeadlineSeconds: {{ $r.activeDeadlineSeconds }}
   template:
-    {{- include "secops.reconciler.pod" . | nindent 4 }}
+    {{- include "secops.reconciler.pod" (dict "root" . "hook" true) | nindent 4 }}
 {{- end }}
 {{- end }}

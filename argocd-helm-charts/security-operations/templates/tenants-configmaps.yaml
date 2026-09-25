@@ -71,6 +71,9 @@ kind: ConfigMap
 metadata:
   name: siem-tenants
   namespace: {{ .Release.Namespace }}
+  annotations:
+    # Input of the reconciler Sync hook (wave -1).
+    argocd.argoproj.io/sync-wave: "-2"
   labels:
     {{- include "secops.labels" . | nindent 4 }}
     app.kubernetes.io/component: reconciler

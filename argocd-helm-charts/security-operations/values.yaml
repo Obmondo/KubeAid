@@ -168,6 +168,9 @@ reconciler:
   # Print the plan only. Read the job log first, then set false.
   dryRun: true
   schedule: "*/10 * * * *"
+  # Run as an Argo CD Sync hook before the components (wave -1), so the Secrets
+  # and clients they need exist when they start; errors do not fail the sync.
+  syncHook: true
   # Also run as an Argo CD PostSync hook, so a new tenant is set up right after
   # the sync instead of on the next schedule tick.
   postSync: true

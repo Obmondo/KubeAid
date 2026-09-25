@@ -18,6 +18,7 @@ metadata:
     {{ $tw.namespaceLabel }}: {{ $t.code | quote }}
   annotations:
     argocd.argoproj.io/sync-options: Prune=false,Delete=false
+    argocd.argoproj.io/sync-wave: "-3"
     helm.sh/resource-policy: keep
 {{- if $.Values.reconciler.enabled }}
 ---
@@ -29,6 +30,8 @@ metadata:
   labels:
     {{- include "secops.labels" $ | nindent 4 }}
     app.kubernetes.io/component: reconciler
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
@@ -42,6 +45,8 @@ metadata:
   labels:
     {{- include "secops.labels" $ | nindent 4 }}
     app.kubernetes.io/component: reconciler
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
