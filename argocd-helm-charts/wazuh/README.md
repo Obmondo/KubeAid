@@ -371,9 +371,9 @@ holds one tenant's data. `tests/values-tenant.yaml` is a complete example, check
 `tests/tenant_render_test.sh`.
 
 - **Master only.** `wazuh.worker.enabled: false` and `agents-events` (1514) added to
-  `wazuh.master.service.ports`; the agent routes then point at the master Service
-  (`agentService`, below). One manager takes a few thousand
-  agents; add workers when a tenant outgrows it (then `agentService.nodeType: worker`).
+  `wazuh.master.service.ports`, so the master takes the agents' events as well as their
+  enrolment. One manager takes a few thousand agents; add workers when a tenant outgrows it
+  (then `agentService.nodeType: worker`).
 - **One port pair per tenant.** Agent traffic is not TLS on 1514, so Traefik cannot route
   it by host name. `agentService` gives each tenant its own ports on a shared external
   address (a Service with `externalIPs`, mapped to 1515 and 1514 on the master), so adding a
