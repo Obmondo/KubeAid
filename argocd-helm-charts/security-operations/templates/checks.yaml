@@ -3,23 +3,22 @@
   derive (README, "What is not derived from tenants"). Renders nothing.
 */}}
 {{- $tenants := include "secops.tenants" . | fromJsonArray }}
-{{- if .Values.wazuh.enabled }}
-{{- $w := .Values.wazuh.wazuh | default dict }}
-{{- $routing := ((($w.wazuh | default dict).filebeat | default dict).indexRouting | default dict) }}
-{{- if and $routing.enabled (ne ($routing.labelKey | default "") .Values.tenantLabelKey) }}
-{{- fail (printf "wazuh.wazuh.wazuh.filebeat.indexRouting.labelKey (%q) must equal tenantLabelKey (%q)" ($routing.labelKey | default "") .Values.tenantLabelKey) }}
-{{- end }}
-{{- if and $tenants .Values.checks.wazuhTenantRoles }}
-{{- $roles := ((($w.indexer | default dict).config | default dict).extraRoles | default dict) }}
-{{- $maps := ((((($w.dashboard | default dict).sso | default dict).oidc | default dict).extraRoleMappings) | default dict) }}
+{{- $x := .Values.misp.wazuhCdbExport | default dict }}
+{{- if and .Values.misp.enabled $x.enabled .Values.checks.mispTargets }}
+{{- $names := dict }}
+{{- range ($x.targets | default list) }}{{ $_ := set $names (toString .name) true }}{{ end }}
 {{- range $tenants }}
-{{- $role := printf "%s-reader" .group }}
-{{- if not (hasKey $roles $role) }}
-{{- fail (printf "tenant %s: add wazuh.wazuh.indexer.config.extraRoles.%s (README, section \"What is not derived from tenants\"), or set checks.wazuhTenantRoles: false" .code $role) }}
+{{- if not (hasKey $names .code) }}
+{{- fail (printf "tenant %s: add a misp.wazuhCdbExport.targets entry named %q (README, section \"What is not derived from tenants\"), or set checks.mispTargets: false" .code .code) }}
 {{- end }}
-{{- if not (hasKey $maps $role) }}
-{{- fail (printf "tenant %s: add wazuh.wazuh.dashboard.sso.oidc.extraRoleMappings.%s (README, section \"What is not derived from tenants\"), or set checks.wazuhTenantRoles: false" .code $role) }}
 {{- end }}
+{{- end }}
+{{- $seen := dict }}
+{{- range $tenants }}
+{{- with .agentPorts }}
+{{- range $p := list .registration .events }}
+{{- if hasKey $seen (toString $p) }}{{ fail (printf "agent port %v is used twice (tenants[].agentPorts)" $p) }}{{ end }}
+{{- $_ := set $seen (toString $p) true }}
 {{- end }}
 {{- end }}
 {{- end }}

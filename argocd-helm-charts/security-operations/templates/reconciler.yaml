@@ -11,8 +11,9 @@ metadata:
     {{- include "secops.labels" . | nindent 4 }}
     app.kubernetes.io/component: reconciler
 ---
-# Secrets it creates if missing (OIDC client secrets, API keys, enrolment
-# bundles) and never overwrites; the API credentials it reads.
+# Secrets it creates if missing and never overwrites (OIDC client secrets, API
+# keys), the ones it keeps in step (Wazuh app config, copies of tenant API
+# logins), and the API credentials it reads.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -24,7 +25,7 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
-    verbs: ["get", "list", "create"]
+    verbs: ["get", "list", "create", "update", "patch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

@@ -1,36 +1,5 @@
 {{- $tenants := include "secops.tenants" . | fromJsonArray }}
 {{- $ops := .Values.operators }}
-{{- if .Values.wazuh.enabled }}
----
-# Wazuh, per tenant:
-#   <group>.conf       agent group config setting the tenant label, which picks
-#                      the alerts index (filebeat index routing) and the IRIS
-#                      customer. Copied to etc/shared/<group>/agent.conf at manager
-#                      start (wazuh.agentGroupConfConfigMap).
-#   iris-options.json  options for the custom-iris integration (options_file):
-#                      tenant label -> IRIS customer name.
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: wazuh-tenants
-  namespace: {{ .Release.Namespace }}
-  labels:
-    {{- include "secops.labels" . | nindent 4 }}
-    app.kubernetes.io/component: wazuh
-data:
-  {{- range $tenants }}
-  {{ printf "%s.conf" .group }}: |
-    <agent_config>
-      <labels>
-        <label key="{{ $.Values.tenantLabelKey }}">{{ .code }}</label>
-      </labels>
-    </agent_config>
-  {{- end }}
-  {{- $names := dict }}
-  {{- range $tenants }}{{ $_ := set $names .code .name }}{{ end }}
-  iris-options.json: |
-    {{- toPrettyJson (dict "tenant_field" .Values.tenantLabelKey "customer_names" $names "dashboard_url" (printf "https://%s" (include "secops.host" (dict "root" . "c" "wazuh")))) | nindent 4 }}
-{{- end }}
 {{- if .Values.velociraptor.enabled }}
 ---
 # Velociraptor server artifacts, mounted at /etc/siem:
@@ -95,6 +64,8 @@ data:
 {{- end }}
 {{- $clients := include "secops.clients" . | fromYamlArray }}
 {{- $cfg := dict "domain" .Values.domain "tenantGroupPrefix" .Values.tenantGroupPrefix "keycloak" (omit .Values.keycloak "clients") "operators" $ops "tenants" $tenantsOut "clients" $clients "secrets" (include "secops.secrets" (dict "root" . "clients" $clients) | fromYamlArray) "components" (include "secops.components" . | fromYaml) }}
+{{- with include "secops.enrolment" . | fromYamlArray }}{{ $_ := set $cfg "enrolment" . }}{{ end }}
+{{- with include "secops.secretCopies" . | fromYamlArray }}{{ $_ := set $cfg "secretCopies" . }}{{ end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

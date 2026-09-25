@@ -1,12 +1,12 @@
 apiVersion: v2
 name: security-operations
 description: >-
-  Security operations stack as one release in one namespace: Wazuh (SIEM),
-  Velociraptor (DFIR), DFIR-IRIS (case management), MISP (threat intel) and
-  Ollama (local model for alert triage), configured for several tenants from one
-  tenants list.
+  Central side of a multi-tenant security operations stack as one release in one
+  namespace: a Wazuh search across every tenant's own Wazuh (cross-cluster
+  search), Velociraptor (DFIR), DFIR-IRIS (case management), MISP (threat intel)
+  and Ollama (local model for alert triage), configured from one tenants list.
 type: application
-version: 0.1.0
+version: 0.2.0
 keywords:
   - siem
   - soc

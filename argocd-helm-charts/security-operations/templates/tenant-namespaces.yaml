@@ -1,0 +1,54 @@
+{{- /*
+  One namespace per tenant for the tenant's own Wazuh release (wazuh chart
+  README section 11), labelled with the tenant code so network policies here and
+  in the tenant releases can select it. Never pruned or deleted: removing a
+  tenant from the list must not delete its data; delete the namespace by hand.
+  With the reconciler, it may manage Secrets there (OIDC client secret, IRIS API
+  key copy, enrolment bundle) and read the tenant's Wazuh credentials.
+*/}}
+{{- $tw := .Values.tenantWazuh }}
+{{- range $t := include "secops.tenants" . | fromJsonArray }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ $t.namespace }}
+  labels:
+    {{- include "secops.labels" $ | nindent 4 }}
+    {{ $tw.namespaceLabel }}: {{ $t.code | quote }}
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+    helm.sh/resource-policy: keep
+{{- if $.Values.reconciler.enabled }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ printf "%s-siem-reconciler" $.Release.Namespace }}
+  namespace: {{ $t.namespace }}
+  labels:
+    {{- include "secops.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: reconciler
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ printf "%s-siem-reconciler" $.Release.Namespace }}
+  namespace: {{ $t.namespace }}
+  labels:
+    {{- include "secops.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: reconciler
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ printf "%s-siem-reconciler" $.Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: siem-reconciler
+    namespace: {{ $.Release.Namespace }}
+{{- end }}
+{{- end }}

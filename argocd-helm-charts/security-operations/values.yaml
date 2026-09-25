@@ -1,12 +1,14 @@
-# security-operations: Wazuh, Velociraptor, DFIR-IRIS, MISP and Ollama as one
-# release in one namespace. See README.md.
+# security-operations: the central side of a multi-tenant SOC in one release and
+# one namespace: Velociraptor, DFIR-IRIS, MISP, Ollama and a central Wazuh search
+# (indexer + dashboard, no manager). Every tenant has its own Wazuh, a release of
+# the wazuh chart in the tenant's namespace (wazuh chart README section 11), which
+# this chart creates. See README.md.
 #
 # The top half is what an operator normally sets: domain, keycloak, operators and
-# tenants. The per-tenant configuration of every component is rendered from
-# `tenants` by this chart's own templates (ConfigMaps the components mount), so
-# onboarding a tenant is one list entry. The bottom half passes values through to
-# the component charts unchanged; its defaults wire the components to each other
-# inside the namespace.
+# tenants. The per-tenant configuration of the central components is rendered
+# from `tenants` by this chart's own templates, so onboarding a tenant is one list
+# entry here plus that tenant's Wazuh release. The bottom half passes values
+# through to the component charts; its defaults wire the components together.
 
 # Base domain. Component hostnames default to <component>.<domain>; override one
 # in `hosts` when it differs. They feed the OIDC client redirect URIs and the
@@ -15,6 +17,7 @@
 # keep both in step.
 domain: example.com
 hosts:
+  # The central Wazuh search dashboard.
   wazuh: ""
   iris: ""
   misp: ""
@@ -75,11 +78,14 @@ toolRoles:
 
 # Tenants. One entry per tenant; adding one and syncing is the whole onboarding
 # on the chart side (the reconciler, when enabled, does the API-only rest).
-#   code          ^[a-z0-9]{1,32}$, unique. It is the Wazuh agent label value,
-#                 the alerts index infix (wazuh-alerts-4.x-<code>-*) and the
-#                 suffix of the Keycloak group/role <tenantGroupPrefix><code>.
-#                 No dashes: index patterns of two tenants must never overlap.
+#   code          ^[a-z0-9]{1,32}$, unique. Suffix of the tenant's namespace
+#                 (<tenantWazuh.namespacePrefix><code>), Keycloak group/role
+#                 (<tenantGroupPrefix><code>), dashboard host and cross-cluster
+#                 search alias (<code>:wazuh-alerts-*).
 #   name          unique display name. IRIS customer and Velociraptor org name.
+#   agentPorts    optional {registration, events}: the public ports of the
+#                 tenant's Wazuh manager (Traefik entry points), for the
+#                 enrolment bundle. Needs tenantWazuh.agentHost.
 #   retentionDays optional, defaults to defaultRetentionDays (ISM on the
 #                 tenant's alerts indices, applied by the reconciler).
 #   idp           optional identity-provider broker for the tenant, passed to
@@ -93,17 +99,41 @@ tenants: []
 
 # Keycloak group and realm role of a tenant: <tenantGroupPrefix><code>.
 tenantGroupPrefix: tenant-
-# Wazuh agent label carrying the tenant code. Must equal
-# wazuh.wazuh.wazuh.filebeat.indexRouting.labelKey (checked at render time).
-tenantLabelKey: tenant
 defaultRetentionDays: 365
 
-# Render-time consistency checks between `tenants` and the component values that
+# The tenants' own Wazuh releases (wazuh chart README section 11). This chart
+# creates their namespaces and all central wiring to them; the releases take the
+# names below (wazuh chart defaults with fullnameOverride: wazuh).
+tenantWazuh:
+  # Namespace of a tenant's Wazuh: <namespacePrefix><code>. Created by this chart,
+  # labelled namespaceLabel=<code>, never pruned or deleted by Helm or Argo CD.
+  namespacePrefix: wazuh-
+  namespaceLabel: security-operations.kubeaid.io/tenant
+  # Tenant dashboard host: <hostPrefix><code>.<domain> (OIDC client redirect URIs).
+  hostPrefix: wazuh-
+  # Public host name the agents dial, for the enrolment bundle; with tenants[].agentPorts.
+  agentHost: ""
+  # Secrets in each tenant namespace (sealed by the operator or kubeaid-cli).
+  apiCredSecret: wazuh-api-cred
+  authdSecret: wazuh-authd-pass
+  # Manager API and indexer Services inside the tenant namespace.
+  managerService: wazuh
+  indexerNodesService: wazuh-indexer-nodes
+
+# CA shared by the central and every tenant Wazuh (certificates.issuer in each), so
+# the indexers trust each other for cross-cluster search. cert-manager keeps the
+# CA key in `namespace` (its cluster resource namespace).
+socCA:
+  enabled: true
+  name: soc-ca
+  namespace: cert-manager
+  commonName: security-operations-ca
+
+# Render-time consistency checks between `tenants` and component values that
 # cannot be derived from it (README, "What is not derived from tenants").
 checks:
-  # Every tenant needs <prefix><code>-reader in wazuh.wazuh.indexer.config.extraRoles
-  # and in wazuh.wazuh.dashboard.sso.oidc.extraRoleMappings.
-  wazuhTenantRoles: true
+  # With misp.wazuhCdbExport.enabled, every tenant needs a target named after its code.
+  mispTargets: true
 
 # Local model for IRIS alert triage (dfir-iris aiTriage + ollama). IRIS login of
 # the triage service account, which the reconciler gives every tenant as customer.
@@ -112,11 +142,8 @@ ai:
   irisGroups: [Automation]
 
 # Public entry points. Everything else is meant for the internal ingress class.
-# Agents dial in from outside, so these hostnames go into the per-tenant enrolment
-# bundle the reconciler writes.
+# The Wazuh agent entry is per tenant (tenantWazuh.agentHost, tenants[].agentPorts).
 publicIngress:
-  # Wazuh enrolment (1515) and events (1514), see wazuh.agentTcpRoutes.
-  wazuhAgentHost: ""
   # Velociraptor frontend (8000), see velociraptor.frontendTcpRoute.
   velociraptorHost: ""
 
@@ -160,118 +187,77 @@ reconciler:
 # copy the entries you want to keep.
 # ---------------------------------------------------------------------------
 
+# Central Wazuh search: an indexer that holds no events and a dashboard, no
+# manager. The indexer searches every tenant's indexer with cross-cluster search
+# (the reconciler registers them as remote clusters, alias = tenant code), and
+# the dashboard's Wazuh app lists every tenant manager API (Secret
+# wazuh-app-config, written by the reconciler). Index patterns: *:wazuh-alerts-*,
+# *:wazuh-states-vulnerabilities-*, *:wazuh-states-inventory-*.
 wazuh:
   enabled: true
-  # Wrapper: IRIS integration ConfigMap (wazuh-iris-integration).
-  irisIntegration:
-    enabled: true
   wazuh:
     fullnameOverride: wazuh
+    # The cluster's own nodes are not a tenant's endpoints.
+    agent:
+      enabled: false
+    certificates:
+      issuer:
+        name: soc-ca
+        type: ClusterIssuer
+      subject:
+        # Node DN CN=wazuh-indexer,O=central,...; every tenant indexer admits it in
+        # indexer.config.nodesDn.
+        organization: central
     wazuh:
-      # One agent group per tenant, from the wazuh-tenants ConfigMap this chart
-      # renders. Copied at manager start: with Reloader installed the annotation
-      # below restarts the managers when a tenant is added, otherwise restart them.
-      agentGroupConfConfigMap: wazuh-tenants
-      filebeat:
-        indexRouting:
-          enabled: true
-          labelKey: tenant
-          valuePattern: "^[a-z0-9]{1,32}$"
-          dateRounding: M
-          indexNameFormat: yyyy.MM
+      # No manager: agents only talk to their tenant's manager. The chart gates
+      # master and worker on their own flags too.
+      enabled: false
       master:
-        annotations:
-          configmap.reloader.stakater.com/reload: wazuh-tenants
-        additionalVolumes: &wazuhVolumes
-          - name: iris-integration
-            configMap:
-              name: wazuh-iris-integration
-              defaultMode: 0755
-          # IRIS API key (key API_KEY). The integration logs an error per alert
-          # until it exists; the manager itself starts without it.
-          - name: iris-api-key
-            secret:
-              secretName: iris-api-key
-              optional: true
-              # 0444: wazuh-integratord runs as wazuh, outside the pod's fsGroup.
-              defaultMode: 0444
-          - name: tenants
-            configMap:
-              name: wazuh-tenants
-        additionalVolumeMounts: &wazuhMounts
-          - name: iris-integration
-            mountPath: /var/ossec/integrations/custom-iris
-            subPath: custom-iris
-            readOnly: true
-          - name: iris-integration
-            mountPath: /var/ossec/integrations/custom-iris.py
-            subPath: custom-iris.py
-            readOnly: true
-          - name: iris-api-key
-            mountPath: /var/ossec/integrations/.iris_key
-            subPath: API_KEY
-            readOnly: true
-          # A directory mount (no subPath), so a new tenant reaches the running
-          # integration without a restart.
-          - name: tenants
-            mountPath: /var/ossec/integrations/tenants
-            readOnly: true
-        networkPolicy:
-          extraIngresses:
-            # MISP pushes its CDB lists to the API.
-            - ports:
-                - protocol: TCP
-                  port: 55000
-              from:
-                - podSelector:
-                    matchLabels:
-                      app.kubernetes.io/name: misp-wazuh-cdb-export
-            # The reconciler manages Wazuh RBAC and groups through the API.
-            - ports:
-                - protocol: TCP
-                  port: 55000
-              from:
-                - podSelector:
-                    matchLabels:
-                      app.kubernetes.io/name: siem-reconciler
-          extraEgresses: &wazuhEgresses
-            # DFIR-IRIS API, target of the custom-iris integration.
-            - ports:
-                - protocol: TCP
-                  port: 8000
-              to:
-                - podSelector:
-                    matchLabels:
-                      app.kubernetes.io/name: dfir-iris
-                      app.kubernetes.io/component: app
-            # MISP REST API (its Service listens on 80).
-            - ports:
-                - protocol: TCP
-                  port: 80
-              to:
-                - podSelector:
-                    matchLabels:
-                      app.kubernetes.io/name: misp
-        # Alerts at level 10 and above become IRIS alerts; the tenant part of the
-        # options comes from wazuh-tenants (iris-options.json). If you override
-        # extraConf, keep this block.
-        extraConf: &wazuhExtraConf |
-          <integration>
-            <name>custom-iris</name>
-            <hook_url>http://dfir-iris-app:8000</hook_url>
-            <api_key>file:/var/ossec/integrations/.iris_key</api_key>
-            <level>10</level>
-            <alert_format>json</alert_format>
-            <options>{"min_level": 10, "default_customer_id": 1, "options_file": "/var/ossec/integrations/tenants/iris-options.json"}</options>
-          </integration>
+        enabled: false
       worker:
-        annotations:
-          configmap.reloader.stakater.com/reload: wazuh-tenants
-        additionalVolumes: *wazuhVolumes
-        additionalVolumeMounts: *wazuhMounts
-        networkPolicy:
-          extraEgresses: *wazuhEgresses
-        extraConf: *wazuhExtraConf
+        enabled: false
+      # The dashboard reads API_USERNAME/API_PASSWORD from this Secret although the
+      # Wazuh app uses wazuh-app-config; the reconciler creates it (secops.secrets).
+      apiCred:
+        existingSecret: wazuh-api-cred
+    indexer:
+      replicas: 1
+      networkPolicy:
+        extraEgresses:
+          # Cross-cluster search to the tenant indexers.
+          - ports:
+              - protocol: TCP
+                port: 9300
+            to:
+              - namespaceSelector:
+                  matchExpressions:
+                    - key: security-operations.kubeaid.io/tenant
+                      operator: Exists
+                podSelector:
+                  matchLabels:
+                    app: wazuh-indexer
+        extraIngresses:
+          # The reconciler sets the remote clusters through the REST API.
+          - ports:
+              - protocol: TCP
+                port: 9200
+            from:
+              - podSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: siem-reconciler
+    dashboard:
+      wazuhAppConfigSecret: wazuh-app-config
+      networkPolicy:
+        extraEgresses:
+          # The Wazuh app calls every tenant's manager API.
+          - ports:
+              - protocol: TCP
+                port: 55000
+            to:
+              - namespaceSelector:
+                  matchExpressions:
+                    - key: security-operations.kubeaid.io/tenant
+                      operator: Exists
 
 velociraptor:
   enabled: true
@@ -318,10 +304,14 @@ misp:
   misp:
     fullnameOverride: misp
   wazuhCdbExport:
-    wazuh:
-      url: https://wazuh:55000
-      # The Wazuh chart's own API Secret, in this namespace.
-      credentialsSecret: wazuh-api-cred
+    # One target per tenant manager; a parent chart cannot compute these from
+    # `tenants`, so list them (checks.mispTargets). The credentials Secrets are
+    # copied from the tenant namespaces by the reconciler (wazuh-api-cred-<code>).
+    #   - name: "001"
+    #     url: https://wazuh.wazuh-001.svc:55000
+    #     credentialsSecret: wazuh-api-cred-001
+    #     verifyTls: false
+    targets: []
 
 ollama:
   enabled: true

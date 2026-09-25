@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["domain", "keycloak", "operators", "tenants", "tenantGroupPrefix", "tenantLabelKey"],
+  "required": ["domain", "keycloak", "operators", "tenants", "tenantGroupPrefix", "tenantWazuh"],
   "properties": {
     "domain": {"type": "string", "minLength": 1},
     "hosts": {
@@ -58,18 +58,40 @@
         "required": ["code", "name"],
         "properties": {
           "code": {
-            "description": "Lower-case letters and digits, no dashes, so the alerts index patterns of two tenants never overlap.",
+            "description": "Lower-case letters and digits, no dashes: namespace, host and cross-cluster search alias suffix.",
             "type": "string",
             "pattern": "^[a-z0-9]{1,32}$"
           },
           "name": {"type": "string", "minLength": 1},
           "retentionDays": {"type": "integer", "minimum": 1},
-          "idp": {"type": "object"}
+          "idp": {"type": "object"},
+          "agentPorts": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["registration", "events"],
+            "properties": {
+              "registration": {"type": "integer", "minimum": 1, "maximum": 65535},
+              "events": {"type": "integer", "minimum": 1, "maximum": 65535}
+            }
+          }
         }
       }
     },
     "tenantGroupPrefix": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
-    "tenantLabelKey": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+    "tenantWazuh": {
+      "type": "object",
+      "required": ["namespacePrefix", "namespaceLabel", "hostPrefix", "apiCredSecret", "authdSecret", "managerService", "indexerNodesService"],
+      "properties": {
+        "namespacePrefix": {"type": "string", "pattern": "^[a-z0-9]([a-z0-9-]*)?$"},
+        "namespaceLabel": {"type": "string", "minLength": 1},
+        "hostPrefix": {"type": "string"},
+        "agentHost": {"type": "string"},
+        "apiCredSecret": {"type": "string", "minLength": 1},
+        "authdSecret": {"type": "string", "minLength": 1},
+        "managerService": {"type": "string", "minLength": 1},
+        "indexerNodesService": {"type": "string", "minLength": 1}
+      }
+    },
     "defaultRetentionDays": {"type": "integer", "minimum": 1},
     "reconciler": {
       "type": "object",
