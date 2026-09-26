@@ -1,0 +1,101 @@
+{{- if .Values.webclients.rootFr.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "stalwart-mail.fullname" . }}-rootfr
+  labels:
+    {{- include "stalwart-mail.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rootfr
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.webclients.rootFr.replicaCount }}
+  {{- end }}
+  {{- with .Values.webclients.rootFr.updateStrategy }}
+  updateStrategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "stalwart-mail.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: rootfr
+  template:
+    metadata:
+      annotations:
+        {{- if .Values.webclients.rootFr.create.sessionSecret }}
+        hash-secret: {{ include (print $.Template.BasePath "/root-fr/secret.yaml") . | sha256sum }}
+        {{- end }}
+        {{- with .Values.webclients.rootFr.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "stalwart-mail.labels" . | nindent 8 }}
+        app.kubernetes.io/component: rootfr
+        {{- with .Values.webclients.rootFr.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "stalwart-mail.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.webclients.rootFr.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}-rootfr
+          securityContext:
+            {{- toYaml .Values.webclients.rootFr.securityContext | nindent 12 }}
+          {{- with .Values.webclients.rootFr.image }}
+          image: "{{ coalesce $.Values.global.image.registry .registry }}/{{ .repository }}:{{ .tag }}"
+          imagePullPolicy: {{ coalesce $.Values.global.image.pullPolicy .pullPolicy }}
+          {{- end }}
+          env:
+            {{- range $name, $value := .Values.webclients.rootFr.config.env }}
+            {{- if (kindIs "map" $value) }}
+            - name: {{ $name | quote }}
+              {{- tpl (toYaml $value) $ | nindent 14 }}
+            {{- else }}
+            - name: {{ $name | quote }}
+              value: {{ tpl $value $ | quote }}
+            {{- end }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          {{- with .Values.webclients.rootFr.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.webclients.rootFr.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.webclients.rootFr.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.webclients.rootFr.resources | nindent 12 }}
+          {{- with .Values.webclients.rootFr.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.webclients.rootFr.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.webclients.rootFr.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.webclients.rootFr.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.webclients.rootFr.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
