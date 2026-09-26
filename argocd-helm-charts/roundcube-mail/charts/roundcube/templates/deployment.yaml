@@ -1,0 +1,196 @@
+---
+# https://github.com/roundcube/roundcubemail-docker/blob/master/README.md#configurationenvironment-variables
+{{- $configMapResourceChecksum := include (print $.Template.BasePath "/configmap.yaml") . | sha256sum -}}
+{{- $secretResourceChecksum := include (print $.Template.BasePath "/secret.yaml") . | sha256sum -}}
+{{- $configChecksum := printf "%s %s" $configMapResourceChecksum $secretResourceChecksum | sha256sum }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "common.names.fullname" . }}
+  labels:
+    {{- include "common.labels.standard" . | nindent 4 }}
+    {{- if .Values.deployment.additionalLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.deployment.additionalLabels "context" $) | nindent 4 }}
+    {{- end }}
+  annotations:
+    roundcube/config-checksum: {{ $configChecksum }}
+    {{- if .Values.deployment.additionalAnnotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.deployment.additionalAnnotations "context" $) | nindent 4 }}
+    {{- end }}
+spec:
+  replicas: {{ .Values.deployment.replicas }}
+  strategy:
+    {{ .Values.deployment.strategy | toYaml | nindent 4 }}
+  selector:
+    matchLabels:
+      {{- include "common.labels.matchLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "common.labels.standard" . | nindent 8 }}
+      annotations:
+        roundcube/config-checksum: {{ $configChecksum }}
+    spec:
+      {{- if .Values.deployment.initContainers }}
+      initContainers:
+        {{- with .Values.deployment.initContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+      {{- if or .Values.serviceAccount.create .Values.serviceAccount.name }}
+      serviceAccountName: {{ include "roundcube.serviceAccountName" . }}
+      {{- end }}
+      containers:
+        - name: roundcubemail
+          image: {{ tpl .Values.image . }}
+          imagePullPolicy: {{ .Values.imagePullPolicy | default "IfNotPresent" }}
+          command:
+            - /bin/bash
+          args:
+            - "-c"
+            - "{{ include "roundcube.deployment.command" . }}"
+          env:
+            - name: ROUNDCUBEMAIL_DEFAULT_HOST
+              value: "{{ include "roundcube.encryption" .Values.imap.encryption }}{{ required "no IMAP host defined" .Values.imap.host }}"
+            - name: ROUNDCUBEMAIL_DEFAULT_PORT
+              value: "{{ .Values.imap.port }}"
+            - name: ROUNDCUBEMAIL_SMTP_SERVER
+              value: "{{ include "roundcube.encryption" .Values.smtp.encryption }}{{ required "no SMTP host defined" .Values.smtp.host }}"
+            - name: ROUNDCUBEMAIL_SMTP_PORT
+              value: "{{ .Values.smtp.port }}"
+            - name: ROUNDCUBEMAIL_SMTP_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "common.names.fullname" . }}
+                  key: smtpUsername
+            - name: ROUNDCUBEMAIL_SMTP_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "common.names.fullname" . }}
+                  key: smtpPassword
+            - name: ROUNDCUBEMAIL_DES_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "common.names.fullname" . }}
+                  key: desKey
+            - name: ROUNDCUBEMAIL_LANGUAGE
+              value: "{{ .Values.config.defaultLanguage }}"
+            - name: ROUNDCUBEMAIL_PLUGINS
+              value: "{{ include "roundcube.plugins.list" . }}"
+            - name: ROUNDCUBEMAIL_COMPOSER_PLUGINS
+              value: "{{ include "roundcube.plugins.requirements" . }} {{ include "roundcube.skins.requirements" . }}"
+            - name: ROUNDCUBEMAIL_SKIN
+              value: "{{ .Values.config.defaultSkin }}"
+            - name: ROUNDCUBEMAIL_UPLOAD_MAX_FILESIZE
+              value: "{{ .Values.config.uploadMaxFilesize }}"
+            {{- if eq .Values.database.source "external" }}
+            - name: ROUNDCUBEMAIL_DB_TYPE
+              value: "{{ .Values.externalDatabase.type }}"
+            - name: ROUNDCUBEMAIL_DB_HOST
+              value: "{{ required "No database host configured" .Values.externalDatabase.host }}"
+            - name: ROUNDCUBEMAIL_DB_PORT
+              value: "{{ .Values.externalDatabase.port }}"
+            - name: ROUNDCUBEMAIL_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "common.names.fullname" . }}
+                  key: dbUsername
+            - name: ROUNDCUBEMAIL_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "common.names.fullname" . }}
+                  key: dbPassword
+            - name: ROUNDCUBEMAIL_DB_NAME
+              value: "{{ .Values.externalDatabase.name }}"
+            {{- else if eq .Values.database.source "zalando-postgres" }}
+            - name: ROUNDCUBEMAIL_DB_TYPE
+              value: pgsql
+            - name: ROUNDCUBEMAIL_DB_HOST
+              value: "{{ include "common.names.fullname" . }}-db"
+            - name: ROUNDCUBEMAIL_DB_PORT
+              value: "5432"
+            - name: ROUNDCUBEMAIL_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: "roundcube-owner-user.{{ include "common.names.fullname" . }}-db.credentials.postgresql.acid.zalan.do"
+                  key: username
+            - name: ROUNDCUBEMAIL_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "roundcube-owner-user.{{ include "common.names.fullname" . }}-db.credentials.postgresql.acid.zalan.do"
+                  key: password
+            - name: ROUNDCUBEMAIL_DB_NAME
+              value: roundcube
+            {{- end }}
+            - name: COMPOSER_ALLOW_SUPERUSER
+              value: "1"
+            {{- with .Values.deployment.additionalEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /usr/local/etc/php/conf.d/zzz-custom.ini
+              subPath: php.ini
+            - name: config
+              mountPath: /var/roundcube/config/custom.php
+              subPath: roundcube.config.php
+            - name: config
+              mountPath: /usr/local/etc/php-fpm.d/zzz-custom.conf
+              subPath: php-fpm.conf
+            - name: shared-files
+              mountPath: /var/www/html
+            {{- with $.Values.deployment.additionalVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{ if .Values.deployment.resources }}
+          resources: {{ .Values.deployment.resources | toYaml | nindent 12 }}
+          {{ end }}
+        - name: nginx
+          image: {{ .Values.deployment.containers.nginx.image }}
+          imagePullPolicy: {{ .Values.deployment.containers.nginx.imagePullPolicy }}
+          volumeMounts:
+            - name: shared-files
+              mountPath: /var/www/html
+            - name: config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+          ports:
+            - containerPort: {{ .Values.deployment.port }}
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.deployment.port }}
+            timeoutSeconds: 2
+            periodSeconds: 3
+            initialDelaySeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.deployment.port }}
+            timeoutSeconds: 2
+            periodSeconds: 3
+            initialDelaySeconds: 5
+            failureThreshold: 3
+      imagePullSecrets:
+      {{- range .Values.deployment.imagePullSecrets }}
+        - name: {{ .name }}
+      {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "common.names.fullname" . }}
+        - name: shared-files
+          emptyDir: {}
+        {{- with .Values.deployment.additionalVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+
+
+      {{- if .Values.deployment.affinity }}
+      affinity: {{- include "common.tplvalues.render" (dict "value" .Values.deployment.affinity "context" $) | nindent 8 }}
+      {{- else }}
+      affinity:
+        podAffinity: {{- include "common.affinities.pods" (dict "type" .Values.deployment.podAffinityPreset "context" $) | nindent 10 }}
+        podAntiAffinity: {{- include "common.affinities.pods" (dict "type" .Values.deployment.podAntiAffinityPreset "context" $) | nindent 10 }}
+      {{- end }}
