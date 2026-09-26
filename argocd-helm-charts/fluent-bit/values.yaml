@@ -33,6 +33,21 @@ fluent-bit:
         severity: critical
 
   config:
+    # Upstream default plus storage.path.
+    service: |
+      [SERVICE]
+          Daemon Off
+          Flush {{ .Values.flush }}
+          Log_Level {{ .Values.logLevel }}
+          Parsers_File /fluent-bit/etc/parsers.conf
+          Parsers_File /fluent-bit/etc/conf/custom_parsers.conf
+          HTTP_Server On
+          HTTP_Listen 0.0.0.0
+          HTTP_Port {{ .Values.metricsPort }}
+          Health_Check On
+          # hostPath, so the buffer survives a pod restart.
+          storage.path              /var/log/flb-storage/
+
     inputs: |
       [INPUT]
           Name                      tail
@@ -42,6 +57,9 @@ fluent-bit:
           DB                        /var/log/fluentbit.db
           DB.Sync                   Normal
           Rotate_Wait               30
+          # In memory mode, when the output is down, retried chunks pile up and
+          # OOM the pod well before Mem_Buf_Limit is hit. See known-issues.md.
+          storage.type              filesystem
           Mem_Buf_Limit             100MB
           Skip_Empty_Lines          On
           Refresh_Interval          10
