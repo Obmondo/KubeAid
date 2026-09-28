@@ -45,7 +45,7 @@ def pod_labels(obj):
     elif kind == "CronJob":
         tmpl = spec.get("jobTemplate", {}).get("spec", {}).get("template", {})
         labels = dict(tmpl.get("metadata", {}).get("labels", {}) or {})
-    elif kind == "Cluster" and obj.get("apiVersion", "").startswith("postgresql.cnpg.io"):
+    elif kind == "Cluster" and obj.get("apiVersion", "").split("/")[0] == "postgresql.cnpg.io":
         labels = {"cnpg.io/cluster": name}
     elif kind == "RabbitmqCluster":
         labels = {"app.kubernetes.io/name": name}

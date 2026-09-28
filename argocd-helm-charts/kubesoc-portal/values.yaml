@@ -47,8 +47,10 @@ oauth2Proxy:
     repository: quay.io/oauth2-proxy/oauth2-proxy
     tag: v7.12.0
     pullPolicy: IfNotPresent
-  # e.g. https://keycloak.example.com/auth/realms/soc
-  oidcIssuerUrl: ""
+  # A placeholder, like ingress.host: the umbrella chart and kubeaid-cli set the
+  # real issuer. oauth2-proxy reads its discovery document at startup, so a
+  # release that kept this never serves the page rather than serving it open.
+  oidcIssuerUrl: https://keycloak.example.com/auth/realms/soc
   clientId: kubesoc-portal
   # Secret with the client secret and a cookie secret (16, 24 or 32 bytes).
   # The security-operations reconciler creates both.

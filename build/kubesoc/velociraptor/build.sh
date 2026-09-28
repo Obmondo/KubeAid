@@ -50,6 +50,7 @@ while [ $# -gt 0 ]; do
 done
 
 # shellcheck source=versions.env
+# shellcheck disable=SC1091  # CI runs shellcheck without -x, so it cannot follow it.
 . "$HERE/versions.env"
 
 docker buildx build \
