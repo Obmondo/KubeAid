@@ -155,13 +155,21 @@ keycloakSync:
     limits:
       memory: 256Mi
 
-# AI triage with a self-hosted model (Ollama). A CronJob reads New alerts that
-# have no ai: tag, asks the model for severity, false-positive likelihood,
-# category, a short summary and a suggested next step, and appends that to the
-# alert's note with tags ai:triaged, ai:sev:<level>, ai:fp:<...>. Advisory only:
-# it never changes severity or status, never escalates and never triggers a
-# response, because alert content comes from logs an attacker can write.
-# Kept out of the detection path so a slow or absent model never delays alerts.
+# kubesoc AI assistant with a self-hosted model (Ollama), README "AI assistant".
+# One CronJob runs the enabled modes in turn:
+#   triage       New alerts without an ai: tag get a note (severity, false-
+#                positive likelihood, category, summary, next step, ATT&CK
+#                techniques) and tags ai:triaged, ai:sev:*, ai:fp:*, ai:attack:*.
+#   caseSummary  Cases tagged ai:summarize (optionally: newly closed cases) get
+#                an incident summary and report draft note.
+#   hunt         A case note titled "ai:hunt: <question>" gets a note with a
+#                suggested Wazuh DQL filter, OpenSearch query and Velociraptor VQL.
+# Advisory only: the job writes notes and tags, nothing else. It never changes
+# severity, status or outcome and never runs a query, hunt or response. Case and
+# alert content is treated as untrusted data (fenced, escaped, redacted, schema-
+# constrained output), and every note says "AI draft - review required" with the
+# model and prompt version. Kept out of the detection path so a slow or absent
+# model never delays alerts.
 aiTriage:
   enabled: false
   # Start with a dry run: the job log shows each answer and its latency.
@@ -170,26 +178,100 @@ aiTriage:
   # e.g. http://ollama.ollama.svc:11434 - keep the model service without
   # internet egress; nothing leaves the cluster.
   ollamaUrl: ""
-  model: llama3.1:8b
-  # Alerts per run and seconds per model call. On CPU an 8B model needs about
-  # 30-70 s per alert; size maxPerRun x timeout below activeDeadlineSeconds.
-  maxPerRun: 3
+  # Mistral 7B (Apache-2.0): about 5 GB RAM at 4-bit, 30-70 s per alert on CPU.
+  # On a GPU node use mistral-small3.1 (24B, Apache-2.0, about 16 GB VRAM at
+  # 4-bit) for better summaries and queries; pull it in ollama.models.pull.
+  model: mistral:7b
+  # Seconds per model call. The job stops starting model calls 30 s before
+  # activeDeadlineSeconds; size the per-run limits below to fit.
   timeoutSeconds: 180
-  # Skip alerts whose Wazuh rule level is below this (0 = all IRIS alerts).
+  activeDeadlineSeconds: 900
+  # Mask secret-like strings (passwords, tokens, keys, JWTs, credentials in
+  # URLs) before the model sees them. Hashes and IPs are kept.
+  redact: true
+  # IRIS note directory the case notes go into.
+  noteDirectory: AI drafts
+  triage:
+    enabled: true
+  # Alerts per run, and the Wazuh rule level below which alerts are skipped
+  # (0 = all IRIS alerts). Triage settings; kept at this level for compatibility.
+  maxPerRun: 3
   minLevel: 0
+  caseSummary:
+    enabled: false
+    maxPerRun: 1
+    # Also draft for cases closed in the last lookbackDays days (no tag needed).
+    onClose: false
+    lookbackDays: 3
+  hunt:
+    enabled: false
+    maxPerRun: 2
+    # Open cases scanned for ai:hunt notes per run (newest first).
+    maxCases: 50
+  # Prompt and schema overrides: <mode>.system.txt and <mode>.schema.json with
+  # mode triage, summary or hunt. Missing files keep the built-in default; a
+  # schema must keep the default's fields. The note records the prompt version
+  # (built-in, or a hash of the files). The fixed guard text about untrusted
+  # data is always appended to the system prompt.
+  # Either a ConfigMap managed elsewhere (e.g. the kubesoc content package)...
+  promptsConfigMap:
+    name: ""
+  # ...or the files inline (ignored when promptsConfigMap.name is set).
+  prompts: {}
+  #  hunt.system.txt: |
+  #    You are a threat-hunting assistant ...
   # Secret with the API key of an IRIS user that can read and update alerts
-  # of the customers concerned (e.g. a dedicated service account in a group
-  # with alerts_read and alerts_write).
+  # and cases of the customers concerned (e.g. a dedicated service account in
+  # a group with alerts and case read/write).
   existingSecret: ""
   irisApiKeySecretKey: IRIS_API_KEY
   irisUrl: ""
-  activeDeadlineSeconds: 900
   resources:
     requests:
       cpu: 20m
       memory: 64Mi
     limits:
       memory: 256Mi
+
+# IRIS -> MISP sightings, README "MISP sightings". Cases closed as true
+# positive (IRIS outcome "True positive with/without impact") add a sighting to
+# every case indicator MISP knows; the case is tagged misp:sighted. Optional:
+# a new unpublished MISP event for indicators MISP does not know (never TLP:RED
+# ones), and false-positive sightings for cases closed as false positive.
+mispSightings:
+  enabled: false
+  dryRun: true
+  schedule: "*/10 * * * *"
+  activeDeadlineSeconds: 300
+  # Only cases closed within this many days, so enabling it does not replay history.
+  lookbackDays: 7
+  # Case details read per run.
+  maxCases: 20
+  sightingSource: kubesoc
+  falsePositiveSightings: false
+  createEvents: false
+  # MISP distribution of created events: 0 your organisation only, 1 this
+  # community, 2 connected communities, 3 all.
+  eventDistribution: 0
+  misp:
+    # e.g. http://misp.<namespace>.svc
+    url: ""
+    # Secret with the auth key of a MISP user allowed to add sightings (and
+    # events, with createEvents). A read-only export key is not enough.
+    apiKeySecret: ""
+    apiKeySecretKey: key
+    verifyTls: true
+  # Secret with the API key of an IRIS user that can read the cases and
+  # update their tags.
+  existingSecret: ""
+  irisApiKeySecretKey: IRIS_API_KEY
+  irisUrl: ""
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
 
 app:
   replicas: 1

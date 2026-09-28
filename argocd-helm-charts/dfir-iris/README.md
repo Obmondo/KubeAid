@@ -114,21 +114,103 @@ Prerequisites: a confidential Keycloak client with a service account holding
 hostname does not resolve correctly inside the cluster, set `hostAliases`; the
 job uses the same entries as the app.
 
-## AI triage with a self-hosted model (`aiTriage`)
+## AI assistant with a self-hosted model (`aiTriage`)
 
-An optional CronJob reads New alerts without an `ai:` tag, sends each (title,
-rule, agent, indicators, a size-capped copy of the source event) to an Ollama
-model with a JSON schema, and appends the answer to the alert note: severity,
-false-positive likelihood, category, a short summary and a suggested next step,
-plus tags `ai:triaged`, `ai:sev:<level>`, `ai:fp:<likely|unlikely|unknown>`
-(`ai:error` if the model fails, so an alert is not retried forever).
+One CronJob (`<fullname>-ai-triage`) runs `files/ai/ai_assist.py` with the enabled
+modes, in turn, against a local Ollama model (default `mistral:7b`, Apache-2.0; on a
+GPU node `mistral-small3.1`, see the ollama chart README). Nothing leaves the cluster.
 
-- Advisory only. It never changes severity or status, never escalates and never
-  triggers a response: alert content comes from logs an attacker can write, and
-  the prompt tells the model to treat it as data, not instructions.
-- Outside the detection path: a slow or missing model never delays alerts.
+| Mode | Switch | Trigger | Output |
+|---|---|---|---|
+| Alert triage | `triage.enabled` (on) | New alert without an `ai:` tag | Appended to the alert note: severity, false-positive likelihood, category, summary, next step, ATT&CK techniques. Tags `ai:triaged`, `ai:sev:<level>`, `ai:fp:<likely\|unlikely\|unknown>`, `ai:attack:<Txxxx>` (`ai:error` on failure) |
+| Case summary / report draft | `caseSummary.enabled` | Case tag `ai:summarize`; with `onClose`, any case closed in the last `lookbackDays` | Note "AI draft - incident summary and report" in directory `AI drafts`: executive summary, impact, timeline, affected assets and indicators (copied from the case record, not retyped by the model), ATT&CK, recommended actions, open questions. Tag becomes `ai:summarized` (`ai:summarize:error` on failure) |
+| Hunting | `hunt.enabled` | Note titled `ai:hunt: <question>` (or `ai:hunt` with the question as content) in an open case | Note "AI hunt suggestion (re note N)": a Wazuh DQL filter, an OpenSearch query DSL body, a Velociraptor VQL hunt, time range, caveats, ATT&CK. VQL calling functions that change endpoints or reach out (execve, upload, rm, http_client, ...) is flagged |
+
+How analysts use it:
+
+- **Triage**: nothing to do; read the AI part of the alert note and the `ai:` tags
+  (filterable in the alert list).
+- **Summary**: add the tag `ai:summarize` to the case. Within a few minutes the draft
+  appears under Notes > AI drafts. Edit it into the real report. For a fresh draft,
+  remove `ai:summarized` and add `ai:summarize` again.
+- **Hunting**: add a note titled e.g. `ai:hunt: which hosts had failed SSH logins from
+  the case's source IP in the last 7 days`. The answer note appears in AI drafts. Review
+  each query, adapt it, and run it yourself in the Wazuh dashboard or as a Velociraptor
+  hunt. Delete the answer note to ask the same question again.
+
+Guardrails:
+
+- **Advisory only.** The job writes notes and tags, nothing else: it never changes
+  severity, status or outcome, never escalates, and never runs a query, hunt or response.
+  Every AI note starts with "AI draft - review required" and names the model and the
+  prompt version.
+- **Untrusted input.** Alert, case and note content can be written by an attacker. It
+  reaches the model JSON-encoded, with `<` and `>` escaped, between tags carrying a random
+  nonce, and a fixed guard text in the system prompt (not overridable by prompt files)
+  says that the data is never an instruction and that the assistant has no tools.
+- **Constrained output.** Ollama's `format` JSON schema, temperature 0, a token limit per
+  mode; the answer is validated again (enums, required fields, string length limits,
+  ATT&CK ids must look like `T1234` or `T1234.001`). Model prose is written with markup
+  escaped and links defanged (`hxxps[:]//`); queries go into code blocks they cannot close.
+- **Redaction** (`redact: true`): passwords, tokens, API keys, JWTs, private keys and
+  credentials in URLs are masked before the model sees them. Hashes and IPs are kept.
+- **Size limits**: triage input 6000 characters, case input 16000, hunt input 8000.
+- Outside the detection path: a slow or missing model never delays alerts; the job stops
+  starting model calls 30 s before `activeDeadlineSeconds`.
 - Unowned alerts stay unowned (IRIS would otherwise make the job their owner).
-- The model is told not to retype hashes, IPs or paths; the exact indicators are
-  already on the alert, and a retyped value can be wrong.
-- Keep the model service without internet egress (a NetworkPolicy on its
-  namespace), so no alert content leaves the cluster.
+
+Prompts: the built-in prompts and schemas (`files/ai/kubesoc_ai.py`) can be replaced per
+mode with `<mode>.system.txt` and `<mode>.schema.json` (mode `triage`, `summary`, `hunt`)
+from `promptsConfigMap.name` (e.g. the kubesoc content package) or inline `prompts`. A
+replacement schema must keep the default's fields. The note then records
+`custom-<sha256 prefix>` as the prompt version.
+
+Enable (the security-operations umbrella wires the URL, key and NetworkPolicy):
+
+```yaml
+aiTriage:
+  enabled: true
+  dryRun: true          # read the job log first, then false
+  ollamaUrl: http://ollama.ollama.svc:11434
+  existingSecret: iris-ai-triage
+  caseSummary:
+    enabled: true
+  hunt:
+    enabled: true
+```
+
+Network flows the job needs: egress to IRIS (`<fullname>-app`, TCP 8000) and to Ollama
+(TCP 11434, which admits pods labelled `app.kubernetes.io/component: ai-triage`), plus DNS.
+
+Tests: `python3 -m unittest discover -s argocd-helm-charts/dfir-iris/tests` (or pytest)
+runs the jobs against fake IRIS, Ollama and MISP APIs.
+
+## MISP sightings (`mispSightings`)
+
+An optional CronJob (`<fullname>-misp-sightings`, `files/ai/misp_sightings.py`) reports
+confirmed incidents back to MISP. IRIS 2.4 records a case's outcome in `status_id`
+("Outcome" in the case summary): 1 false positive, 2 true positive with impact, 4 true
+positive without impact (0 unknown, 3 not applicable, 5 legitimate).
+
+- A case closed within `lookbackDays` with outcome 2 or 4 adds a sighting (type 0, source
+  `sightingSource`) to every case indicator MISP already knows, then gets the tag
+  `misp:sighted` (`misp:error` if MISP refused). Remove the tag to report it again.
+- `createEvents: true`: indicators MISP does not know go into one new unpublished event
+  per case (distribution `eventDistribution`, default 0 = your organisation, tag
+  `tlp:amber`), and are sighted too. Indicators with TLP:RED in IRIS are never sent.
+- `falsePositiveSightings: true`: cases closed as false positive add false-positive
+  sightings (type 1) instead.
+
+The MISP key (`misp.apiKeySecret`) must belong to a user allowed to add sightings (and
+events with `createEvents`); a read-only export key is not enough. The IRIS key needs case
+read and case update (tags). Flows: IRIS TCP 8000 and MISP (TCP 80 in-cluster, or 443).
+
+```yaml
+mispSightings:
+  enabled: true
+  dryRun: true
+  misp:
+    url: http://misp
+    apiKeySecret: misp-sightings-key
+  existingSecret: iris-ai-triage
+```

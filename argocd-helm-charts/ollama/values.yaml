@@ -4,7 +4,7 @@ ollama:
       # CPU only by default. Set enabled: true, type: nvidia, number: 1 on a
       # GPU node (see the hami chart for shared GPUs).
       enabled: false
-    # Models pulled at start, e.g. ["llama3.1:8b"]. Keep the list in
+    # Models pulled at start, e.g. ["mistral:7b"]. Keep the list in
     # kubeaid-config so the model choice is per cluster.
     models:
       pull: []

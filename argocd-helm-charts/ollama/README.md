@@ -10,7 +10,7 @@ ollama:
   ollama:
     models:
       pull:
-        - llama3.1:8b
+        - mistral:7b
   persistentVolume:
     size: 50Gi
 ```
@@ -32,6 +32,15 @@ ollama:
 ```
 
 Requires the NVIDIA device plugin (or the hami chart for shared GPUs) on the node.
+
+## 3. Models
+
+The kubesoc AI assistant (dfir-iris `aiTriage`) defaults to `mistral:7b` (Apache-2.0):
+about 5 GB of RAM at 4-bit, 30-70 s per answer on a few CPU cores. On a GPU node,
+`mistral-small3.1` (24B, Apache-2.0, about 16 GB VRAM at 4-bit, 128k context) writes
+noticeably better case summaries and hunting queries; pull it and set
+`dfir-iris.aiTriage.model: mistral-small3.1`. Both support the JSON-schema `format`
+the assistant relies on.
 
 ## Air-gapped model service (`networkPolicy`)
 
