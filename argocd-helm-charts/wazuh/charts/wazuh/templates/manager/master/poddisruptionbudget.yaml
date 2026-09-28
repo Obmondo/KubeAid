@@ -1,0 +1,27 @@
+{{- /*
+  KubeAid patch. The master is a single pod that every worker and every agent
+  enrolment depends on, and its /var/ossec/etc holds client.keys, so a node
+  drain must not take it while nothing else can serve. minAvailable: 1 makes a
+  drain wait for the replacement pod instead of evicting the only one.
+*/}}
+{{- if .Values.wazuh.master.enabled }}
+{{- if .Values.wazuh.master.pdb.enabled }}
+kind: PodDisruptionBudget
+apiVersion: policy/v1
+metadata:
+  name: {{ include "wazuh.fullname" . }}-manager-master
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ include "wazuh.fullname" . }}-manager
+      node-type: master
+  {{- if .Values.wazuh.master.pdb.minAvailable }}
+  minAvailable: {{ .Values.wazuh.master.pdb.minAvailable }}
+  {{- else }}
+  {{- with .Values.wazuh.master.pdb.maxUnavailable }}
+  maxUnavailable: {{ . }}
+  {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}

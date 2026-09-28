@@ -70,7 +70,8 @@ spec:
             - topologyKey: {{ .Values.wazuh.worker.podAntiAffinityTopologyKey }}
               labelSelector:
                 matchExpressions:
-                  - {key: app, operator: In, values: [{{ include "wazuh.fullname" . }}-manager-worker]}
+                  - {key: app, operator: In, values: [{{ include "wazuh.fullname" . }}-manager]}
+                  - {key: node-type, operator: In, values: [worker]}
         {{- else if eq .Values.wazuh.worker.podAntiAffinity "soft" }}
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -79,7 +80,8 @@ spec:
                 topologyKey: {{ .Values.wazuh.worker.podAntiAffinityTopologyKey }}
                 labelSelector:
                   matchExpressions:
-                    - {key: app, operator: In, values: [{{ include "wazuh.fullname" . }}-manager-worker]}
+                    - {key: app, operator: In, values: [{{ include "wazuh.fullname" . }}-manager]}
+                    - {key: node-type, operator: In, values: [worker]}
         {{- end }}
       {{- if .Values.wazuh.worker.dnsPolicy }}
       dnsPolicy: {{ .Values.wazuh.worker.dnsPolicy }}

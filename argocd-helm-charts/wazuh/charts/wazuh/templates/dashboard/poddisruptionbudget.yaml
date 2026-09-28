@@ -9,8 +9,14 @@ spec:
   selector:
     matchLabels:
       app: {{ include "wazuh.fullname" . }}-dashboard
+  {{- /* KubeAid patch: minAvailable, so a highly available release can require a
+      quorum to stay up rather than only cap the pods an eviction may take. */}}
+  {{- if .Values.dashboard.pdb.minAvailable }}
+  minAvailable: {{ .Values.dashboard.pdb.minAvailable }}
+  {{- else }}
   {{- with .Values.dashboard.pdb.maxUnavailable }}
   maxUnavailable: {{ . }}
+  {{- end }}
   {{- end }}
 {{- end }}
 {{- end }}

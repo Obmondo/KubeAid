@@ -10,8 +10,14 @@ spec:
     matchLabels:
       app: {{ include "wazuh.fullname" . }}-manager
       node-type: worker
+  {{- /* KubeAid patch: minAvailable, so a highly available release can require a
+      quorum to stay up rather than only cap the pods an eviction may take. */}}
+  {{- if .Values.wazuh.worker.pdb.minAvailable }}
+  minAvailable: {{ .Values.wazuh.worker.pdb.minAvailable }}
+  {{- else }}
   {{- with .Values.wazuh.worker.pdb.maxUnavailable }}
   maxUnavailable: {{ . }}
+  {{- end }}
   {{- end }}
 {{- end }}
 {{- end }}
