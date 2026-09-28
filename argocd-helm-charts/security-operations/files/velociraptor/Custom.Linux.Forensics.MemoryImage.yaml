@@ -41,7 +41,7 @@ sources:
         FROM acquired WHERE Result.ReturnCode = 0
       SELECT * FROM if(condition=tool[0].OSPath,
           then={ SELECT *, if(condition=KeepLocalCopy, then=dict(ReturnCode=0),
-                     { SELECT ReturnCode FROM execve(argv=['/bin/rm', '-f', Image]) }) AS Cleanup
+                     else={ SELECT ReturnCode FROM execve(argv=['/bin/rm', '-f', Image]) }) AS Cleanup
                  FROM uploaded },
           else={ SELECT '' AS Image,
                     dict(ReturnCode=1, Stderr='avml-not-found: ' + AvmlPath) AS Result,

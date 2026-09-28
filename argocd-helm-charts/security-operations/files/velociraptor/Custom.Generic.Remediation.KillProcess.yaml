@@ -45,6 +45,7 @@ sources:
              { SELECT ReturnCode, Stderr FROM execve(argv=if(condition=(Me[0].OS = 'windows'),
                    then=['taskkill', '/F', '/T', '/PID', str(str=Pid)],
                    else=['/bin/kill', '-9', str(str=Pid)])) } AS Result,
-             NOT { SELECT Pid FROM pslist(pid=Pid) } AS killed
+             if(condition={ SELECT Pid FROM pslist(pid=Pid) },
+                then=FALSE, else=TRUE) AS killed
       FROM matched WHERE matched_by
 

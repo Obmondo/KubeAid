@@ -460,10 +460,10 @@ export: |
   LET ra_owner(cid, aid) = SELECT parse_json(data=Content).data.user_id AS uid
       FROM http_client(url=IrisUrl + '/case/assets/' + str(str=aid), params=dict(cid=cid), headers=H)
   LET ra_requester(cid, aid) = ra_user(uid=ra_owner(cid=cid, aid=aid)[0].uid)[0].login
-  LET ra_open(cid, title, desc, tags) = SELECT parse_json(data=Content).data.id AS task_id
+  LET ra_open(cid, title, tdesc, tags) = SELECT parse_json(data=Content).data.id AS task_id
       FROM http_client(url=IrisUrl + '/case/tasks/add?cid=' + str(str=cid), method='POST', headers=H,
            data=serialize(format='json', item=dict(
-               task_title=title, task_description=desc, task_tags=tags,
+               task_title=title, task_description=tdesc, task_tags=tags,
                task_status_id=1, task_assignees_id=[], custom_attributes=dict())))
   LET ra_comments(cid, tid) = SELECT comment_user_id, comment_text, comment_date, user.user_login AS login
       FROM foreach(row={ SELECT parse_json(data=Content).data AS l
@@ -510,7 +510,7 @@ export: |
       FROM ra_resolved WHERE art AND allowed(art=art)
   LET ra_opened = SELECT *, ra_open(cid=case_id,
           title=format(format='Velociraptor approval required: %v on %v', args=[action, asset_name]),
-          desc=format(format='Requested by %v for asset %v (%v) in Velociraptor org %v, client %v. The action runs %v on the endpoint. A member of the approver group (%v) must comment "approve" on this task - "deny" refuses it. The comment, who wrote it and when are copied onto the case timeline with the result.',
+          tdesc=format(format='Requested by %v for asset %v (%v) in Velociraptor org %v, client %v. The action runs %v on the endpoint. A member of the approver group (%v) must comment "approve" on this task - "deny" refuses it. The comment, who wrote it and when are copied onto the case timeline with the result.',
               args=[requester, asset_name, asset_id, org_id, client_id, art, ApproverGroups]),
           tags=ApprovalTaskTag + ',velociraptor,action:' + action)[0].task_id AS task_id
       FROM ra_askable

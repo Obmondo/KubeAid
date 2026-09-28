@@ -53,13 +53,14 @@ sources:
     query: |
       LET specs = SELECT Glob FROM parse_csv(filename=Globs, accessor='data') WHERE Glob
       LET ntfs_specs = SELECT Glob FROM parse_csv(filename=NtfsGlobs, accessor='data') WHERE Glob
-      LET collect(globs, accessor) = SELECT OSPath, Size, Mtime, accessor AS Accessor,
+      -- not named collect(): that is a builtin plugin and would win over this one
+      LET collect_files(globs, accessor) = SELECT OSPath, Size, Mtime, accessor AS Accessor,
              upload(file=OSPath, accessor=accessor, name=OSPath.String) AS Upload
         FROM glob(globs=globs, accessor=accessor)
         WHERE NOT IsDir AND Size < MaxFileSize
       SELECT * FROM chain(
-          a={ SELECT * FROM collect(globs={ SELECT Glob FROM specs }, accessor=Accessor) },
-          b={ SELECT * FROM collect(globs={ SELECT Glob FROM ntfs_specs }, accessor='ntfs') })
+          a={ SELECT * FROM collect_files(globs={ SELECT Glob FROM specs }, accessor=Accessor) },
+          b={ SELECT * FROM collect_files(globs={ SELECT Glob FROM ntfs_specs }, accessor='ntfs') })
   - name: Processes
     query: |
       SELECT Pid, Ppid, Name, Exe, CommandLine, Username, CreateTime FROM pslist()

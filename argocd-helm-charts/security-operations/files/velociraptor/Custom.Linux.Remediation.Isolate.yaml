@@ -41,23 +41,25 @@ sources:
       LET Allow = filter(list=split(string=ServerAllowlist, sep=','), regex='.')
       LET Chain(hook) = '{ type filter hook ' + hook + ' priority -10; policy drop; }'
       LET Base = if(condition=RemovePolicy,
-          then=[[NftPath, 'delete', 'table', 'inet', TableName]],
-          else=[[NftPath, 'add', 'table', 'inet', TableName],
-                [NftPath, 'add', 'chain', 'inet', TableName, 'input', Chain(hook='input')],
-                [NftPath, 'add', 'chain', 'inet', TableName, 'output', Chain(hook='output')],
-                [NftPath, 'add', 'chain', 'inet', TableName, 'forward', Chain(hook='forward')],
-                [NftPath, 'add', 'rule', 'inet', TableName, 'input', 'iif', 'lo', 'accept'],
-                [NftPath, 'add', 'rule', 'inet', TableName, 'output', 'oif', 'lo', 'accept'],
-                [NftPath, 'add', 'rule', 'inet', TableName, 'input', 'ct', 'state', 'established,related', 'accept'],
-                [NftPath, 'add', 'rule', 'inet', TableName, 'output', 'ct', 'state', 'established,related', 'accept']])
-      LET Dns = if(condition=RemovePolicy OR NOT AllowDNS, then=[],
-          else=[[NftPath, 'add', 'rule', 'inet', TableName, 'output', 'udp', 'dport', '53', 'accept'],
-                [NftPath, 'add', 'rule', 'inet', TableName, 'output', 'tcp', 'dport', '53', 'accept']])
+          then=array(a=[NftPath, 'delete', 'table', 'inet', TableName]),
+          else=array(a=[NftPath, 'add', 'table', 'inet', TableName],
+                b=[NftPath, 'add', 'chain', 'inet', TableName, 'input', Chain(hook='input')],
+                c=[NftPath, 'add', 'chain', 'inet', TableName, 'output', Chain(hook='output')],
+                d=[NftPath, 'add', 'chain', 'inet', TableName, 'forward', Chain(hook='forward')],
+                e=[NftPath, 'add', 'rule', 'inet', TableName, 'input', 'iif', 'lo', 'accept'],
+                f=[NftPath, 'add', 'rule', 'inet', TableName, 'output', 'oif', 'lo', 'accept'],
+                g=[NftPath, 'add', 'rule', 'inet', TableName, 'input', 'ct', 'state', 'established,related', 'accept'],
+                h=[NftPath, 'add', 'rule', 'inet', TableName, 'output', 'ct', 'state', 'established,related', 'accept']))
+      LET Dns = if(condition=RemovePolicy OR NOT AllowDNS, then=array(),
+          else=array(a=[NftPath, 'add', 'rule', 'inet', TableName, 'output', 'udp', 'dport', '53', 'accept'],
+                b=[NftPath, 'add', 'rule', 'inet', TableName, 'output', 'tcp', 'dport', '53', 'accept']))
       -- one accept rule per allowed server, in both directions
+      LET ServerRule(chain, direction, addr) = array(a=NftPath, b='add', c='rule', d='inet',
+          e=TableName, f=chain, g='ip', h=direction, i=addr, j='accept')
       LET Servers = SELECT * FROM chain(
-          a={ SELECT [NftPath, 'add', 'rule', 'inet', TableName, 'output', 'ip', 'daddr', _value, 'accept'] AS argv
+          a={ SELECT ServerRule(chain='output', direction='daddr', addr=_value) AS argv
               FROM foreach(row=Allow) },
-          b={ SELECT [NftPath, 'add', 'rule', 'inet', TableName, 'input', 'ip', 'saddr', _value, 'accept'] AS argv
+          b={ SELECT ServerRule(chain='input', direction='saddr', addr=_value) AS argv
               FROM foreach(row=Allow) })
       LET Plan = SELECT * FROM chain(
           a={ SELECT _value AS argv FROM foreach(row=Base) },
@@ -68,7 +70,7 @@ sources:
                     { SELECT ReturnCode, Stderr FROM execve(argv=argv) } AS Result,
                     if(condition=RemovePolicy, then='un-isolate', else='isolate') AS Action
                  FROM Plan },
-          else={ SELECT [] AS argv, dict(ReturnCode=1,
+          else={ SELECT array() AS argv, dict(ReturnCode=1,
                     Stderr='refused: ServerAllowlist is empty, isolating would cut the endpoint off from Velociraptor too') AS Result,
                     'refused' AS Action FROM scope() })
 
