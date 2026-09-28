@@ -168,9 +168,10 @@ server monitoring table through Velociraptor's gRPC API:
   reconciler pods. The reconciler dials `velociraptor-api:8001` (`components.velociraptor.address`
   in `siem-tenants`; the api_client file itself names `localhost`) and checks the server
   certificate against its pinned name, so the Service name is not in the certificate.
-- **API client**: with `velociraptor.velociraptor.apiClient.enabled`, two init containers in the
-  Velociraptor pod mint the reconciler's api_client (user `siem-reconciler`, role
-  `administrator`) with the server's own config and datastore, and store it in Secret
+- **API client**: with `velociraptor.velociraptor.apiClient.enabled`, three init containers in
+  the Velociraptor pod mint the reconciler's api_client (user `siem-reconciler`, role `api`),
+  cut it down to `apiClient.policy` with `velociraptor acl grant` (six permissions instead of
+  `administrator`, see the velociraptor chart's README section 5), and store it in Secret
   `velociraptor-api-client` with `siem-reconciler publish-api-client`. This chart grants the
   `velociraptor` ServiceAccount `get`/`update`/`patch` on that Secret and `create` on Secrets
   (`create` cannot be limited by name); only the publisher container mounts a token, and a
@@ -202,7 +203,53 @@ server monitoring table through Velociraptor's gRPC API:
     succeeded. Users matching `Protected` (local accounts and the reconciler's API user
     `siem-reconciler`, which has no Keycloak user) are never touched.
   - `Custom.MacOS.Remediation.RemoveByHash`: client artifact the collector runs for the
-    stock Wazuh rule 99901 (a file hash from the MISP list) on macOS.
+    stock Wazuh rule 99901 (a file hash from the MISP list) on macOS. The Windows and Linux
+    twins (`Custom.Windows.Remediation.RemoveByHash`,
+    `Custom.Linux.Remediation.RemoveByHash`) additionally quarantine the file (a copy under
+    its own hash) before deleting it; `Mode: delete` removes it outright.
+  - Response and forensics artifacts the collector runs for an approved action:
+    `Custom.Linux.Remediation.Isolate` (nftables) and `Custom.MacOS.Remediation.Isolate`
+    (pf) - Windows uses the built-in `Windows.Remediation.Quarantine`;
+    `Custom.Generic.Remediation.KillProcess` (by pid, executable regex or executable
+    SHA-256); `Custom.{Windows,Linux,MacOS}.Triage.Collect` (KAPE-style target set on
+    Windows, plus live process list and connections everywhere);
+    `Custom.Linux.Forensics.MemoryImage` (AVML, which must already be on the endpoint) -
+    Windows uses the built-in `Windows.Memory.Acquisition`, macOS has none.
+
+#### Response actions with approval
+
+An analyst tags the IRIS asset `velociraptor:contain:<action>` (`respond:` and `collect:`
+work too) with one of the `ResponseActions` keys: `isolate`, `unisolate`, `kill`,
+`quarantine-file`, `remove-file`, `memory`, `triage`. Then:
+
+1. The collector routes the case to its tenant's org, finds the client and its OS, picks the
+   artifact for that OS from `ResponseActions`, opens an **approval task** on the case
+   (tagged `velociraptor-approval,action:<action>`) naming requester, host, org and artifact,
+   and retags the asset `velociraptor:approval:<task>:<action>`. Nothing has run yet.
+2. A member of an `ApproverGroups` IRIS group comments `approve` (or `deny`) on that task.
+   With `FourEyes: "Y"` the requester - the analyst the asset belongs to on the case - cannot
+   be the approver. Group membership is read from the IRIS API on every cycle.
+3. On approval the flow is scheduled and the asset becomes
+   `velociraptor:pending:<org>:<flow>:<artifact>`, so the existing writeback puts the results
+   on the timeline; the timeline also gets requester, approver, their comment and its time.
+   A denial ends as `velociraptor:denied:<action>` with the same record.
+4. When the results are written (`velociraptor:done:...`), the evidence pass adds a **chain of
+   custody** note - host, org, flow, on whose behalf, and the SHA-256 the *server* recorded
+   for every uploaded file - and retags `velociraptor:archived:<org>:<flow>`. With
+   `EvidenceS3Bucket` (and `EvidenceS3Secret`, the name of a Velociraptor server secret of
+   type *AWS S3 Creds*) the collection zip is also copied once to an S3-compatible bucket;
+   use a bucket with object lock. That egress from the Velociraptor pod to the bucket
+   endpoint has to be allowed explicitly
+   (`velociraptor.velociraptor.networkPolicy.extraEgress`), like every other flow out of the
+   namespace.
+
+Operator setup, once: create the IRIS group `velociraptor-approvers` and put the approvers in
+it; set `IsolationAllowlist` to the Velociraptor frontend address (the isolation artifacts
+refuse to run while it is empty, so an endpoint can never be cut off from the SOC). A tag
+naming an action nobody mapped for that OS, or an artifact outside `AllowedArtifacts`, ends
+as `velociraptor:error:<reason>` with a red event on the case and never reaches an endpoint.
+`files/case-templates` in the `dfir-iris` chart has phishing, ransomware and account takeover
+templates whose tasks name these tags.
 
   `velociraptorArtifacts.monitoring` lists the server event artifacts the reconciler keeps in
   the monitoring table and the parameters it sets (KeycloakSync runs with `DryRun: "N"`);

@@ -1,0 +1,71 @@
+name: Custom.Windows.Triage.Collect
+description: |
+  KAPE-style triage collection for Windows: the artefacts a first responder
+  wants within minutes - registry hives, event logs, $MFT and $UsnJrnl, prefetch,
+  amcache, SRUM, scheduled tasks, jump lists and browser history - plus the live
+  process list and network connections.
+
+  Everything is uploaded through the flow, so the server records the sha256 of
+  every file; the IRIS collector writes those hashes onto the case as the chain
+  of custody. Windows.KapeFiles.Targets is not part of the built-in artifact set
+  of Velociraptor 0.77, so the target list lives here instead of being imported
+  from the exchange; add or drop globs in the Globs parameter (or ship your own
+  default through the content package).
+type: CLIENT
+parameters:
+  - name: Globs
+    type: csv
+    default: |
+      Glob
+      C:/Windows/System32/config/{SAM,SECURITY,SOFTWARE,SYSTEM,DEFAULT}
+      C:/Windows/System32/config/RegBack/*
+      C:/Windows/System32/winevt/Logs/*.evtx
+      C:/Windows/System32/sru/*
+      C:/Windows/System32/Tasks/**
+      C:/Windows/Tasks/*.job
+      C:/Windows/Prefetch/*.pf
+      C:/Windows/AppCompat/Programs/Amcache.hve*
+      C:/Windows/System32/drivers/etc/hosts
+      C:/Windows/System32/wbem/Repository/*
+      C:/Users/*/NTUSER.DAT*
+      C:/Users/*/AppData/Local/Microsoft/Windows/UsrClass.dat*
+      C:/Users/*/AppData/Roaming/Microsoft/Windows/Recent/**
+      C:/Users/*/AppData/Local/{Google/Chrome,Microsoft/Edge,BraveSoftware/Brave-Browser}/User Data/*/History
+      C:/Users/*/AppData/Roaming/Mozilla/Firefox/Profiles/*/places.sqlite
+      C:/$Recycle.Bin/**
+    description: One glob per row. Collected with the Accessor below.
+  - name: NtfsGlobs
+    type: csv
+    default: |
+      Glob
+      C:/$MFT
+      C:/$Extend/$UsnJrnl:$J
+      C:/$LogFile
+    description: Globs that need the raw ntfs accessor (locked or metadata files).
+  - name: Accessor
+    default: ntfs
+    description: Accessor for Globs - ntfs reads files that are locked by the OS.
+  - name: MaxFileSize
+    type: int
+    default: "524288000"
+sources:
+  - name: Uploads
+    query: |
+      LET specs = SELECT Glob FROM parse_csv(filename=Globs, accessor='data') WHERE Glob
+      LET ntfs_specs = SELECT Glob FROM parse_csv(filename=NtfsGlobs, accessor='data') WHERE Glob
+      LET collect(globs, accessor) = SELECT OSPath, Size, Mtime, accessor AS Accessor,
+             upload(file=OSPath, accessor=accessor, name=OSPath.String) AS Upload
+        FROM glob(globs=globs, accessor=accessor)
+        WHERE NOT IsDir AND Size < MaxFileSize
+      SELECT * FROM chain(
+          a={ SELECT * FROM collect(globs={ SELECT Glob FROM specs }, accessor=Accessor) },
+          b={ SELECT * FROM collect(globs={ SELECT Glob FROM ntfs_specs }, accessor='ntfs') })
+  - name: Processes
+    query: |
+      SELECT Pid, Ppid, Name, Exe, CommandLine, Username, CreateTime FROM pslist()
+  - name: Connections
+    query: |
+      SELECT Pid, Family, Type, Status, Laddr.IP AS LocalAddress, Laddr.Port AS LocalPort,
+             Raddr.IP AS RemoteAddress, Raddr.Port AS RemotePort
+      FROM netstat()
+

@@ -22,6 +22,17 @@ description: |
   endpoint and its OS are looked up in the org of the alert's customer only; an
   alert whose customer maps to no org, or whose host is not in that org, is left
   New for an analyst.
+  Response actions (kubesoc 04): a tag velociraptor:contain:<action> (or
+  respond:/collect: with an action name) asks for a response or forensic action
+  from ResponseActions - isolate, unisolate, kill, quarantine-file, remove-file,
+  memory, triage - resolved to an artifact by the endpoint's OS. The collector
+  opens an approval task on the case and runs nothing until a member of an
+  ApproverGroups group comments "approve" on it (and, with FourEyes, someone
+  other than the requester); requester, approver, comment, action, artifact,
+  parameters and result all land on the case timeline. A denial ends as
+  velociraptor:denied:<action>. When a collection is done, the SHA-256 the
+  server recorded for every uploaded file is written onto the case as a chain of
+  custody note and the zip is optionally copied to an object-locked bucket.
 type: SERVER_EVENT
 parameters:
   - name: IrisUrl
@@ -43,7 +54,7 @@ parameters:
       Regex of artifact names an IRIS tag may run. Anyone who can edit an asset in
       IRIS can trigger these on that endpoint, so keep it to response artifacts
       the SOC has reviewed.
-    default: '^(Generic\.Client\.Info|Custom\.(MacOS|Windows|Linux)\..+)$'
+    default: '^(Generic\.Client\.Info|Windows\.(Remediation\.Quarantine|Memory\.Acquisition)|Custom\.(MacOS|Windows|Linux|Generic)\..+)$'
   - name: OrgMap
     description: |
       JSON: IRIS customer name or customer id (as a string) -> Velociraptor org id
@@ -75,6 +86,71 @@ parameters:
       JSON: artifact parameter name -> IRIS IOC types whose values fill it.
       An artifact opts in by declaring a parameter with one of these names.
     default: '{"Hashes": ["sha256"], "MD5s": ["md5"], "SHA1s": ["sha1"], "Paths": ["filename"], "IPs": ["ip-dst", "ip-src", "ip-any"], "Domains": ["domain", "hostname"]}'
+  # --- kubesoc 04: approval-gated response actions, triage and evidence -------
+  # Everything below is used only by the response/approval/evidence sections at
+  # the end of the export block; the collect/pending/writeback path above is
+  # unchanged.
+  - name: ResponseActions
+    description: |
+      JSON: action name -> {Velociraptor OS name (windows, linux, darwin) ->
+      {"artifact": name, "parameters": {name: value}}}. An asset tagged
+      velociraptor:contain:<action> (velociraptor:respond:<action> and
+      velociraptor:collect:<action> are accepted too) asks for that action;
+      the artifact is picked by the endpoint's OS and is only ever run after an
+      approver has signed it off on the approval task. Values must be strings.
+      An action name that is not a key here keeps its old meaning on a
+      velociraptor:collect: tag: a bare artifact name to collect.
+    default: '{"isolate": {"windows": {"artifact": "Windows.Remediation.Quarantine"}, "linux": {"artifact": "Custom.Linux.Remediation.Isolate"}, "darwin": {"artifact": "Custom.MacOS.Remediation.Isolate"}}, "unisolate": {"windows": {"artifact": "Windows.Remediation.Quarantine", "parameters": {"RemovePolicy": "Y"}}, "linux": {"artifact": "Custom.Linux.Remediation.Isolate", "parameters": {"RemovePolicy": "Y"}}, "darwin": {"artifact": "Custom.MacOS.Remediation.Isolate", "parameters": {"RemovePolicy": "Y"}}}, "kill": {"windows": {"artifact": "Custom.Generic.Remediation.KillProcess"}, "linux": {"artifact": "Custom.Generic.Remediation.KillProcess"}, "darwin": {"artifact": "Custom.Generic.Remediation.KillProcess"}}, "quarantine-file": {"windows": {"artifact": "Custom.Windows.Remediation.RemoveByHash"}, "linux": {"artifact": "Custom.Linux.Remediation.RemoveByHash"}, "darwin": {"artifact": "Custom.MacOS.Remediation.RemoveByHash"}}, "remove-file": {"windows": {"artifact": "Custom.Windows.Remediation.RemoveByHash", "parameters": {"Mode": "delete"}}, "linux": {"artifact": "Custom.Linux.Remediation.RemoveByHash", "parameters": {"Mode": "delete"}}, "darwin": {"artifact": "Custom.MacOS.Remediation.RemoveByHash"}}, "memory": {"windows": {"artifact": "Windows.Memory.Acquisition"}, "linux": {"artifact": "Custom.Linux.Forensics.MemoryImage"}}, "triage": {"windows": {"artifact": "Custom.Windows.Triage.Collect"}, "linux": {"artifact": "Custom.Linux.Triage.Collect"}, "darwin": {"artifact": "Custom.MacOS.Triage.Collect"}}}'
+  - name: ApproverGroups
+    description: |
+      JSON list of IRIS group names whose members may approve a response action.
+      Membership is read from the IRIS API on every cycle, so adding a user to
+      the group is enough. An empty list means nothing can ever be approved.
+    default: '["velociraptor-approvers"]'
+  - name: ApprovalTaskTag
+    description: Tag put on the approval task the collector opens on the case.
+    default: velociraptor-approval
+  - name: ApproveRegex
+    description: |
+      A comment on the approval task by a member of ApproverGroups matching this
+      runs the action. Everything the approver typed, who they are and when is
+      copied onto the case timeline with the result.
+    default: '(?i)^\s*approve'
+  - name: DenyRegex
+    default: '(?i)^\s*(deny|reject)'
+  - name: FourEyes
+    description: |
+      "Y" refuses an approval from the analyst who owns the asset (the requester),
+      so two people are always involved. "N" lets a requester approve themselves.
+    default: "Y"
+  - name: IsolationAllowlist
+    description: |
+      Comma-separated IPs or CIDRs that stay reachable from an isolated endpoint -
+      the Velociraptor frontend first of all. Passed to any action artifact that
+      declares a ServerAllowlist parameter. The isolation artifacts refuse to run
+      with an empty allowlist, so the endpoint can never be cut off from the SOC.
+    default: ""
+  - name: EvidenceS3Bucket
+    description: |
+      Optional: bucket that a finished collection's zip is copied to, once, after
+      its hashes are on the case. Use a bucket with object lock (WORM) and a
+      retention period at least as long as the case retention. Empty disables the
+      export; the hashes are still written to the case either way.
+    default: ""
+  - name: EvidenceS3Region
+    default: ""
+  - name: EvidenceS3Endpoint
+    description: S3-compatible endpoint URL (empty uses AWS).
+    default: ""
+  - name: EvidenceS3Secret
+    description: |
+      Name of a Velociraptor server secret of type AWS S3 Creds holding the
+      access key. Required for the export: credentials are never taken from the
+      artifact parameters, which are readable by anyone who can see the flow.
+    default: ""
+  - name: EvidenceS3Prefix
+    description: Key prefix inside the bucket (s3upload_root).
+    default: ""
 export: |
   LET KEY = regex_replace(source=read_file(filename=IrisKeyFile), re='\\s+$', replace='')
   LET H = dict(Authorization='Bearer ' + KEY, `Content-Type`='application/json')
@@ -173,9 +249,14 @@ export: |
   LET tagged = SELECT *,
           parse_string_with_regex(string=asset_tags, regex='velociraptor:collect:(?P<art>[A-Za-z0-9._]+)').art AS tag_art
       FROM routed(tag='velociraptor:collect')
+  -- kubesoc 04: a velociraptor:collect:<name> whose <name> is a ResponseActions key
+  -- (triage, isolate, ...) is an approval-gated action, handled by the response
+  -- section at the end of this export; only bare artifact names run from here.
+  LET ra_plaincollect = SELECT * FROM tagged
+      WHERE NOT get(item=parse_json(data=ResponseActions), field=str(str=tag_art))
   LET run = SELECT *, if(condition=tag_art, then=tag_art, else=CollectArtifact) AS art,
           hostin(org=org_id, host=asset_name)[0].client_id AS client_id
-      FROM tagged
+      FROM ra_plaincollect
   LET unrouted = SELECT *, if(condition=org_id, then='no-client', else='no-org') AS reason FROM run WHERE NOT client_id
   LET refusedroute = SELECT *,
           log(message=format(format='IrisCollector: case %v asset %v: customer %v (%v) org %v: %v', args=[case_id, asset_id, cust_name, cust_id, org_id, reason])) AS logged,
@@ -310,6 +391,208 @@ export: |
                          query={ SELECT * FROM foreach(row=a) })
             WHERE asset_name = hostname } AS tagged
       FROM escalated WHERE case_id
+  -- ==========================================================================
+  -- kubesoc 04: approval-gated response actions, triage and evidence.
+  -- Additive; the only change above is the ra_plaincollect guard on LET run.
+  -- Tag lifecycle of an action (contain|respond|collect):<action>:
+  --   velociraptor:contain:isolate              an analyst asks for it
+  --   velociraptor:approval:<task>:<action>     approval task opened on the case
+  --   velociraptor:pending:<org>:<flow>:<art>   approved and scheduled; the
+  --                                             writeback section reports results
+  --   velociraptor:done:<org>:<flow>            results on the case
+  --   velociraptor:archived:<org>:<flow>        chain of custody written
+  --   velociraptor:denied:<action>              an approver said no
+  --   velociraptor:error:<reason>               never routed, never ran
+  -- Nothing reaches an endpoint before a member of ApproverGroups - and, with
+  -- FourEyes, someone other than the requester - has commented on the task.
+  LET RMAP = parse_json(data=ResponseActions)
+  LET ra_for(act, os) = get(item=get(item=RMAP, field=act), field=os)
+  LET ra_art(act, os) = get(item=ra_for(act=act, os=os), field='artifact')
+  LET ra_params(act, os) = get(item=ra_for(act=act, os=os), field='parameters')
+
+  -- who may approve: the members of ApproverGroups, re-read every cycle
+  LET ra_groups = SELECT group_name, group_members FROM foreach(
+      row={ SELECT parse_json(data=Content).data AS l
+            FROM http_client(url=IrisUrl + '/manage/groups/list', headers=H) },
+      query={ SELECT * FROM foreach(row=l) })
+  LET ra_approvergroups = parse_json_array(data=ApproverGroups)
+  LET ra_members = SELECT * FROM foreach(
+      row={ SELECT group_members FROM ra_groups WHERE group_name in ra_approvergroups },
+      query={ SELECT * FROM foreach(row=group_members) })
+  LET ra_approverids = SELECT enumerate(items=id) AS v FROM ra_members GROUP BY 1
+  LET ra_user(uid) = SELECT parse_json(data=Content).data.user_login AS login
+      FROM http_client(url=IrisUrl + '/manage/users/' + str(str=uid), headers=H)
+  -- IRIS records the creator of an asset, not who last edited its tags, so the
+  -- requester of an action is the analyst the asset belongs to on this case
+  LET ra_owner(cid, aid) = SELECT parse_json(data=Content).data.user_id AS uid
+      FROM http_client(url=IrisUrl + '/case/assets/' + str(str=aid), params=dict(cid=cid), headers=H)
+  LET ra_requester(cid, aid) = ra_user(uid=ra_owner(cid=cid, aid=aid)[0].uid)[0].login
+  LET ra_open(cid, title, desc, tags) = SELECT parse_json(data=Content).data.id AS task_id
+      FROM http_client(url=IrisUrl + '/case/tasks/add?cid=' + str(str=cid), method='POST', headers=H,
+           data=serialize(format='json', item=dict(
+               task_title=title, task_description=desc, task_tags=tags,
+               task_status_id=1, task_assignees_id=[], custom_attributes=dict())))
+  LET ra_comments(cid, tid) = SELECT comment_user_id, comment_text, comment_date, user.user_login AS login
+      FROM foreach(row={ SELECT parse_json(data=Content).data AS l
+                         FROM http_client(url=IrisUrl + '/case/tasks/' + str(str=tid) + '/comments/list',
+                                          params=dict(cid=cid), headers=H) },
+                   query={ SELECT * FROM foreach(row=l) })
+  -- the first comment by an approver that says approve or deny decides; req is
+  -- the login that may not decide (the requester, unless FourEyes is off)
+  LET ra_verdict(cid, tid, req) = SELECT login, comment_text, comment_date,
+          if(condition=comment_text =~ ApproveRegex, then=true, else=false) AS approved
+      FROM ra_comments(cid=cid, tid=tid)
+      WHERE if(condition=ra_approverids[0].v, then=comment_user_id in ra_approverids[0].v, else=false)
+        AND login != req
+        AND (comment_text =~ ApproveRegex OR comment_text =~ DenyRegex)
+
+  -- request: an action tag -> org, client, OS -> artifact -> approval task
+  LET ra_tagged = SELECT *,
+          parse_string_with_regex(string=asset_tags,
+              regex='velociraptor:(?:contain|respond|collect):(?P<act>[A-Za-z0-9._-]+)').act AS action
+      FROM routed(tag='velociraptor:(contain|respond|collect):')
+  LET ra_known = SELECT * FROM ra_tagged WHERE action AND get(item=RMAP, field=action)
+  LET ra_located = SELECT *, hostin(org=org_id, host=asset_name)[0].client_id AS client_id FROM ra_known
+  LET ra_noroute = SELECT *, '' AS art, if(condition=org_id, then='no-client', else='no-org') AS reason
+      FROM ra_located WHERE NOT client_id
+  LET ra_withos = SELECT *, osin(org=org_id, c=client_id)[0].os AS os FROM ra_located WHERE client_id
+  LET ra_resolved = SELECT *, ra_art(act=action, os=os) AS art FROM ra_withos
+  LET ra_unsupported = SELECT *,
+          if(condition=os, then='no-artifact-for-' + os, else='no-os') AS reason
+      FROM ra_resolved WHERE NOT art
+  LET ra_notallowed = SELECT *, 'not-allowed' AS reason FROM ra_resolved WHERE art AND NOT allowed(art=art)
+  LET ra_refused = SELECT case_id, asset_id, asset_name, action, art, reason,
+          log(message=format(format='IrisCollector: case %v asset %v action %v: %v',
+              args=[case_id, asset_id, action, reason])) AS logged,
+          note(cid=case_id, title='Velociraptor: ' + action + ' not run on ' + asset_name + ' (' + reason + ')',
+               content=format(format='The asset tag asked for the response action %v. It was not run: %v. Artifact resolved from ResponseActions for this endpoint: %v. Nothing ran on any endpoint.',
+                   args=[action, reason, art])) AS ev,
+          retag(cid=case_id, aid=asset_id, aname=asset_name, atype=asset_type_id, aip=asset_ip,
+                adesc=asset_description, adom=asset_domain, acomp=asset_compromise_status_id,
+                ast=analysis_status_id, atags=asset_tags, newtag='velociraptor:error:' + reason) AS retag
+      FROM chain(a={ SELECT * FROM ra_noroute },
+                 b={ SELECT * FROM ra_unsupported },
+                 c={ SELECT * FROM ra_notallowed })
+  LET ra_askable = SELECT *, ra_requester(cid=case_id, aid=asset_id) AS requester
+      FROM ra_resolved WHERE art AND allowed(art=art)
+  LET ra_opened = SELECT *, ra_open(cid=case_id,
+          title=format(format='Velociraptor approval required: %v on %v', args=[action, asset_name]),
+          desc=format(format='Requested by %v for asset %v (%v) in Velociraptor org %v, client %v. The action runs %v on the endpoint. A member of the approver group (%v) must comment "approve" on this task - "deny" refuses it. The comment, who wrote it and when are copied onto the case timeline with the result.',
+              args=[requester, asset_name, asset_id, org_id, client_id, art, ApproverGroups]),
+          tags=ApprovalTaskTag + ',velociraptor,action:' + action)[0].task_id AS task_id
+      FROM ra_askable
+  LET ra_request = SELECT case_id, asset_id, asset_name, org_id, client_id, action, art, task_id, requester,
+          log(message=format(format='IrisCollector: case %v asset %v action %v (%v) -> approval task %v',
+              args=[case_id, asset_id, action, art, task_id])) AS logged,
+          note(cid=case_id, title='Velociraptor: approval requested for ' + action + ' on ' + asset_name,
+               content=format(format='%v asked for the response action %v on %v (client %v, org %v), which runs %v. Task #%v is open for an approver; nothing has run on the endpoint yet.',
+                   args=[requester, action, asset_name, client_id, org_id, art, task_id])) AS ev,
+          retag(cid=case_id, aid=asset_id, aname=asset_name, atype=asset_type_id, aip=asset_ip,
+                adesc=asset_description, adom=asset_domain, acomp=asset_compromise_status_id,
+                ast=analysis_status_id, atags=asset_tags,
+                newtag='velociraptor:approval:' + str(str=task_id) + ':' + action) AS retag
+      FROM ra_opened WHERE task_id
+
+  -- approval: approval:<task>:<action> -> verdict on the task -> collect or deny
+  LET ra_waiting = SELECT *,
+          parse_string_with_regex(string=asset_tags,
+              regex='velociraptor:approval:(?P<task>[0-9]+):(?P<act>[A-Za-z0-9._-]+)') AS ap
+      FROM routed(tag='velociraptor:approval:')
+  LET ra_await = SELECT *, ap.task AS task_id, ap.act AS action,
+          hostin(org=org_id, host=asset_name)[0].client_id AS client_id,
+          ra_requester(cid=case_id, aid=asset_id) AS requester
+      FROM ra_waiting WHERE ap.task
+  LET ra_judged = SELECT *, ra_verdict(cid=case_id, tid=task_id,
+          req=if(condition=(FourEyes = 'Y'), then=requester, else=''))[0] AS v
+      FROM ra_await WHERE org_id AND client_id
+  LET ra_denied = SELECT case_id, asset_id, asset_name, org_id, action, task_id, requester, v,
+          log(message=format(format='IrisCollector: case %v asset %v action %v denied by %v',
+              args=[case_id, asset_id, action, v.login])) AS logged,
+          note(cid=case_id, title='Velociraptor: ' + action + ' denied on ' + asset_name,
+               content=format(format='%v refused the response action %v requested by %v on task #%v: "%v" (%v). Nothing ran on the endpoint.',
+                   args=[v.login, action, requester, task_id, v.comment_text, v.comment_date])) AS ev,
+          retag(cid=case_id, aid=asset_id, aname=asset_name, atype=asset_type_id, aip=asset_ip,
+                adesc=asset_description, adom=asset_domain, acomp=asset_compromise_status_id,
+                ast=analysis_status_id, atags=asset_tags, newtag='velociraptor:denied:' + action) AS retag
+      FROM ra_judged WHERE v.login AND NOT v.approved
+  LET ra_go = SELECT *, osin(org=org_id, c=client_id)[0].os AS os FROM ra_judged WHERE v.approved
+  LET ra_goart = SELECT *, ra_art(act=action, os=os) AS art, ra_params(act=action, os=os) AS extra FROM ra_go
+  -- the isolation artifacts take the allowlist that keeps Velociraptor reachable
+  LET ra_allowrows(art) = SELECT name AS _key, IsolationAllowlist AS _value
+      FROM foreach(row={ SELECT parameters FROM artifact_definitions(names=art) },
+                   query={ SELECT name FROM foreach(row=parameters) })
+      WHERE name = 'ServerAllowlist' AND IsolationAllowlist
+  LET ra_env = SELECT *, envof(cid=case_id, art=art)
+          + to_dict(item={ SELECT * FROM ra_allowrows(art=art) })
+          + if(condition=extra, then=extra, else=dict()) AS env
+      FROM ra_goart WHERE art AND allowed(art=art)
+  LET ra_scheduled = SELECT *,
+          collect_client(org_id=org_id, client_id=client_id, artifacts=[art],
+                         spec=to_dict(item={ SELECT art AS _key, env AS _value FROM scope() })).flow_id AS flow_id
+      FROM ra_env
+  LET ra_approved = SELECT case_id, asset_id, asset_name, org_id, client_id, action, art, task_id,
+          requester, flow_id, env,
+          log(message=format(format='IrisCollector: case %v asset %v action %v approved by %v -> %v %v %v',
+              args=[case_id, asset_id, action, v.login, art, env, flow_id])) AS logged,
+          note(cid=case_id, title='Velociraptor: ' + action + ' approved and running on ' + asset_name,
+               content=format(format='Response action %v on %v (client %v, org %v). Requested by %v, approved by %v on task #%v at %v ("%v"). Running %v as flow %v with parameters %v. The result follows on this timeline when the flow finishes.',
+                   args=[action, asset_name, client_id, org_id, requester, v.login, task_id,
+                         v.comment_date, v.comment_text, art, flow_id, env])) AS ev,
+          retag(cid=case_id, aid=asset_id, aname=asset_name, atype=asset_type_id, aip=asset_ip,
+                adesc=asset_description, adom=asset_domain, acomp=asset_compromise_status_id,
+                ast=analysis_status_id, atags=asset_tags,
+                newtag='velociraptor:pending:' + org_id + ':' + flow_id + ':' + art) AS retag
+      FROM ra_scheduled WHERE flow_id
+
+  -- evidence: done:<org>:<flow> -> the server's own sha256 of every uploaded file
+  -- -> chain of custody on the case (and optionally a copy in an object-locked
+  -- bucket) -> archived:<org>:<flow>
+  LET ra_donetag = SELECT *,
+          parse_string_with_regex(string=asset_tags,
+              regex='velociraptor:done:(?P<org>[A-Za-z0-9]+):(?P<flow>F\\.[A-Z0-9]+)') AS dn
+      FROM routed(tag='velociraptor:done:')
+  LET ra_doneflow = SELECT *, dn.org AS tag_org, dn.flow AS flow_id,
+          hostin(org=org_id, host=asset_name)[0].client_id AS client_id
+      FROM ra_donetag WHERE dn.flow
+  LET ra_uploads(org, c, f) = SELECT * FROM foreach(row={ SELECT org FROM scope() WHERE org AND c AND f },
+      query={ SELECT * FROM query(org_id=org, env=dict(c=c, f=f),
+                  query={ SELECT vfs_path, file_size, sha256, md5, started
+                          FROM uploads(client_id=c, flow_id=f) LIMIT 1000 }) })
+  LET ra_lines(org, c, f) = SELECT format(format='%v (sha256 %v, %v bytes, %v)',
+          args=[vfs_path, sha256, file_size, started]) AS line
+      FROM ra_uploads(org=org, c=c, f=f)
+  LET ra_hashes(org, c, f) = SELECT join(array=enumerate(items=line), sep=' | ') AS j
+      FROM ra_lines(org=org, c=c, f=f) GROUP BY 1
+  -- credentials come from a named server secret, never from the parameters
+  LET ra_s3(org, c, f) = SELECT * FROM foreach(
+      row={ SELECT org FROM scope() WHERE org AND c AND f AND EvidenceS3Bucket AND EvidenceS3Secret },
+      query={ SELECT * FROM query(org_id=org,
+                  env=dict(c=c, f=f, bucket=EvidenceS3Bucket, region=EvidenceS3Region,
+                           endpoint=EvidenceS3Endpoint, sec=EvidenceS3Secret, root=EvidenceS3Prefix),
+                  query={ SELECT upload_s3(file=create_flow_download(client_id=c, flow_id=f, wait=true),
+                              name=f + '.zip', bucket=bucket, region=region, endpoint=endpoint,
+                              secret=sec, s3upload_root=root) AS uploaded FROM scope() }) })
+  LET ra_custody = SELECT *, ra_hashes(org=org_id, c=client_id, f=flow_id)[0].j AS hashes
+      FROM ra_doneflow WHERE org_id AND tag_org = org_id AND client_id
+  LET ra_exported = SELECT *,
+          if(condition=hashes, then=ra_s3(org=org_id, c=client_id, f=flow_id)[0].uploaded, else='') AS exported
+      FROM ra_custody
+  LET ra_evidence = SELECT case_id, asset_id, asset_name, org_id, flow_id, hashes, exported,
+          log(message=format(format='IrisCollector: evidence of %v on case %v: %v (export %v)',
+              args=[flow_id, case_id, hashes, exported])) AS logged,
+          if(condition=hashes,
+             then=note(cid=case_id, title='Velociraptor: evidence from ' + flow_id + ' on ' + asset_name,
+                  content=format(format='Chain of custody. Host %v (client %v) in org %v, flow %v, collected for this case on behalf of %v. Files uploaded to the Velociraptor server and their SHA-256 as the server recorded them: %v. Copy in the evidence bucket: %v.',
+                      args=[asset_name, client_id, org_id, flow_id,
+                            ra_requester(cid=case_id, aid=asset_id), hashes,
+                            if(condition=exported, then=exported, else='none (no EvidenceS3Bucket configured)')])),
+             else='') AS ev,
+          retag(cid=case_id, aid=asset_id, aname=asset_name, atype=asset_type_id, aip=asset_ip,
+                adesc=asset_description, adom=asset_domain, acomp=asset_compromise_status_id,
+                ast=analysis_status_id, atags=asset_tags,
+                newtag='velociraptor:archived:' + org_id + ':' + flow_id) AS retag
+      FROM ra_exported
+
 sources:
   - name: autorespond
     query: |
@@ -325,4 +608,19 @@ sources:
       SELECT * FROM foreach(row={ SELECT * FROM clock(period=PollSeconds) },
                             query={ SELECT * FROM chain(a={ SELECT case_id, asset_id, art, reason AS flow_id FROM wbrefused },
                                                         b={ SELECT case_id, asset_id, art, flow_id FROM writeback }) })
+  # kubesoc 04: approval-gated response actions and evidence handling.
+  - name: response
+    query: |
+      SELECT * FROM foreach(row={ SELECT * FROM clock(period=PollSeconds) },
+                            query={ SELECT * FROM chain(a={ SELECT case_id, asset_id, action, art, reason AS state FROM ra_refused },
+                                                        b={ SELECT case_id, asset_id, action, art, 'awaiting-approval' AS state FROM ra_request }) })
+  - name: approval
+    query: |
+      SELECT * FROM foreach(row={ SELECT * FROM clock(period=PollSeconds) },
+                            query={ SELECT * FROM chain(a={ SELECT case_id, asset_id, action, task_id, 'denied' AS state, v.login AS approver FROM ra_denied },
+                                                        b={ SELECT case_id, asset_id, action, task_id, flow_id AS state, v.login AS approver FROM ra_approved }) })
+  - name: evidence
+    query: |
+      SELECT * FROM foreach(row={ SELECT * FROM clock(period=PollSeconds) },
+                            query={ SELECT case_id, asset_id, flow_id, hashes, exported FROM ra_evidence })
 
