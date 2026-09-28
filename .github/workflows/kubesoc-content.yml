@@ -1,0 +1,103 @@
+name: kubesoc content
+
+"on":
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+    paths:
+      - 'argocd-helm-charts/kubesoc-content/**'
+      - 'argocd-helm-charts/security-operations/**'
+      - 'argocd-helm-charts/wazuh/**'
+      - 'argocd-helm-charts/misp/files/**'
+      - 'argocd-helm-charts/misp/tests/**'
+      - 'argocd-helm-charts/dfir-iris/files/**'
+      - 'argocd-helm-charts/dfir-iris/tests/**'
+      - '.github/workflows/kubesoc-content.yml'
+  push:
+    branches:
+      - master
+    paths:
+      - 'argocd-helm-charts/kubesoc-content/**'
+      - '.github/workflows/kubesoc-content.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kubesoc-content-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CONTENT: argocd-helm-charts/kubesoc-content
+
+jobs:
+  lint:
+    name: XML, lists and fixtures
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Install xmllint
+        run: sudo apt-get update -q && sudo apt-get install -y -q libxml2-utils
+      - name: Lint the content package
+        run: ${CONTENT}/tests/lint.sh
+
+  logtest:
+    name: wazuh-logtest fixtures
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Replay fixtures in wazuh/wazuh-manager:4.14.3
+        env:
+          WAZUH_IMAGE: wazuh/wazuh-manager:4.14.3
+        run: ${CONTENT}/tests/logtest.sh
+
+  velociraptor:
+    name: velociraptor artifacts verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Verify every artifact the reconciler sets
+        env:
+          VELOCIRAPTOR_IMAGE: ghcr.io/maximewewer/velociraptor:0.77.1-distroless
+        run: ${CONTENT}/tests/velociraptor_verify.sh
+
+  pytest:
+    name: SOC scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install pytest
+        run: python -m pip install --quiet pytest
+      - name: wazuh-cdb-export.py, custom-iris.py, ai-triage.py
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: >-
+          python -m pytest -q -p no:cacheprovider
+          argocd-helm-charts/misp/tests
+          argocd-helm-charts/wazuh/tests
+          argocd-helm-charts/dfir-iris/tests
+
+  render:
+    name: Chart render tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: azure/setup-helm@v5
+        with:
+          version: 'v3.21.3'
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.52.4/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+      - name: kubesoc-content
+        run: ${CONTENT}/tests/render_test.sh
+      - name: wazuh (tenant mode)
+        run: argocd-helm-charts/wazuh/tests/tenant_render_test.sh
+      - name: security-operations
+        run: argocd-helm-charts/security-operations/tests/render_test.sh
