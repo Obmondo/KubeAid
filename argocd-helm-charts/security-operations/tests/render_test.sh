@@ -362,6 +362,8 @@ if render "${NP[@]}" >"$TMP/np.yaml"; then
     && ok "reconciler mounts the CA" || ko "reconciler CA volume"
   [ "$(yq -N 'select(.kind == "CronJob" and .metadata.name == "misp-wazuh-cdb-export") | .spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "WAZUH_TARGETS") | .value' "$TMP/np.yaml" | jq -r 'map(.caFile) | unique | join(",")')" = "/wazuh-ca/ca.crt" ] \
     && ok "MISP export verifies against the soc-ca" || ko "MISP export CA"
+  [ "$(jq -r '[.enrolment[].caSecretRef | .namespace + "/" + .name + "/" + .key] | join(",")' <<<"$cfg")" = "wazuh-001/wazuh-manager-tls/ca.crt,wazuh-002/wazuh-manager-tls/ca.crt" ] \
+    && ok "enrolment bundles carry the manager CA" || ko "enrolment CA: $(jq -c '.enrolment' <<<"$cfg")"
   [ "$(npq ConfigMap wazuh-dashboard-config '.data["opensearch_dashboards.yml"]' | yq '.["opensearch.ssl.verificationMode"]')" = "full" ] \
     && ok "central dashboard verifies the indexer" || ko "dashboard verificationMode"
 else

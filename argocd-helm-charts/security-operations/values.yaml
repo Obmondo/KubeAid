@@ -119,6 +119,11 @@ tenantWazuh:
   # Secrets in each tenant namespace (sealed by the operator or kubeaid-cli).
   apiCredSecret: wazuh-api-cred
   authdSecret: wazuh-authd-pass
+  # Secret of the tenant manager's API and authd certificate (wazuh.managerTls in the
+  # tenant release). Its ca.crt goes into the enrolment bundle, so agents verify the
+  # manager when they enrol; a bundle is written without it while the Secret is missing.
+  # Empty: no CA in the bundles.
+  managerTlsSecret: wazuh-manager-tls
   # Manager API and indexer Services inside the tenant namespace.
   managerService: wazuh
   indexerNodesService: wazuh-indexer-nodes

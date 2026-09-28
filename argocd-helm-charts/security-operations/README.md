@@ -70,6 +70,7 @@ component blocks exactly as for the standalone charts (see their READMEs), one l
 | `tenantWazuh.agentHost` | `""` | Public host the agents dial, for the enrolment bundles |
 | `tenantWazuh.agentVersion` | `4.14.3-1` | Agent package in the bundles' install commands; not newer than the managers |
 | `tenantWazuh.{apiCredSecret,authdSecret}` | `wazuh-api-cred`, `wazuh-authd-pass` | Secrets in each tenant namespace the reconciler reads |
+| `tenantWazuh.managerTlsSecret` | `wazuh-manager-tls` | Secret of a tenant manager's certificate (`wazuh.managerTls`); its `ca.crt` goes into the enrolment bundle |
 | `tenantWazuh.{managerService,indexerNodesService}` | `wazuh`, `wazuh-indexer-nodes` | Service names of a tenant release (`fullnameOverride: wazuh`) |
 | `socCA.*` | enabled, `soc-ca` in `cert-manager` | CA ClusterIssuer every Wazuh instance uses |
 | `socCA.trustSecret` | `soc-ca-trust` | Certificate from the CA in this namespace; its `ca.crt` is what the reconciler and the MISP export verify against |

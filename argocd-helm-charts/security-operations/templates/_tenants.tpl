@@ -207,6 +207,10 @@ app.kubernetes.io/part-of: security-operations
 {{- range $t := include "secops.tenants" . | fromJsonArray -}}
 {{- with $t.agentPorts -}}
 {{- $out = append $out (dict "tenant" $t.code "namespace" $t.namespace "name" "enrolment-bundle" "managerHost" $tw.agentHost "registrationPort" (int .registration) "eventsPort" (int .events) "authdSecretRef" (dict "namespace" $t.namespace "name" $tw.authdSecret "key" "authd.pass") "agentVersion" $tw.agentVersion) -}}
+{{- if $tw.managerTlsSecret -}}
+{{- /* The manager's CA, so agents verify it when enrolling (wazuh.managerTls in the tenant release). */ -}}
+{{- $out = append (initial $out) (set (last $out) "caSecretRef" (dict "namespace" $t.namespace "name" $tw.managerTlsSecret "key" "ca.crt")) -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}
