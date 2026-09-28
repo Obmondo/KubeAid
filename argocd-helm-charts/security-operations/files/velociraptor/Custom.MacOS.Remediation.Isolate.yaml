@@ -1,0 +1,62 @@
+name: Custom.MacOS.Remediation.Isolate
+description: |
+  Network-isolate a macOS endpoint with pf, leaving only the Velociraptor server
+  (and optionally DNS) reachable. Set RemovePolicy to lift the isolation again.
+
+  The ruleset is written to AnchorPath and loaded with `pfctl -E -f`, so the
+  host's own /etc/pf.conf is left untouched; un-isolating reloads /etc/pf.conf
+  and removes the file. macOS ships pf but usually has it disabled, so -E
+  enables it and the un-isolate step disables it again with -d.
+
+  Safety: with no ServerAllowlist this artifact refuses to do anything - a
+  default-deny ruleset without an exception for the Velociraptor frontend would
+  cut the endpoint off from the SOC as well.
+type: CLIENT
+parameters:
+  - name: ServerAllowlist
+    default: ""
+    description: |
+      Comma-separated IPs or CIDRs that stay reachable in both directions.
+      Empty refuses to isolate.
+  - name: AllowDNS
+    type: bool
+    default: "Y"
+  - name: AnchorPath
+    default: /etc/pf.anchors/kubesoc.isolate
+  - name: PfctlPath
+    default: /sbin/pfctl
+  - name: RemovePolicy
+    type: bool
+    default: ""
+    description: Restore /etc/pf.conf and disable pf again (un-isolate).
+sources:
+  - query: |
+      LET Allow = filter(list=split(string=ServerAllowlist, sep=','), regex='.')
+      LET Hosts = join(array=Allow, sep=', ')
+      -- quick=first match wins; keep the allow rules above the block rules
+      LET Ruleset = 'set block-policy drop\n' +
+          'set skip on lo0\n' +
+          'pass quick proto { tcp udp } from { ' + Hosts + ' } to any\n' +
+          'pass quick proto { tcp udp } from any to { ' + Hosts + ' }\n' +
+          if(condition=AllowDNS, then='pass quick proto { tcp udp } to any port 53\n', else='') +
+          'block drop in all\n' +
+          'block drop out all\n'
+      LET Written = SELECT copy(filename=Ruleset, accessor='data', dest=AnchorPath) AS Path FROM scope()
+      LET Apply = SELECT Written[0].Path AS Ruleset,
+             { SELECT ReturnCode, Stderr FROM execve(argv=[PfctlPath, '-E', '-f', AnchorPath]) } AS Result,
+             'isolate' AS Action
+          FROM scope()
+      LET Revert = SELECT AnchorPath AS Ruleset,
+             { SELECT ReturnCode, Stderr FROM execve(argv=[PfctlPath, '-f', '/etc/pf.conf']) } AS Result,
+             'un-isolate' AS Action
+          FROM scope()
+      LET Disable = SELECT { SELECT ReturnCode FROM execve(argv=[PfctlPath, '-d']) } AS Off,
+             { SELECT ReturnCode FROM execve(argv=['/bin/rm', '-f', AnchorPath]) } AS Removed
+          FROM scope()
+      SELECT * FROM if(condition=RemovePolicy,
+          then={ SELECT *, Disable[0] AS Cleanup FROM Revert },
+          else=if(condition=Allow[0], then={ SELECT *, dict() AS Cleanup FROM Apply },
+              else={ SELECT '' AS Ruleset,
+                        dict(ReturnCode=1, Stderr='refused: ServerAllowlist is empty, isolating would cut the endpoint off from Velociraptor too') AS Result,
+                        'refused' AS Action, dict() AS Cleanup FROM scope() }))
+

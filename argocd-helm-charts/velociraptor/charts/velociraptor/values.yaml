@@ -156,10 +156,33 @@ api:
 ## Secret and create on Secrets (create cannot be limited by resourceNames); the chart
 ## grants nothing itself. With networkPolicy.enabled the pod also needs egress to the
 ## Kubernetes API, which a NetworkPolicy ipBlock cannot express on Cilium.
+## KubeAid patch. role is a comma separated list of Velociraptor roles the api_client
+## user is registered with; policy (when non-empty) is applied afterwards with
+## `velociraptor acl grant <name> <policy>` and REPLACES the roles' permissions with
+## exactly these, which is how the reconciler stays least-privilege. The default is
+## the smallest set that lets the reconciler do its work (verified on 0.77.1, one
+## permission dropped at a time):
+##   any_query             run any VQL at all (without it every call is refused)
+##   read_results          get_server_monitoring()
+##   org_admin             orgs(), org_create(), the _client_config column
+##   collect_server        add_server_monitoring()
+##   server_artifact_writer  artifact_set() for SERVER/SERVER_EVENT artifacts
+##   artifact_writer       artifact_set() for CLIENT artifacts
+## administrator adds execve, filesystem_read/write, network, impersonation,
+## delete_results, server_admin and machine_state on top, which the reconciler never
+## uses. Set policy: null (not {} - Helm merges maps) to keep the old behaviour: the roles'
+## own permissions, and no acl grant step.
 apiClient:
   enabled: false
   name: siem-reconciler
-  role: administrator
+  role: api
+  policy:
+    any_query: true
+    read_results: true
+    org_admin: true
+    collect_server: true
+    server_artifact_writer: true
+    artifact_writer: true
   secretName: velociraptor-api-client
   secretKey: api_client.yaml
   publisherImage:

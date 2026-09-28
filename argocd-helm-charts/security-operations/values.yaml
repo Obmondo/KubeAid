@@ -450,7 +450,10 @@ monitoring:
 # Velociraptor server artifacts. files/velociraptor/*.yaml ship with the chart
 # (Custom.Server.IrisCollector: IRIS case -> endpoint collection -> results on the
 # case, and automatic response to mapped alerts; Custom.Server.KeycloakSync: Keycloak
-# users -> Velociraptor users and org grants; Custom.MacOS.Remediation.RemoveByHash)
+# users -> Velociraptor users and org grants; the response and forensics artifacts
+# the IRIS collector runs: Custom.{MacOS,Windows,Linux}.Remediation.RemoveByHash,
+# Custom.{Linux,MacOS}.Remediation.Isolate, Custom.Generic.Remediation.KillProcess,
+# Custom.{Windows,Linux,MacOS}.Triage.Collect, Custom.Linux.Forensics.MemoryImage)
 # and are rendered into ConfigMap velociraptor-artifacts, which the Velociraptor pod
 # loads at start (velociraptor.velociraptor.customArtifacts). The server artifacts
 # read the tenant maps in /etc/siem (velociraptor-tenants), the IRIS API key in
@@ -479,6 +482,28 @@ velociraptorArtifacts:
         # customer created and nobody else touched (CreatorMapFile).
         AutoRules: "{}"
         CreatorMapFile: /etc/siem/alert-creators.json
+        # Response actions (isolate, kill, triage, memory, ...) run only after a
+        # member of one of these IRIS groups comments "approve" on the approval
+        # task the collector opens on the case. Create the group in IRIS and put
+        # the approvers in it; an empty list would make every action impossible.
+        ApproverGroups: '["velociraptor-approvers"]'
+        # "Y": the analyst who owns the asset cannot approve their own request.
+        FourEyes: "Y"
+        # Isolated endpoints keep reaching these (the Velociraptor frontend
+        # first of all, as IP or CIDR - the client cannot resolve names once it
+        # is isolated unless AllowDNS stays on). The isolation artifacts refuse
+        # to run while this is empty, so an endpoint is never cut off from the
+        # SOC. Set it to the frontend's public address.
+        IsolationAllowlist: ""
+        # Optional: copy of every finished collection's zip in an S3-compatible
+        # bucket with object lock. EvidenceS3Secret is the name of a Velociraptor
+        # server secret (Type: AWS S3 Creds) - credentials never go in here. The
+        # SHA-256 of each uploaded file is written onto the case either way.
+        EvidenceS3Bucket: ""
+        EvidenceS3Region: ""
+        EvidenceS3Endpoint: ""
+        EvidenceS3Secret: ""
+        EvidenceS3Prefix: ""
     Custom.Server.KeycloakSync:
       enabled: true
       parameters:
@@ -630,7 +655,7 @@ velociraptor:
     podAnnotations:
       # sha256 of the velociraptor-artifacts data; templates/checks.yaml fails the
       # render with the new value when the artifacts change.
-      checksum/server-artifacts: 3bbb2c7c343f903c510e4e964fe253c98c7d651f9e9290755d915684eda00b02
+      checksum/server-artifacts: c31485a4df36f14e980d184cbcb4ce6071721bfd9e74170483ca0f4005f77381
     # /etc/siem: tenant maps for the server artifacts (group-map.json, role-map.json,
     # org-map.json), from the velociraptor-tenants ConfigMap.
     # /etc/iris/API_KEY: IRIS API key for Custom.Server.IrisCollector.

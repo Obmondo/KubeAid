@@ -115,6 +115,30 @@ app.kubernetes.io/instance: {{ .Release.Name }}
     - name: tmp
       mountPath: /tmp
     {{- end }}
+{{- if .Values.apiClient.policy }}
+- name: api-client-acl
+  image: {{ include "velociraptor.image" . }}
+  imagePullPolicy: {{ .Values.image.pullPolicy }}
+  args:
+    - --config
+    - {{ .Values.config.mountPath }}
+    - acl
+    - grant
+    - {{ .Values.apiClient.name | quote }}
+    - {{ .Values.apiClient.policy | toJson | quote }}
+  securityContext:
+    {{- toYaml .Values.securityContext | nindent 4 }}
+  resources:
+    {{- toYaml .Values.apiClient.resources | nindent 4 }}
+  volumeMounts:
+    {{- include "velociraptor.configVolumeMount" . | nindent 4 }}
+    - name: datastore
+      mountPath: {{ .Values.persistence.mountPath }}
+    {{- if .Values.tmpDir.enabled }}
+    - name: tmp
+      mountPath: /tmp
+    {{- end }}
+{{- end }}
 - name: api-client-publish
   image: "{{ required "apiClient.publisherImage.repository is required when apiClient.enabled" $pi.repository }}:{{ required "apiClient.publisherImage.tag is required when apiClient.enabled" $pi.tag }}"
   imagePullPolicy: {{ $pi.pullPolicy | default "IfNotPresent" }}

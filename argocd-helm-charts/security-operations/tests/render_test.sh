@@ -254,6 +254,12 @@ extra=$(jq -r 'keys - ["apiClientSecretRef","apiClientFile","address","serverMon
   && ok "KeycloakSync never removes the reconciler's API user" || ko "KeycloakSync Protected: $velo"
 [ "$(jq -r '.serverMonitoring[0].parameters | .IrisUrl + " " + .IrisKeyFile + " " + .OrgMapFile' <<<"$velo")" = "http://dfir-iris-app:8000 /etc/iris/API_KEY /etc/siem/org-map.json" ] \
   && ok "IrisCollector parameters" || ko "IrisCollector parameters: $velo"
+[ "$(jq -r '.serverMonitoring[0].parameters | .ApproverGroups + " " + .FourEyes' <<<"$velo")" = '["velociraptor-approvers"] Y' ] \
+  && ok "response actions need an approver group and four eyes" || ko "approval parameters: $velo"
+[ "$(jq -r '.serverMonitoring[0].parameters | [.IsolationAllowlist, .EvidenceS3Bucket, .EvidenceS3Secret] | join("|")' <<<"$velo")" = "||" ] \
+  && ok "isolation allowlist and evidence export are opt-in" || ko "isolation/evidence parameters: $velo"
+[ "$(jq -r '.serverMonitoring[0].parameters | has("EvidenceS3AccessKey") or has("EvidenceS3SecretKey")' <<<"$velo")" = "false" ] \
+  && ok "no S3 credentials in the monitoring parameters" || ko "S3 credentials in parameters: $velo"
 if render -f "$SCRIPT_DIR/values-2-tenants.yaml" --set dfir-iris.enabled=false >"$TMP/noiris.yaml"; then
   [ "$(yq 'select(.kind == "ConfigMap" and .metadata.name == "siem-tenants") | .data["tenants.json"]' "$TMP/noiris.yaml" | jq -r '[.components.velociraptor.serverMonitoring[].artifact] | join(",")')" = "Custom.Server.KeycloakSync" ] \
     && ok "no IrisCollector without IRIS" || ko "IrisCollector without IRIS"
@@ -284,6 +290,37 @@ for f in "$CHART_DIR"/files/velociraptor/*.yaml; do
     ko "artifact $n differs from files/velociraptor"
   fi
 done
+# The response and forensics artifacts the IRIS collector runs must ship, be CLIENT
+# artifacts and be inside AllowedArtifacts; the collector itself must keep approval on.
+shipped=$(yq -o=json -I=0 'select(.kind == "ConfigMap" and .metadata.name == "velociraptor-artifacts") | .data | keys' "$R2")
+for n in Custom.Linux.Remediation.Isolate Custom.MacOS.Remediation.Isolate \
+         Custom.Windows.Remediation.RemoveByHash Custom.Linux.Remediation.RemoveByHash \
+         Custom.MacOS.Remediation.RemoveByHash Custom.Generic.Remediation.KillProcess \
+         Custom.Windows.Triage.Collect Custom.Linux.Triage.Collect Custom.MacOS.Triage.Collect \
+         Custom.Linux.Forensics.MemoryImage; do
+  if [ "$(jq -r --arg n "$n.yaml" 'index($n) != null' <<<"$shipped")" = "true" ]; then
+    body=$(yq "select(.kind == \"ConfigMap\" and .metadata.name == \"velociraptor-artifacts\") | .data[\"$n.yaml\"]" "$R2")
+    [ "$(yq -N '.name + " " + .type' <<<"$body")" = "$n CLIENT" ] \
+      && ok "response artifact $n" || ko "$n: $(yq -N '.name + " " + .type' <<<"$body")"
+  else
+    ko "response artifact $n not shipped"
+  fi
+done
+allowed=$(yq -N '.parameters[] | select(.name == "AllowedArtifacts") | .default' \
+  <<<"$(yq 'select(.kind == "ConfigMap" and .metadata.name == "velociraptor-artifacts") | .data["Custom.Server.IrisCollector.yaml"]' "$R2")")
+for n in Custom.Generic.Remediation.KillProcess Custom.Windows.Triage.Collect \
+         Windows.Remediation.Quarantine Windows.Memory.Acquisition; do
+  printf '%s' "$n" | grep -Eq "$allowed" && ok "AllowedArtifacts covers $n" || ko "AllowedArtifacts ($allowed) refuses $n"
+done
+printf '%s' "Windows.Sys.Users" | grep -Eq "$allowed" && ko "AllowedArtifacts is too wide" || ok "AllowedArtifacts still refuses arbitrary built-ins"
+collector=$(yq 'select(.kind == "ConfigMap" and .metadata.name == "velociraptor-artifacts") | .data["Custom.Server.IrisCollector.yaml"]' "$R2")
+[ "$(yq -N '[.sources[].name] | join(",")' <<<"$collector")" = "autorespond,scheduler,writeback,response,approval,evidence" ] \
+  && ok "collector runs the response, approval and evidence passes" || ko "collector sources: $(yq -N '[.sources[].name] | join(",")' <<<"$collector")"
+grep -q "ra_verdict(cid=case_id, tid=task_id" <<<"$collector" && grep -q "FROM ra_scheduled WHERE flow_id" <<<"$collector" \
+  && ok "an action is scheduled only after a verdict" || ko "approval gate missing from the collector"
+[ "$(yq -N '.parameters[] | select(.name == "ApproverGroups") | .default' <<<"$collector")" = '["velociraptor-approvers"]' ] \
+  && ok "approver group default" || ko "ApproverGroups default"
+
 expect_failure "artifact change needs a new checksum" "checksum/server-artifacts to" -f "$SCRIPT_DIR/values-2-tenants.yaml" --set-json 'velociraptorArtifacts.extraFiles={"Custom.Extra.yaml":"name: Custom.Extra\n"}'
 
 # API client bootstrap with the reconciler
@@ -293,18 +330,31 @@ AC=(-f "$SCRIPT_DIR/values-2-tenants.yaml" --set reconciler.enabled=true --set r
 if render "${AC[@]}" >"$TMP/ac.yaml"; then
   ok "renders with the API client bootstrap"
   sts=$(yq -o=json -I=0 'select(.kind == "StatefulSet" and .metadata.name == "velociraptor") | .spec.template.spec' "$TMP/ac.yaml")
-  [ "$(jq -r '[.initContainers[].name] | join(",")' <<<"$sts")" = "config-merge,api-client,api-client-publish" ] \
+  [ "$(jq -r '[.initContainers[].name] | join(",")' <<<"$sts")" = "config-merge,api-client,api-client-acl,api-client-publish" ] \
     && ok "API client init containers after the config merge" || ko "init containers: $(jq -c '[.initContainers[].name]' <<<"$sts")"
-  [ "$(jq -r '.initContainers[1].args | join(" ")' <<<"$sts")" = "--config /etc/velociraptor/server.config.yaml config api_client --name siem-reconciler --role administrator /api-client/api_client.yaml" ] \
+  [ "$(jq -r '.initContainers[1].args | join(" ")' <<<"$sts")" = "--config /etc/velociraptor/server.config.yaml config api_client --name siem-reconciler --role api /api-client/api_client.yaml" ] \
     && ok "api_client minted with the merged config" || ko "api-client args: $(jq -c '.initContainers[1].args' <<<"$sts")"
   [ "$(jq -r '.initContainers[1].volumeMounts[] | select(.name == "datastore") | .mountPath' <<<"$sts")" = "/datastore" ] \
     && ok "api_client sees the datastore" || ko "api-client mounts"
-  [ "$(jq -r '.initContainers[2].image + " " + (.initContainers[2].command + .initContainers[2].args | join(" "))' <<<"$sts")" = "ghcr.io/obmondo/siem-reconciler:test /usr/local/bin/siem-reconciler publish-api-client --file /api-client/api_client.yaml --name velociraptor-api-client --key api_client.yaml" ] \
-    && ok "publisher runs the reconciler image" || ko "publisher: $(jq -c '.initContainers[2]' <<<"$sts")"
-  [ "$(jq -r '.initContainers[2].env[] | select(.name == "POD_NAMESPACE") | .valueFrom.fieldRef.fieldPath' <<<"$sts")" = "metadata.namespace" ] \
+  # Least privilege: the ACL step replaces the role with exactly these permissions.
+  [ "$(jq -r '.initContainers[2].args[0:4] | join(" ")' <<<"$sts")" = "--config /etc/velociraptor/server.config.yaml acl grant" ] \
+    && ok "api_client policy applied with acl grant" || ko "acl args: $(jq -c '.initContainers[2].args' <<<"$sts")"
+  [ "$(jq -r '.initContainers[2].args[5] | fromjson | keys | join(",")' <<<"$sts")" = "any_query,artifact_writer,collect_server,org_admin,read_results,server_artifact_writer" ] \
+    && ok "api_client policy is the least-privilege set" || ko "acl policy: $(jq -r '.initContainers[2].args[5]' <<<"$sts")"
+  [ "$(jq -r '.initContainers[2].args[5] | fromjson | to_entries | map(select(.value == false)) | length' <<<"$sts")" = "0" ] \
+    && ok "no permission is granted as false" || ko "acl policy values"
+  [ "$(jq -r '.initContainers[3].image + " " + (.initContainers[3].command + .initContainers[3].args | join(" "))' <<<"$sts")" = "ghcr.io/obmondo/siem-reconciler:test /usr/local/bin/siem-reconciler publish-api-client --file /api-client/api_client.yaml --name velociraptor-api-client --key api_client.yaml" ] \
+    && ok "publisher runs the reconciler image" || ko "publisher: $(jq -c '.initContainers[3]' <<<"$sts")"
+  [ "$(jq -r '.initContainers[3].env[] | select(.name == "POD_NAMESPACE") | .valueFrom.fieldRef.fieldPath' <<<"$sts")" = "metadata.namespace" ] \
     && ok "publisher namespace from the downward API" || ko "POD_NAMESPACE"
-  [ "$(jq -r '[.automountServiceAccountToken, ([.containers[0].volumeMounts[].name] | index("api-client-token")), ([.initContainers[2].volumeMounts[].name] | index("api-client-token") != null)] | map(tostring) | join(",")' <<<"$sts")" = "false,null,true" ] \
+  [ "$(jq -r '[.automountServiceAccountToken, ([.containers[0].volumeMounts[].name] | index("api-client-token")), ([.initContainers[3].volumeMounts[].name] | index("api-client-token") != null)] | map(tostring) | join(",")' <<<"$sts")" = "false,null,true" ] \
     && ok "only the publisher gets a token" || ko "token mounts"
+  if render "${AC[@]}" --set velociraptor.velociraptor.apiClient.policy=null >"$TMP/acnopol.yaml"; then
+    [ "$(yq -o=json -I=0 'select(.kind == "StatefulSet" and .metadata.name == "velociraptor") | .spec.template.spec' "$TMP/acnopol.yaml" | jq -r '[.initContainers[].name] | join(",")')" = "config-merge,api-client,api-client-publish" ] \
+      && ok "policy: null keeps the old two-container bootstrap" || ko "policy=null init containers"
+  else
+    ko "renders without an api client policy"; cat "$TMP/err"
+  fi
   [ "$(jq -r '[.imagePullSecrets[].name] | join(",")' <<<"$sts")" = "registry-pull" ] && ok "publisher pull secret" || ko "pull secrets: $(jq -c .imagePullSecrets <<<"$sts")"
   [ "$(yq -o=json -I=0 'select(.kind == "Role" and .metadata.name == "velociraptor-api-client") | .rules' "$TMP/ac.yaml")" = '[{"apiGroups":[""],"resources":["secrets"],"resourceNames":["velociraptor-api-client"],"verbs":["get","update","patch"]},{"apiGroups":[""],"resources":["secrets"],"verbs":["create"]}]' ] \
     && ok "API client Role on its Secret" || ko "API client Role"
