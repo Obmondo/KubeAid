@@ -362,6 +362,19 @@ server monitoring table through Velociraptor's gRPC API:
   the monitoring table and the parameters it sets (KeycloakSync runs with `DryRun: "N"`);
   unlisted parameters keep their value in the table or the artifact default.
 
+### Detection content
+
+With `kubesoc-content.enabled` the `kubesoc-content` chart (dependency, README there)
+renders ConfigMap `kubesoc-content`, the reconciler mounts it at `/etc/kubesoc-content`
+(and `velociraptor-artifacts` at `/etc/kubesoc-content-core/velociraptor`) and its
+`content` component rolls the rules, decoders, lists and agent group configs out to every
+tenant manager, `kubesoc-content.canary` first, validated, hot-reloaded and rolled back on
+failure, and sets the Velociraptor artifacts (`files/velociraptor` included) with
+`artifact_set`. With `kubesoc-content.velociraptorArtifacts` (default) the render requires
+`velociraptor.velociraptor.customArtifacts.enabled: false` and no longer checks
+`checksum/server-artifacts`: artifacts reach the server without a restart. Off, everything
+renders as before.
+
 ## 7. Wiring
 
 The defaults in `values.yaml` connect the components through Service names and pod
@@ -495,3 +508,6 @@ egress; plus the reconciler's and the MISP export's CA. The tenant side is cover
 client bootstrap and shipped artifacts, retention input, the Deployment mode and the
 monitoring objects (with `promtool check rules` when promtool is on PATH). The tenant side is covered by
 `../wazuh/tests/tenant_render_test.sh`.
+client bootstrap and shipped artifacts, and the content package wiring. The tenant side is
+covered by `../wazuh/tests/tenant_render_test.sh`, the content itself by
+`../kubesoc-content/tests/`. CI: `.github/workflows/kubesoc-content.yml` runs all three.

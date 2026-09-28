@@ -24,11 +24,20 @@
 {{- end }}
 {{- if .Values.velociraptor.enabled }}
 {{- $v := .Values.velociraptor.velociraptor | default dict }}
+{{- $kc := index .Values "kubesoc-content" | default dict }}
+{{- if and $kc.enabled (ne (toString $kc.velociraptorArtifacts) "false") }}
+{{- /* The reconciler sets the artifacts with artifact_set, which cannot replace one the
+     server loaded from its definitions directory: the mount must be off. */}}
+{{- if ($v.customArtifacts | default dict).enabled }}
+{{- fail "kubesoc-content.velociraptorArtifacts: set velociraptor.velociraptor.customArtifacts.enabled to false (the reconciler sets the artifacts; artifacts loaded from the mount are built in and cannot be replaced)" }}
+{{- end }}
+{{- else }}
 {{- /* Velociraptor reads its artifacts only at start: the pod annotation must follow them. */}}
 {{- $want := include "secops.velociraptorArtifactsChecksum" . }}
 {{- $have := index ($v.podAnnotations | default dict) "checksum/server-artifacts" | default "" }}
 {{- if ne $want $have }}
 {{- fail (printf "the Velociraptor artifacts changed: set velociraptor.velociraptor.podAnnotations.checksum/server-artifacts to %s (it is %q), so the server restarts and loads them" $want $have) }}
+{{- end }}
 {{- end }}
 {{- $ac := $v.apiClient | default dict }}
 {{- if and .Values.reconciler.enabled $ac.enabled }}

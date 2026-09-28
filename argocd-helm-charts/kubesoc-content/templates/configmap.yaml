@@ -1,0 +1,44 @@
+{{- /*
+  The content package as one ConfigMap, mounted into the siem-reconciler at
+  /etc/kubesoc-content (security-operations templates/_reconciler.tpl). The
+  reconciler compares it with every tenant manager and the Velociraptor server and
+  rolls changes out; nothing here restarts a pod.
+*/}}
+{{- $version := include "kubesoc-content.version" . }}
+{{- if not (regexMatch "^[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?$" $version) }}
+{{- fail (printf "kubesoc-content: VERSION %q is not a semantic version" $version) }}
+{{- end }}
+{{- $files := include "kubesoc-content.files" . | fromYaml }}
+{{- $manifest := dict "exclude" .Values.exclude "optional" .Values.optional "tenants" .Values.tenants }}
+{{- range $code, $_ := .Values.tenants }}
+{{- if not (regexMatch "^[a-z0-9]{1,32}$" $code) }}
+{{- fail (printf "kubesoc-content: tenants.%s: a tenant code matches ^[a-z0-9]{1,32}$" $code) }}
+{{- end }}
+{{- end }}
+{{- $size := 0 }}
+{{- range $k, $v := $files }}{{ $size = add $size (len $v) }}{{ end }}
+{{- if gt $size (int .Values.maxBytes) }}
+{{- fail (printf "kubesoc-content: %d bytes of content is more than maxBytes (%d); a ConfigMap holds at most 1 MiB" $size (int .Values.maxBytes)) }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubesoc-content
+  namespace: {{ .Release.Namespace }}
+  labels:
+    helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: security-operations
+    app.kubernetes.io/component: content
+    kubesoc.io/content-version: {{ $version | quote }}
+  annotations:
+    # Input of the reconciler Sync hook (wave -1), like siem-tenants.
+    argocd.argoproj.io/sync-wave: "-2"
+data:
+  VERSION: {{ $version | quote }}
+  manifest.json: {{ toJson $manifest | quote }}
+  {{- range $k := keys $files | sortAlpha }}
+  {{ $k }}: |
+    {{- index $files $k | trimSuffix "\n" | nindent 4 }}
+  {{- end }}

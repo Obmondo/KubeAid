@@ -490,6 +490,12 @@ security-operations umbrella chart:
   under `/wazuh-config-mount` so the image's entrypoint copies it over
   `api/configuration/ssl/server.{crt,key}` and `etc/sslmanager.{cert,key}` at every start
   (the API chowns its pair to the wazuh user). Nothing renders while it is off.
+- `wazuh.ruleset.extraLists` / `wazuh.ruleset.extraRuleExcludes`: extra `<list>` and
+  `<rule_exclude>` entries appended to the stock `<ruleset>` in
+  `templates/_ossec_conf.tpl` (master and worker), plus the values. A second `<ruleset>`
+  in `extraConf` with a `rule_exclude` makes analysisd rebuild the ruleset from that block
+  alone, so callers had to repeat the stock entries; this keeps one block. Nothing renders
+  while both are empty. Used by the kubesoc-content package (its README).
 - `dashboard.wazuhAppConfigSecret` (section 11): a Secret volume mounted over
   `data/wazuh/config/wazuh.yml` in `templates/dashboard/deployment.yaml`, plus the value.
   Nothing renders while it is empty.

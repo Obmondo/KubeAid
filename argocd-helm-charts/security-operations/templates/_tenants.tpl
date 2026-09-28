@@ -201,6 +201,17 @@ app.kubernetes.io/part-of: security-operations
 {{- end -}}
 {{- $_ := set $c "velociraptor" $velo -}}
 {{- end -}}
+{{- $kc := index .Values "kubesoc-content" | default dict -}}
+{{- if $kc.enabled -}}
+{{- /* Detection content, mounted by templates/_reconciler.tpl. */ -}}
+{{- $content := dict "dir" "/etc/kubesoc-content" "stateNamespace" $ns -}}
+{{- if and .Values.velociraptor.enabled (ne (toString $kc.velociraptorArtifacts) "false") -}}
+{{- $_ := set $content "velociraptor" true -}}
+{{- $_ := set $content "artifactDirs" (list "/etc/kubesoc-content-core/velociraptor") -}}
+{{- end -}}
+{{- with $kc.canary -}}{{- $_ := set $content "canary" (toString .) -}}{{- end -}}
+{{- $_ := set $c "content" $content -}}
+{{- end -}}
 {{- range $k, $v := (.Values.reconciler.components | default dict) -}}
 {{- if hasKey $c $k -}}{{- $_ := set $c $k (mergeOverwrite (get $c $k) $v) -}}{{- end -}}
 {{- end -}}

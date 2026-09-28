@@ -82,6 +82,17 @@ spec:
           mountPath: /etc/soc-ca
           readOnly: true
         {{- end }}
+        {{- if (index .Values "kubesoc-content").enabled }}
+        # Detection content (components.content in tenants.json).
+        - name: content
+          mountPath: /etc/kubesoc-content
+          readOnly: true
+        {{- if .Values.velociraptor.enabled }}
+        - name: content-core-artifacts
+          mountPath: /etc/kubesoc-content-core/velociraptor
+          readOnly: true
+        {{- end }}
+        {{- end }}
   volumes:
     - name: config
       configMap:
@@ -97,6 +108,15 @@ spec:
         items:
           - key: ca.crt
             path: ca.crt
+    {{- if (index .Values "kubesoc-content").enabled }}
+    - name: content
+      configMap:
+        name: kubesoc-content
+    {{- if .Values.velociraptor.enabled }}
+    - name: content-core-artifacts
+      configMap:
+        name: velociraptor-artifacts
+    {{- end }}
     {{- end }}
 {{- end }}
 {{- end }}

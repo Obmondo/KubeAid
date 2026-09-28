@@ -246,6 +246,18 @@
     <list>etc/lists/amazon/aws-eventnames</list>
     <decoder_dir>etc/decoders</decoder_dir>
     <rule_dir>etc/rules</rule_dir>
+    {{- /* KubeAid: extra CDB lists and rule file excludes appended to the stock
+         ruleset, so a caller does not have to repeat this block in extraConf (a
+         second <ruleset> with a rule_exclude makes analysisd rebuild the ruleset
+         from that block alone). */}}
+    {{- with $root.Values.wazuh.ruleset }}
+    {{- range .extraLists }}
+    <list>{{ . }}</list>
+    {{- end }}
+    {{- range .extraRuleExcludes }}
+    <rule_exclude>{{ . }}</rule_exclude>
+    {{- end }}
+    {{- end }}
   </ruleset>
 
   <rule_test>

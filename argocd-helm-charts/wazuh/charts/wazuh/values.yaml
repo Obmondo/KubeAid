@@ -843,6 +843,14 @@ wazuh:
   localDecoder: ""
   ## @param wazuh.localRules Override for local_rules.xml. If empty, files/local_rules.xml is used.
   localRules: ""
+  ## KubeAid: appended to the stock <ruleset> of master.conf and worker.conf.
+  ruleset:
+    ## @param wazuh.ruleset.extraLists CDB list paths to register, e.g. etc/lists/misp-malicious-ip.
+    ## Registering a list is a restart (the config checksum rolls the managers); its content
+    ## is then hot-reloaded.
+    extraLists: []
+    ## @param wazuh.ruleset.extraRuleExcludes Rule files to exclude, e.g. 0999-malicious-ioc-rules.xml.
+    extraRuleExcludes: []
   ## @param wazuh.internalOptions Override for internal_options.conf. If empty, files/internal_options.conf is used.
   internalOptions: ""
   ## Replaces the whole file. Keep the `hosts:` line and the commented-out `#username:`,

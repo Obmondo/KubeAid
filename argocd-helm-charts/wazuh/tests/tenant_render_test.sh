@@ -84,6 +84,16 @@ check "manager key pair replaces the API and authd defaults" \
   "$(q 'select(.kind=="StatefulSet" and .metadata.name=="wazuh-manager-master") | [.spec.template.spec.containers[0].volumeMounts[] | select(.name=="manager-tls") | .mountPath] | join(",")')"
 check "dashboard verifies the indexer" "full" \
   "$(q 'select(.kind=="ConfigMap" and .metadata.name=="wazuh-dashboard-config") | .data["opensearch_dashboards.yml"]' | yq '.["opensearch.ssl.verificationMode"]')"
+# KubeAid wazuh.ruleset patch: extra lists and excludes land inside the stock <ruleset>.
+rs=$(helm template wazuh-001 . -n wazuh-001 -f tests/values-tenant.yaml \
+  --set 'wazuh.wazuh.ruleset.extraLists={etc/lists/misp-malicious-ip}' \
+  --set 'wazuh.wazuh.ruleset.extraRuleExcludes={0999-malicious-ioc-rules.xml}' |
+  yq -N 'select(.kind=="ConfigMap" and .metadata.name=="wazuh-manager-config") | .data["master.conf"]' |
+  sed -n '/<ruleset>/,/<\/ruleset>/p')
+check "one <ruleset> block" "1" "$(grep -c '<ruleset>' <<<"$rs")"
+check "extra list registered" "1" "$(grep -c '<list>etc/lists/misp-malicious-ip</list>' <<<"$rs")"
+check "stock IoC file excluded" "1" "$(grep -c '<rule_exclude>0999-malicious-ioc-rules.xml</rule_exclude>' <<<"$rs")"
+check "stock entries kept" "1" "$(grep -c '<rule_exclude>0215-policy_rules.xml</rule_exclude>' <<<"$rs")"
 
 echo "tenant mode: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]
