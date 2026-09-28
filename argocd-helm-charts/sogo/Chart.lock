@@ -1,0 +1,6 @@
+dependencies:
+- name: sogo
+  repository: https://helm.snry.xyz/docker-sogo/
+  version: 0.3.5
+digest: sha256:bac0fc8421822ae4548af364bfb6b3aef14c6f53171e2633f1ce7b0db162d177
+generated: "2026-09-16T11:36:07.187195556+05:30"

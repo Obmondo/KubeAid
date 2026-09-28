@@ -1,0 +1,19 @@
+{{- if .Values.sogo.emailAlarms -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "sogo.fullname" . }}-email-alarms-cron
+  labels:
+    app.kubernetes.io/name: {{ include "sogo.name" . }}
+    helm.sh/chart: {{ include "sogo.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+data:
+{{- if or .Values.sogo.emailAlarms.smtp.username .Values.sogo.emailAlarms.smtp.existingSecret }}
+  cron: |
+    * * * * *  sogo  /usr/sbin/sogo-ealarms-notify -p /etc/sogo/smtp.creds
+{{- else }}
+  cron: |
+    * * * * *  sogo  /usr/sbin/sogo-ealarms-notify
+{{- end }}
+{{- end }}

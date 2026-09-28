@@ -1,0 +1,44 @@
+annotations:
+  artifacthub.io/images: |
+    - name: docker-sogo
+      image: sonroyaalmerol/docker-sogo:5.12.4-3
+  artifacthub.io/license: MIT
+  artifacthub.io/links: |
+    - name: GitHub source
+      url: https://github.com/sonroyaalmerol/docker-sogo/
+  artifacthub.io/screenshots: |
+    - title: SOGo
+      url: https://www.sogo.nu/img/screenshot.png
+apiVersion: v2
+appVersion: 5.12.4
+dependencies:
+- condition: postgresql.enabled
+  name: postgresql
+  repository: oci://registry-1.docker.io/bitnamicharts
+  version: 15.3.*
+- condition: mariadb.enabled
+  name: mariadb
+  repository: oci://registry-1.docker.io/bitnamicharts
+  version: 18.0.*
+- condition: memcached.enabled
+  name: memcached
+  repository: oci://registry-1.docker.io/bitnamicharts
+  version: 7.0.*
+description: A helm chart for the docker-sogo docker image
+home: https://github.com/sonroyaalmerol/docker-sogo
+icon: https://www.sogo.nu/img/sogo.svg
+keywords:
+- sogo
+- alinto
+- inverse
+- mail
+- calendar
+maintainers:
+- email: sogo@snry.me
+  name: Son Roy Almerol
+  url: https://github.com/sonroyaalmerol
+name: sogo
+sources:
+- https://github.com/sonroyaalmerol/docker-sogo
+type: application
+version: 0.3.5
