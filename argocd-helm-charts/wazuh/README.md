@@ -408,8 +408,10 @@ index patterns such as `*:wazuh-alerts-*` then search every tenant.
 
 `charts/wazuh` is upstream 2.0.7 with KubeAid changes that sections 5 to 9 describe (the
 `checksum/config` annotation, the ruleset reloader, `agentGroupConf` ownership, index
-routing, extra roles and role mappings). Re-apply them when updating the subchart. Added
-with the security-operations umbrella chart:
+routing, extra roles and role mappings, and the matching cases in `tests/render_test.sh`).
+All of them live in `patches/0001-kubeaid-local-changes.patch`, made against the upstream
+chart, so they survive an update (see "Updating the subchart" below). Added with the
+security-operations umbrella chart:
 
 - `wazuh.agentGroupConfConfigMap` (section 7): an optional ConfigMap volume, the
   `agent-group-conf` init container and a second ownership loop in the `postStart` hook,
@@ -425,3 +427,33 @@ with the security-operations umbrella chart:
 - `dashboard.wazuhAppConfigSecret` (section 11): a Secret volume mounted over
   `data/wazuh/config/wazuh.yml` in `templates/dashboard/deployment.yaml`, plus the value.
   Nothing renders while it is empty.
+
+### Updating the subchart
+
+`.helm-update-skip` keeps this chart out of the weekly `bin/manage-helm-chart.sh --update-all`
+run, so an upgrade is always done by hand, on Linux (the script refuses other systems):
+
+1. Run `bin/manage-helm-chart.sh --update-helm-chart wazuh --chart-version <new>`. It pulls
+   the chart, applies `patches/*.patch` in lexical order (no fuzz) in a scratch directory,
+   and replaces `charts/wazuh` only once every patch applied; then it commits on a new
+   `Helm_Update_*` branch. If a patch no longer applies it exits non-zero naming the patch,
+   and leaves `charts/wazuh` and `Chart.yaml` as they were.
+2. On such a failure, refresh the patch against the new upstream and run step 1 again:
+
+   ```bash
+   repo=$PWD; tmp=$(mktemp -d); cd "$tmp"
+   helm pull wazuh --repo https://morgoved.github.io/wazuh-helm/ --version <new> --untar
+   mv wazuh a && cp -R a b
+   patch -d b -p1 --fuzz=3 < "$repo/argocd-helm-charts/wazuh/patches/0001-kubeaid-local-changes.patch"
+   # fix every *.rej by hand in b/, then delete the *.rej and *.orig files
+   git diff --no-index --src-prefix= --dst-prefix= a b \
+     > "$repo/argocd-helm-charts/wazuh/patches/0001-kubeaid-local-changes.patch"
+   ```
+
+3. Check the result: `bin/manage-helm-chart.sh --verify-patches wazuh` pulls the version
+   pinned in `Chart.yaml`, applies the patches and diffs against `charts/wazuh`; it exits
+   non-zero on any difference. Then render the chart (`tests/`) as usual.
+
+A new KubeAid change to `charts/wazuh` goes into the patch the same way: pull the pinned
+version into `a`, copy `charts/wazuh` to `b`, regenerate the patch with the `git diff` line
+above and run `--verify-patches`. Keep the list above in step with the patch.

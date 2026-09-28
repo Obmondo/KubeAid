@@ -85,8 +85,9 @@ checked against the pinned name `VelociraptorServer`, not the host name.
 ## Local patches to the vendored subchart
 
 `charts/velociraptor` is upstream 0.77.1-24-06-2026 with these KubeAid changes (marked
-"KubeAid patch" in the templates where they are not obvious). Re-apply them when updating the
-subchart:
+"KubeAid patch" in the templates where they are not obvious). All of them live in
+`patches/0001-kubeaid-local-changes.patch`, made against the upstream chart, so they
+survive an update (see "Updating the subchart" below):
 
 - `checksum/custom-artifacts` and `checksum/config-overlay` pod annotations in
   `templates/statefulset.yaml`, so a changed artifact or overlay rolls the pod.
@@ -110,3 +111,35 @@ subchart:
   appended to the pod's `imagePullSecrets`.
 - Values and `values.schema.json` entries for the four above. Nothing renders differently
   while they keep their defaults.
+
+### Updating the subchart
+
+`.helm-update-skip` keeps this chart out of the weekly `bin/manage-helm-chart.sh --update-all`
+run, and the script cannot look up the latest version of an OCI chart anyway. Pick the new
+tag from <https://github.com/MaximeWewer/velociraptor-helm/pkgs/container/charts%2Fvelociraptor>
+and upgrade by hand, on Linux (the script refuses other systems):
+
+1. Run `bin/manage-helm-chart.sh --update-helm-chart velociraptor --chart-version <new>`. It
+   pulls the chart, applies `patches/*.patch` in lexical order (no fuzz) in a scratch
+   directory, and replaces `charts/velociraptor` only once every patch applied; then it
+   commits on a new `Helm_Update_*` branch. If a patch no longer applies it exits non-zero
+   naming the patch, and leaves `charts/velociraptor` and `Chart.yaml` as they were.
+2. On such a failure, refresh the patch against the new upstream and run step 1 again:
+
+   ```bash
+   repo=$PWD; tmp=$(mktemp -d); cd "$tmp"
+   helm pull oci://ghcr.io/maximewewer/charts/velociraptor --version <new> --untar
+   mv velociraptor a && cp -R a b
+   patch -d b -p1 --fuzz=3 < "$repo/argocd-helm-charts/velociraptor/patches/0001-kubeaid-local-changes.patch"
+   # fix every *.rej by hand in b/, then delete the *.rej and *.orig files
+   git diff --no-index --src-prefix= --dst-prefix= a b \
+     > "$repo/argocd-helm-charts/velociraptor/patches/0001-kubeaid-local-changes.patch"
+   ```
+
+3. Check the result: `bin/manage-helm-chart.sh --verify-patches velociraptor` pulls the
+   version pinned in `Chart.yaml`, applies the patches and diffs against
+   `charts/velociraptor`; it exits non-zero on any difference.
+
+A new KubeAid change to `charts/velociraptor` goes into the patch the same way: pull the
+pinned version into `a`, copy `charts/velociraptor` to `b`, regenerate the patch with the
+`git diff` line above and run `--verify-patches`. Keep the list above in step with the patch.

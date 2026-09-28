@@ -7,12 +7,21 @@ chart is not published to a Helm repository, so the chart directory is copied un
 
 ## 1. What changed from upstream
 
-- The Bitnami `mariadb` and `smtp` dependencies were removed from `charts/misp/Chart.yaml`.
-  The database comes from the mariadb-operator chart through `templates/mariadb.yaml`.
-- `valkey` (the queue) stays as the upstream subchart.
-- `charts/misp/templates/deployment-misp.yaml` gains `extraEnv`, `hostAliases` and a
+The changes are kept as patch files under `patches/`, made against the upstream chart and
+applied in lexical order (section 6 has the update procedure):
+
+- `patches/0001-drop-mariadb-and-smtp-dependencies.patch`: the Bitnami `mariadb` and `smtp`
+  dependencies are removed from `charts/misp/Chart.yaml`. The database comes from the
+  mariadb-operator chart through `templates/mariadb.yaml`.
+- `patches/0002-extraenv-hostaliases-and-env-checksum.patch`:
+  `charts/misp/templates/deployment-misp.yaml` gains `extraEnv`, `hostAliases` and a
   `checksum/env` pod annotation (the pod reads its settings through `envFrom`, so without
-  the checksum a values change never reaches a running pod). Re-apply these after an update.
+  the checksum a values change never reaches a running pod), plus the two values.
+- `valkey` (the queue) stays as the upstream subchart, vendored under
+  `charts/misp/charts/valkey` by `helm dependency update` together with `charts/misp/Chart.lock`.
+
+`patches/upstream.yaml` names the git repository, the pinned commit and the repository files
+that are not part of the chart (CI, tests, `.git`).
 
 ## 2. How to setup
 
@@ -308,9 +317,34 @@ Then put a listed hash on a monitored host (or ssh from a listed IP) and expect 
 
 ## 6. Updating
 
+The chart is a `file://` dependency, so `bin/manage-helm-chart.sh` never replaces it, and
+`.helm-update-skip` keeps it out of the weekly `--update-all` run all the same. Update it by
+hand from this directory (`argocd-helm-charts/misp`):
+
 ```bash
-git clone --depth 1 https://github.com/cmu-sei/misp-helm /tmp/misp-helm
-rm -rf charts/misp && cp -R /tmp/misp-helm charts/misp && rm -rf charts/misp/.git
-# drop the mariadb and smtp dependencies from charts/misp/Chart.yaml again
-helm dependency update charts/misp
+here=$PWD; tmp=$(mktemp -d)
+git clone https://github.com/cmu-sei/misp-helm "$tmp/src" && git -C "$tmp/src" checkout <commit>
+cp -R "$tmp/src" "$tmp/a"
+(cd "$tmp/a" && rm -rf .checkov.yaml .git .github .gitignore Makefile README.md.gotmpl ci ct.yaml tests)
+cp -R "$tmp/a" "$tmp/b"
+for p in "$here"/patches/*.patch; do patch -d "$tmp/b" -p1 < "$p"; done
 ```
+
+If a patch fails, keep a copy of the tree from just before it (`cp -R "$tmp/b" "$tmp/before"`),
+apply it with `--fuzz=3`, fix the `*.rej` hunks in `$tmp/b` by hand (then delete the `*.rej`
+and `*.orig` files), regenerate it with
+`cd "$tmp" && git diff --no-index --src-prefix= --dst-prefix= before b > "$here/patches/<patch>"`
+and go on with the next patch. Then install the new copy:
+
+```bash
+rm -rf charts/misp && cp -R "$tmp/b" charts/misp
+helm dependency update charts/misp
+tar -C charts/misp/charts -xf charts/misp/charts/valkey-*.tgz && rm charts/misp/charts/*.tgz
+```
+
+Set the new commit as `ref` in `patches/upstream.yaml` and in the `Chart.yaml` comment, and
+the chart version in `Chart.yaml` if it changed. `helm dependency update .` refreshes
+`Chart.lock`. Then, on Linux, `bin/manage-helm-chart.sh --verify-patches misp` (from the
+repository root) clones the pinned commit, applies the patches, rebuilds `valkey` from
+`charts/misp/Chart.lock` and diffs the result against `charts/misp`; it exits non-zero on
+any difference. A new KubeAid change to `charts/misp` goes into a patch file the same way.
