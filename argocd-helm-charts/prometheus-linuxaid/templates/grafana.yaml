@@ -39,11 +39,3 @@ spec:
           containers:
             - name: grafana
               image: grafana/grafana:{{ .Values.grafana.version }}
-  persistentVolumeClaim:
-    spec:
-      accessModes:
-      - ReadWriteOnce
-      resources:
-        requests:
-          storage: 1Gi
-      volumeMode: Filesystem
