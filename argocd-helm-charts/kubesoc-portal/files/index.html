@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>@TITLE@</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><span class="mark" aria-hidden="true"></span><span class="logo" id="title">@TITLE@</span><span class="sub" id="subtitle"></span></div>
+    <div class="who"><span id="user"></span> <a href="/oauth2/sign_out" id="signout">Sign out</a></div>
+  </header>
+  <main>
+    <section id="central-section" hidden>
+      <h2>SOC tools</h2>
+      <div class="grid" id="central"></div>
+    </section>
+    <section>
+      <div class="bar">
+        <h2>Tenants</h2>
+        <input id="filter" type="search" placeholder="Filter tenants" aria-label="Filter tenants" autocomplete="off">
+      </div>
+      <p class="note" id="scope"></p>
+      <div class="grid" id="tenants"></div>
+      <p class="empty" id="empty" hidden>No tenants to show.</p>
+    </section>
+    <p class="error" id="error" hidden></p>
+  </main>
+  <footer>Each tool checks your access itself; this page only collects the links.</footer>
+  <script src="/app.js"></script>
+</body>
+</html>
