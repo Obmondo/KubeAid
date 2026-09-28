@@ -1,0 +1,12 @@
+# Single-node ("single" profile) overrides of the security-operations chart for
+# the kubesoc quickstart (hack/kubesoc-quickstart.sh). Added after the values
+# kubeaid-cli renders; evaluation sizing only, not for production.
+wazuh:
+  wazuh:
+    indexer:
+      storageSize: 10Gi
+      env:
+        OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m -Dlog4j2.formatMsgNoLookups=true"
+      # One node: a PodDisruptionBudget would block node drains.
+      pdb:
+        enabled: false
