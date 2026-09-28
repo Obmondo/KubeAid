@@ -85,8 +85,11 @@ authentication:
     secretKey: OIDC_CLIENT_SECRET
     scopes: openid email profile
     # ID token claims. The username claim is matched against IRIS logins,
-    # including existing local users: an IdP user whose claim equals a local
-    # login (e.g. administrator) signs in as that user.
+    # including existing local users: with preferred_username, an IdP user whose
+    # username equals a local login (e.g. administrator) signs in as that user.
+    # sub (the IdP's immutable user id) or email cannot collide with a local login
+    # (IRIS logins of local accounts are plain names); keycloakSync then creates
+    # and renames users to the matching Keycloak attribute (README).
     mappingUsername: preferred_username
     mappingEmail: email
 
