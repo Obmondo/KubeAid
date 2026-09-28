@@ -238,10 +238,34 @@ index 6164ed5..c469cd4 100644
  setup.template.json.enabled: true
  setup.template.overwrite: true
 diff --git a/templates/_helpers.tpl b/templates/_helpers.tpl
-index d652e31..61fc22b 100644
+index d652e31..4c89097 100644
 --- a/templates/_helpers.tpl
 +++ b/templates/_helpers.tpl
-@@ -191,11 +191,73 @@ Whether to mount our own filebeat.yml. Only when asked for, so existing releases
+@@ -82,7 +82,8 @@ opensearch.hosts: "{{ .Values.externalIndexer.host }}:{{ .Values.externalIndexer
+ {{- fail "Please enable either .Values.indexer.enabled or .Values.externalIndexer.enabled" }}
+ {{- end }}
+ 
+-opensearch.ssl.verificationMode: none
++{{- /* KubeAid patch: dashboard.opensearchVerificationMode (upstream: none). */}}
++opensearch.ssl.verificationMode: {{ .Values.dashboard.opensearchVerificationMode | default "none" }}
+ opensearch.requestHeadersWhitelist: [ authorization,securitytenant ]
+ opensearch_security.multitenancy.enabled: false
+ opensearch_security.readonly_mode.roles: ["kibana_read_only"]
+@@ -100,7 +101,12 @@ uiSettings.overrides.defaultRoute: /app/wz-home
+ {{- if .Values.dashboard.sso.saml.enabled }}
+ {{-   $authType = append $authType "saml" }}
+ {{- end }}
+-{{- if .Values.dashboard.basicAuth.enabled }}
++{{- /* KubeAid patch: with SSO on, the username/password form is offered only
++       as break-glass (dashboard.basicAuth.breakGlass). The indexer still takes
++       HTTP basic auth for the dashboard's server user and API clients, which
++       also keep working against the dashboard API with an Authorization header. */}}
++{{- $sso := or .Values.dashboard.sso.oidc.enabled .Values.dashboard.sso.saml.enabled }}
++{{- if and .Values.dashboard.basicAuth.enabled (or (not $sso) .Values.dashboard.basicAuth.breakGlass) }}
+ {{-   $authType = append $authType "basicauth" }}
+ {{- end }}
+ opensearch_security.auth.multiple_auth_enabled: {{ gt ($authType | len) 1 }}
+@@ -191,11 +197,73 @@ Whether to mount our own filebeat.yml. Only when asked for, so existing releases
  using the image's own file.
  */}}
  {{- define "wazuh.filebeat.overridden" -}}
@@ -316,6 +340,137 @@ index d652e31..61fc22b 100644
  
  {{- define "wazuh.archives.enabled" -}}
  {{- if (.Values.wazuh.archives).enabled -}}
+@@ -246,3 +314,35 @@ attachment, the listener scheme is unknown, so callers must provide explicit URL
+ {{- printf "https://%s" $host -}}
+ {{- end -}}
+ {{- end -}}
++
++{{/*
++KubeAid patch: the cluster key Secret (wazuh.clusterKeySecret, else the chart's own).
++*/}}
++{{- define "wazuh.clusterKeySecretRef" -}}
++secretKeyRef:
++  name: {{ .Values.wazuh.clusterKeySecret.name | default "wazuh-cluster-key" | quote }}
++  key: {{ if .Values.wazuh.clusterKeySecret.name }}{{ .Values.wazuh.clusterKeySecret.key | default "key" | quote }}{{ else }}key{{ end }}
++{{- end -}}
++
++{{/*
++KubeAid patch: command of the update-index init container. With
++wazuh.clusterKeySecret it also puts the key into the copied ossec.conf.
++*/}}
++{{- define "wazuh.updateIndexCommand" -}}
++- sh
++- -c
++{{- if .Values.wazuh.clusterKeySecret.name }}
++- |
++  set -e
++  /script.sh
++  case "$WAZUH_CLUSTER_KEY" in
++    *[!A-Za-z0-9]*) echo "cluster key must be letters and digits only" >&2; exit 1 ;;
++  esac
++  if [ "${#WAZUH_CLUSTER_KEY}" -ne 32 ]; then
++    echo "cluster key must be 32 characters" >&2; exit 1
++  fi
++  sed -i "s/___WAZUH_CLUSTER_KEY___/${WAZUH_CLUSTER_KEY}/" /wazuh-config-mount/etc/ossec.conf
++{{- else }}
++- /script.sh
++{{- end }}
++{{- end -}}
+diff --git a/templates/_ossec_conf.tpl b/templates/_ossec_conf.tpl
+index 6a16dfb..cb42174 100644
+--- a/templates/_ossec_conf.tpl
++++ b/templates/_ossec_conf.tpl
+@@ -246,6 +246,18 @@
+     <list>etc/lists/amazon/aws-eventnames</list>
+     <decoder_dir>etc/decoders</decoder_dir>
+     <rule_dir>etc/rules</rule_dir>
++    {{- /* KubeAid: extra CDB lists and rule file excludes appended to the stock
++         ruleset, so a caller does not have to repeat this block in extraConf (a
++         second <ruleset> with a rule_exclude makes analysisd rebuild the ruleset
++         from that block alone). */}}
++    {{- with $root.Values.wazuh.ruleset }}
++    {{- range .extraLists }}
++    <list>{{ . }}</list>
++    {{- end }}
++    {{- range .extraRuleExcludes }}
++    <rule_exclude>{{ . }}</rule_exclude>
++    {{- end }}
++    {{- end }}
+   </ruleset>
+ 
+   <rule_test>
+@@ -290,7 +302,8 @@
+     <node_name>{{ include "wazuh.fullname" $root }}-manager-worker-___INDEX___</node_name>
+     <node_type>worker</node_type>
+     {{- end }}
+-    <key>{{ $root.Values.wazuh.key }}</key>
++    {{- /* KubeAid patch: placeholder filled in by the update-index init container. */}}
++    <key>{{ if $root.Values.wazuh.clusterKeySecret.name }}___WAZUH_CLUSTER_KEY___{{ else }}{{ $root.Values.wazuh.key }}{{ end }}</key>
+     <port>{{ $root.Values.wazuh.service.port }}</port>
+     <bind_addr>0.0.0.0</bind_addr>
+     <nodes>
+diff --git b/templates/certs/manager/certificate.yaml b/templates/certs/manager/certificate.yaml
+new file mode 100644
+index 0000000..1a4f704
+--- /dev/null
++++ b/templates/certs/manager/certificate.yaml
+@@ -0,0 +1,56 @@
++{{- /*
++  KubeAid patch: the manager's API and authd certificate (wazuh.managerTls). Names
++  cover the manager Services (<fullname> for enrolment and API, the master, worker and
++  cluster Services) in every short and qualified form, plus the public agent address.
++*/}}
++{{- if and .Values.certificates.enabled .Values.wazuh.enabled .Values.wazuh.managerTls.enabled }}
++{{- $fn := include "wazuh.fullname" . }}
++{{- $ns := .Release.Namespace }}
++apiVersion: cert-manager.io/v1
++kind: Certificate
++metadata:
++  name: {{ $fn }}-manager-tls
++  namespace: {{ $ns }}
++spec:
++  secretName: {{ .Values.wazuh.managerTls.secretName }}
++  privateKey:
++    algorithm: RSA
++    encoding: PKCS8
++    size: 2048
++    rotationPolicy: Always
++  duration: {{ .Values.wazuh.managerTls.duration }}
++  renewBefore: {{ .Values.wazuh.managerTls.renewBefore }}
++  isCA: false
++  commonName: {{ $fn }}
++  subject:
++    organizations:
++      - {{ .Values.certificates.subject.organization }}
++    countries:
++      - {{ .Values.certificates.subject.country }}
++    localities:
++      - {{ .Values.certificates.subject.locality }}
++  usages:
++    - server auth
++    - digital signature
++    - key encipherment
++  dnsNames:
++    {{- range $svc := list $fn (printf "%s-manager-master" $fn) (printf "%s-manager-worker" $fn) }}
++    - {{ $svc }}
++    - {{ $svc }}.{{ $ns }}
++    - {{ $svc }}.{{ $ns }}.svc
++    - {{ $svc }}.{{ $ns }}.svc.cluster.local
++    {{- end }}
++    - "*.{{ $fn }}-manager-cluster.{{ $ns }}.svc.cluster.local"
++    {{- range .Values.wazuh.managerTls.extraDnsNames }}
++    - {{ . | quote }}
++    {{- end }}
++  {{- with .Values.wazuh.managerTls.ipAddresses }}
++  ipAddresses:
++    {{- toYaml . | nindent 4 }}
++  {{- end }}
++  issuerRef:
++    name: {{ .Values.certificates.issuer.name | default (printf "%s-ca-issuer" $fn) }}
++    {{- if and .Values.certificates.issuer.name (eq .Values.certificates.issuer.type "ClusterIssuer") }}
++    kind: ClusterIssuer
++    {{- end }}
++{{- end }}
 diff --git a/templates/certs/node/certificate.yaml b/templates/certs/node/certificate.yaml
 index fed8576..3618e59 100644
 --- a/templates/certs/node/certificate.yaml
@@ -352,6 +507,34 @@ index 93c947b..74be8d4 100644
    allowed:
      # ── This policy is ONLY for end-entity certs, not for CAs
      isCA: false
+diff --git a/templates/certs/root/ca-issuer.yaml b/templates/certs/root/ca-issuer.yaml
+index bf65dca..3a7d280 100644
+--- a/templates/certs/root/ca-issuer.yaml
++++ b/templates/certs/root/ca-issuer.yaml
+@@ -1,4 +1,8 @@
+-{{- if .Values.certificates.enabled }}
++{{- /* KubeAid patch: every certificate comes from certificates.issuer.name when it is
++       set, so this release needs no CA of its own. Rendering one anyway gave each
++       release a CA key signed by the shared issuer that could mint any identity the
++       other releases trust. */}}
++{{- if and .Values.certificates.enabled (not .Values.certificates.issuer.name) }}
+ apiVersion: cert-manager.io/v1
+ kind: Issuer
+ metadata:
+diff --git a/templates/certs/root/rootca.yaml b/templates/certs/root/rootca.yaml
+index 53753c4..a4ba85b 100644
+--- a/templates/certs/root/rootca.yaml
++++ b/templates/certs/root/rootca.yaml
+@@ -1,4 +1,8 @@
+-{{- if .Values.certificates.enabled }}
++{{- /* KubeAid patch: every certificate comes from certificates.issuer.name when it is
++       set, so this release needs no CA of its own. Rendering one anyway gave each
++       release a CA key signed by the shared issuer that could mint any identity the
++       other releases trust. */}}
++{{- if and .Values.certificates.enabled (not .Values.certificates.issuer.name) }}
+ apiVersion: cert-manager.io/v1
+ kind: Certificate
+ metadata:
 diff --git a/templates/dashboard/deployment.yaml b/templates/dashboard/deployment.yaml
 index 25090e3..7712ed4 100644
 --- a/templates/dashboard/deployment.yaml
@@ -384,11 +567,59 @@ index 25090e3..7712ed4 100644
            ports:
              - containerPort: {{ .Values.dashboard.service.httpPort }}
                name: dashboard
+diff --git a/templates/dashboard/networkpolicy.yaml b/templates/dashboard/networkpolicy.yaml
+index 08a6695..1d614ef 100644
+--- a/templates/dashboard/networkpolicy.yaml
++++ b/templates/dashboard/networkpolicy.yaml
+@@ -13,9 +13,23 @@ spec:
+     - Ingress
+     - Egress
+   ingress:
++    {{- /* KubeAid patch: ingressFrom null keeps the upstream rule (any source); a list
++         restricts the dashboard port to those peers, and an empty list drops the rule
++         (other policies, e.g. the security-operations chart's, then admit peers). */}}
++    {{- $from := .Values.dashboard.networkPolicy.ingressFrom }}
++    {{- if kindIs "slice" $from }}
++    {{- if $from }}
+     - ports:
+         - protocol: TCP
+           port: {{ .Values.dashboard.service.httpPort }}
++      from:
++        {{- toYaml $from | nindent 8 }}
++    {{- end }}
++    {{- else }}
++    - ports:
++        - protocol: TCP
++          port: {{ .Values.dashboard.service.httpPort }}
++    {{- end }}
+     {{- with .Values.dashboard.networkPolicy.extraIngresses }}
+     {{- toYaml . | nindent 4 }}
+     {{- end }}
+diff --git a/templates/dashboard/poddisruptionbudget.yaml b/templates/dashboard/poddisruptionbudget.yaml
+index 43479d8..55e1025 100644
+--- a/templates/dashboard/poddisruptionbudget.yaml
++++ b/templates/dashboard/poddisruptionbudget.yaml
+@@ -9,8 +9,14 @@ spec:
+   selector:
+     matchLabels:
+       app: {{ include "wazuh.fullname" . }}-dashboard
++  {{- /* KubeAid patch: minAvailable, so a highly available release can require a
++      quorum to stay up rather than only cap the pods an eviction may take. */}}
++  {{- if .Values.dashboard.pdb.minAvailable }}
++  minAvailable: {{ .Values.dashboard.pdb.minAvailable }}
++  {{- else }}
+   {{- with .Values.dashboard.pdb.maxUnavailable }}
+   maxUnavailable: {{ . }}
+   {{- end }}
++  {{- end }}
+ {{- end }}
+ {{- end }}
+\ No newline at end of file
 diff --git a/templates/indexer/configmap.yaml b/templates/indexer/configmap.yaml
-index 68cb969..f3bc2cc 100644
+index 68cb969..e46a379 100644
 --- a/templates/indexer/configmap.yaml
 +++ b/templates/indexer/configmap.yaml
-@@ -38,6 +38,10 @@ data:
+@@ -38,12 +38,28 @@ data:
      plugins.security.enable_snapshot_restore_privilege: true
      plugins.security.nodes_dn:
        - CN={{ include "wazuh.indexer.fullname" . }}-indexer,O={{ .Values.certificates.subject.organization }},L={{ .Values.certificates.subject.locality }},C={{ .Values.certificates.subject.country }}
@@ -399,11 +630,81 @@ index 68cb969..f3bc2cc 100644
      plugins.security.restapi.roles_enabled:
      - "all_access"
      - "security_rest_api_access"
+     plugins.security.allow_default_init_securityindex: true
+     cluster.routing.allocation.disk.threshold_enabled: false
+     compatibility.override_main_response_version: true
++{{- end }}
++{{- /*
++  KubeAid patch. Appended whether or not indexer.config.opensearch is overridden,
++  because both are settings a deployment adds rather than replaces. Do not repeat
++  them in an override: a duplicate key makes the indexer refuse to start.
++*/}}
++{{- if .Values.indexer.snapshot.enabled }}
++    {{- /* Without this the indexer refuses PUT _snapshot/<repo> for the volume below. */}}
++    path.repo: ["{{ .Values.indexer.snapshot.fs.path }}"]
++{{- end }}
++{{- range $key, $value := .Values.indexer.config.extraOpensearch }}
++    {{ $key }}: {{ toYaml $value }}
+ {{- end }}
+   tenants.yml: |-
+ {{- if .Values.indexer.config.tenants }}
+diff --git a/templates/indexer/poddisruptionbudget.yaml b/templates/indexer/poddisruptionbudget.yaml
+index c453c89..a531a8b 100644
+--- a/templates/indexer/poddisruptionbudget.yaml
++++ b/templates/indexer/poddisruptionbudget.yaml
+@@ -9,8 +9,14 @@ spec:
+   selector:
+     matchLabels:
+       app: {{ include "wazuh.indexer.fullname" . }}-indexer
++  {{- /* KubeAid patch: minAvailable, so a highly available release can require a
++      quorum to stay up rather than only cap the pods an eviction may take. */}}
++  {{- if .Values.indexer.pdb.minAvailable }}
++  minAvailable: {{ .Values.indexer.pdb.minAvailable }}
++  {{- else }}
+   {{- with .Values.indexer.pdb.maxUnavailable }}
+   maxUnavailable: {{ . }}
+   {{- end }}
++  {{- end }}
+ {{- end }}
+ {{- end }}
 diff --git a/templates/indexer/secret-securityconfig.yaml b/templates/indexer/secret-securityconfig.yaml
-index 5860ee7..0506c48 100644
+index 5860ee7..4c5642b 100644
 --- a/templates/indexer/secret-securityconfig.yaml
 +++ b/templates/indexer/secret-securityconfig.yaml
-@@ -125,6 +125,12 @@ stringData:
+@@ -20,7 +20,11 @@ stringData:
+ 
+     # Define your internal users here
+ 
+-    ## Demo users
++    # KubeAid patch: only the users the stack authenticates with (admin: filebeat
++    # on the managers and API clients; the dashboard's server user). The upstream
++    # demo users below have public password hashes and read every index, so they
++    # are rendered only with indexer.config.demoUsers; add real ones with
++    # indexer.config.extraInternalUsers.
+     admin:
+       hash: "{{ include "wazuh.indexer.passwordHash" . }}"
+       reserved: true
+@@ -32,6 +36,11 @@ stringData:
+       hash: "{{ include "wazuh.dashboard.passwordHash" . }}"
+       reserved: true
+       description: "Demo {{ include "wazuh.dashboard.username" . }} user"
++    {{- with .Values.indexer.config.extraInternalUsers }}
++
++    {{- toYaml . | nindent 4 }}
++    {{- end }}
++    {{- if .Values.indexer.config.demoUsers }}
+ 
+     kibanaro:
+       hash: "$2a$12$JJSXNfTowz7Uu5ttXfeYpeYE0arACvcwlPBStB1F.MI7f0U9Z4DGC"
+@@ -65,6 +74,7 @@ stringData:
+       backend_roles:
+         - "snapshotrestore"
+       description: "Demo snapshotrestore user"
++    {{- end }}
+ 
+ {{- end }}
+   roles_mapping.yml: |-
+@@ -125,6 +135,12 @@ stringData:
          - "readall"
      {{- if and .Values.indexer.ldap.roleMappings .Values.indexer.ldap.roleMappings.readall.backendRoles }}
          {{- toYaml .Values.indexer.ldap.roleMappings.readall.backendRoles | nindent 8 }}
@@ -416,7 +717,7 @@ index 5860ee7..0506c48 100644
      {{- end }}
        hosts: []
        users: []
-@@ -610,6 +616,11 @@ stringData:
+@@ -610,6 +626,11 @@ stringData:
        tenant_permissions: []
        static: false
  
@@ -428,7 +729,7 @@ index 5860ee7..0506c48 100644
  {{- end }}
    config.yml: |-
  {{- if .Values.indexer.config.securityConfig }}
-@@ -635,6 +646,9 @@ stringData:
+@@ -635,6 +656,9 @@ stringData:
          #default_tenant: ""
          #server_username: kibanaserver
          #index: '.kibana'
@@ -458,8 +759,62 @@ index 0066bd6..11ca622 100644
  {{- end }}
  
  {{- if .Values.wazuh.agentGroupConf }}
+diff --git a/templates/manager/master/networkpolicy.yaml b/templates/manager/master/networkpolicy.yaml
+index d34e29e..f553b80 100644
+--- a/templates/manager/master/networkpolicy.yaml
++++ b/templates/manager/master/networkpolicy.yaml
+@@ -39,10 +39,14 @@ spec:
+     {{- toYaml . | nindent 4 }}
+     {{- end }}
+   egress:
++    {{- /* KubeAid patch: ctiEgress false drops the HTTPS-to-anywhere rule; allow the
++         CTI feed with a narrower policy instead (e.g. a CiliumNetworkPolicy to world). */}}
++    {{- if ne .Values.wazuh.master.networkPolicy.ctiEgress false }}
+     # Wazuh CTI (Cyber Threat Intelligence)
+     - ports:
+         - protocol: TCP
+           port: 443
++    {{- end }}
+     - ports:
+         - protocol: TCP
+           port: {{ .Values.indexer.service.httpPort }}
+diff --git b/templates/manager/master/poddisruptionbudget.yaml b/templates/manager/master/poddisruptionbudget.yaml
+new file mode 100644
+index 0000000..3534b30
+--- /dev/null
++++ b/templates/manager/master/poddisruptionbudget.yaml
+@@ -0,0 +1,29 @@
++{{- /*
++  KubeAid patch. The master is a single pod that every worker and every agent
++  enrolment depends on, and its /var/ossec/etc holds client.keys. With one
++  replica, minAvailable: 1 refuses voluntary eviction outright rather than
++  delaying it: draining that node becomes a decision someone makes
++  (kubectl drain --disable-eviction), not something unattended maintenance does.
++  Off by default for exactly that reason.
++*/}}
++{{- if .Values.wazuh.master.enabled }}
++{{- if .Values.wazuh.master.pdb.enabled }}
++kind: PodDisruptionBudget
++apiVersion: policy/v1
++metadata:
++  name: {{ include "wazuh.fullname" . }}-manager-master
++  namespace: {{ .Release.Namespace }}
++spec:
++  selector:
++    matchLabels:
++      app: {{ include "wazuh.fullname" . }}-manager
++      node-type: master
++  {{- if .Values.wazuh.master.pdb.minAvailable }}
++  minAvailable: {{ .Values.wazuh.master.pdb.minAvailable }}
++  {{- else }}
++  {{- with .Values.wazuh.master.pdb.maxUnavailable }}
++  maxUnavailable: {{ . }}
++  {{- end }}
++  {{- end }}
++{{- end }}
++{{- end }}
 diff --git a/templates/manager/master/statefulset.yaml b/templates/manager/master/statefulset.yaml
-index 86b71fe..32bc1f2 100644
+index 86b71fe..1c5fc7b 100644
 --- a/templates/manager/master/statefulset.yaml
 +++ b/templates/manager/master/statefulset.yaml
 @@ -32,6 +32,13 @@ spec:
@@ -476,8 +831,17 @@ index 86b71fe..32bc1f2 100644
          {{- if .Values.autoreload.enabled }}
          checksum/configmap: {{ include (print $.Template.BasePath "/manager/configmap.yaml") . | sha256sum }}
          checksum/filebeat-certificate: {{ include (print $.Template.BasePath "/certs/filebeat/certificate.yaml") . | sha256sum }}
-@@ -78,6 +85,13 @@ spec:
+@@ -76,8 +83,22 @@ spec:
+         - name: wazuh-authd-pass
+           secret:
              secretName: {{ .Values.wazuh.authd.existingSecret | default "wazuh-authd-pass" }}
++        {{- if and .Values.certificates.enabled .Values.wazuh.managerTls.enabled }}
++        # KubeAid patch: API and authd key pair (wazuh.managerTls).
++        - name: manager-tls
++          secret:
++            secretName: {{ .Values.wazuh.managerTls.secretName }}
++            defaultMode: 0400
++        {{- end }}
          - emptyDir: {}
            name: result-config
 +        {{- with .Values.wazuh.agentGroupConfConfigMap }}
@@ -490,7 +854,27 @@ index 86b71fe..32bc1f2 100644
        {{- with .Values.wazuh.master.additionalVolumes }}
          {{- toYaml . | nindent 8 }}
        {{- end }}
-@@ -104,6 +118,31 @@ spec:
+@@ -87,10 +108,15 @@ spec:
+         - name: update-index
+           image: {{ .Values.wazuh.initContainer.image }}
+           imagePullPolicy: {{ .Values.wazuh.images.pullPolicy }}
+-          command: 
+-            - 'sh'
+-            - '-c'
+-            - '/script.sh'
++          # KubeAid patch: wazuh.updateIndexCommand fills in the cluster key.
++          command:
++            {{- include "wazuh.updateIndexCommand" . | nindent 12 }}
++          {{- if .Values.wazuh.clusterKeySecret.name }}
++          env:
++            - name: WAZUH_CLUSTER_KEY
++              valueFrom:
++                {{- include "wazuh.clusterKeySecretRef" . | nindent 16 }}
++          {{- end }}
+           resources:
+             {{- toYaml .Values.wazuh.initContainer.resources | nindent 12 }}
+           volumeMounts:
+@@ -104,6 +130,31 @@ spec:
                name: config
                readOnly: true
                subPath: script.sh
@@ -522,7 +906,7 @@ index 86b71fe..32bc1f2 100644
          {{- with .Values.wazuh.extraInitContainers }}
          {{- toYaml . | nindent 8 }}
          {{- end }}
-@@ -143,13 +182,44 @@ spec:
+@@ -143,13 +194,44 @@ spec:
                  - /bin/sh
                  - -c
                  - |
@@ -550,7 +934,7 @@ index 86b71fe..32bc1f2 100644
 +                    fi
 +                    sleep 2
 +                  done
-+                  {{- end }}
+                   {{- end }}
 +                  {{- if .Values.wazuh.agentGroupConfConfigMap }}
 +                  # Same for the groups from wazuh.agentGroupConfConfigMap, whose
 +                  # names are only known at runtime.
@@ -567,12 +951,38 @@ index 86b71fe..32bc1f2 100644
 +                      sleep 2
 +                    done
 +                  done
-                   {{- end }}
++                  {{- end }}
 +                  true
            volumeMounts:
              # Wazuh Config
              - mountPath: /wazuh-config-mount/etc/
-@@ -191,6 +261,13 @@ spec:
+@@ -176,6 +258,25 @@ spec:
+               mountPath: /wazuh-config-mount/etc/authd.pass
+               subPath: authd.pass
+               readOnly: true
++            {{- if and .Values.certificates.enabled .Values.wazuh.managerTls.enabled }}
++            # KubeAid patch: copied over the self-signed API and authd key pairs at start.
++            - name: manager-tls
++              mountPath: /wazuh-config-mount/api/configuration/ssl/server.crt
++              subPath: tls.crt
++              readOnly: true
++            - name: manager-tls
++              mountPath: /wazuh-config-mount/api/configuration/ssl/server.key
++              subPath: tls.key
++              readOnly: true
++            - name: manager-tls
++              mountPath: /wazuh-config-mount/etc/sslmanager.cert
++              subPath: tls.crt
++              readOnly: true
++            - name: manager-tls
++              mountPath: /wazuh-config-mount/etc/sslmanager.key
++              subPath: tls.key
++              readOnly: true
++            {{- end }}
+             # Rules and decoders
+             - mountPath: /wazuh-config-mount/etc/decoders/local_decoder.xml
+               name: config
+@@ -191,6 +292,13 @@ spec:
                readOnly: true
                subPath: filebeat.yml
              {{- end }}
@@ -586,8 +996,69 @@ index 86b71fe..32bc1f2 100644
              # PVC
              - name: {{ include "wazuh.fullname" . }}-manager-master
                mountPath: /var/ossec/api/configuration
+@@ -264,9 +372,7 @@ spec:
+               value: /etc/ssl/filebeat.key
+             - name: WAZUH_CLUSTER_KEY
+               valueFrom:
+-                secretKeyRef:
+-                  key: key
+-                  name: "wazuh-cluster-key"
++                {{- include "wazuh.clusterKeySecretRef" . | nindent 16 }}
+           {{- with .Values.wazuh.master.additionalEnv }}
+             {{- toYaml . | nindent 12 }}
+           {{- end }}
+diff --git a/templates/manager/secret-cluster-key.yaml b/templates/manager/secret-cluster-key.yaml
+index 8c24cd3..a8dc094 100644
+--- a/templates/manager/secret-cluster-key.yaml
++++ b/templates/manager/secret-cluster-key.yaml
+@@ -1,4 +1,5 @@
+-{{- if .Values.wazuh.enabled }}
++{{- /* KubeAid patch: not rendered when wazuh.clusterKeySecret.name names an existing Secret. */}}
++{{- if and .Values.wazuh.enabled (not .Values.wazuh.clusterKeySecret.name) }}
+ apiVersion: v1
+ kind: Secret
+ metadata:
+diff --git a/templates/manager/worker/networkpolicy.yaml b/templates/manager/worker/networkpolicy.yaml
+index b62fb6d..bc4998a 100644
+--- a/templates/manager/worker/networkpolicy.yaml
++++ b/templates/manager/worker/networkpolicy.yaml
+@@ -38,10 +38,14 @@ spec:
+     {{- toYaml . | nindent 4 }}
+     {{- end }}
+   egress:
++    {{- /* KubeAid patch: ctiEgress false drops the HTTPS-to-anywhere rule; allow the
++         CTI feed with a narrower policy instead (e.g. a CiliumNetworkPolicy to world). */}}
++    {{- if ne .Values.wazuh.worker.networkPolicy.ctiEgress false }}
+     # Wazuh CTI (Cyber Threat Intelligence)
+     - ports:
+         - protocol: TCP
+           port: 443
++    {{- end }}
+     - ports:
+         - protocol: TCP
+           port: {{ .Values.indexer.service.httpPort }}
+diff --git a/templates/manager/worker/poddisruptionbudget.yaml b/templates/manager/worker/poddisruptionbudget.yaml
+index 1ce09f7..244498d 100644
+--- a/templates/manager/worker/poddisruptionbudget.yaml
++++ b/templates/manager/worker/poddisruptionbudget.yaml
+@@ -10,8 +10,14 @@ spec:
+     matchLabels:
+       app: {{ include "wazuh.fullname" . }}-manager
+       node-type: worker
++  {{- /* KubeAid patch: minAvailable, so a highly available release can require a
++      quorum to stay up rather than only cap the pods an eviction may take. */}}
++  {{- if .Values.wazuh.worker.pdb.minAvailable }}
++  minAvailable: {{ .Values.wazuh.worker.pdb.minAvailable }}
++  {{- else }}
+   {{- with .Values.wazuh.worker.pdb.maxUnavailable }}
+   maxUnavailable: {{ . }}
+   {{- end }}
++  {{- end }}
+ {{- end }}
+ {{- end }}
+\ No newline at end of file
 diff --git a/templates/manager/worker/statefulset.yaml b/templates/manager/worker/statefulset.yaml
-index d47e157..8e93250 100644
+index d47e157..70acaa8 100644
 --- a/templates/manager/worker/statefulset.yaml
 +++ b/templates/manager/worker/statefulset.yaml
 @@ -30,6 +30,13 @@ spec:
@@ -604,8 +1075,37 @@ index d47e157..8e93250 100644
          {{- if .Values.autoreload.enabled }}
          checksum/configmap: {{ include (print $.Template.BasePath "/manager/configmap.yaml") . | sha256sum }}
          checksum/filebeat-certificate: {{ include (print $.Template.BasePath "/certs/filebeat/certificate.yaml") . | sha256sum }}
-@@ -91,6 +98,13 @@ spec:
+@@ -63,7 +70,8 @@ spec:
+             - topologyKey: {{ .Values.wazuh.worker.podAntiAffinityTopologyKey }}
+               labelSelector:
+                 matchExpressions:
+-                  - {key: app, operator: In, values: [{{ include "wazuh.fullname" . }}-manager-worker]}
++                  - {key: app, operator: In, values: [{{ include "wazuh.fullname" . }}-manager]}
++                  - {key: node-type, operator: In, values: [worker]}
+         {{- else if eq .Values.wazuh.worker.podAntiAffinity "soft" }}
+         podAntiAffinity:
+           preferredDuringSchedulingIgnoredDuringExecution:
+@@ -72,7 +80,8 @@ spec:
+                 topologyKey: {{ .Values.wazuh.worker.podAntiAffinityTopologyKey }}
+                 labelSelector:
+                   matchExpressions:
+-                    - {key: app, operator: In, values: [{{ include "wazuh.fullname" . }}-manager-worker]}
++                    - {key: app, operator: In, values: [{{ include "wazuh.fullname" . }}-manager]}
++                    - {key: node-type, operator: In, values: [worker]}
+         {{- end }}
+       {{- if .Values.wazuh.worker.dnsPolicy }}
+       dnsPolicy: {{ .Values.wazuh.worker.dnsPolicy }}
+@@ -89,8 +98,22 @@ spec:
+         - name: filebeat-certs
+           secret:
              secretName: filebeat-tls
++        {{- if and .Values.certificates.enabled .Values.wazuh.managerTls.enabled }}
++        # KubeAid patch: API and authd key pair (wazuh.managerTls).
++        - name: manager-tls
++          secret:
++            secretName: {{ .Values.wazuh.managerTls.secretName }}
++            defaultMode: 0400
++        {{- end }}
          - name: result-config
            emptyDir: {}
 +        {{- with .Values.wazuh.agentGroupConfConfigMap }}
@@ -618,7 +1118,27 @@ index d47e157..8e93250 100644
        {{- with .Values.wazuh.worker.additionalVolumes }}
          {{- toYaml . | nindent 8 }}
        {{- end }}
-@@ -117,6 +131,31 @@ spec:
+@@ -100,10 +123,15 @@ spec:
+         - name: update-index
+           image: {{ .Values.wazuh.initContainer.image }}
+           imagePullPolicy: {{ .Values.wazuh.images.pullPolicy }}
+-          command: 
+-            - 'sh'
+-            - '-c'
+-            - '/script.sh'
++          # KubeAid patch: wazuh.updateIndexCommand fills in the cluster key.
++          command:
++            {{- include "wazuh.updateIndexCommand" . | nindent 12 }}
++          {{- if .Values.wazuh.clusterKeySecret.name }}
++          env:
++            - name: WAZUH_CLUSTER_KEY
++              valueFrom:
++                {{- include "wazuh.clusterKeySecretRef" . | nindent 16 }}
++          {{- end }}
+           resources:
+             {{- toYaml .Values.wazuh.initContainer.resources | nindent 12 }}
+           volumeMounts:
+@@ -117,6 +145,31 @@ spec:
                name: config
                readOnly: true
                subPath: script.sh
@@ -650,7 +1170,7 @@ index d47e157..8e93250 100644
          {{- with .Values.wazuh.extraInitContainers }}
          {{- toYaml . | nindent 8 }}
          {{- end }}
-@@ -156,13 +195,44 @@ spec:
+@@ -156,13 +209,44 @@ spec:
                  - /bin/sh
                  - -c
                  - |
@@ -700,7 +1220,32 @@ index d47e157..8e93250 100644
            volumeMounts:
              # Wazuh config
              - mountPath: /wazuh-config-mount/etc/
-@@ -190,6 +260,13 @@ spec:
+@@ -184,12 +268,38 @@ spec:
+               name: filebeat-certs
+               readOnly: true
+               subPath: tls.key
++            {{- if and .Values.certificates.enabled .Values.wazuh.managerTls.enabled }}
++            # KubeAid patch: copied over the self-signed API and authd key pairs at start.
++            - name: manager-tls
++              mountPath: /wazuh-config-mount/api/configuration/ssl/server.crt
++              subPath: tls.crt
++              readOnly: true
++            - name: manager-tls
++              mountPath: /wazuh-config-mount/api/configuration/ssl/server.key
++              subPath: tls.key
++              readOnly: true
++            - name: manager-tls
++              mountPath: /wazuh-config-mount/etc/sslmanager.cert
++              subPath: tls.crt
++              readOnly: true
++            - name: manager-tls
++              mountPath: /wazuh-config-mount/etc/sslmanager.key
++              subPath: tls.key
++              readOnly: true
++            {{- end }}
+             {{- if include "wazuh.filebeat.overridden" . }}
+             - mountPath: /var/ossec/data_tmp/exclusion/etc/filebeat/filebeat.yml
+               name: config
                readOnly: true
                subPath: filebeat.yml
              {{- end }}
@@ -714,7 +1259,18 @@ index d47e157..8e93250 100644
              # PVC
              - name: {{ include "wazuh.fullname" . }}-manager-worker
                mountPath: /var/ossec/api/configuration
-@@ -269,6 +346,41 @@ spec:
+@@ -256,9 +366,7 @@ spec:
+               value: {{ .Values.wazuh.env.FILEBEAT_SSL_VERIFICATION_MODE | quote }}
+             - name: WAZUH_CLUSTER_KEY
+               valueFrom:
+-                secretKeyRef:
+-                  key: key
+-                  name: "wazuh-cluster-key"
++                {{- include "wazuh.clusterKeySecretRef" . | nindent 16 }}
+             # Certs
+             - name: SSL_CERTIFICATE_AUTHORITIES
+               value: /etc/ssl/root-ca.pem
+@@ -269,6 +377,41 @@ spec:
            {{- with .Values.wazuh.worker.additionalEnv }}
              {{- toYaml . | nindent 12 }}
            {{- end }}
@@ -757,7 +1313,7 @@ index d47e157..8e93250 100644
      - apiVersion: v1
        kind: PersistentVolumeClaim
 diff --git a/tests/render_test.sh b/tests/render_test.sh
-index ac2fa5a..1546664 100644
+index ac2fa5a..f27d41a 100644
 --- a/tests/render_test.sh
 +++ b/tests/render_test.sh
 @@ -3,7 +3,7 @@
@@ -787,7 +1343,7 @@ index ac2fa5a..1546664 100644
  LISTENERSET=templates/dashboard/listenerset.yaml
  HTTPROUTE=templates/dashboard/httproute.yaml
  BACKENDTLSPOLICY=templates/dashboard/backendtlspolicy.yaml
-@@ -265,6 +276,85 @@ assert_contains "an override alone does not enable archives" "$out" '<logall_jso
+@@ -265,6 +276,116 @@ assert_contains "an override alone does not enable archives" "$out" '<logall_jso
  out=$(render_only "$MASTER_STS" "${override_args[@]}")
  assert_contains "an override alone still mounts filebeat.yml" "$out" "$FILEBEAT_MOUNT"
  
@@ -870,14 +1426,59 @@ index ac2fa5a..1546664 100644
 +assert_equals "the extra role lands in roles.yml" 'wazuh-alerts-4.x-a-*' "$(yq '.["tenant-a-reader"].index_permissions[0].index_patterns[0]' <<<"$roles")"
 +assert_equals "the stock roles are kept" 'true' "$(yq '.manage_wazuh_index.reserved' <<<"$roles")"
 +
++echo "== KubeAid: snapshot path.repo, extra opensearch.yml settings and PodDisruptionBudgets =="
++CONFIGMAP=templates/indexer/configmap.yaml
++out=$(render_only "$CONFIGMAP")
++assert_not_contains "no path.repo without indexer.snapshot" "$out" "path.repo"
++out=$(render_only "$CONFIGMAP" --set indexer.snapshot.enabled=true)
++assert_contains "path.repo matches the snapshot volume" "$out" 'path.repo: ["/mnt/snapshots"]'
++out=$(render_only "$CONFIGMAP" --set-string 'indexer.config.opensearch=cluster.name: mine' --set indexer.snapshot.enabled=true \
++  --set-string 'indexer.config.extraOpensearch.cluster\.routing\.allocation\.awareness\.attributes=zone')
++assert_contains "path.repo is appended to an opensearch.yml override too" "$out" 'path.repo: ["/mnt/snapshots"]'
++assert_contains "extraOpensearch is appended to an override too" "$out" "cluster.routing.allocation.awareness.attributes: zone"
++
++MASTER_PDB=templates/manager/master/poddisruptionbudget.yaml
++expect_failure "no master PodDisruptionBudget by default" render_only "$MASTER_PDB"
++out=$(render_only "$MASTER_PDB" --set wazuh.master.pdb.enabled=true --set wazuh.master.pdb.minAvailable=1)
++assert_equals "the master budget selects the master pods" 'master' "$(yq '.spec.selector.matchLabels["node-type"]' <<<"$out")"
++assert_equals "the master budget keeps one pod" '1' "$(yq '.spec.minAvailable' <<<"$out")"
++
++INDEXER_PDB=templates/indexer/poddisruptionbudget.yaml
++assert_equals "the indexer budget caps evictions by default" '1' "$(yq '.spec.maxUnavailable' <<<"$(render_only "$INDEXER_PDB")")"
++out=$(render_only "$INDEXER_PDB" --set indexer.pdb.minAvailable=2)
++assert_equals "minAvailable wins over maxUnavailable" '2' "$(yq '.spec.minAvailable' <<<"$out")"
++assert_equals "maxUnavailable is dropped with minAvailable" 'null' "$(yq '.spec.maxUnavailable' <<<"$out")"
++
++WORKER_STS=templates/manager/worker/statefulset.yaml
++out=$(render_only "$WORKER_STS" --set wazuh.worker.enabled=true)
++term='.spec.template.spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm'
++assert_equals "the worker anti-affinity matches the pods' own app label" 'test-wazuh-manager' \
++  "$(yq "$term.labelSelector.matchExpressions[0].values[0]" <<<"$out")"
++assert_equals "the worker anti-affinity narrows to workers" 'worker' \
++  "$(yq "$term.labelSelector.matchExpressions[1].values[0]" <<<"$out")"
++
  echo
  echo "==================================="
  echo "PASS: $pass  FAIL: $fail"
 diff --git a/values.yaml b/values.yaml
-index be23228..cde96f6 100644
+index be23228..cc3e706 100644
 --- a/values.yaml
 +++ b/values.yaml
-@@ -228,6 +228,23 @@ indexer:
+@@ -124,9 +124,13 @@ indexer:
+       memory: 2Gi
+   ## @param indexer.pdb.enabled Enables pdb for indexer.
+   ## @skip indexer.pdb.maxUnavailable
++  ## @skip indexer.pdb.minAvailable
+   pdb:
+     enabled: true
+     maxUnavailable: 1
++    ## KubeAid patch. Set instead of maxUnavailable (it wins when both are set) to
++    ## keep a quorum up through a node drain, e.g. 2 with replicas 3.
++    minAvailable: null
+   ## @param indexer.livenessProbe.periodSeconds How often to perform the probe.
+   ## @param indexer.livenessProbe.timeoutSeconds When the probe times out.
+   ## @param indexer.livenessProbe.failureThreshold Minimum failures for the probe to be considered failed after having succeeded.
+@@ -228,6 +232,42 @@ indexer:
      tenants: ""
      nodesDn: ""
      whitelist: ""
@@ -898,10 +1499,62 @@ index be23228..cde96f6 100644
 +    ## the indices they may read. Ignored with an indexer.config.securityConfig override.
 +    ## @param indexer.config.doNotFailOnForbidden Set do_not_fail_on_forbidden in config.yml.
 +    doNotFailOnForbidden: false
++    ## KubeAid patch. The upstream demo users kibanaro, logstash, readall and
++    ## snapshotrestore ship with public password hashes, and readall reads every index.
++    ## Off: internal_users.yml holds only admin and the dashboard server user.
++    ## Ignored with an indexer.config.internalUsers override.
++    ## @param indexer.config.demoUsers Render the upstream demo users (insecure).
++    demoUsers: false
++    ## KubeAid patch. Extra entries for internal_users.yml, in its format, e.g. a
++    ## break-glass login: {breakglass: {hash: "<bcrypt>", backend_roles: [admin]}}.
++    ## Ignored with an indexer.config.internalUsers override.
++    ## @param indexer.config.extraInternalUsers Extra internal users.
++    extraInternalUsers: {}
++    ## KubeAid patch. Settings appended to opensearch.yml as they are, a flat map of
++    ## setting -> value, e.g. shard allocation awareness across failure domains:
++    ##   cluster.routing.allocation.awareness.attributes: zone
++    ## They are appended after an indexer.config.opensearch override too, so do not
++    ## repeat a key there (a duplicate key makes the indexer refuse to start).
++    ## node.attr.<name> comes from indexer.additionalEnv through ${VAR} substitution.
++    ## @param indexer.config.extraOpensearch Extra opensearch.yml settings.
++    extraOpensearch: {}
    ## @param indexer.additionalConfigs Additional configurations to add to the configmap
    additionalConfigs: {}
    ## LDAP / Active Directory authentication for the indexer (OpenSearch Security)
-@@ -498,6 +515,13 @@ dashboard:
+@@ -422,9 +462,13 @@ dashboard:
+       memory: 1Gi
+   ## @param dashboard.pdb.enabled Enables pdb for dashboard.
+   ## @skip dashboard.pdb.maxUnavailable
++  ## @skip dashboard.pdb.minAvailable
+   pdb:
+     enabled: false
+     maxUnavailable: 1
++    ## KubeAid patch. Set instead of maxUnavailable (it wins when both are set) to
++    ## keep a quorum up through a node drain, e.g. 2 with replicas 3.
++    minAvailable: null
+   ## @param dashboard.livenessProbe.periodSeconds How often to perform the probe.
+   ## @param dashboard.livenessProbe.timeoutSeconds When the probe times out.
+   ## @param dashboard.livenessProbe.failureThreshold Minimum failures for the probe to be considered failed.
+@@ -460,8 +504,18 @@ dashboard:
+   ## @param dashboard.networkPolicy.enabled Specifies whether a NetworkPolicy should be created.
+   ## @param dashboard.networkPolicy.extraIngresses specify additional ingress rules for the NetworkPolicy.
+   ## @param dashboard.networkPolicy.extraEgresses specify additional egress rules for the NetworkPolicy.
++  ## KubeAid patch. opensearch.ssl.verificationMode of the dashboard towards the indexer:
++  ## none (upstream), certificate (chain only) or full (chain and host name). The
++  ## indexer's node certificate names <indexer fullname>-indexer, the host the dashboard
++  ## dials, and root-ca.pem is the issuer's CA, so full works with the chart's own
++  ## certificates.
++  opensearchVerificationMode: none
+   networkPolicy:
+     enabled: true
++    ## KubeAid patch. Peers admitted to the dashboard port. null (default) admits any
++    ## source (upstream behaviour); a list restricts the port to those peers; an empty
++    ## list drops the rule, so only extraIngresses and other policies admit peers.
++    ingressFrom: null
+     extraIngresses: []
+     extraEgresses: []
+   ## @param dashboard.service.type Type of the created service.
+@@ -498,6 +552,13 @@ dashboard:
  
    ## @param dashboard.additionalEnv Possibility to define additional env vars in the pod.
    additionalEnv: []
@@ -915,7 +1568,20 @@ index be23228..cde96f6 100644
    ## @param dashboard.enable_ssl with this you will be able to access kibana on http port instead of
    enable_ssl: false
    ## @param dashboard.config Configuration of the dashboard parameters, this should not be changed.
-@@ -549,6 +573,9 @@ dashboard:
+@@ -521,6 +582,12 @@ dashboard:
+     enabled: true
+     order: 4
+     challenge: true
++    ## KubeAid patch. With dashboard.sso.oidc or .saml enabled the login page offers
++    ## only SSO: internal users (admin, and any break-glass login) get no form. Set true
++    ## to offer the username/password form next to the SSO button. The indexer's basic
++    ## auth domain stays on either way (dashboard server user, filebeat, API clients).
++    ## @param dashboard.basicAuth.breakGlass Offer the login form next to SSO.
++    breakGlass: false
+ 
+   ## @param dashboard.server.extraConf Set extra config for Wazuh Dashboard
+   server:
+@@ -549,6 +616,9 @@ dashboard:
        roleMappings:
          allAccess:
            backendRoles: []
@@ -925,7 +1591,7 @@ index be23228..cde96f6 100644
          kibanaServer:
            backendRoles: []
          kibanaUser:
-@@ -588,6 +615,9 @@ dashboard:
+@@ -588,6 +658,9 @@ dashboard:
        roleMappings:
          allAccess:
            backendRoles: []
@@ -935,7 +1601,64 @@ index be23228..cde96f6 100644
          kibanaServer:
            backendRoles: []
          kibanaUser:
-@@ -766,6 +796,34 @@ wazuh:
+@@ -674,6 +747,16 @@ wazuh:
+     enabled: false
+   ## @param wazuh.key Defines the key of the wazuh cluster.
+   key: "c98b62a9b6169ac5f67dae55ae4a9088"
++  ## KubeAid patch. Read the cluster key from an existing Secret instead of wazuh.key, so
++  ## it is neither in the values nor in the manager ConfigMap: ossec.conf carries a
++  ## placeholder that the update-index init container replaces at pod start. The key must
++  ## be 32 letters or digits. The chart then renders no wazuh-cluster-key Secret. Changing
++  ## the Secret needs a manager restart (no config checksum covers it).
++  ## @param wazuh.clusterKeySecret.name Secret with the cluster key; empty uses wazuh.key.
++  ## @param wazuh.clusterKeySecret.key Key in that Secret.
++  clusterKeySecret:
++    name: ""
++    key: key
+   ## @param wazuh.images.repository name of the image used.
+   ## @param wazuh.images.tag Tag of the image.
+   ## @param wazuh.images.pullPolicy pullPolicy of the image.
+@@ -708,6 +791,24 @@ wazuh:
+     port: 1516
+   ## @param wazuh.nodeSelector nodeSelector
+   nodeSelector: {}
++  ## KubeAid patch. A certificate from certificates.issuer for the manager API (55000)
++  ## and authd (1515), instead of the self-signed ones the image generates (API:
++  ## CN=wazuh.com; authd: CN=<pod name>). The image's entrypoint copies
++  ## /wazuh-config-mount over /var/ossec at every start, so the Secret's key pair
++  ## replaces api/configuration/ssl/server.{crt,key} and etc/sslmanager.{cert,key}
++  ## there. API clients (the SOC reconciler, the MISP export) and agents enrolling with
++  ## the CA (agent-auth -v, WAZUH_REGISTRATION_CA) can then verify the manager against
++  ## the issuer's CA (ca.crt of the Secret). Agents check the host name they dial, so
++  ## list the public agent address in extraDnsNames / ipAddresses. The processes read
++  ## the files at start only: restart the manager after cert-manager renews the
++  ## certificate (renewBefore leaves that much time). Needs certificates.enabled.
++  managerTls:
++    enabled: false
++    secretName: wazuh-manager-tls
++    extraDnsNames: []
++    ipAddresses: []
++    duration: 8760h # 1y
++    renewBefore: 2160h # 90d
+   ## @skip wazuh.env
+   env:
+     FILEBEAT_SSL_VERIFICATION_MODE: full
+@@ -758,6 +859,14 @@ wazuh:
+   localDecoder: ""
+   ## @param wazuh.localRules Override for local_rules.xml. If empty, files/local_rules.xml is used.
+   localRules: ""
++  ## KubeAid: appended to the stock <ruleset> of master.conf and worker.conf.
++  ruleset:
++    ## @param wazuh.ruleset.extraLists CDB list paths to register, e.g. etc/lists/misp-malicious-ip.
++    ## Registering a list is a restart (the config checksum rolls the managers); its content
++    ## is then hot-reloaded.
++    extraLists: []
++    ## @param wazuh.ruleset.extraRuleExcludes Rule files to exclude, e.g. 0999-malicious-ioc-rules.xml.
++    extraRuleExcludes: []
+   ## @param wazuh.internalOptions Override for internal_options.conf. If empty, files/internal_options.conf is used.
+   internalOptions: ""
+   ## Replaces the whole file. Keep the `hosts:` line and the commented-out `#username:`,
+@@ -766,6 +875,34 @@ wazuh:
    ## @param wazuh.filebeat.config Override for filebeat.yml. If empty, the generated config is used.
    filebeat:
      config: ""
@@ -970,7 +1693,61 @@ index be23228..cde96f6 100644
    ## @skip wazuh.agentGroupConf
    agentGroupConf:
      - name: example
-@@ -965,6 +1023,30 @@ wazuh:
+@@ -780,6 +917,17 @@ wazuh:
+   master:
+     ## @param wazuh.master.enabled Enable the master
+     enabled: true
++    ## KubeAid patch. The master is a single pod every worker and every enrolment
++    ## depends on, and its volume holds client.keys. With one replica,
++    ## minAvailable: 1 refuses voluntary eviction rather than delaying it, so a
++    ## drain of that node needs a deliberate --disable-eviction. Off by default.
++    ## @param wazuh.master.pdb.enabled Enables pdb for the master.
++    ## @skip wazuh.master.pdb.minAvailable
++    ## @skip wazuh.master.pdb.maxUnavailable
++    pdb:
++      enabled: false
++      minAvailable: null
++      maxUnavailable: null
+     ## @param wazuh.master.annotations additional annotations set on statefulset.
+     annotations: {}
+     ## @param wazuh.master.extraPodLabels Extra labels to add to the master pods.
+@@ -847,6 +995,10 @@ wazuh:
+     ## @param wazuh.master.networkPolicy.extraEgresses specify additional egress rules
+     networkPolicy:
+       enabled: true
++      ## KubeAid patch. HTTPS egress to any address for the Wazuh CTI feed
++      ## (vulnerability detection). false drops that rule; allow the feed with a
++      ## narrower policy instead.
++      ctiEgress: true
+       extraIngresses: []
+       extraEgresses: []
+     ## @param wazuh.master.pvc.extraLabels Add addtional labels to the PersistentVolumeClaim metadata
+@@ -922,9 +1074,13 @@ wazuh:
+           targetPort: 1514
+     ## @param wazuh.worker.pdb.enabled Enables pdb for worker.
+     ## @skip wazuh.worker.pdb.maxUnavailable
++    ## @skip wazuh.worker.pdb.minAvailable
+     pdb:
+       enabled: true
+       maxUnavailable: 1
++      ## KubeAid patch. Set instead of maxUnavailable (it wins when both are set) to
++      ## keep a quorum up through a node drain, e.g. 2 with replicas 3.
++      minAvailable: null
+     ## @param wazuh.worker.livenessProbe Parameter to configure the livenessProbe.
+     livenessProbe: {}
+     ## @param wazuh.worker.readinessProbe Parameter to configure the readinessProbe.
+@@ -944,6 +1100,10 @@ wazuh:
+     ## @param wazuh.worker.networkPolicy.extraEgresses specify additional egress rules
+     networkPolicy:
+       enabled: true
++      ## KubeAid patch. HTTPS egress to any address for the Wazuh CTI feed
++      ## (vulnerability detection). false drops that rule; allow the feed with a
++      ## narrower policy instead.
++      ctiEgress: true
+       extraIngresses: []
+       extraEgresses: []
+     ## @param wazuh.worker.pvc.extraLabels Add addtional labels to the PersistentVolumeClaim metadata
+@@ -965,6 +1125,30 @@ wazuh:
        pod: {}
        container: {}
  

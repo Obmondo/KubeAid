@@ -518,6 +518,18 @@ Security hardening (section 8a, checked by `tests/hardening_render_test.sh`):
   per-release CA (signed by the shared issuer) was a CA key in each release's namespace
   that could mint any identity the other releases trust.
 
+Availability and snapshots (the `ha` profile of the umbrella chart, section 12):
+
+- `wazuh.{master,worker}.podDisruptionBudget` and `indexer.podDisruptionBudget`:
+  `templates/manager/{master,worker}/poddisruptionbudget.yaml`, plus the values. Upstream
+  has a budget for the indexer only, and none for the managers, so a drain could take the
+  master and every worker at once.
+- `indexer.snapshot` set `path.repo` nowhere, so the shared volume it mounts could never be
+  registered as a snapshot repository: `templates/indexer/configmap.yaml` writes it now.
+- `indexer.config.extraOpensearch`: extra `opensearch.yml` settings (shard allocation
+  awareness for the `ha` profile), appended in `templates/indexer/configmap.yaml`.
+
+
 ### Updating the subchart
 
 `.helm-update-skip` keeps this chart out of the weekly `bin/manage-helm-chart.sh --update-all`
