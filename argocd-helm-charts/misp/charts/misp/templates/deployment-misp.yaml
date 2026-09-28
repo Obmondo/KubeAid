@@ -79,6 +79,14 @@ spec:
         {{- end }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.clusterDomain }}
+        {{- with .Values.env.redisPasswordSecret.name }}
+        # KubeAid patch: env.redisPasswordSecret.
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ . }}
+              key: {{ $.Values.env.redisPasswordSecret.key | default "password" }}
+        {{- end }}
         {{- with .Values.extraEnv }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

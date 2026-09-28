@@ -42,7 +42,10 @@ data:
   OIDC_LOGOUT_URL: {{ .Values.env.oidcLogoutUrl | quote }}
   OIDC_SCOPES: {{ .Values.env.oidcScopes | quote }}
   REDIS_HOST: {{ .Values.env.redisHost | quote }}
+  {{- /* KubeAid patch: from env.redisPasswordSecret instead, when set. */}}
+  {{- if not .Values.env.redisPasswordSecret.name }}
   REDIS_PASSWORD: {{ .Values.env.redisPassword | quote }}
+  {{- end }}
   REDIS_PORT: {{ .Values.env.redisPort | quote }}
   SECURITY_SALT: {{ .Values.env.securitySalt | quote }}
   ZEROMQ_ENABLED: {{ .Values.env.zeromqEnabled | quote }}
@@ -60,7 +63,9 @@ metadata:
 data:
   REDIS_BACKEND: {{ .Values.modulesEnv.redisBackend | quote }}
   REDIS_PORT: {{ .Values.modulesEnv.redisPort | quote }}
+  {{- if not .Values.env.redisPasswordSecret.name }}
   REDIS_PW: {{ .Values.env.redisPassword | quote }}
+  {{- end }}
 {{- if .Values.setAPIKey }}  
 ---
 apiVersion: v1

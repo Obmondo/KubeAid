@@ -13,6 +13,10 @@ chart is not published to a Helm repository, so the chart directory is copied un
 - `charts/misp/templates/deployment-misp.yaml` gains `extraEnv`, `hostAliases` and a
   `checksum/env` pod annotation (the pod reads its settings through `envFrom`, so without
   the checksum a values change never reaches a running pod). Re-apply these after an update.
+- `env.redisPasswordSecret` (`charts/misp/templates/configmap.yaml`,
+  `deployment-misp.yaml`, `deployment-modules.yaml`, `values.yaml`): with `name` set, MISP
+  (`REDIS_PASSWORD`) and misp-modules (`REDIS_PW`) read the Valkey password from that
+  Secret and it is left out of the `misp-env` and `misp-modules-env` ConfigMaps.
 
 ## 2. How to setup
 
@@ -23,6 +27,7 @@ Install the mariadb-operator chart first. Create three sealed Secrets in the nam
 | `mysql-credentials` | kubernetes.io/basic-auth | `username`, `password` (used by MISP and the MariaDB resource) |
 | `oidc-credentials` | kubernetes.io/basic-auth | `username` = client id, `password` = client secret |
 | `misp-api-key` | Opaque | `key` |
+| `misp-redis` | Opaque | `password` (the Valkey password, see below) |
 
 Then:
 
@@ -32,12 +37,18 @@ misp:
     mispBaseurl: https://misp.example.com
     ingressHostName: misp.example.com
   env:
-    redisPassword: <same as valkey password>
+    # MISP and misp-modules read the Valkey password from this Secret, so it is in
+    # neither the values nor a ConfigMap.
+    redisPasswordSecret:
+      name: misp-redis
+      key: password
   valkey:
     auth:
+      usersExistingSecret: misp-redis
       aclUsers:
         default:
-          password: <same as above>
+          passwordKey: password
+          password: ""        # drop the wrapper's inline default
   misp:
     misp:
       image:

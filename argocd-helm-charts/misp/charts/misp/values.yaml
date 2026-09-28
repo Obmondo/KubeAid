@@ -81,6 +81,12 @@ env:
   redisPort: 6379
   # -- The password for the redis service.
   redisPassword: "redispassword"    # checkov:skip=CKV_SECRET_6:Ignore default redis PW as it should be overwritten by users
+  # -- (KubeAid patch) Existing Secret with the redis password. When name is set, MISP and
+  # misp-modules read it from there and redisPassword is not rendered into the ConfigMaps.
+  # Point valkey.auth.usersExistingSecret (passwordKey) at the same Secret.
+  redisPasswordSecret:
+    name: ""
+    key: password
   securitySalt: E038741A-3646-4525-BFC9-77500D25F1F6
   zeromqEnabled: "yes"
   disableSSLRedirect: "true"
