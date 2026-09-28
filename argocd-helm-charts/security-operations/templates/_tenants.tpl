@@ -309,7 +309,7 @@ app.kubernetes.io/part-of: security-operations
 {{- if not $skip -}}
 {{- $p := dict -}}
 {{- if eq $name "Custom.Server.KeycloakSync" -}}
-{{- $_ := set $p "KcUrl" $.Values.keycloak.url -}}
+{{- $_ := set $p "KcUrl" ($.Values.keycloak.internalURL | default $.Values.keycloak.url) -}}
 {{- $_ := set $p "KcRealm" $.Values.keycloak.realm -}}
 {{- /* The reconciler's own API user has no Keycloak user: never remove it. */ -}}
 {{- $apiUser := ((($.Values.velociraptor.velociraptor | default dict).apiClient | default dict).name) | default "siem-reconciler" -}}

@@ -45,6 +45,38 @@ class (CephFS) to remove that constraint.
 - The `/login` readiness probe works with every authentication type: with OIDC and
   `localFallback: false` it answers with a redirect, which the probe counts as ready.
 
+## 3.1 Running more than one replica
+
+`app.replicas` and `worker.replicas` above 1 also render a `PodDisruptionBudget` each
+(`minAvailable: 1`, so a drain cannot take the last one) and, with
+`topologySpreadTopologyKey` set, a `topologySpreadConstraints` entry — more replicas are
+only resilience when they are not all on one node.
+
+Two things have to move with them:
+
+- **`persistence.accessModes` must include `ReadWriteMany`.** With the default
+  ReadWriteOnce volume the worker is pinned to the app's node by affinity (section 2), and a
+  second app pod cannot mount the volume at all.
+- **`strategy.type` should become `RollingUpdate`.** It is `Recreate` because a rolling
+  update on a ReadWriteOnce volume deadlocks on Multi-Attach; with a ReadWriteMany volume
+  that no longer applies, and `Recreate` makes every upgrade an outage.
+
+```yaml
+persistence:
+  accessModes: [ReadWriteMany]
+  storageClass: rook-cephfs
+strategy:
+  type: RollingUpdate
+app:
+  replicas: 2
+worker:
+  replicas: 2
+topologySpreadTopologyKey: kubernetes.io/hostname
+```
+
+The database and the broker have their own replica counts
+(`global.postgresql.instances`, `global.rabbitmq.replicas`, both in kubeaid-addons).
+
 ## 4. SSO (OIDC)
 
 IRIS 2.4 has one authentication type at a time (`local`, `ldap` or `oidc`). With `oidc`

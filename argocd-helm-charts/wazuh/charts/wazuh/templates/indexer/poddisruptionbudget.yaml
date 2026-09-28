@@ -9,8 +9,14 @@ spec:
   selector:
     matchLabels:
       app: {{ include "wazuh.indexer.fullname" . }}-indexer
+  {{- /* KubeAid patch: minAvailable, so a highly available release can require a
+      quorum to stay up rather than only cap the pods an eviction may take. */}}
+  {{- if .Values.indexer.pdb.minAvailable }}
+  minAvailable: {{ .Values.indexer.pdb.minAvailable }}
+  {{- else }}
   {{- with .Values.indexer.pdb.maxUnavailable }}
   maxUnavailable: {{ . }}
+  {{- end }}
   {{- end }}
 {{- end }}
 {{- end }}

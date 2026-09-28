@@ -34,6 +34,8 @@
   "wazuhDashboard" (dict "app" "wazuh-dashboard")
   "wazuhIndexer" (dict "app" "wazuh-indexer")
   "wazuhIndexerJob" (dict "job-name" "wazuh-indexer")
+  "backupSnapshot" (dict "app.kubernetes.io/name" "kubesoc-indexer-snapshot")
+  "restoreCheck" (dict "app.kubernetes.io/name" "kubesoc-restore-check")
 }}
 {{- $peer := dict }}
 {{- range $k, $v := $sel }}{{- $_ := set $peer $k (dict "podSelector" (dict "matchLabels" $v)) }}{{- end }}
@@ -182,6 +184,38 @@
   )) }}
 {{- end }}
 
+{{- if include "secops.backup.enabled" . }}
+{{- /*
+     Backups (values.yaml `backup`). The snapshot Job only talks to the indexer in
+     its own namespace; the tenants' copies of it get a policy from this chart too
+     (templates/backup.yaml), since their namespace is the wazuh chart's. With an
+     s3 snapshot repository it is the indexer, not this Job, that reaches the
+     object store: add that egress in the releases' indexer.networkPolicy.extraEgresses.
+     The restore check drives the Kubernetes API only (it queries through
+     `kubectl exec`); the scratch cluster it creates reads the object store itself.
+*/}}
+{{- if .Values.backup.opensearch.enabled }}
+{{- $policies = append $policies (dict "name" "backup-snapshot" "sel" $sel.backupSnapshot
+  "egress" (list
+    (dict "ports" (list 9200) "to" (list $peer.wazuhIndexer))
+  )) }}
+{{- end }}
+{{- if .Values.backup.verifyRestore.enabled }}
+{{- $policies = append $policies (dict "name" "restore-check" "sel" $sel.restoreCheck "apiserver" true) }}
+{{- $scratch := dict "cnpg.io/cluster" .Values.backup.verifyRestore.scratchCluster }}
+{{- $policies = append $policies (dict "name" "restore-check-postgres" "sel" $scratch "apiserver" true
+  "internet" (and $np.objectStore.internet (not $np.objectStore.to))
+  "internetPorts" $np.objectStore.ports
+  "ingress" (list
+    (dict "ports" (list 5432 8000) "from" (concat $np.operators.cnpg (list (dict "podSelector" (dict "matchLabels" $scratch)))))
+  )
+  "egress" (list
+    (dict "ports" (list 5432 8000) "to" (list (dict "podSelector" (dict "matchLabels" $scratch))))
+    (dict "ports" $np.objectStore.ports "to" $np.objectStore.to)
+  )) }}
+{{- end }}
+{{- end }}
+
 {{- /* cert-manager HTTP-01 solver pods for the UIs' Ingress certificates. */}}
 {{- $policies = append $policies (dict "name" "acme-solver" "sel" (dict "acme.cert-manager.io/http01-solver" "true")
   "ingress" (list
@@ -297,8 +331,9 @@ spec:
 {{- end }}
 {{- end }}
 {{- if $p.internet }}
+{{- $internetPorts := $p.internetPorts | default $np.mispInternet.ports }}
 ---
-# {{ $p.name }} fetches from the internet (feeds, enrichment services).
+# {{ $p.name }} reaches addresses outside the cluster (feeds, enrichment, an object store).
 {{- if $np.cilium }}
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
@@ -316,7 +351,7 @@ spec:
         - world
       toPorts:
         - ports:
-            {{- range $np.mispInternet.ports }}
+            {{- range $internetPorts }}
             - port: {{ . | quote }}
               protocol: TCP
             {{- end }}
@@ -339,7 +374,7 @@ spec:
             cidr: 0.0.0.0/0
             except: {{ toYaml $np.privateRanges | nindent 14 }}
       ports:
-        {{- range $np.mispInternet.ports }}
+        {{- range $internetPorts }}
         - protocol: TCP
           port: {{ . }}
         {{- end }}

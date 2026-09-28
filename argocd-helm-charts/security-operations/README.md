@@ -55,7 +55,8 @@ component blocks exactly as for the standalone charts (see their READMEs), one l
 |---|---|---|
 | `domain` | `example.com` | Base domain; hostnames default to `<component>.<domain>` |
 | `hosts.{wazuh,iris,misp,velociraptor}` | `""` | Override one hostname (`wazuh` = central search). Used for OIDC redirect URIs and alert links, not for the ingresses |
-| `keycloak.url`, `keycloak.realm` | | Realm every component logs in through, as the reconciler reaches it |
+| `keycloak.url`, `keycloak.realm` | | Realm every component logs in through; `url` is the browser-facing issuer |
+| `keycloak.internalURL` | `""` | The same Keycloak as the pods reach it; every back-channel call uses it (section 7, Reaching Keycloak) |
 | `keycloak.adminUsername`, `keycloak.adminSecretRef` | `admin`, `keycloakx/keycloak-admin/KEYCLOAK_PASSWORD` | Admin login the reconciler reads (the KubeAid keycloakx default) |
 | `keycloak.bruteForceProtected`, `.otpPolicy`, `.requireTOTP`, `.mfaFlow` | on, TOTP, on, `browser-mfa` | Realm policy the reconciler enforces; remove a key to leave it alone |
 | `keycloak.clients` | `[]` | OIDC clients for the reconciler; empty derives one per enabled component, one per tenant dashboard, plus `iris-sync` |
@@ -85,6 +86,15 @@ component blocks exactly as for the standalone charts (see their READMEs), one l
 | `tenantWazuh.{indexerService,indexerCredSecret}` | `wazuh-indexer`, `wazuh-indexer-cred` | Tenant indexer REST Service and admin Secret, for retention and health probes |
 | `monitoring.serviceMonitor.*`, `monitoring.prometheusRule.*` | off | ServiceMonitor and PrometheusRule of the platform (section 6, Monitoring) |
 | `checks.mispTargets` | `true` | Fail the render when the MISP export lacks a tenant's manager |
+| `checks.backupTargets` | `true` | Fail the render when `backup.enabled` is on but the IRIS or MISP database backs nothing up (section 7, Backups) |
+| `backup.enabled` | `false` | Master switch of the backup block; nothing here renders while it is off (section 7, Backups) |
+| `backup.objectStore.*` | placeholders | Bucket, endpoint, region, base path and credentials Secret every backend writes to |
+| `backup.velero.*` | on, `velero`, 14 daily / 4 weekly | Velero `Schedule`s of this namespace and every tenant's, Kopia file-system backup |
+| `backup.opensearch.*` | on, `fs`, daily, 30 days | Snapshot `CronJob` per indexer; `type: s3` needs an indexer image with `repository-s3` |
+| `backup.opensearch.numberOfReplicas` | `null` | Shard copies applied to the alert indices on every run; `null` leaves them alone |
+| `backup.verifyRestore.*` | off, monthly | Recovers the newest IRIS database backup into a scratch cluster and queries it |
+| `monitoring.prometheusRule.backupStaleHours` | `36` | A backup backend with no successful run for this long is an alert |
+| `networkPolicies.objectStore` | outside the cluster, 443/9000 | Where the backups are written, for the restore check's scratch cluster |
 | `ai.irisLogin`, `ai.irisGroups`, `ai.irisKeySecret` | `svc_ai`, `[Analysts]`, `iris-ai-triage` | IRIS service account of the triage job; the reconciler creates it, gives it these groups and every tenant as customer, and keeps its API key in that Secret (key `IRIS_API_KEY`, read by `dfir-iris.aiTriage.existingSecret`). Turn the job on with `dfir-iris.aiTriage.enabled` |
 | `publicIngress.velociraptorHost` | `""` | Hostname Velociraptor clients dial |
 | `reconciler.*` | disabled | Section 6; `reconciler.secrets` and `reconciler.components` override what goes into `siem-tenants` |
@@ -553,6 +563,108 @@ link falls back to the tool's start page. The reconciler keeps the Keycloak clie
 controller -> portal pod 4180, portal -> Keycloak (the issuer, normally out through the
 ingress) and DNS. The portal only links to the tools; it never proxies them, so the
 dashboards staying SSO-only changes nothing for it.
+
+### Reaching Keycloak
+
+`keycloak.url` is the **browser-facing** URL: it is the `iss` claim of every token, so it has
+to be the name the users' browsers use. The problem is that the pods have to reach Keycloak
+too, and a Keycloak published only by an internal ingress does not resolve to anything useful
+from inside the cluster.
+
+There are three answers, in order of preference:
+
+1. **`keycloak.internalURL`** — the same Keycloak as the pods reach it, e.g.
+   `http://keycloakx-http.keycloakx.svc/auth`. Every back-channel call uses it (the
+   reconciler's admin API, the Velociraptor Keycloak sync, and OIDC discovery for the
+   components that take a separate discovery URL, which is the Wazuh dashboard and indexer).
+   `keycloak.url` stays the issuer and still matches, because what Keycloak puts in its
+   discovery document comes from its own frontend URL, not from the address it was fetched
+   from. Nothing here has to be re-rendered when a Service is recreated.
+
+2. **A CoreDNS rewrite**, for the components that cannot split the two — Velociraptor, IRIS
+   and MISP all fetch discovery from the issuer itself and will not accept a mismatch. In the
+   KubeAid `coredns` chart:
+
+   ```yaml
+   rewrites:
+     - from: keycloak.example.com
+       to: traefik-internal.traefik.svc.cluster.local
+   ```
+
+   A query for the public name is answered with the internal ingress Service's address, and
+   `answer auto` rewrites the reply back, so TLS still verifies against the public
+   certificate. No IP is written down.
+
+3. **`keycloak.hostAliasIP` (kubeaid-cli) / `reconciler.hostAliases` — deprecated.** These
+   pin the host name to a ClusterIP in every SOC pod. A ClusterIP is not stable: delete and
+   recreate the ingress Service and it changes, after which SSO breaks in every component at
+   once, silently, until someone re-renders. Keep it only as a stop-gap, and only where
+   neither of the two above is available.
+
+### Backups
+
+Everything under `backup` is off, and the object store is a placeholder, until a bucket
+exists: an existing release renders exactly as before while `backup.enabled` is `false`.
+Fill in `backup.objectStore` (bucket, endpoint, region, credentials Secret), seal that
+Secret into this namespace, every tenant namespace and Velero's, then set `backup.enabled`.
+
+Four backends cover four kinds of state, because no one of them covers all of it:
+
+| What | How | Where it is configured |
+|---|---|---|
+| Volumes: the tenants' Wazuh manager data (`client.keys`) and indexer data, the Velociraptor datastore, the IRIS files, the MISP attachments | Velero `Schedule` (Kopia file-system backup, so no CSI snapshots needed), 14 daily and 4 weekly copies | `backup.velero` |
+| The tenants' alert indices | OpenSearch snapshots, one `CronJob` next to each indexer | `backup.opensearch` |
+| The IRIS database | CloudNativePG barman object store with WAL archiving, so a restore can roll forward | `dfir-iris.global.postgresql.backups` |
+| The MISP database | mariadb-operator `Backup` with a schedule | `misp.externalMariadb.backup` |
+
+The last two live in their own charts because a parent chart cannot compute a subchart's
+values; `checks.backupTargets` fails the render when `backup.enabled` is on and one of them
+is not, so the gap cannot pass unnoticed. **Keycloak is not deployed here**: back its
+database up the same way in its own release, or SSO has to be rebuilt by hand after a
+restore. The CloudNativePG volumes carry `velero.io/exclude-from-backup` (kubeaid-addons),
+so Velero leaves them to barman.
+
+`kubeaid-cli siem backup` ties one run together with the label
+`kubesoc.io/backup-set=<name>`: it copies the Velero `Schedule`'s template into a one-off
+`Backup`, makes a CloudNativePG `Backup` per `Cluster` and a MariaDB `Backup` per `MariaDB`
+from their scheduled objects, and runs every `CronJob` labelled
+`kubesoc.io/backup=opensearch-snapshot` once. `siem restore` reverses the Velero and MariaDB
+halves and prints the CloudNativePG and OpenSearch steps. Everything here therefore carries
+`kubesoc.io/backup=<component>` and lives where those commands look.
+
+**OpenSearch snapshots.** A run registers the repository, keeps the Snapshot Management
+policy in step, optionally sets the shard copies of the alert indices, takes a snapshot and
+deletes the ones past `backup.opensearch.retentionDays`. It is idempotent, so running it out
+of schedule is safe. The repository type is `fs` by default: a shared **ReadWriteMany**
+volume, which needs `indexer.snapshot.enabled` on every Wazuh release (that is what mounts
+the volume and sets `path.repo`; without `path.repo` the indexer refuses the repository).
+`type: s3` needs two things this chart cannot give it — the **`repository-s3` plugin, which
+the stock `wazuh/wazuh-indexer` image does not ship**, and the bucket credentials in the
+indexer's keystore (`s3.client.default.access_key` / `.secret_key`) — so build an image with
+the plugin and put the keys in the keystore before choosing it, and open the indexer's egress
+to the store in the releases' `indexer.networkPolicy.extraEgresses`. With
+`backup.opensearch.policy.enabled` the indexer's own Snapshot Management takes and expires
+the snapshots instead; the `CronJob` then only registers, so set `snapshotOnRun: true` if
+`siem backup` should still snapshot.
+
+**Restore verification.** `backup.verifyRestore` is a monthly `CronJob` that recovers the
+newest CloudNativePG `Backup` of the IRIS database into a scratch `Cluster`, runs
+`backup.verifyRestore.query` against it and deletes it again (whatever happens, including on
+failure). It is off by default because it creates and deletes a `Cluster`; its RBAC is
+limited to the `Backup` list, the scratch `Cluster` by name, that cluster's volumes and
+`pods/exec`. A backup nobody has restored is a hope, not a backup.
+
+**Alerts.** With `monitoring.prometheusRule.enabled` the backup block adds a
+`kubesoc-backups` group: the Velero schedules failing or having no successful backup for
+`monitoring.prometheusRule.backupStaleHours` (36 by default, so one missed daily run is not
+an alert), the same for each namespace's snapshot `CronJob`, and the restore check failing.
+A backup that quietly stopped working is otherwise only discovered when it is needed.
+
+**Network policies.** The snapshot Job only reaches the indexer in its own namespace
+(`secops-backup-snapshot`, rendered into the tenant namespaces too, since those are the wazuh
+chart's). The restore check drives the Kubernetes API only — it queries through
+`kubectl exec` — while the scratch cluster it creates reads the object store itself
+(`networkPolicies.objectStore`).
 
 ## 8. What is not derived from `tenants`
 

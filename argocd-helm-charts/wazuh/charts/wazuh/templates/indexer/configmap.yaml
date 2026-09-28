@@ -49,6 +49,18 @@ data:
     cluster.routing.allocation.disk.threshold_enabled: false
     compatibility.override_main_response_version: true
 {{- end }}
+{{- /*
+  KubeAid patch. Appended whether or not indexer.config.opensearch is overridden,
+  because both are settings a deployment adds rather than replaces. Do not repeat
+  them in an override: a duplicate key makes the indexer refuse to start.
+*/}}
+{{- if .Values.indexer.snapshot.enabled }}
+    {{- /* Without this the indexer refuses PUT _snapshot/<repo> for the volume below. */}}
+    path.repo: ["{{ .Values.indexer.snapshot.fs.path }}"]
+{{- end }}
+{{- range $key, $value := .Values.indexer.config.extraOpensearch }}
+    {{ $key }}: {{ toYaml $value }}
+{{- end }}
   tenants.yml: |-
 {{- if .Values.indexer.config.tenants }}
 {{ tpl .Values.indexer.config.tenants . | indent 4 }}

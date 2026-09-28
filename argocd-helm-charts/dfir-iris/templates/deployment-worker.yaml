@@ -8,7 +8,7 @@ metadata:
 spec:
   replicas: {{ .Values.worker.replicas }}
   strategy:
-    type: Recreate
+    {{- toYaml .Values.strategy | nindent 4 }}
   selector:
     matchLabels:
       {{- include "dfir-iris.selectorLabels" . | nindent 6 }}
@@ -59,6 +59,17 @@ spec:
             {{- include "dfir-iris.volumeMounts" . | nindent 12 }}
       volumes:
         {{- include "dfir-iris.volumes" . | nindent 8 }}
+      {{- if and (gt (int .Values.worker.replicas) 1) .Values.topologySpreadTopologyKey }}
+      {{- /* More than one replica is only resilience when they are not on one node. */}}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: {{ .Values.topologySpreadTopologyKey }}
+          whenUnsatisfiable: {{ .Values.topologySpreadWhenUnsatisfiable }}
+          labelSelector:
+            matchLabels:
+              {{- include "dfir-iris.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: worker
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

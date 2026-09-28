@@ -49,3 +49,23 @@
 {{- end }}
 {{- end }}
 {{- end }}
+{{- /*
+  The databases back themselves up in their own charts, because a parent chart
+  cannot compute a subchart's values. Turning the backup block on without them
+  would leave the IRIS cases and the MISP events with no backup at all, which is
+  worse than an obvious gap: fail the render instead.
+*/}}
+{{- if and (include "secops.backup.enabled" .) .Values.checks.backupTargets }}
+{{- if (index .Values "dfir-iris").enabled }}
+{{- $pg := (((index .Values "dfir-iris").global | default dict).postgresql | default dict) }}
+{{- if not (($pg.backups | default dict).enabled) }}
+{{- fail "backup.enabled: set dfir-iris.global.postgresql.backups.enabled (the IRIS database backs itself up with CloudNativePG; README \"Backups\"), or set checks.backupTargets: false" }}
+{{- end }}
+{{- end }}
+{{- if .Values.misp.enabled }}
+{{- $mariadb := ((.Values.misp.externalMariadb) | default dict) }}
+{{- if and $mariadb.enabled (not (($mariadb.backup | default dict).enabled)) }}
+{{- fail "backup.enabled: set misp.externalMariadb.backup.enabled (the MISP database backs itself up with mariadb-operator; README \"Backups\"), or set checks.backupTargets: false" }}
+{{- end }}
+{{- end }}
+{{- end }}

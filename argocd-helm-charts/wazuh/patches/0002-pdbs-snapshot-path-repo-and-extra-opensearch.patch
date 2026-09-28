@@ -1,0 +1,262 @@
+diff --git b/templates/dashboard/poddisruptionbudget.yaml b/templates/dashboard/poddisruptionbudget.yaml
+index 43479d8b3..55e102541 100644
+--- b/templates/dashboard/poddisruptionbudget.yaml
++++ b/templates/dashboard/poddisruptionbudget.yaml
+@@ -9,8 +9,14 @@ spec:
+   selector:
+     matchLabels:
+       app: {{ include "wazuh.fullname" . }}-dashboard
++  {{- /* KubeAid patch: minAvailable, so a highly available release can require a
++      quorum to stay up rather than only cap the pods an eviction may take. */}}
++  {{- if .Values.dashboard.pdb.minAvailable }}
++  minAvailable: {{ .Values.dashboard.pdb.minAvailable }}
++  {{- else }}
+   {{- with .Values.dashboard.pdb.maxUnavailable }}
+   maxUnavailable: {{ . }}
+   {{- end }}
++  {{- end }}
+ {{- end }}
+ {{- end }}
+\ No newline at end of file
+diff --git b/templates/indexer/configmap.yaml b/templates/indexer/configmap.yaml
+index f3bc2cc59..e46a37916 100644
+--- b/templates/indexer/configmap.yaml
++++ b/templates/indexer/configmap.yaml
+@@ -48,6 +48,18 @@ data:
+     plugins.security.allow_default_init_securityindex: true
+     cluster.routing.allocation.disk.threshold_enabled: false
+     compatibility.override_main_response_version: true
++{{- end }}
++{{- /*
++  KubeAid patch. Appended whether or not indexer.config.opensearch is overridden,
++  because both are settings a deployment adds rather than replaces. Do not repeat
++  them in an override: a duplicate key makes the indexer refuse to start.
++*/}}
++{{- if .Values.indexer.snapshot.enabled }}
++    {{- /* Without this the indexer refuses PUT _snapshot/<repo> for the volume below. */}}
++    path.repo: ["{{ .Values.indexer.snapshot.fs.path }}"]
++{{- end }}
++{{- range $key, $value := .Values.indexer.config.extraOpensearch }}
++    {{ $key }}: {{ toYaml $value }}
+ {{- end }}
+   tenants.yml: |-
+ {{- if .Values.indexer.config.tenants }}
+diff --git b/templates/indexer/poddisruptionbudget.yaml b/templates/indexer/poddisruptionbudget.yaml
+index c453c898d..a531a8b6b 100644
+--- b/templates/indexer/poddisruptionbudget.yaml
++++ b/templates/indexer/poddisruptionbudget.yaml
+@@ -9,8 +9,14 @@ spec:
+   selector:
+     matchLabels:
+       app: {{ include "wazuh.indexer.fullname" . }}-indexer
++  {{- /* KubeAid patch: minAvailable, so a highly available release can require a
++      quorum to stay up rather than only cap the pods an eviction may take. */}}
++  {{- if .Values.indexer.pdb.minAvailable }}
++  minAvailable: {{ .Values.indexer.pdb.minAvailable }}
++  {{- else }}
+   {{- with .Values.indexer.pdb.maxUnavailable }}
+   maxUnavailable: {{ . }}
+   {{- end }}
++  {{- end }}
+ {{- end }}
+ {{- end }}
+diff --git b/templates/manager/master/poddisruptionbudget.yaml b/templates/manager/master/poddisruptionbudget.yaml
+new file mode 100644
+index 000000000..3534b305f
+--- /dev/null
++++ b/templates/manager/master/poddisruptionbudget.yaml
+@@ -0,0 +1,29 @@
++{{- /*
++  KubeAid patch. The master is a single pod that every worker and every agent
++  enrolment depends on, and its /var/ossec/etc holds client.keys. With one
++  replica, minAvailable: 1 refuses voluntary eviction outright rather than
++  delaying it: draining that node becomes a decision someone makes
++  (kubectl drain --disable-eviction), not something unattended maintenance does.
++  Off by default for exactly that reason.
++*/}}
++{{- if .Values.wazuh.master.enabled }}
++{{- if .Values.wazuh.master.pdb.enabled }}
++kind: PodDisruptionBudget
++apiVersion: policy/v1
++metadata:
++  name: {{ include "wazuh.fullname" . }}-manager-master
++  namespace: {{ .Release.Namespace }}
++spec:
++  selector:
++    matchLabels:
++      app: {{ include "wazuh.fullname" . }}-manager
++      node-type: master
++  {{- if .Values.wazuh.master.pdb.minAvailable }}
++  minAvailable: {{ .Values.wazuh.master.pdb.minAvailable }}
++  {{- else }}
++  {{- with .Values.wazuh.master.pdb.maxUnavailable }}
++  maxUnavailable: {{ . }}
++  {{- end }}
++  {{- end }}
++{{- end }}
++{{- end }}
+diff --git b/templates/manager/worker/poddisruptionbudget.yaml b/templates/manager/worker/poddisruptionbudget.yaml
+index 1ce09f7cc..244498d52 100644
+--- b/templates/manager/worker/poddisruptionbudget.yaml
++++ b/templates/manager/worker/poddisruptionbudget.yaml
+@@ -10,8 +10,14 @@ spec:
+     matchLabels:
+       app: {{ include "wazuh.fullname" . }}-manager
+       node-type: worker
++  {{- /* KubeAid patch: minAvailable, so a highly available release can require a
++      quorum to stay up rather than only cap the pods an eviction may take. */}}
++  {{- if .Values.wazuh.worker.pdb.minAvailable }}
++  minAvailable: {{ .Values.wazuh.worker.pdb.minAvailable }}
++  {{- else }}
+   {{- with .Values.wazuh.worker.pdb.maxUnavailable }}
+   maxUnavailable: {{ . }}
+   {{- end }}
++  {{- end }}
+ {{- end }}
+ {{- end }}
+\ No newline at end of file
+diff --git b/templates/manager/worker/statefulset.yaml b/templates/manager/worker/statefulset.yaml
+index 1351241d0..70acaa8b9 100644
+--- b/templates/manager/worker/statefulset.yaml
++++ b/templates/manager/worker/statefulset.yaml
+@@ -70,7 +70,8 @@ spec:
+             - topologyKey: {{ .Values.wazuh.worker.podAntiAffinityTopologyKey }}
+               labelSelector:
+                 matchExpressions:
+-                  - {key: app, operator: In, values: [{{ include "wazuh.fullname" . }}-manager-worker]}
++                  - {key: app, operator: In, values: [{{ include "wazuh.fullname" . }}-manager]}
++                  - {key: node-type, operator: In, values: [worker]}
+         {{- else if eq .Values.wazuh.worker.podAntiAffinity "soft" }}
+         podAntiAffinity:
+           preferredDuringSchedulingIgnoredDuringExecution:
+@@ -79,7 +80,8 @@ spec:
+                 topologyKey: {{ .Values.wazuh.worker.podAntiAffinityTopologyKey }}
+                 labelSelector:
+                   matchExpressions:
+-                    - {key: app, operator: In, values: [{{ include "wazuh.fullname" . }}-manager-worker]}
++                    - {key: app, operator: In, values: [{{ include "wazuh.fullname" . }}-manager]}
++                    - {key: node-type, operator: In, values: [worker]}
+         {{- end }}
+       {{- if .Values.wazuh.worker.dnsPolicy }}
+       dnsPolicy: {{ .Values.wazuh.worker.dnsPolicy }}
+diff --git b/tests/render_test.sh b/tests/render_test.sh
+index 1546664f8..f27d41a73 100644
+--- b/tests/render_test.sh
++++ b/tests/render_test.sh
+@@ -355,6 +355,37 @@ roles=$(yq '.stringData["roles.yml"]' <<<"$out")
+ assert_equals "the extra role lands in roles.yml" 'wazuh-alerts-4.x-a-*' "$(yq '.["tenant-a-reader"].index_permissions[0].index_patterns[0]' <<<"$roles")"
+ assert_equals "the stock roles are kept" 'true' "$(yq '.manage_wazuh_index.reserved' <<<"$roles")"
+ 
++echo "== KubeAid: snapshot path.repo, extra opensearch.yml settings and PodDisruptionBudgets =="
++CONFIGMAP=templates/indexer/configmap.yaml
++out=$(render_only "$CONFIGMAP")
++assert_not_contains "no path.repo without indexer.snapshot" "$out" "path.repo"
++out=$(render_only "$CONFIGMAP" --set indexer.snapshot.enabled=true)
++assert_contains "path.repo matches the snapshot volume" "$out" 'path.repo: ["/mnt/snapshots"]'
++out=$(render_only "$CONFIGMAP" --set-string 'indexer.config.opensearch=cluster.name: mine' --set indexer.snapshot.enabled=true \
++  --set-string 'indexer.config.extraOpensearch.cluster\.routing\.allocation\.awareness\.attributes=zone')
++assert_contains "path.repo is appended to an opensearch.yml override too" "$out" 'path.repo: ["/mnt/snapshots"]'
++assert_contains "extraOpensearch is appended to an override too" "$out" "cluster.routing.allocation.awareness.attributes: zone"
++
++MASTER_PDB=templates/manager/master/poddisruptionbudget.yaml
++expect_failure "no master PodDisruptionBudget by default" render_only "$MASTER_PDB"
++out=$(render_only "$MASTER_PDB" --set wazuh.master.pdb.enabled=true --set wazuh.master.pdb.minAvailable=1)
++assert_equals "the master budget selects the master pods" 'master' "$(yq '.spec.selector.matchLabels["node-type"]' <<<"$out")"
++assert_equals "the master budget keeps one pod" '1' "$(yq '.spec.minAvailable' <<<"$out")"
++
++INDEXER_PDB=templates/indexer/poddisruptionbudget.yaml
++assert_equals "the indexer budget caps evictions by default" '1' "$(yq '.spec.maxUnavailable' <<<"$(render_only "$INDEXER_PDB")")"
++out=$(render_only "$INDEXER_PDB" --set indexer.pdb.minAvailable=2)
++assert_equals "minAvailable wins over maxUnavailable" '2' "$(yq '.spec.minAvailable' <<<"$out")"
++assert_equals "maxUnavailable is dropped with minAvailable" 'null' "$(yq '.spec.maxUnavailable' <<<"$out")"
++
++WORKER_STS=templates/manager/worker/statefulset.yaml
++out=$(render_only "$WORKER_STS" --set wazuh.worker.enabled=true)
++term='.spec.template.spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm'
++assert_equals "the worker anti-affinity matches the pods' own app label" 'test-wazuh-manager' \
++  "$(yq "$term.labelSelector.matchExpressions[0].values[0]" <<<"$out")"
++assert_equals "the worker anti-affinity narrows to workers" 'worker' \
++  "$(yq "$term.labelSelector.matchExpressions[1].values[0]" <<<"$out")"
++
+ echo
+ echo "==================================="
+ echo "PASS: $pass  FAIL: $fail"
+diff --git b/values.yaml b/values.yaml
+index 1d17a05a9..cc3e706c5 100644
+--- b/values.yaml
++++ b/values.yaml
+@@ -124,9 +124,13 @@ indexer:
+       memory: 2Gi
+   ## @param indexer.pdb.enabled Enables pdb for indexer.
+   ## @skip indexer.pdb.maxUnavailable
++  ## @skip indexer.pdb.minAvailable
+   pdb:
+     enabled: true
+     maxUnavailable: 1
++    ## KubeAid patch. Set instead of maxUnavailable (it wins when both are set) to
++    ## keep a quorum up through a node drain, e.g. 2 with replicas 3.
++    minAvailable: null
+   ## @param indexer.livenessProbe.periodSeconds How often to perform the probe.
+   ## @param indexer.livenessProbe.timeoutSeconds When the probe times out.
+   ## @param indexer.livenessProbe.failureThreshold Minimum failures for the probe to be considered failed after having succeeded.
+@@ -256,6 +260,14 @@ indexer:
+     ## Ignored with an indexer.config.internalUsers override.
+     ## @param indexer.config.extraInternalUsers Extra internal users.
+     extraInternalUsers: {}
++    ## KubeAid patch. Settings appended to opensearch.yml as they are, a flat map of
++    ## setting -> value, e.g. shard allocation awareness across failure domains:
++    ##   cluster.routing.allocation.awareness.attributes: zone
++    ## They are appended after an indexer.config.opensearch override too, so do not
++    ## repeat a key there (a duplicate key makes the indexer refuse to start).
++    ## node.attr.<name> comes from indexer.additionalEnv through ${VAR} substitution.
++    ## @param indexer.config.extraOpensearch Extra opensearch.yml settings.
++    extraOpensearch: {}
+   ## @param indexer.additionalConfigs Additional configurations to add to the configmap
+   additionalConfigs: {}
+   ## LDAP / Active Directory authentication for the indexer (OpenSearch Security)
+@@ -450,9 +462,13 @@ dashboard:
+       memory: 1Gi
+   ## @param dashboard.pdb.enabled Enables pdb for dashboard.
+   ## @skip dashboard.pdb.maxUnavailable
++  ## @skip dashboard.pdb.minAvailable
+   pdb:
+     enabled: false
+     maxUnavailable: 1
++    ## KubeAid patch. Set instead of maxUnavailable (it wins when both are set) to
++    ## keep a quorum up through a node drain, e.g. 2 with replicas 3.
++    minAvailable: null
+   ## @param dashboard.livenessProbe.periodSeconds How often to perform the probe.
+   ## @param dashboard.livenessProbe.timeoutSeconds When the probe times out.
+   ## @param dashboard.livenessProbe.failureThreshold Minimum failures for the probe to be considered failed.
+@@ -901,6 +917,17 @@ wazuh:
+   master:
+     ## @param wazuh.master.enabled Enable the master
+     enabled: true
++    ## KubeAid patch. The master is a single pod every worker and every enrolment
++    ## depends on, and its volume holds client.keys. With one replica,
++    ## minAvailable: 1 refuses voluntary eviction rather than delaying it, so a
++    ## drain of that node needs a deliberate --disable-eviction. Off by default.
++    ## @param wazuh.master.pdb.enabled Enables pdb for the master.
++    ## @skip wazuh.master.pdb.minAvailable
++    ## @skip wazuh.master.pdb.maxUnavailable
++    pdb:
++      enabled: false
++      minAvailable: null
++      maxUnavailable: null
+     ## @param wazuh.master.annotations additional annotations set on statefulset.
+     annotations: {}
+     ## @param wazuh.master.extraPodLabels Extra labels to add to the master pods.
+@@ -1047,9 +1074,13 @@ wazuh:
+           targetPort: 1514
+     ## @param wazuh.worker.pdb.enabled Enables pdb for worker.
+     ## @skip wazuh.worker.pdb.maxUnavailable
++    ## @skip wazuh.worker.pdb.minAvailable
+     pdb:
+       enabled: true
+       maxUnavailable: 1
++      ## KubeAid patch. Set instead of maxUnavailable (it wins when both are set) to
++      ## keep a quorum up through a node drain, e.g. 2 with replicas 3.
++      minAvailable: null
+     ## @param wazuh.worker.livenessProbe Parameter to configure the livenessProbe.
+     livenessProbe: {}
+     ## @param wazuh.worker.readinessProbe Parameter to configure the readinessProbe.

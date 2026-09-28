@@ -124,9 +124,13 @@ indexer:
       memory: 2Gi
   ## @param indexer.pdb.enabled Enables pdb for indexer.
   ## @skip indexer.pdb.maxUnavailable
+  ## @skip indexer.pdb.minAvailable
   pdb:
     enabled: true
     maxUnavailable: 1
+    ## KubeAid patch. Set instead of maxUnavailable (it wins when both are set) to
+    ## keep a quorum up through a node drain, e.g. 2 with replicas 3.
+    minAvailable: null
   ## @param indexer.livenessProbe.periodSeconds How often to perform the probe.
   ## @param indexer.livenessProbe.timeoutSeconds When the probe times out.
   ## @param indexer.livenessProbe.failureThreshold Minimum failures for the probe to be considered failed after having succeeded.
@@ -256,6 +260,14 @@ indexer:
     ## Ignored with an indexer.config.internalUsers override.
     ## @param indexer.config.extraInternalUsers Extra internal users.
     extraInternalUsers: {}
+    ## KubeAid patch. Settings appended to opensearch.yml as they are, a flat map of
+    ## setting -> value, e.g. shard allocation awareness across failure domains:
+    ##   cluster.routing.allocation.awareness.attributes: zone
+    ## They are appended after an indexer.config.opensearch override too, so do not
+    ## repeat a key there (a duplicate key makes the indexer refuse to start).
+    ## node.attr.<name> comes from indexer.additionalEnv through ${VAR} substitution.
+    ## @param indexer.config.extraOpensearch Extra opensearch.yml settings.
+    extraOpensearch: {}
   ## @param indexer.additionalConfigs Additional configurations to add to the configmap
   additionalConfigs: {}
   ## LDAP / Active Directory authentication for the indexer (OpenSearch Security)
@@ -450,9 +462,13 @@ dashboard:
       memory: 1Gi
   ## @param dashboard.pdb.enabled Enables pdb for dashboard.
   ## @skip dashboard.pdb.maxUnavailable
+  ## @skip dashboard.pdb.minAvailable
   pdb:
     enabled: false
     maxUnavailable: 1
+    ## KubeAid patch. Set instead of maxUnavailable (it wins when both are set) to
+    ## keep a quorum up through a node drain, e.g. 2 with replicas 3.
+    minAvailable: null
   ## @param dashboard.livenessProbe.periodSeconds How often to perform the probe.
   ## @param dashboard.livenessProbe.timeoutSeconds When the probe times out.
   ## @param dashboard.livenessProbe.failureThreshold Minimum failures for the probe to be considered failed.
@@ -901,6 +917,17 @@ wazuh:
   master:
     ## @param wazuh.master.enabled Enable the master
     enabled: true
+    ## KubeAid patch. The master is a single pod every worker and every enrolment
+    ## depends on, and its volume holds client.keys. With one replica,
+    ## minAvailable: 1 refuses voluntary eviction rather than delaying it, so a
+    ## drain of that node needs a deliberate --disable-eviction. Off by default.
+    ## @param wazuh.master.pdb.enabled Enables pdb for the master.
+    ## @skip wazuh.master.pdb.minAvailable
+    ## @skip wazuh.master.pdb.maxUnavailable
+    pdb:
+      enabled: false
+      minAvailable: null
+      maxUnavailable: null
     ## @param wazuh.master.annotations additional annotations set on statefulset.
     annotations: {}
     ## @param wazuh.master.extraPodLabels Extra labels to add to the master pods.
@@ -1047,9 +1074,13 @@ wazuh:
           targetPort: 1514
     ## @param wazuh.worker.pdb.enabled Enables pdb for worker.
     ## @skip wazuh.worker.pdb.maxUnavailable
+    ## @skip wazuh.worker.pdb.minAvailable
     pdb:
       enabled: true
       maxUnavailable: 1
+      ## KubeAid patch. Set instead of maxUnavailable (it wins when both are set) to
+      ## keep a quorum up through a node drain, e.g. 2 with replicas 3.
+      minAvailable: null
     ## @param wazuh.worker.livenessProbe Parameter to configure the livenessProbe.
     livenessProbe: {}
     ## @param wazuh.worker.readinessProbe Parameter to configure the readinessProbe.

@@ -355,6 +355,37 @@ roles=$(yq '.stringData["roles.yml"]' <<<"$out")
 assert_equals "the extra role lands in roles.yml" 'wazuh-alerts-4.x-a-*' "$(yq '.["tenant-a-reader"].index_permissions[0].index_patterns[0]' <<<"$roles")"
 assert_equals "the stock roles are kept" 'true' "$(yq '.manage_wazuh_index.reserved' <<<"$roles")"
 
+echo "== KubeAid: snapshot path.repo, extra opensearch.yml settings and PodDisruptionBudgets =="
+CONFIGMAP=templates/indexer/configmap.yaml
+out=$(render_only "$CONFIGMAP")
+assert_not_contains "no path.repo without indexer.snapshot" "$out" "path.repo"
+out=$(render_only "$CONFIGMAP" --set indexer.snapshot.enabled=true)
+assert_contains "path.repo matches the snapshot volume" "$out" 'path.repo: ["/mnt/snapshots"]'
+out=$(render_only "$CONFIGMAP" --set-string 'indexer.config.opensearch=cluster.name: mine' --set indexer.snapshot.enabled=true \
+  --set-string 'indexer.config.extraOpensearch.cluster\.routing\.allocation\.awareness\.attributes=zone')
+assert_contains "path.repo is appended to an opensearch.yml override too" "$out" 'path.repo: ["/mnt/snapshots"]'
+assert_contains "extraOpensearch is appended to an override too" "$out" "cluster.routing.allocation.awareness.attributes: zone"
+
+MASTER_PDB=templates/manager/master/poddisruptionbudget.yaml
+expect_failure "no master PodDisruptionBudget by default" render_only "$MASTER_PDB"
+out=$(render_only "$MASTER_PDB" --set wazuh.master.pdb.enabled=true --set wazuh.master.pdb.minAvailable=1)
+assert_equals "the master budget selects the master pods" 'master' "$(yq '.spec.selector.matchLabels["node-type"]' <<<"$out")"
+assert_equals "the master budget keeps one pod" '1' "$(yq '.spec.minAvailable' <<<"$out")"
+
+INDEXER_PDB=templates/indexer/poddisruptionbudget.yaml
+assert_equals "the indexer budget caps evictions by default" '1' "$(yq '.spec.maxUnavailable' <<<"$(render_only "$INDEXER_PDB")")"
+out=$(render_only "$INDEXER_PDB" --set indexer.pdb.minAvailable=2)
+assert_equals "minAvailable wins over maxUnavailable" '2' "$(yq '.spec.minAvailable' <<<"$out")"
+assert_equals "maxUnavailable is dropped with minAvailable" 'null' "$(yq '.spec.maxUnavailable' <<<"$out")"
+
+WORKER_STS=templates/manager/worker/statefulset.yaml
+out=$(render_only "$WORKER_STS" --set wazuh.worker.enabled=true)
+term='.spec.template.spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm'
+assert_equals "the worker anti-affinity matches the pods' own app label" 'test-wazuh-manager' \
+  "$(yq "$term.labelSelector.matchExpressions[0].values[0]" <<<"$out")"
+assert_equals "the worker anti-affinity narrows to workers" 'worker' \
+  "$(yq "$term.labelSelector.matchExpressions[1].values[0]" <<<"$out")"
+
 echo
 echo "==================================="
 echo "PASS: $pass  FAIL: $fail"

@@ -25,6 +25,7 @@
       "additionalProperties": false,
       "properties": {
         "adminUsername": {"type": "string"},
+        "internalURL": {"type": "string"},
         "caFile": {"type": "string"},
         "insecureSkipVerify": {"type": "boolean"},
         "bruteForceProtected": {"type": "boolean"},

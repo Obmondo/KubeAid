@@ -10,7 +10,7 @@ spec:
 
   backupOwnerReference: self
 
-  schedule: {{ .Values.global.postgresql.backups.schedule }}
+  schedule: {{ .Values.global.postgresql.backups.schedule | default "0 0 0 * * *" | quote }}
 
   method: plugin
   pluginConfiguration:

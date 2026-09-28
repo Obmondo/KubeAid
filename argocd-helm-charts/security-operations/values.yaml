@@ -29,9 +29,22 @@ hosts:
 # except `clients` goes to the reconciler as is (keycloak section of its
 # tenants.json); the component charts take their own Keycloak settings.
 keycloak:
-  # Root URL including any context path, as the reconciler reaches it, e.g.
-  # http://keycloakx-http.keycloakx.svc/auth
+  # Root URL including any context path. This is the browser-facing one: it is
+  # the issuer in every token, so it must be the name the users' browsers use.
   url: https://keycloak.example.com/auth
+  # The same Keycloak as the pods in the cluster reach it, e.g.
+  # http://keycloakx-http.keycloakx.svc/auth. Used for every back-channel call
+  # (the reconciler's admin API, the Velociraptor Keycloak sync, OIDC discovery
+  # where a component takes a separate discovery URL); `url` stays the issuer,
+  # which still matches because Keycloak's frontend URL decides what it puts in
+  # the discovery document, not the address it was fetched from. Empty: `url`
+  # is used for both, which needs it to resolve and be reachable from the pods.
+  #
+  # Components that cannot split the two (Velociraptor, IRIS, MISP: they fetch
+  # discovery from the issuer itself) need `url` to resolve inside the cluster.
+  # Add a CoreDNS rewrite for it rather than pinning an IP - see the README,
+  # "Reaching Keycloak", and the KubeAid coredns chart's `rewrites`.
+  internalURL: ""
   realm: soc
   # Master-realm admin the reconciler logs in as, and its password (read only).
   # The reconciler's ServiceAccount may read exactly this Secret. The default is
@@ -237,6 +250,160 @@ tls:
 checks:
   # With misp.wazuhCdbExport.enabled, every tenant needs a target named after its code.
   mispTargets: true
+  # With backup.enabled, every component that backs itself up in its own chart
+  # (the IRIS PostgreSQL, the MISP MariaDB) must have that switched on.
+  backupTargets: true
+
+# Backups of the SOC's own state (README "Backups"). Everything here is off, and
+# the object store below is a placeholder, until a bucket exists: fill it in, turn
+# on the pieces you have storage for, then set enabled: true. A release renders
+# exactly as it does today while enabled is false.
+#
+# What covers what:
+#   velero      the volumes: the tenants' Wazuh manager data (including
+#               client.keys) and indexer data, the Velociraptor datastore, the
+#               IRIS files and the MISP attachments. Kopia (file-system backup),
+#               so a StorageClass without CSI snapshots is enough.
+#   opensearch  the tenants' alert indices, as OpenSearch snapshots.
+#   The two databases back themselves up in their own charts, because a parent
+#   chart cannot compute a subchart's values: the IRIS PostgreSQL through
+#   dfir-iris.global.postgresql.backups (a CloudNativePG barman object store with
+#   WAL archiving) and the MISP database through misp.externalMariadb.backup.
+#   checks.backupTargets fails the render when this block is on and one of them
+#   is not. Keycloak is not deployed here; back its database up the same way
+#   (README "Backups", "Keycloak").
+#
+# Every object here carries kubesoc.io/backup=<component>, and `kubeaid-cli siem
+# backup` ties one run together with kubesoc.io/backup-set=<name>.
+backup:
+  enabled: false
+
+  # The S3 bucket every backend writes to. The credentials Secret holds the two
+  # keys below and must exist in the Velero namespace, in this namespace and in
+  # every tenant namespace (seal it yourself, or let kubeaid-cli seal it).
+  objectStore:
+    bucket: kubesoc-backups
+    # S3 endpoint, e.g. https://s3.example.com. Empty: AWS S3 itself.
+    endpoint: ""
+    region: us-east-1
+    # Prefix inside the bucket; each piece adds its own path under it.
+    basePath: kubesoc
+    credentialsSecret: kubesoc-backup-s3
+    accessKeyIdKey: ACCESS_KEY_ID
+    secretAccessKeyKey: ACCESS_SECRET_KEY
+    # MinIO and Ceph RGW need path-style addressing; AWS S3 does not.
+    pathStyleAccess: true
+
+  # Velero Schedules, in Velero's own namespace, of this namespace and every
+  # tenant's. 14 daily copies and 4 weekly ones. The CloudNativePG volumes carry
+  # velero.io/exclude-from-backup (kubeaid-addons) and are left to barman.
+  velero:
+    enabled: true
+    namespace: velero
+    # Back the volumes up with Kopia rather than CSI snapshots.
+    defaultVolumesToFsBackup: true
+    snapshotVolumes: false
+    # Empty: Velero's default BackupStorageLocation.
+    storageLocation: ""
+    # Empty: this namespace and every tenant's.
+    includedNamespaces: []
+    excludedResources:
+      - events
+      - events.events.k8s.io
+    daily:
+      enabled: true
+      schedule: "0 1 * * 1-6"
+      # 14 daily copies (the weekly one covers Sunday).
+      ttl: 336h0m0s
+    weekly:
+      enabled: true
+      schedule: "0 1 * * 0"
+      # 4 weekly copies.
+      ttl: 672h0m0s
+
+  # OpenSearch snapshots of the alert indices: one CronJob next to each indexer
+  # (the central search and every tenant). A run registers the repository, keeps
+  # the snapshot policy in step, takes a snapshot and drops the expired ones;
+  # `kubeaid-cli siem backup` runs the same Job once (label
+  # kubesoc.io/backup=opensearch-snapshot).
+  opensearch:
+    enabled: true
+    schedule: "0 2 * * *"
+    # fs: a shared ReadWriteMany volume, which needs indexer.snapshot.enabled on
+    # every Wazuh release (that mounts the volume and sets path.repo). s3: the
+    # repository-s3 plugin, which the stock wazuh-indexer image does NOT ship -
+    # build an image with it before choosing s3 (README "Backups").
+    type: fs
+    fs:
+      # Must equal the releases' wazuh indexer.snapshot.fs.path.
+      location: /mnt/snapshots
+    repository: kubesoc
+    # Snapshot names are <snapshotPrefix>-<UTC yyyymmdd-hhmmss>.
+    snapshotPrefix: kubesoc
+    # Empty: wazuh-alerts-*, wazuh-archives-*.
+    indices: []
+    # Snapshots of this repository older than this are deleted at the end of a run.
+    retentionDays: 30
+    # An OpenSearch Snapshot Management policy, for operators who want the indexer
+    # itself to take and expire the snapshots. The CronJob keeps the policy in
+    # step either way; with it on the CronJob no longer snapshots, so
+    # `kubeaid-cli siem backup` only re-registers unless snapshotOnRun is true.
+    policy:
+      enabled: false
+      name: kubesoc-snapshots
+      schedule: "0 2 * * *"
+      timezone: UTC
+      maxCount: 30
+    # null: true while policy.enabled is false.
+    snapshotOnRun: null
+    # Shard copies of the alert indices, applied to the existing indices on every
+    # run. null: left alone (the profile sets it; a value above 0 needs more than
+    # one indexer node). New indices get it on the next run.
+    numberOfReplicas: null
+    # Empty repository and tag: the central Wazuh indexer's image, which is on the
+    # nodes already and carries curl.
+    image:
+      repository: ""
+      tag: ""
+      pullPolicy: IfNotPresent
+    resources:
+      requests:
+        cpu: 20m
+        memory: 64Mi
+      limits:
+        memory: 256Mi
+
+  # Monthly proof that the IRIS database backups restore: a Job that recovers the
+  # newest CloudNativePG Backup into a scratch Cluster, runs a sanity query and
+  # deletes it again. It creates and deletes a Cluster, so it is off by default.
+  verifyRestore:
+    enabled: false
+    schedule: "0 4 1 * *"
+    # The CloudNativePG Cluster to verify and the scratch one it recovers into.
+    cluster: iris-pgsql
+    scratchCluster: iris-pgsql-restore-check
+    # Instances and volume of the scratch cluster (one instance is enough).
+    instances: 1
+    storageSize: 10Gi
+    storageClass: ""
+    # The query the recovered database must answer. The default counts the IRIS
+    # cases table, which exists as soon as IRIS has ever started.
+    database: iris_db
+    query: "SELECT count(*) FROM cases"
+    # Minutes to wait for the scratch cluster to come up.
+    timeoutMinutes: 30
+    # kubectl image; it also runs psql through `kubectl exec` on the scratch pod,
+    # so it needs no database client of its own.
+    image:
+      repository: docker.io/bitnamilegacy/kubectl
+      tag: "1.33.4"
+      pullPolicy: IfNotPresent
+    resources:
+      requests:
+        cpu: 20m
+        memory: 64Mi
+      limits:
+        memory: 256Mi
 
 # Local model for IRIS alert triage (dfir-iris aiTriage + ollama). The reconciler
 # creates the IRIS service account irisLogin, gives it irisGroups and every tenant
@@ -353,6 +520,14 @@ networkPolicies:
   kubeApiServer:
     ports: [443, 6443]
     to: []
+  # Where the backups are written (backup.objectStore): an in-cluster object store
+  # as selectors in `to`, or `internet: true` with an empty `to` for one outside
+  # the cluster. The CloudNativePG and MariaDB pods reach it through their own
+  # charts' policies; this one is for the restore check's scratch cluster.
+  objectStore:
+    to: []
+    ports: [443, 9000]
+    internet: true
   # MISP feeds and misp-modules enrichment: HTTP(S) to the internet.
   mispInternet:
     enabled: true
@@ -440,6 +615,9 @@ monitoring:
     reconcilerStaleSeconds: 1800
     # A CronJob (MISP CDB export, AI triage) without a success for this long.
     jobStaleSeconds: 3600
+    # A backup backend without a successful run for this many hours (backup.*).
+    # Longer than the daily schedules, so one missed run is not an alert.
+    backupStaleHours: 36
     # Share of a tenant's once-connected agents that is disconnected.
     agentsDisconnectedRatio: 0.2
     # Keycloak workload the platform logs in through (kube-state-metrics).

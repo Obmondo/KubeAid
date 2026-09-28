@@ -84,6 +84,15 @@ global:
     # -- REFER : https://cloudnative-pg.io/docs/1.27/scheduling/#requiring-pod-anti-affinity.
     podAntiAffinityType: required
 
+    # -- Failure domain the instances are kept apart in. Omit for CNPG's default
+    # (kubernetes.io/hostname); set topology.kubernetes.io/zone to spread a
+    # three-instance cluster over availability zones.
+    topologyKey: ""
+
+    # -- PodDisruptionBudget of the instances. CNPG creates one on its own; set
+    # this false where a single-node cluster must still drain.
+    enablePDB: true
+
     # -- Let CNPG publish the postgres superuser credentials in
     # <instanceName>-pgsql-superuser (keys username/password). Off by default;
     # only for apps that must create databases themselves.
@@ -121,14 +130,40 @@ global:
     recover:
       enabled: false
 
-    # -- Backup configuration via Barman object store.
+    # -- Backup configuration via Barman object store. The Cluster archives its
+    # WAL to the same store, so a restore can roll forward to any point in time
+    # between two base backups.
     backups:
-      # -- Enable scheduled backups (daily at midnight, 30d retention).
+      # -- Enable WAL archiving, the ObjectStore and the ScheduledBackup.
       enabled: false
-      # cloud: aws          # "aws" or "azure"
-      # destinationPath: "" # e.g. s3://my-bucket/postgres
-      # endpointURL: ""     # object store endpoint
-      # secretName: ""      # Kubernetes Secret holding cloud credentials
+      # -- "aws" for any S3-compatible store. Empty renders no credentials at
+      # all, for a store the pod is already authorised against.
+      cloud: ""
+      # -- e.g. s3://my-bucket/postgres
+      destinationPath: ""
+      # -- Object store endpoint, e.g. https://s3.example.com. Omit for AWS S3.
+      endpointURL: ""
+      # -- Cron of the base backups (the CNPG format has a seconds field).
+      schedule: "0 0 0 * * *"
+      # -- How long a base backup and its WAL are kept, e.g. 30d. Empty: kept
+      # for ever (barman prunes nothing).
+      retentionPolicy: ""
+      # -- Secret with the credentials. Omit for <instanceName>-pgsql-backup-creds.
+      secretName: ""
+      # -- Keys in that Secret.
+      accessKeyIdKey: ACCESS_KEY_ID
+      secretAccessKeyKey: ACCESS_SECRET_KEY
+      # -- Object store revision. Bump it to start a new backup series (after a
+      # restore, so the recovered cluster does not archive into the old one).
+      revision: 1
+      aws:
+        # -- Take the credentials from the pod's IAM role instead of the Secret.
+        enableKube2IAMIntegration: false
+      # -- WAL archiving.
+      wal:
+        compression: gzip
+        encryption: AES256
+        maxParallel: 8
 
     # -- Logical backup configuration that uses ghcr.io/obmondo/logical-backup.
     logicalbackup:

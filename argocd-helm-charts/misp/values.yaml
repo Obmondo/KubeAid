@@ -17,6 +17,65 @@ externalMariadb:
       memory: 512Mi
     limits:
       memory: 2Gi
+  # Replicas of the MariaDB. 1 is a single server; 3 or more turns on the
+  # operator's asynchronous replication (one primary, the rest replicas) with
+  # automatic failover, which needs a StorageClass per replica and a
+  # PodDisruptionBudget to survive a drain. MISP itself always writes to the
+  # primary, through the Service the operator points at it.
+  replicas: 1
+  # Semi-synchronous replication: the primary waits for a replica to acknowledge
+  # a transaction, so a failover cannot lose a committed event. Ignored with
+  # replicas 1.
+  waitPoint: AfterSync
+  podDisruptionBudget:
+    # Rendered with replicas above 1. minAvailable keeps a quorum through a drain.
+    enabled: true
+    minAvailable: 2
+  # Spread the replicas over failure domains. Empty: the operator's own
+  # anti-affinity (one replica per node).
+  topologyKey: ""
+
+  # Scheduled logical backups to an object store, as a mariadb-operator Backup
+  # with a schedule, which `kubeaid-cli siem backup` clones (without the
+  # schedule) for a backup out of band and `siem restore` turns into a Restore.
+  # Off until a bucket exists; the s3 block below is a placeholder.
+  backup:
+    enabled: false
+    name: misp-mariadb-backup
+    schedule: "0 2 * * *"
+    # Backups older than this are deleted by the operator.
+    maxRetention: 720h
+    # Databases to dump. Empty: every database on the server.
+    databases: []
+    # Compression: none, bzip2 or gzip.
+    compression: gzip
+    # Kept Job history and how often a failed backup is retried.
+    successfulJobsHistoryLimit: 5
+    failedJobsHistoryLimit: 5
+    # Where the dumps go. type: S3, PersistentVolumeClaim or Volume.
+    storage:
+      type: S3
+      s3:
+        bucket: kubesoc-backups
+        prefix: kubesoc/misp-mariadb
+        # Host and port without a scheme, e.g. s3.example.com:443 (the operator
+        # takes an endpoint, not a URL). Empty: AWS S3 (s3.amazonaws.com).
+        endpoint: ""
+        region: us-east-1
+        # false for a plain-HTTP endpoint (a MinIO inside the cluster).
+        tls: true
+        # Secret with the two keys below, in this namespace.
+        credentialsSecret: kubesoc-backup-s3
+        accessKeyIdKey: ACCESS_KEY_ID
+        secretAccessKeyKey: ACCESS_SECRET_KEY
+        # ConfigMap with key ca.crt for a private CA on the endpoint. Empty: the
+        # image's trust store.
+        caSecret: ""
+      # With type PersistentVolumeClaim.
+      persistentVolumeClaim:
+        size: 20Gi
+        storageClass: ""
+        accessModes: [ReadWriteOnce]
 
 misp:
   instanceEnv:

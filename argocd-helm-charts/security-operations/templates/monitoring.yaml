@@ -230,6 +230,66 @@ spec:
             description: 'CronJob {{ $ns }}/{{ $cj }} has had no successful run for {{ div (ternary ($pr.reconcilerStaleSeconds | default 1800) ($pr.jobStaleSeconds | default 3600) (eq $cj "siem-reconciler")) 60 }} minutes.'
         {{- end }}
     {{- end }}
+{{- if include "secops.backup.enabled" . }}
+{{- $b := .Values.backup }}
+{{- $staleHours := $pr.backupStaleHours | default 36 }}
+    {{- /*
+      Backups (values.yaml `backup`). A backup that stopped working is only
+      discovered when it is needed, so every backend gets an alert on its own
+      age rather than on the last run's exit status alone. The snapshot
+      CronJobs live in this namespace and in every tenant's.
+    */}}
+    - name: kubesoc-backups
+      rules:
+{{- if $b.velero.enabled }}
+        - alert: KubeSocVeleroBackupFailing
+          expr: |-
+            increase(velero_backup_failure_total{schedule=~"kubesoc-(daily|weekly)"}[6h]) > 0
+              or increase(velero_backup_partial_failure_total{schedule=~"kubesoc-(daily|weekly)"}[6h]) > 0
+          labels:
+            alert_id: KubeSocVeleroBackupFailing
+            severity: warning
+          annotations:
+            summary: 'Velero schedule {{ `{{ $labels.schedule }}` }} is failing'
+            description: 'A backup of the SOC volumes failed or was partial in the last 6 hours. Check `velero backup logs`.'
+        - alert: KubeSocVeleroBackupStale
+          expr: |-
+            time() - max by (schedule) (velero_backup_last_successful_timestamp{schedule=~"kubesoc-(daily|weekly)"}) > {{ mul $staleHours 3600 }}
+              or absent(velero_backup_last_successful_timestamp{schedule="kubesoc-daily"}) == 1
+          for: 1h
+          labels:
+            alert_id: KubeSocVeleroBackupStale
+            severity: critical
+          annotations:
+            summary: 'No SOC volume backup for {{ $staleHours }} hours'
+            description: 'Velero schedule {{ `{{ $labels.schedule }}` }} has no successful backup in {{ $staleHours }} hours: the Wazuh manager data, the Velociraptor datastore, the IRIS files and the MISP attachments are unprotected.'
+{{- end }}
+{{- if $b.opensearch.enabled }}
+        - alert: KubeSocIndexerSnapshotStale
+          expr: |-
+            time() - max by (namespace) (kube_cronjob_status_last_successful_time{namespace=~"{{ $nsRe }}", cronjob="kubesoc-indexer-snapshot"}) > {{ mul $staleHours 3600 }}
+          for: 1h
+          labels:
+            alert_id: KubeSocIndexerSnapshotStale
+            severity: critical
+          annotations:
+            summary: 'No alert index snapshot in {{ `{{ $labels.namespace }}` }} for {{ $staleHours }} hours'
+            description: 'The OpenSearch snapshot CronJob in {{ `{{ $labels.namespace }}` }} has had no successful run in {{ $staleHours }} hours: the alerts of that tenant are only on the indexer volumes.'
+{{- end }}
+{{- if $b.verifyRestore.enabled }}
+        - alert: KubeSocRestoreCheckFailing
+          expr: |-
+            max(kube_cronjob_status_last_schedule_time{namespace="{{ $ns }}", cronjob="kubesoc-restore-check"})
+              - max(kube_cronjob_status_last_successful_time{namespace="{{ $ns }}", cronjob="kubesoc-restore-check"}) > 0
+          for: 2h
+          labels:
+            alert_id: KubeSocRestoreCheckFailing
+            severity: critical
+          annotations:
+            summary: 'The IRIS database backup did not restore'
+            description: 'The monthly restore check could not recover the newest CloudNativePG backup into a scratch cluster and query it: the database backups cannot be relied on.'
+{{- end }}
+{{- end }}
     - name: kubesoc-workloads
       rules:
         - alert: KubeSocJobFailed

@@ -340,7 +340,44 @@ kubectl -n <wazuh ns> exec wazuh-manager-master-0 -c wazuh-manager -- wc -l /var
 Then put a listed hash on a monitored host (or ssh from a listed IP) and expect rule 99901
 (level 14) or 99903/99904 in the alerts.
 
-## 6. Updating
+## 6. Backups and replication
+
+`externalMariadb.backup` renders a mariadb-operator `Backup` with a schedule: the operator
+dumps the database into the storage below every night and prunes what is older than
+`maxRetention`. It is off, and the S3 block is a placeholder, until a bucket exists.
+
+```yaml
+externalMariadb:
+  backup:
+    enabled: true
+    schedule: "0 2 * * *"
+    maxRetention: 720h
+    storage:
+      type: S3           # or PersistentVolumeClaim
+      s3:
+        bucket: kubesoc-backups
+        prefix: kubesoc/misp-mariadb
+        endpoint: s3.example.com:443   # host:port, not a URL; empty means AWS S3
+        credentialsSecret: kubesoc-backup-s3
+```
+
+The attachments live on a separate ReadWriteOnce volume
+(`misp.pvc.attachments.storageRequest`) and are **not** in the dump: back that volume up with
+Velero (the security-operations chart's `backup.velero` covers this namespace). A database
+dump without the attachments restores an instance whose events have no files.
+
+`kubeaid-cli siem backup` clones this `Backup` without its schedule for a backup out of band,
+and `siem restore` turns each `Backup` of a set into a mariadb-operator `Restore`; both find
+it through `spec.mariaDbRef`, so the storage and credentials only have to be right here.
+
+`externalMariadb.replicas` above 1 turns on the operator's asynchronous replication: one
+primary and the rest replicas, `waitPoint: AfterSync` so a failover cannot lose a committed
+event, automatic failover, and a `PodDisruptionBudget`. MISP keeps writing to the primary
+through the Service the operator repoints. Each replica needs its own volume, so the
+StorageClass must have the capacity; `externalMariadb.topologyKey` spreads them over failure
+domains. MISP itself stays a single replica: its attachments volume is ReadWriteOnce.
+
+## 7. Updating
 
 The chart is a `file://` dependency, so `bin/manage-helm-chart.sh` never replaces it, and
 `.helm-update-skip` keeps it out of the weekly `--update-all` run all the same. Update it by

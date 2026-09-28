@@ -1,4 +1,4 @@
-{{- if .Values.customDNS.enabled -}}
+{{- if or .Values.customDNS.enabled .Values.rewrites -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -8,6 +8,15 @@ metadata:
     app: {{ include "coredns.name" . }}
     {{- include "coredns.labels" . | nindent 4 }}
 data:
+{{- if .Values.rewrites }}
+  # A server block cannot hold a rewrite: it belongs in the default one, which
+  # imports *.override.
+  kubeaid.override: |
+  {{- range .Values.rewrites }}
+    rewrite name exact {{ .from }} {{ .to }} answer auto
+  {{- end }}
+{{- end }}
+{{- if .Values.customDNS.enabled }}
   custom-dns.server: |
   {{- range .Values.customDNS.domainList }}
     {{ . }} {
@@ -18,5 +27,6 @@ data:
       forward . {{ $.Values.customDNS.dnsServers }}
       log
     }
-  {{- end -}}
+  {{- end }}
+{{- end }}
 {{- end -}}
