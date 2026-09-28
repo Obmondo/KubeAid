@@ -29,6 +29,15 @@
 */}}
 {{- if .Values.wazuhCdbExport.enabled }}
 {{- $x := .Values.wazuhCdbExport }}
+{{- /* With caSecret, every target verifies against its ca.crt unless it names its own caFile. */}}
+{{- $caFile := "" }}
+{{- if $x.caSecret }}{{- $caFile = "/wazuh-ca/ca.crt" }}{{- end }}
+{{- $targets := list }}
+{{- range $x.targets }}
+{{- $t := deepCopy . }}
+{{- if and $caFile (not (hasKey $t "caFile")) }}{{- $_ := set $t "caFile" $caFile }}{{- end }}
+{{- $targets = append $targets $t }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -92,7 +101,7 @@ spec:
                   value: {{ $x.misp.pageSize | quote }}
                 {{- if $x.targets }}
                 - name: WAZUH_TARGETS
-                  value: {{ $x.targets | toJson | quote }}
+                  value: {{ $targets | toJson | quote }}
                 {{- else }}
                 - name: WAZUH_URL
                   value: {{ required "wazuhCdbExport.wazuh.url is required (https://<manager service>:55000)" $x.wazuh.url | quote }}
@@ -108,6 +117,10 @@ spec:
                       key: {{ $x.wazuh.passwordKey }}
                 - name: WAZUH_VERIFY_TLS
                   value: {{ $x.wazuh.verifyTls | quote }}
+                {{- if $caFile }}
+                - name: WAZUH_CA_FILE
+                  value: {{ $caFile }}
+                {{- end }}
                 {{- end }}
                 - name: MAX_PER_LIST
                   value: {{ $x.maxEntriesPerList | quote }}
@@ -119,6 +132,11 @@ spec:
                 - name: script
                   mountPath: /scripts
                   readOnly: true
+                {{- if $x.caSecret }}
+                - name: wazuh-ca
+                  mountPath: /wazuh-ca
+                  readOnly: true
+                {{- end }}
                 {{- range $i, $t := $x.targets }}
                 - name: {{ printf "wazuh-creds-%d" $i }}
                   mountPath: {{ printf "/wazuh-creds/%s" (required (printf "wazuhCdbExport.targets[%d].name is required" $i) $t.name) }}
@@ -128,6 +146,14 @@ spec:
             - name: script
               configMap:
                 name: {{ include "kubeaid-misp.fullname" . }}-wazuh-cdb-export
+            {{- if $x.caSecret }}
+            - name: wazuh-ca
+              secret:
+                secretName: {{ $x.caSecret }}
+                items:
+                  - key: {{ $x.caSecretKey | default "ca.crt" }}
+                    path: ca.crt
+            {{- end }}
             {{- range $i, $t := $x.targets }}
             - name: {{ printf "wazuh-creds-%d" $i }}
               secret:

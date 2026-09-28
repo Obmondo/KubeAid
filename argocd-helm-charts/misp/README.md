@@ -218,12 +218,19 @@ gets the same lists; one failing manager does not stop the others, but fails the
 ```yaml
 wazuhCdbExport:
   enabled: true
+  caSecret: soc-ca-trust   # ca.crt of the CA that issued the managers' API certificates
   targets:
     - name: "001"
       url: https://wazuh.wazuh-001.svc:55000
       credentialsSecret: wazuh-api-cred-001   # copy of that tenant's API Secret, in this namespace
-      verifyTls: false
 ```
+
+The manager API's certificate is verified. By default the Wazuh image presents a
+self-signed one (`CN=wazuh.com`) that cannot be; give the manager a certificate from a
+cluster CA with the Wazuh chart's `wazuh.managerTls.enabled` and point `caSecret` at a
+Secret in this namespace that holds that CA's `ca.crt` (the security-operations chart does
+both). `verifyTls: false` on a target (or `wazuh.verifyTls: false`) turns verification off
+explicitly.
 
 ### 5.1 The Wazuh side
 
