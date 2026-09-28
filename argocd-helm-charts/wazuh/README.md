@@ -441,6 +441,16 @@ holds one tenant's data. `tests/values-tenant.yaml` is a complete example, check
   dial in `managerTls.extraDnsNames` (or `ipAddresses`): agent-auth checks it. The manager
   reads the files at start; restart it after a renewal. `dashboard.opensearchVerificationMode:
   full` makes the dashboard verify the indexer.
+- **Network policies** stay deny-by-default; open indexer 9300 to the central namespace,
+  indexer 9200 to the central SIEM reconciler (pods `app.kubernetes.io/name:
+  siem-reconciler`; it keeps the retention policy and reads cluster health and disk),
+  manager 55000 to whoever manages the API, and egress to IRIS, with the `extraIngresses`
+  / `extraEgresses` values.
+- **Retention and volume size.** `indexer.storageSize` (default 5Gi) holds the tenant's
+  events for its retention: size it as retention days x GB per day x headroom (kubeaid-cli
+  derives it). The security-operations reconciler deletes indices older than the tenant's
+  `retentionDays` (ISM). A StatefulSet's volume size cannot be changed in place: grow the
+  PVC, then recreate the StatefulSet (security-operations README, "Retention").
 - **`agent.enabled: false`**: the cluster's own nodes are not a tenant's endpoints.
 
 The central instance is the same chart with `wazuh.enabled: false` (no manager), an indexer

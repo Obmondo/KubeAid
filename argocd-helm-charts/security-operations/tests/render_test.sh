@@ -143,7 +143,7 @@ cfg=$(yq 'select(.kind == "ConfigMap" and .metadata.name == "siem-tenants") | .d
 [ "$(jq -r '.tenants[1].retentionDays' <<<"$cfg")" = 90 ] && ok "retentionDays per tenant" || ko "retentionDays"
 [ "$(jq -r '.tenants[0].retentionDays' <<<"$cfg")" = 365 ] && ok "retentionDays default" || ko "retentionDays default"
 # kubeaid-cli pkg/siem/config rejects unknown fields; keep to its schema.
-extra=$(jq -r '(keys - ["domain","tenantGroupPrefix","keycloak","operators","tenants","clients","secrets","components","enrolment","secretCopies"]),
+extra=$(jq -r '(keys - ["domain","tenantGroupPrefix","keycloak","operators","tenants","clients","secrets","components","enrolment","secretCopies","retention"]),
                ([.tenants[] | keys[]] | unique - ["code","name","retentionDays","idp"]),
                (.components | keys - ["iris","wazuh","wazuhCentral","velociraptor","misp"]) | .[]' <<<"$cfg")
 [ -z "$extra" ] && ok "siem-tenants keeps to the reconciler schema" || ko "unknown siem-tenants fields: $extra"
@@ -485,6 +485,75 @@ if render "${NP[@]}" --set networkPolicies.enabled=false >"$TMP/nonp.yaml"; then
     && ok "networkPolicies.enabled=false renders none" || ko "policies with networkPolicies.enabled=false"
 else
   ko "renders with networkPolicies.enabled=false"; cat "$TMP/err"
+fi
+# --- retention and monitoring --------------------------------------------
+[ "$(jq -c '.retention' <<<"$cfg")" = '{"centralDays":90,"policyId":"kubesoc-retention","warmAfterDays":0}' ] \
+  && ok "retention settings in siem-tenants" || ko "retention: $(jq -c .retention <<<"$cfg")"
+[ "$(jq -r '[.components.wazuh[] | .indexer.url + "@" + .indexer.credSecretRef.name] | join(",")' <<<"$cfg")" = "https://wazuh-indexer.wazuh-001.svc:9200@wazuh-indexer-cred,https://wazuh-indexer.wazuh-002.svc:9200@wazuh-indexer-cred" ] \
+  && ok "each tenant indexer for retention and health" || ko "tenant indexers: $(jq -c '[.components.wazuh[].indexer]' <<<"$cfg")"
+extra=$(jq -r '([.components.wazuh[].indexer | keys[]] | unique - ["url","credSecretRef","caFile","insecureSkipVerify"]), (.retention | keys - ["policyId","indexPatterns","warmAfterDays","centralDays","centralIndexPatterns"]) | .[]' <<<"$cfg")
+[ -z "$extra" ] && ok "retention keeps to the reconciler schema" || ko "unknown retention fields: $extra"
+if render -f "$SCRIPT_DIR/values-2-tenants.yaml" --set retention.enabled=false >"$TMP/noret.yaml"; then
+  noret=$(yq 'select(.kind == "ConfigMap" and .metadata.name == "siem-tenants") | .data["tenants.json"]' "$TMP/noret.yaml")
+  [ "$(jq -c '[.retention, .components.wazuh[0].indexer]' <<<"$noret")" = "[null,null]" ] \
+    && ok "retention off: no policy, no indexer access" || ko "retention off: $(jq -c '[.retention, .components.wazuh[0].indexer]' <<<"$noret")"
+else
+  ko "renders without retention"; cat "$TMP/err"
+fi
+expect_failure "retentionDays is bounded" "retentionDays" -f "$SCRIPT_DIR/values-2-tenants.yaml" --set 'tenants[0].retentionDays=5000'
+[ -z "$(yq -N 'select((.kind == "PrometheusRule" and .metadata.name == "security-operations") or (.kind == "ServiceMonitor" and .metadata.name == "siem-reconciler")) | .kind' "$R2")" ] \
+  && ok "no monitoring objects by default" || ko "monitoring objects rendered by default"
+
+MON=(-f "$SCRIPT_DIR/values-2-tenants.yaml" --set reconciler.enabled=true --set reconciler.image.tag=test
+     --set reconciler.mode=deployment --set monitoring.serviceMonitor.enabled=true --set monitoring.prometheusRule.enabled=true)
+if render "${MON[@]}" >"$TMP/mon.yaml"; then
+  ok "renders the reconciler Deployment with monitoring"
+  [ -z "$(yq -N 'select(.kind == "CronJob" and .metadata.name == "siem-reconciler") | .kind' "$TMP/mon.yaml")" ] \
+    && ok "deployment mode replaces the CronJob" || ko "CronJob rendered in deployment mode"
+  dep=$(yq -o=json -I=0 'select(.kind == "Deployment" and .metadata.name == "siem-reconciler") | .spec.template.spec' "$TMP/mon.yaml")
+  [ "$(jq -r '.containers[0].args | join(" ")' <<<"$dep")" = "--config /etc/siem/tenants.json --dry-run=true --interval=5m --metrics-addr=:9090" ] \
+    && ok "long-running reconciler args" || ko "deployment args: $(jq -c '.containers[0].args' <<<"$dep")"
+  [ "$(jq -r '.restartPolicy + "," + .containers[0].ports[0].name + "," + .containers[0].livenessProbe.httpGet.path' <<<"$dep")" = "Always,metrics,/healthz" ] \
+    && ok "deployment pod: restart, named metrics port, liveness" || ko "deployment pod: $dep"
+  [ "$(yq -N 'select(.kind == "Service" and .metadata.name == "siem-reconciler-metrics") | .spec.ports[0].name + "," + .spec.selector["security-operations.kubeaid.io/reconciler-mode"]' "$TMP/mon.yaml")" = "metrics,deployment" ] \
+    && ok "metrics Service selects the Deployment pod only" || ko "metrics Service"
+  [ "$(yq -N 'select(.kind == "Job" and .metadata.name == "siem-reconciler-sync") | .spec.template.metadata.labels["security-operations.kubeaid.io/reconciler-mode"]' "$TMP/mon.yaml")" = "null" ] \
+    && ok "hook Jobs are not behind the metrics Service" || ko "hook Job labels"
+  [ "$(yq -N 'select(.kind == "ServiceMonitor" and .metadata.name == "siem-reconciler") | .spec.endpoints[0].port + "," + .spec.selector.matchLabels["app.kubernetes.io/name"]' "$TMP/mon.yaml")" = "metrics,siem-reconciler" ] \
+    && ok "ServiceMonitor on the metrics port" || ko "ServiceMonitor"
+  alerts=$(yq -N 'select(.kind == "PrometheusRule") | .spec.groups[].rules[].alert' "$TMP/mon.yaml" | sort -u | tr '\n' ' ')
+  for a in KubeSocIndexerHealthRed KubeSocIndexerHealthYellow KubeSocIndexerDiskWarning KubeSocIndexerDiskCritical KubeSocIndexerVolumeWarning KubeSocIndexerVolumeCritical KubeSocReconcilerErrors \
+           KubeSocReconcilerNoSuccessfulRun KubeSocWazuhEventsDropped KubeSocWazuhAgentsDisconnected KubeSocJobFailed KubeSocComponentDown KubeSocKeycloakDown; do
+    grep -qw "$a" <<<"$alerts" || { ko "alert $a missing: $alerts"; continue; }
+  done
+  ok "PrometheusRule alerts"
+  if command -v promtool >/dev/null 2>&1; then
+    yq 'select(.kind == "PrometheusRule") | .spec' "$TMP/mon.yaml" >"$TMP/rules.yaml"
+    promtool check rules "$TMP/rules.yaml" >"$TMP/promtool" 2>&1 && ok "promtool check rules" || { ko "promtool check rules"; cat "$TMP/promtool"; }
+  fi
+  [ -z "$(yq -N 'select(.kind == "PrometheusRule") | .spec.groups[].rules[] | select(.labels.alert_id != .alert or .labels.severity == null) | .alert' "$TMP/mon.yaml")" ] \
+    && ok "every alert has alert_id and severity" || ko "alert labels"
+  grep -q 'namespace=~\\"security-operations|wazuh-.+\\"' <(yq -o=json 'select(.kind == "PrometheusRule")' "$TMP/mon.yaml") \
+    && ok "workload alerts cover the release and tenant namespaces" || ko "namespace regex"
+else
+  ko "renders the reconciler Deployment with monitoring"; cat "$TMP/err"
+fi
+if render "${MON[@]}" --set reconciler.mode=cronjob --set misp.wazuhCdbExport.enabled=true --set dfir-iris.aiTriage.enabled=true \
+     --set-json 'misp.wazuhCdbExport.targets=[{"name":"001","url":"https://w1","credentialsSecret":"c1"},{"name":"002","url":"https://w2","credentialsSecret":"c2"}]' >"$TMP/mon2.yaml"; then
+  [ -z "$(yq -N 'select(.kind == "ServiceMonitor" and .metadata.name == "siem-reconciler") | .kind' "$TMP/mon2.yaml")" ] && ok "no ServiceMonitor for the CronJob" || ko "ServiceMonitor in cronjob mode"
+  cj=$(yq -N 'select(.kind == "PrometheusRule") | .spec.groups[] | select(.name == "kubesoc-cronjobs") | .rules[].alert' "$TMP/mon2.yaml" | tr '\n' ' ')
+  [ "$cj" = "KubeSocDfirIrisAiTriageFailing KubeSocDfirIrisAiTriageStale KubeSocMispWazuhCdbExportFailing KubeSocMispWazuhCdbExportStale KubeSocSiemReconcilerFailing KubeSocSiemReconcilerStale " ] \
+    && ok "CronJob failing/stale alerts (MISP export, AI triage, reconciler)" || ko "cronjob alerts: $cj"
+  [ -z "$(yq -N 'select(.kind == "PrometheusRule") | .spec.groups[].rules[] | select(.alert == "KubeSocReconcilerNoSuccessfulRun") | .alert' "$TMP/mon2.yaml")" ] \
+    && ok "cronjob mode watches the CronJob, not the metrics" || ko "metric staleness alert in cronjob mode"
+else
+  ko "renders monitoring in cronjob mode"; cat "$TMP/err"
+fi
+if render "${MON[@]}" --set monitoring.prometheusRule.namespace=monitoring >"$TMP/mon3.yaml"; then
+  [ "$(yq -N 'select(.kind == "PrometheusRule") | .metadata.namespace' "$TMP/mon3.yaml")" = "monitoring" ] \
+    && ok "PrometheusRule namespace override" || ko "rule namespace"
+else
+  ko "renders the rule in another namespace"; cat "$TMP/err"
 fi
 
 echo

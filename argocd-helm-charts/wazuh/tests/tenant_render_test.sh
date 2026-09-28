@@ -39,6 +39,10 @@ check "central search DN allowed" "CN=wazuh-indexer,O=central,L=California,C=US"
   "$(q 'select(.kind=="ConfigMap" and .metadata.name=="wazuh-indexer-config") | .data["opensearch.yml"]' | yq '.["plugins.security.nodes_dn"][1]')"
 check "indexer 9300 open to the central indexer" "security-operations/wazuh-indexer" \
   "$(q 'select(.kind=="NetworkPolicy" and .metadata.name=="wazuh-indexer-flows") | .spec.ingress[] | select(.ports[0].port==9300) | .from[0].namespaceSelector.matchLabels["kubernetes.io/metadata.name"] + "/" + .from[0].podSelector.matchLabels.app')"
+check "indexer 9300 open to the central namespace" "security-operations" \
+  "$(q 'select(.kind=="NetworkPolicy" and .metadata.name=="wazuh-indexer") | .spec.ingress[] | select(.ports[0].port==9300 and .from[0].namespaceSelector) | .from[0].namespaceSelector.matchLabels["kubernetes.io/metadata.name"]')"
+check "indexer 9200 open to the SIEM reconciler" "siem-reconciler" \
+  "$(q 'select(.kind=="NetworkPolicy" and .metadata.name=="wazuh-indexer") | .spec.ingress[] | select(.ports[0].port==9200 and .from[0].namespaceSelector) | .from[0].podSelector.matchLabels["app.kubernetes.io/name"]')"
 check "no generated passwords" "" \
   "$(q 'select(.kind=="Secret") | .metadata.name' | grep -E 'indexer-cred|dashboard-cred|wazuh-api-cred|wazuh-authd-pass' || true)"
 check "fixed IRIS customer in ossec.conf" "1" \

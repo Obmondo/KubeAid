@@ -111,8 +111,11 @@ toolRoles:
 #   agentPorts    optional {registration, events}: the public ports of the
 #                 tenant's Wazuh manager (Traefik entry points), for the
 #                 enrolment bundle. Needs tenantWazuh.agentHost.
-#   retentionDays optional, defaults to defaultRetentionDays (ISM on the
-#                 tenant's alerts indices, applied by the reconciler).
+#   retentionDays optional, defaults to defaultRetentionDays: days the
+#                 tenant's events are kept. The reconciler keeps an ISM
+#                 policy deleting older indices on the tenant's indexer
+#                 (`retention` below). Size the tenant indexer's volume for
+#                 it (kubeaid-cli derives the size; README "Retention").
 #   idp           optional identity-provider broker for the tenant, passed to
 #                 the reconciler as is.
 tenants: []
@@ -125,6 +128,26 @@ tenants: []
 # Keycloak group and realm role of a tenant: <tenantGroupPrefix><code>.
 tenantGroupPrefix: tenant-
 defaultRetentionDays: 365
+
+# Index lifecycle (ISM) policies the reconciler keeps (README "Retention"). On
+# every tenant indexer: indices matching indexPatterns are deleted when older than
+# the tenant's retentionDays; the policy attaches to new indices through its
+# ism_template and to existing unmanaged ones. Indices under another policy are
+# left alone. Needs the reconciler, the tenant indexer's REST port open to it
+# (wazuh chart README section 11) and tenantWazuh.indexerCredSecret.
+retention:
+  enabled: true
+  policyId: kubesoc-retention
+  # Empty: wazuh-alerts-*, wazuh-archives-*, wazuh-monitoring-*, wazuh-statistics-*.
+  indexPatterns: []
+  # Read-only "warm" state after this many days (0: none). Hook for a later
+  # warm tier; it does not move data.
+  warmAfterDays: 0
+  # The central search indexer holds no events, only the Wazuh app's own
+  # monitoring and statistics indices; they are kept this long (0: no policy).
+  centralDays: 90
+  # Empty: wazuh-monitoring-*, wazuh-statistics-*.
+  centralIndexPatterns: []
 
 # The tenants' own Wazuh releases (wazuh chart README section 11). This chart
 # creates their namespaces and all central wiring to them; the releases take the
@@ -152,6 +175,10 @@ tenantWazuh:
   # Manager API and indexer Services inside the tenant namespace.
   managerService: wazuh
   indexerNodesService: wazuh-indexer-nodes
+  # Indexer REST Service (9200) and its admin credentials Secret (keys
+  # INDEXER_USERNAME/INDEXER_PASSWORD), for retention and health probes.
+  indexerService: wazuh-indexer
+  indexerCredSecret: wazuh-indexer-cred
 
 # Central search dashboard: index patterns the reconciler keeps in its saved
 # objects. The Wazuh app never creates them itself here, because no local index
@@ -364,6 +391,14 @@ reconciler:
   # the sync instead of on the next schedule tick.
   postSync: true
   activeDeadlineSeconds: 600
+  # cronjob: run on `schedule` and exit (default). deployment: one long-running
+  # pod that reconciles every `interval`, probes the platform health after each
+  # run and serves Prometheus metrics and a JSON /status summary on metricsPort
+  # (Service siem-reconciler-metrics, port "metrics"). The Sync/PostSync hooks run
+  # in both modes. Use deployment for the health metrics (`monitoring`).
+  mode: cronjob
+  interval: 5m
+  metricsPort: 9090
   # Secrets created with random values when missing ({namespace, name, keys:
   # [{key, generator}]}). Empty: one per client secretRef.
   secrets: []
@@ -378,6 +413,37 @@ reconciler:
       memory: 64Mi
     limits:
       memory: 256Mi
+
+# Monitoring of the platform itself (README "Monitoring"). Prometheus picks up
+# ServiceMonitors and PrometheusRules only from the namespaces it is configured
+# for: in KubeAid, add this release's namespace to prometheus_scrape_namespaces
+# (or set prometheusRule.namespace to one it watches, e.g. monitoring).
+monitoring:
+  # Scrapes the reconciler's /metrics (reconciler.mode: deployment only).
+  serviceMonitor:
+    enabled: false
+    interval: 60s
+    scrapeTimeout: 30s
+    labels: {}
+  prometheusRule:
+    enabled: false
+    # Empty: the release namespace.
+    namespace: ""
+    additionalLabels: {}
+    # Indexer disk usage, percent, of the fullest data node / volume. The
+    # indexer stops allocating at 85 % and goes read-only at 95 % (drops alerts).
+    diskWarningPercent: 75
+    diskCriticalPercent: 85
+    # No successful reconcile run for this long.
+    reconcilerStaleSeconds: 1800
+    # A CronJob (MISP CDB export, AI triage) without a success for this long.
+    jobStaleSeconds: 3600
+    # Share of a tenant's once-connected agents that is disconnected.
+    agentsDisconnectedRatio: 0.2
+    # Keycloak workload the platform logs in through (kube-state-metrics).
+    keycloak:
+      namespace: keycloakx
+      statefulset: keycloakx
 
 # Velociraptor server artifacts. files/velociraptor/*.yaml ship with the chart
 # (Custom.Server.IrisCollector: IRIS case -> endpoint collection -> results on the

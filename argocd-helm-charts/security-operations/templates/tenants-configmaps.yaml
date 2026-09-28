@@ -74,6 +74,7 @@ data:
 {{- $cfg := dict "domain" .Values.domain "tenantGroupPrefix" .Values.tenantGroupPrefix "keycloak" $kc "operators" $ops "tenants" $tenantsOut "clients" $clients "secrets" (include "secops.secrets" (dict "root" . "clients" $clients) | fromYamlArray) "components" (include "secops.components" . | fromYaml) }}
 {{- with include "secops.enrolment" . | fromYamlArray }}{{ $_ := set $cfg "enrolment" . }}{{ end }}
 {{- with include "secops.secretCopies" . | fromYamlArray }}{{ $_ := set $cfg "secretCopies" . }}{{ end }}
+{{- with include "secops.retention" . | fromYaml }}{{ $_ := set $cfg "retention" . }}{{ end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

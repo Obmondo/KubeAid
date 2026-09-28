@@ -79,12 +79,17 @@ component blocks exactly as for the standalone charts (see their READMEs), one l
 | `tls.caSecret`, `tls.insecureSkipVerify` | `""` (= `socCA.trustSecret`), `false` | CA the reconciler verifies the tenant managers and the central indexer with; the explicit opt-out (section 7) |
 | `networkPolicies.*` | enabled, Cilium | Default deny in this namespace and one policy per workload; peers for the ingress controller, Keycloak, Prometheus, operators (section 7) |
 | `defaultRetentionDays` | `365` | Alert retention when a tenant sets none |
+| `defaultRetentionDays` | `365` | Alert retention when a tenant sets none (section 6, Retention) |
+| `retention.*` | enabled, `kubesoc-retention`, central 90 days | ISM policies the reconciler keeps on every indexer (section 6, Retention) |
+| `tenantWazuh.{indexerService,indexerCredSecret}` | `wazuh-indexer`, `wazuh-indexer-cred` | Tenant indexer REST Service and admin Secret, for retention and health probes |
+| `monitoring.serviceMonitor.*`, `monitoring.prometheusRule.*` | off | ServiceMonitor and PrometheusRule of the platform (section 6, Monitoring) |
 | `checks.mispTargets` | `true` | Fail the render when the MISP export lacks a tenant's manager |
 | `ai.irisLogin`, `ai.irisGroups`, `ai.irisKeySecret` | `svc_ai`, `[Analysts]`, `iris-ai-triage` | IRIS service account of the triage job; the reconciler creates it, gives it these groups and every tenant as customer, and keeps its API key in that Secret (key `IRIS_API_KEY`, read by `dfir-iris.aiTriage.existingSecret`). Turn the job on with `dfir-iris.aiTriage.enabled` |
 | `publicIngress.velociraptorHost` | `""` | Hostname Velociraptor clients dial |
 | `reconciler.*` | disabled | Section 6; `reconciler.secrets` and `reconciler.components` override what goes into `siem-tenants` |
 | `reconciler.imagePullSecrets` | `[]` | Pull secrets (`[{name: ...}]`) for a private registry, in the release namespace |
 | `reconciler.hostAliases` | `[]` | Host name pins for the reconciler pod (e.g. an internal-only Keycloak) |
+| `reconciler.mode`, `.interval`, `.metricsPort` | `cronjob`, `5m`, `9090` | `deployment` runs the reconciler long-running with metrics (section 6, Monitoring) |
 | `velociraptorArtifacts.extraFiles` | `{}` | More Velociraptor artifact files (name -> YAML); `null` drops a shipped one (section 6) |
 | `velociraptorArtifacts.monitoring` | IrisCollector, KeycloakSync | Server event artifacts the reconciler keeps running, with the parameters it enforces |
 | `wazuh`, `velociraptor`, `dfir-iris`, `misp`, `ollama` | see values.yaml | Passed to the component charts |
@@ -245,6 +250,60 @@ Rollout on an existing install, in this order:
    `velociraptorArtifacts.monitoring.Custom.Server.IrisCollector.parameters.AutoRules`, e.g.
    `'{"99901": {"darwin": "Custom.MacOS.Remediation.RemoveByHash"}}'`. It then only acts on
    alerts created by the tenant's own `svc_wazuh_<code>` and untouched since (below).
+### Retention
+
+With `retention.enabled` (default) the reconciler keeps an index lifecycle (ISM) policy
+`retention.policyId` on every tenant indexer: indices matching `retention.indexPatterns`
+(default `wazuh-alerts-*`, `wazuh-archives-*`, `wazuh-monitoring-*`, `wazuh-statistics-*`)
+are deleted once older than the tenant's `retentionDays` (`defaultRetentionDays` when
+unset). The policy's `ism_template` attaches it to new daily indices; the reconciler also
+attaches it to existing indices that have no policy and moves the indices it manages to a
+changed policy (e.g. after `retentionDays` changed). Indices under another policy are
+reported and left alone. `retention.warmAfterDays` adds a read-only warm state (a hook for
+a later warm tier). The central indexer holds no events, only the Wazuh app's monitoring
+and statistics indices, kept `retention.centralDays`. The reconciler logs in with each
+tenant's `tenantWazuh.indexerCredSecret` (keys `INDEXER_USERNAME`/`INDEXER_PASSWORD`) on
+`https://<indexerService>.<tenant namespace>.svc:9200`, so the tenant indexer's
+NetworkPolicy must admit 9200 from the reconciler pods (wazuh README section 11; kubeaid-cli
+renders it). Without that rule the retention and health objects of that tenant fail.
+
+Lowering `retentionDays` deletes older indices on the next ISM cycle; read the dry-run log
+first. Retention bounds what is kept, the volume must still hold it: the chart default of
+5Gi per tenant indexer holds little. Size `wazuh.indexer.storageSize` in the tenant release
+as retention days x GB per day x 1.5 (kubeaid-cli derives it from `expectedGBPerDay`). A
+StatefulSet's volume template cannot change in place and a PVC never shrinks. To grow an
+existing tenant's indexer volume (StorageClass with `allowVolumeExpansion`):
+
+1. `kubectl -n wazuh-<code> patch pvc wazuh-indexer-wazuh-indexer-0 -p '{"spec":{"resources":{"requests":{"storage":"<size>"}}}}'` (every replica).
+2. Set the same `storageSize` in the tenant release values.
+3. `kubectl -n wazuh-<code> delete statefulset wazuh-indexer --cascade=orphan`, then sync the
+   tenant Application; the new StatefulSet adopts the running pods and volumes.
+
+### Monitoring
+
+The reconciler has two modes. `reconciler.mode: cronjob` (default) runs every `schedule`
+and exits. `deployment` runs one long-running pod (`--interval`, default `5m`) that after
+each run probes the platform and serves on port `metrics` (Service
+`siem-reconciler-metrics`, pods labelled `app.kubernetes.io/name: siem-reconciler`):
+`/metrics` (Prometheus), `/status` (JSON: last run, last success, health snapshot, overall
+`healthy`) and `/healthz`. A Deployment rather than a Pushgateway: KubeAid ships none, and
+gauges such as disk usage must stay current between runs. The Sync and PostSync hook Jobs
+run in both modes. Metrics (`kubesoc_` prefix): objects per component and action (`ok`,
+`changed`, `skip`, `error`), runs, last run and last successful run time, run duration,
+dry-run flag; per indexer (tenant code or `central`) up, cluster status and disk usage of
+the fullest node; per tenant manager up, agents by status, analysisd dropped events and
+queue usage; and `kubesoc_component_up` for Keycloak, IRIS and the Velociraptor API.
+
+`monitoring.serviceMonitor.enabled` scrapes the Deployment. `monitoring.prometheusRule.enabled`
+adds alerts (labels `alert_id`, `severity`): indexer red/yellow/down, disk over
+`diskWarningPercent`/`diskCriticalPercent` (reconciler figure and kubelet volume stats of the
+`wazuh-indexer-*` PVCs), manager down, dropped events, many disconnected agents, reconciler
+errors and no successful run, component unreachable; CronJobs of the MISP CDB export, AI
+triage and the reconciler (cronjob mode) failing or without success for `jobStaleSeconds`;
+any failed Job and any Deployment/StatefulSet without a ready pod in the release and tenant
+namespaces; Keycloak down. The kube-state-metrics and volume alerts work in both modes.
+KubeAid's Prometheus only reads ServiceMonitors and rules from its configured namespaces: add
+this namespace to `prometheus_scrape_namespaces`, or set `monitoring.prometheusRule.namespace`.
 
 ### Velociraptor API and server artifacts
 
@@ -433,3 +492,6 @@ approver policies. With every workload on (`tests/values-netpol.yaml`) it runs
 no rule open to any address except the Velociraptor frontend (8000) and MISP's internet
 egress; plus the reconciler's and the MISP export's CA. The tenant side is covered by
 `../wazuh/tests/tenant_render_test.sh` and `../wazuh/tests/hardening_render_test.sh`.
+client bootstrap and shipped artifacts, retention input, the Deployment mode and the
+monitoring objects (with `promtool check rules` when promtool is on PATH). The tenant side is covered by
+`../wazuh/tests/tenant_render_test.sh`.
