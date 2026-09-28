@@ -51,3 +51,6 @@ resourceQuotaLimitRangeGenerator:
     rook-ceph:
       limitRange:
         container: {}
+
+veleroExcludeLabelApplier:
+  enabled: true
