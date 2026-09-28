@@ -65,6 +65,14 @@ SYSTEM = (
 )
 
 
+# A prompt file (the kubesoc-content package's ai/prompts/triage-system.txt, mounted)
+# replaces the built-in prompt; without one, SYSTEM above is used.
+PROMPT_FILE = os.environ.get("TRIAGE_SYSTEM_PROMPT_FILE", "")
+if PROMPT_FILE and os.path.isfile(PROMPT_FILE):
+    with open(PROMPT_FILE, encoding="utf-8") as _f:
+        SYSTEM = _f.read().strip() or SYSTEM
+
+
 def env(name, default=None, required=True):
     value = os.environ.get(name, default)
     if required and not value:
