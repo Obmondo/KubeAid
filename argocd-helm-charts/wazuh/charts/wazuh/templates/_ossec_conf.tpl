@@ -290,7 +290,8 @@
     <node_name>{{ include "wazuh.fullname" $root }}-manager-worker-___INDEX___</node_name>
     <node_type>worker</node_type>
     {{- end }}
-    <key>{{ $root.Values.wazuh.key }}</key>
+    {{- /* KubeAid patch: placeholder filled in by the update-index init container. */}}
+    <key>{{ if $root.Values.wazuh.clusterKeySecret.name }}___WAZUH_CLUSTER_KEY___{{ else }}{{ $root.Values.wazuh.key }}{{ end }}</key>
     <port>{{ $root.Values.wazuh.service.port }}</port>
     <bind_addr>0.0.0.0</bind_addr>
     <nodes>

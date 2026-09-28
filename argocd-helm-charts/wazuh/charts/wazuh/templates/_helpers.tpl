@@ -100,7 +100,12 @@ uiSettings.overrides.defaultRoute: /app/wz-home
 {{- if .Values.dashboard.sso.saml.enabled }}
 {{-   $authType = append $authType "saml" }}
 {{- end }}
-{{- if .Values.dashboard.basicAuth.enabled }}
+{{- /* KubeAid patch: with SSO on, the username/password form is offered only
+       as break-glass (dashboard.basicAuth.breakGlass). The indexer still takes
+       HTTP basic auth for the dashboard's server user and API clients, which
+       also keep working against the dashboard API with an Authorization header. */}}
+{{- $sso := or .Values.dashboard.sso.oidc.enabled .Values.dashboard.sso.saml.enabled }}
+{{- if and .Values.dashboard.basicAuth.enabled (or (not $sso) .Values.dashboard.basicAuth.breakGlass) }}
 {{-   $authType = append $authType "basicauth" }}
 {{- end }}
 opensearch_security.auth.multiple_auth_enabled: {{ gt ($authType | len) 1 }}
@@ -307,4 +312,36 @@ attachment, the listener scheme is unknown, so callers must provide explicit URL
 {{- $host := required "dashboard.ingress.host is required" .Values.dashboard.ingress.host -}}
 {{- printf "https://%s" $host -}}
 {{- end -}}
+{{- end -}}
+
+{{/*
+KubeAid patch: the cluster key Secret (wazuh.clusterKeySecret, else the chart's own).
+*/}}
+{{- define "wazuh.clusterKeySecretRef" -}}
+secretKeyRef:
+  name: {{ .Values.wazuh.clusterKeySecret.name | default "wazuh-cluster-key" | quote }}
+  key: {{ if .Values.wazuh.clusterKeySecret.name }}{{ .Values.wazuh.clusterKeySecret.key | default "key" | quote }}{{ else }}key{{ end }}
+{{- end -}}
+
+{{/*
+KubeAid patch: command of the update-index init container. With
+wazuh.clusterKeySecret it also puts the key into the copied ossec.conf.
+*/}}
+{{- define "wazuh.updateIndexCommand" -}}
+- sh
+- -c
+{{- if .Values.wazuh.clusterKeySecret.name }}
+- |
+  set -e
+  /script.sh
+  case "$WAZUH_CLUSTER_KEY" in
+    *[!A-Za-z0-9]*) echo "cluster key must be letters and digits only" >&2; exit 1 ;;
+  esac
+  if [ "${#WAZUH_CLUSTER_KEY}" -ne 32 ]; then
+    echo "cluster key must be 32 characters" >&2; exit 1
+  fi
+  sed -i "s/___WAZUH_CLUSTER_KEY___/${WAZUH_CLUSTER_KEY}/" /wazuh-config-mount/etc/ossec.conf
+{{- else }}
+- /script.sh
+{{- end }}
 {{- end -}}

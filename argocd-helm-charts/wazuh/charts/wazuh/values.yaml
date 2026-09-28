@@ -245,6 +245,17 @@ indexer:
     ## the indices they may read. Ignored with an indexer.config.securityConfig override.
     ## @param indexer.config.doNotFailOnForbidden Set do_not_fail_on_forbidden in config.yml.
     doNotFailOnForbidden: false
+    ## KubeAid patch. The upstream demo users kibanaro, logstash, readall and
+    ## snapshotrestore ship with public password hashes, and readall reads every index.
+    ## Off: internal_users.yml holds only admin and the dashboard server user.
+    ## Ignored with an indexer.config.internalUsers override.
+    ## @param indexer.config.demoUsers Render the upstream demo users (insecure).
+    demoUsers: false
+    ## KubeAid patch. Extra entries for internal_users.yml, in its format, e.g. a
+    ## break-glass login: {breakglass: {hash: "<bcrypt>", backend_roles: [admin]}}.
+    ## Ignored with an indexer.config.internalUsers override.
+    ## @param indexer.config.extraInternalUsers Extra internal users.
+    extraInternalUsers: {}
   ## @param indexer.additionalConfigs Additional configurations to add to the configmap
   additionalConfigs: {}
   ## LDAP / Active Directory authentication for the indexer (OpenSearch Security)
@@ -545,6 +556,12 @@ dashboard:
     enabled: true
     order: 4
     challenge: true
+    ## KubeAid patch. With dashboard.sso.oidc or .saml enabled the login page offers
+    ## only SSO: internal users (admin, and any break-glass login) get no form. Set true
+    ## to offer the username/password form next to the SSO button. The indexer's basic
+    ## auth domain stays on either way (dashboard server user, filebeat, API clients).
+    ## @param dashboard.basicAuth.breakGlass Offer the login form next to SSO.
+    breakGlass: false
 
   ## @param dashboard.server.extraConf Set extra config for Wazuh Dashboard
   server:
@@ -704,6 +721,16 @@ wazuh:
     enabled: false
   ## @param wazuh.key Defines the key of the wazuh cluster.
   key: "c98b62a9b6169ac5f67dae55ae4a9088"
+  ## KubeAid patch. Read the cluster key from an existing Secret instead of wazuh.key, so
+  ## it is neither in the values nor in the manager ConfigMap: ossec.conf carries a
+  ## placeholder that the update-index init container replaces at pod start. The key must
+  ## be 32 letters or digits. The chart then renders no wazuh-cluster-key Secret. Changing
+  ## the Secret needs a manager restart (no config checksum covers it).
+  ## @param wazuh.clusterKeySecret.name Secret with the cluster key; empty uses wazuh.key.
+  ## @param wazuh.clusterKeySecret.key Key in that Secret.
+  clusterKeySecret:
+    name: ""
+    key: key
   ## @param wazuh.images.repository name of the image used.
   ## @param wazuh.images.tag Tag of the image.
   ## @param wazuh.images.pullPolicy pullPolicy of the image.

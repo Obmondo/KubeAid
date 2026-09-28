@@ -210,10 +210,11 @@ wazuh:
             backendRoles: [analyst]
           kibanaUser:
             backendRoles: [analyst]
-    # Keep the internal users as break-glass: the dashboard then offers both an
-    # SSO button and the username/password form.
+    # With SSO on the login page offers only SSO. breakGlass: true adds the
+    # username/password form for the internal users (admin) next to the SSO button.
     basicAuth:
       enabled: true
+      breakGlass: false
       order: 0
       challenge: false
 ```
@@ -246,6 +247,31 @@ Things that are easy to miss:
 - The dashboard only rolls on a ConfigMap change when `autoreload.enabled` is true. The
   OIDC env vars change the pod spec, so turning SSO on rolls it anyway; later
   changes to the `openid` settings alone need a restart.
+
+## 8a. Internal users, login form and cluster key
+
+- **Internal users.** `internal_users.yml` holds only `admin` (filebeat on the managers,
+  the reconciler and other API clients) and the dashboard's server user
+  (`dashboard.cred.username`, `kibanaserver`). Upstream also ships `kibanaro`, `logstash`,
+  `readall` and `snapshotrestore` with published password hashes; `readall` reads every
+  index, so with the dashboard's login form anyone knowing the upstream docs could read all
+  alerts (and on a central dashboard, every tenant's through cross-cluster search). They are
+  rendered only with `indexer.config.demoUsers: true`. Add real logins with
+  `indexer.config.extraInternalUsers` (map in `internal_users.yml` format, bcrypt hash).
+  Removed users are deleted from the security index on the next sync (the securityadmin
+  Job uploads the whole file).
+- **Login form.** With `dashboard.sso.oidc` (or `saml`) enabled the login page is SSO
+  only. `dashboard.basicAuth.breakGlass: true` brings the username/password form back next
+  to the SSO button. The indexer keeps its basic auth domain either way, so the dashboard
+  server user, filebeat and API clients (also a client that calls the dashboard API with an
+  `Authorization: Basic` header) are unaffected. Without SSO, `dashboard.basicAuth.enabled`
+  keeps its upstream meaning.
+- **Cluster key.** `wazuh.key` ends up in the values, the `wazuh-cluster-key` Secret and the
+  manager ConfigMap. `wazuh.clusterKeySecret.name` names an existing Secret instead (key
+  `wazuh.clusterKeySecret.key`, default `key`; 32 letters or digits): `ossec.conf` then
+  carries a placeholder that the `update-index` init container fills in at start, and the
+  chart renders no `wazuh-cluster-key` Secret. Nothing hashes that Secret, so after changing
+  it restart the managers.
 
 ## 9. Per-tenant separation
 
@@ -391,7 +417,8 @@ holds one tenant's data. `tests/values-tenant.yaml` is a complete example, check
 - **No generated passwords.** Set `existingSecret` for `indexer.cred`, `dashboard.cred`,
   `wazuh.apiCred` and `wazuh.authd`, plus `passwordHash` for the indexer and dashboard
   users (the chart's `lookup` of the Secret does not run under Argo CD). The chart
-  defaults are public. Also set `wazuh.key`.
+  defaults are public. Also set `wazuh.clusterKeySecret.name` (section 8a), or at least
+  `wazuh.key`.
 - **Fixed IRIS customer.** The IRIS integration's `customer_name` option sends every alert
   of the manager to one IRIS customer (section 10).
 - **Network policies** stay deny-by-default; open indexer 9300 to the central namespace,
@@ -425,3 +452,21 @@ with the security-operations umbrella chart:
 - `dashboard.wazuhAppConfigSecret` (section 11): a Secret volume mounted over
   `data/wazuh/config/wazuh.yml` in `templates/dashboard/deployment.yaml`, plus the value.
   Nothing renders while it is empty.
+
+Security hardening (section 8a, checked by `tests/hardening_render_test.sh`):
+
+- `indexer.config.demoUsers` (default false) and `indexer.config.extraInternalUsers`:
+  `templates/indexer/secret-securityconfig.yaml` renders the upstream demo users only on
+  request, plus the values.
+- `dashboard.basicAuth.breakGlass` (default false): `wazuh.dashboard.config` in
+  `templates/_helpers.tpl` leaves `basicauth` out of `opensearch_security.auth.type` while
+  SSO is on, plus the value.
+- `wazuh.clusterKeySecret`: `templates/manager/secret-cluster-key.yaml` (skipped),
+  `templates/_ossec_conf.tpl` (placeholder), the `update-index` init container and the
+  `WAZUH_CLUSTER_KEY` env in `templates/manager/{master,worker}/statefulset.yaml`, helpers
+  `wazuh.clusterKeySecretRef` and `wazuh.updateIndexCommand` in `templates/_helpers.tpl`,
+  plus the value.
+- `templates/certs/root/{rootca,ca-issuer}.yaml` render nothing when
+  `certificates.issuer.name` is set: every certificate then comes from that issuer, and the
+  per-release CA (signed by the shared issuer) was a CA key in each release's namespace
+  that could mint any identity the other releases trust.

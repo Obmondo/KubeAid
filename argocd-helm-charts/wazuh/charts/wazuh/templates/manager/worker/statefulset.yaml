@@ -114,10 +114,15 @@ spec:
         - name: update-index
           image: {{ .Values.wazuh.initContainer.image }}
           imagePullPolicy: {{ .Values.wazuh.images.pullPolicy }}
-          command: 
-            - 'sh'
-            - '-c'
-            - '/script.sh'
+          # KubeAid patch: wazuh.updateIndexCommand fills in the cluster key.
+          command:
+            {{- include "wazuh.updateIndexCommand" . | nindent 12 }}
+          {{- if .Values.wazuh.clusterKeySecret.name }}
+          env:
+            - name: WAZUH_CLUSTER_KEY
+              valueFrom:
+                {{- include "wazuh.clusterKeySecretRef" . | nindent 16 }}
+          {{- end }}
           resources:
             {{- toYaml .Values.wazuh.initContainer.resources | nindent 12 }}
           volumeMounts:
@@ -333,9 +338,7 @@ spec:
               value: {{ .Values.wazuh.env.FILEBEAT_SSL_VERIFICATION_MODE | quote }}
             - name: WAZUH_CLUSTER_KEY
               valueFrom:
-                secretKeyRef:
-                  key: key
-                  name: "wazuh-cluster-key"
+                {{- include "wazuh.clusterKeySecretRef" . | nindent 16 }}
             # Certs
             - name: SSL_CERTIFICATE_AUTHORITIES
               value: /etc/ssl/root-ca.pem
