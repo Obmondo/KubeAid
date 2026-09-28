@@ -112,6 +112,11 @@ wazuhCdbExport:
     # Secret holding the MISP auth key (the same one section 2 creates).
     apiKeySecret: misp-api-key
     apiKeySecretKey: key
+    # Optional Secret with the auth key of a MISP user in a read-only role (the
+    # export only reads). Used instead of apiKeySecret once it exists; while it is
+    # missing the job keeps using apiKeySecret.
+    readOnlyKeySecret: ""
+    readOnlyKeySecretKey: key
     # Only export attributes of published events. Off by default: on a fresh
     # instance nothing is published yet and the lists would stay empty.
     publishedOnly: false

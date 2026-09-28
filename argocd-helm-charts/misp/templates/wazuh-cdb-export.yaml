@@ -86,6 +86,16 @@ spec:
                     secretKeyRef:
                       name: {{ $x.misp.apiKeySecret }}
                       key: {{ $x.misp.apiKeySecretKey }}
+                {{- with $x.misp.readOnlyKeySecret }}
+                # Preferred over MISP_KEY when the Secret exists (optional, so the
+                # job keeps working with the admin key until it is created).
+                - name: MISP_READONLY_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ . }}
+                      key: {{ $x.misp.readOnlyKeySecretKey | default "key" }}
+                      optional: true
+                {{- end }}
                 - name: MISP_PUBLISHED_ONLY
                   value: {{ $x.misp.publishedOnly | quote }}
                 - name: MISP_PAGE_SIZE

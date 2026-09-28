@@ -6,8 +6,10 @@ customer membership cannot come from the token. This job makes Keycloak the
 single place where access is granted and revoked:
 
   * every enabled Keycloak user whose realm roles or groups appear in the
-    mapping gets an IRIS user (same login as the Keycloak username), with its
-    IRIS groups and customers set to exactly what the mapping yields;
+    mapping gets an IRIS user whose login is the Keycloak attribute IRIS's OIDC
+    login matches on (LOGIN_ATTRIBUTE: the username, the e-mail or the user id,
+    i.e. the token's preferred_username, email or sub claim), with its IRIS
+    groups and customers set to exactly what the mapping yields;
   * a user whose mapping yields no group or no customer is deactivated, and
     removed from every IRIS group the sync manages;
   * an IRIS user that no longer exists (or is disabled) in Keycloak is
@@ -24,6 +26,8 @@ DRY_RUN=false. Configuration from the environment:
   IRIS_API_KEY            key of an IRIS user with server_administrator
   MAPPING_FILE            JSON, see README (default /config/mapping.json)
   PROTECTED_LOGINS        comma-separated IRIS logins never touched
+  LOGIN_ATTRIBUTE         username|email|id (default username): must match the
+                          claim IRIS's OIDC login maps (OIDC_MAPPING_USERNAME)
   DEACTIVATE_ORPHANS      true|false (default true)
   DRY_RUN                 true|false (default true)
 """
@@ -95,7 +99,7 @@ class Keycloak:
                 uid = u["id"]
                 roles = {r["name"] for r in self.get(f"/users/{uid}/role-mappings/realm/composite")}
                 groups = {g["name"] for g in self.get(f"/users/{uid}/groups?briefRepresentation=true")}
-                out.append({"username": u["username"], "email": u.get("email") or "",
+                out.append({"username": u["username"], "id": u["id"], "email": u.get("email") or "",
                             "name": " ".join(p for p in (u.get("firstName"), u.get("lastName")) if p)
                                     or u["username"],
                             "roles": roles, "groups": groups})
@@ -155,6 +159,23 @@ def random_password():
 
 # ------------------------------------------------------------------- sync ---
 
+def migrate_login(iris, act, by_login, ku, protected):
+    """Rename the IRIS user an earlier username-keyed sync created for ku to its
+    new login, so its cases and history stay with it. Only when that user has the
+    same non-empty e-mail as the Keycloak user: a local IRIS account that merely
+    shares the name is never taken over."""
+    old = by_login.get(ku["username"])
+    if (old is None or ku["username"] in protected or old.get("user_is_service_account")
+            or not ku["email"] or (old.get("user_email") or "").lower() != ku["email"].lower()):
+        return None
+    uid = pick(old, "user_id", "id")
+    act(f"rename {ku['username']} -> {ku['login']} (login attribute changed)",
+        lambda: iris.call("POST", f"/manage/users/update/{uid}", {"user_login": ku["login"]}, write=True))
+    by_login.pop(ku["username"], None)
+    by_login[ku["login"]] = old
+    return old
+
+
 def desired(kc_user, mapping, all_customers):
     groups, customers = set(), set()
     for kind, names in (("roles", kc_user["roles"]), ("groups", kc_user["groups"])):
@@ -171,8 +192,14 @@ def desired(kc_user, mapping, all_customers):
     return groups, customers
 
 
+LOGIN_ATTRIBUTES = ("username", "email", "id")
+
+
 def main():
     dry_run = truthy(env("DRY_RUN", "true"))
+    login_attr = env("LOGIN_ATTRIBUTE", "username")
+    if login_attr not in LOGIN_ATTRIBUTES:
+        sys.exit(f"LOGIN_ATTRIBUTE must be one of {', '.join(LOGIN_ATTRIBUTES)}")
     deactivate_orphans = truthy(env("DEACTIVATE_ORPHANS", "true"))
     protected = {p.strip() for p in env("PROTECTED_LOGINS", "", required=False).split(",") if p.strip()}
     with open(env("MAPPING_FILE", "/config/mapping.json")) as fh:
@@ -197,7 +224,13 @@ def main():
 
     by_login = {u["user_login"]: u for u in iris.users()}
     kc_users = kc.users()
-    kc_logins = {u["username"] for u in kc_users}
+    for ku in kc_users:
+        ku["login"] = ku[login_attr]
+    no_login = [ku["username"] for ku in kc_users if not ku["login"]]
+    for name in sorted(no_login):
+        print(f"WARN Keycloak user {name!r} has no {login_attr}; skipped")
+    kc_users = [ku for ku in kc_users if ku["login"]]
+    kc_logins = {u["login"] for u in kc_users}
     changes = errors = 0
     mode = "DRY-RUN" if dry_run else "APPLY"
     print(f"{mode}: {len(kc_users)} Keycloak users, {len(by_login)} IRIS users, "
@@ -217,7 +250,7 @@ def main():
             return None
 
     for ku in sorted(kc_users, key=lambda u: u["username"]):
-        login = ku["username"]
+        login = ku["login"]
         if login in protected:
             print(f"WARN Keycloak user {login!r} collides with a protected IRIS login; skipped. "
                   f"An SSO login with this name would sign in as that IRIS account.")
@@ -227,6 +260,8 @@ def main():
         want_customer_ids = {iris_customers[c] for c in want_customers if c in iris_customers}
         should_be_active = bool(want_group_ids) and bool(want_customer_ids)
         iu = by_login.get(login)
+        if iu is None and login_attr != "username":
+            iu = migrate_login(iris, act, by_login, ku, protected)
 
         if iu is None:
             if not should_be_active:

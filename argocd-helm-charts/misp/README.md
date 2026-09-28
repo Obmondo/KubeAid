@@ -222,6 +222,13 @@ wazuhCdbExport:
 The API user needs `lists:update` and `cluster:restart`; the chart's default `wazuh-wui`
 (administrator) has both.
 
+On the MISP side the export only reads. By default it uses the site admin key
+(`misp.apiKeySecret`); set `wazuhCdbExport.misp.readOnlyKeySecret` to a Secret holding the
+auth key of a user in the stock `Read Only` role and the job uses that instead, falling
+back to the admin key while the Secret does not exist (the job log names the kind of key).
+The security-operations umbrella's reconciler creates that user and Secret
+(`mispReadOnly`).
+
 With one Wazuh per tenant (Wazuh chart README section 11), list every manager in
 `wazuhCdbExport.targets` instead of `wazuh`. MISP is queried once per run and each manager
 gets the same lists; one failing manager does not stop the others, but fails the job:

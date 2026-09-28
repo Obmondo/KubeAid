@@ -52,8 +52,10 @@ subjects:
   - kind: ServiceAccount
     name: {{ $name }}
     namespace: {{ .Release.Namespace }}
+{{- if $kcRef }}
 ---
-# Read access to the Keycloak admin Secret only, in Keycloak's namespace.
+# Read access to the Keycloak admin Secret only, in Keycloak's namespace. Not
+# rendered once keycloak.adminSecretRef is null (reconcilerClient only).
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -90,6 +92,7 @@ subjects:
   - kind: ServiceAccount
     name: {{ $name }}
     namespace: {{ .Release.Namespace }}
+{{- end }}
 ---
 apiVersion: batch/v1
 kind: CronJob

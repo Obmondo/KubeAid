@@ -74,7 +74,8 @@ wazuh:
           configMap:
             name: wazuh-iris-integration
             defaultMode: 0755
-        # IRIS API key (key API_KEY), copied into the tenant namespace.
+        # IRIS API key (key API_KEY) of this tenant's own IRIS service account, kept
+        # in the tenant namespace by the security-operations reconciler (tenantIris).
         - name: iris-api-key
           secret:
             secretName: iris-api-key

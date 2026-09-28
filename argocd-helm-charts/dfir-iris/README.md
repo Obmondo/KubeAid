@@ -70,9 +70,12 @@ hostname resolves to an address the pods cannot use, add a `hostAliases` entry.
 
 What IRIS does and does not do (checked against the 2.4.20 source):
 
-- Users are matched on the username claim against IRIS logins, including existing local
-  and service accounts, so keep IdP usernames distinct from local ones (`administrator`,
-  service accounts).
+- Users are matched on the username claim (`oidc.mappingUsername`, falling back to the
+  `mappingEmail` claim when it is missing) against IRIS logins, including existing local
+  and service accounts. With the default `preferred_username` an IdP user named
+  `administrator` signs in as the local administrator; set `mappingUsername: sub` (the
+  IdP's immutable user id) or `email` so no IdP user can match a local login. The
+  security-operations umbrella uses `sub` and `localFallback: false`.
 - With `createUserIfNotExist: true` a first login creates the user in the default
   organisation only: no group, no customer, no permissions. With `false` an administrator
   pre-creates the user (login equal to the username claim) and gets a 404 page otherwise.
@@ -91,8 +94,18 @@ in through SSO lands with no group and no customer. The optional
 and groups from Keycloak and sets each user's IRIS groups and customers to
 exactly what `keycloakSync.mapping` yields.
 
-- Missing users are created (login = Keycloak username, random unused password)
-  and activated, so they are ready before their first login.
+- Missing users are created (random unused password) and activated, so they are
+  ready before their first login. Their login is the Keycloak attribute behind
+  the claim IRIS's OIDC login matches (`authentication.oidc.mappingUsername`):
+  the username for `preferred_username`, the e-mail for `email`, the user id for
+  `sub`.
+- With `preferred_username`, any IdP user whose username equals a local IRIS
+  login signs in as that account. `sub` (or `email`) closes that: a local login
+  such as `administrator` can never equal a Keycloak user id. Switching an
+  existing install renames each user the sync created earlier (login = username)
+  to the new login when its IRIS e-mail equals the Keycloak e-mail, so cases and
+  history stay with it; any other IRIS user with the old login is deactivated as
+  an orphan and the user is created anew.
 - Access removed in Keycloak is removed in IRIS on the next run. A user whose
   mapping yields no group or no customer, or who is disabled or deleted in
   Keycloak, is deactivated.

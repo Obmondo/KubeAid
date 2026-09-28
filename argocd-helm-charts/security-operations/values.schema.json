@@ -16,7 +16,11 @@
     },
     "keycloak": {
       "type": "object",
-      "required": ["url", "realm", "adminSecretRef"],
+      "required": ["url", "realm"],
+      "anyOf": [
+        {"required": ["adminSecretRef"], "properties": {"adminSecretRef": {"type": "object"}}},
+        {"required": ["reconcilerClient"], "properties": {"reconcilerClient": {"required": ["enabled"], "properties": {"enabled": {"const": true}}}}}
+      ],
       "additionalProperties": false,
       "properties": {
         "adminUsername": {"type": "string"},
@@ -29,7 +33,7 @@
         "url": {"type": "string", "pattern": "^https?://"},
         "realm": {"type": "string", "minLength": 1},
         "adminSecretRef": {
-          "type": "object",
+          "type": ["object", "null"],
           "required": ["namespace", "name", "key"],
           "properties": {
             "namespace": {"type": "string", "minLength": 1},
@@ -37,7 +41,17 @@
             "key": {"type": "string", "minLength": 1}
           }
         },
-        "clients": {"type": "array", "items": {"type": "object"}}
+        "clients": {"type": "array", "items": {"type": "object"}},
+        "reconcilerClient": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "clientId": {"type": "string", "minLength": 1},
+            "secretName": {"type": "string", "minLength": 1},
+            "roles": {"type": "array", "items": {"type": "string", "minLength": 1}}
+          }
+        }
       }
     },
     "operators": {

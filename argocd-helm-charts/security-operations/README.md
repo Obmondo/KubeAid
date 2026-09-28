@@ -187,13 +187,60 @@ what has only an API: Keycloak roles, groups, clients and flows; IRIS customers;
 orgs; each tenant manager's API role mappings; the central search's remote clusters and
 dashboard API list. It creates missing Secrets and never changes their values (OIDC client
 secrets with the client id beside them, API keys; the MISP client Secret `oidc-credentials`
-still needs its `username` key set by hand), keeps copies in step (the IRIS API key into
-every tenant namespace, every tenant's API login here as `wazuh-api-cred-<code>` for the MISP
-export) and writes the per-tenant enrolment bundles. It never changes users; the IRIS and
+still needs its `username` key set by hand), keeps copies in step (every tenant's API login
+here as `wazuh-api-cred-<code>` for the MISP export) and writes the per-tenant enrolment
+bundles. Service identities are per purpose (section 6.1). It never changes users; the IRIS and
 Velociraptor Keycloak syncs own those. Start with `dryRun: true` and read the job log. It is
 off by default until the image is published; `siem-tenants` renders either way. The hook Jobs
 pass `--exit-zero`: objects that cannot be reconciled yet (a component still starting) are
 reported without failing the sync; the CronJob stays strict.
+
+### 6.1 Identities and API keys
+
+Each automated caller gets its own identity with only what it needs:
+
+| Caller | Identity | Rights | Secret |
+|---|---|---|---|
+| Tenant Wazuh manager, custom-iris integration (`tenantIris`) | IRIS service account `svc_wazuh_<code>` | group `Wazuh alert intake` (`alerts_write`, `customers_read`), customer = its own tenant only | `iris-api-key`/`API_KEY` in the tenant namespace |
+| IRIS AI triage (`ai`) | IRIS service account `svc_ai` | `ai.irisGroups`, every tenant | `iris-ai-triage` |
+| MISP IOC export (`mispReadOnly`) | MISP user `mispReadOnly.email` | role `Read Only`, admin's organisation | `misp-export-key`/`key` |
+| Reconciler in Keycloak (`keycloak.reconcilerClient`) | client `siem-reconciler`, service account | `reconcilerClient.roles` of `realm-management` in the SOC realm only | `siem-reconciler-keycloak`/`KEYCLOAK_CLIENT_SECRET` |
+
+The reconciler creates these accounts, keeps their groups/customers/roles, and keeps a
+working key in the Secret: a stored key is kept only while the application accepts it *as
+that account* (IRIS `/user/whoami`, MISP `/users/view/me`), otherwise a new one is generated
+and stored. A tenant manager's key can add alerts to its own tenant only; it cannot read
+cases, and a key taken from one tenant's manager is useless against another tenant.
+
+`tenantIris.enabled: false` restores the old behaviour (the central `iris-api-key` copied
+into every tenant namespace). `mispReadOnly.enabled: false` leaves the export on the site
+admin key. `keycloak.reconcilerClient` is off by default; see the rollout below.
+
+Rollout on an existing install, in this order:
+
+1. Sync with the new chart and `reconciler.dryRun: true`; the job log lists the IRIS group,
+   the `svc_wazuh_<code>` accounts and keys (`create`), the MISP user and key, and no more
+   `iris-api-key` copies.
+2. Set `dryRun: false`. The next run creates the accounts and overwrites each tenant's
+   `iris-api-key` with that tenant's own key (the shared key there fails the
+   `/user/whoami` check). The managers read the key file per alert, so no restart is needed.
+   Check an alert per tenant arrives in IRIS; then rotate the old shared key (IRIS, Manage
+   users, renew the key of its owner) since copies of it sat in every tenant namespace.
+3. The MISP export picks up `misp-export-key` on its next run (log line "read-only key").
+4. `keycloak.reconcilerClient.enabled: true`: the first run logs in as the admin (reported
+   `keycloak login skip ... fallback`) and creates the client; the next one reports
+   `keycloak login ok client siem-reconciler`. Then set `keycloak.adminSecretRef: null`,
+   which also removes the reconciler's Role in Keycloak's namespace. Keep the admin
+   Secret itself for Keycloak; the reconciler only needs it again to create a new realm.
+5. IRIS SSO (`dfir-iris.authentication`): this chart sets `localFallback: false` and
+   `oidc.mappingUsername: sub`. With `keycloakSync` enabled its next run renames the users
+   it created earlier to their Keycloak id (when the IRIS e-mail matches). Set
+   `localFallback: true` only for a planned break-glass login.
+6. Automatic response (`IrisCollector` `AutoRules`) is now `{}`: nothing is escalated or
+   run automatically. To turn it on, set it per cluster in
+   `velociraptorArtifacts.monitoring.Custom.Server.IrisCollector.parameters.AutoRules`, e.g.
+   `'{"99901": {"darwin": "Custom.MacOS.Remediation.RemoveByHash"}}'`. It then only acts on
+   alerts created by the tenant's own `svc_wazuh_<code>` and untouched since (below).
 
 ### Velociraptor API and server artifacts
 
@@ -226,9 +273,16 @@ server monitoring table through Velociraptor's gRPC API:
   - `Custom.Server.IrisCollector`: an IRIS asset tagged `velociraptor:collect[:Artifact]` runs
     that client artifact on the endpoint of the same host name, in the org of the case's
     customer only, and the results land on the case timeline; New alerts whose rule is in
-    `AutoRules` are escalated and answered the same way. Reads the IRIS API key from
-    `/etc/iris/API_KEY` (Secret `iris-api-key`) and the customer to org map from
-    `/etc/siem/org-map.json`. `AllowedArtifacts` limits what a tag may run.
+    `AutoRules` (empty by default) are escalated and answered the same way, but only when
+    every entry of the alert's IRIS `modification_history` names the login that
+    `/etc/siem/alert-creators.json` maps the alert's customer to (the tenant's
+    `svc_wazuh_<code>`): an alert created or edited by another tenant's key, an analyst or
+    the AI account never triggers a response. IRIS 2.4 has no separate creator field
+    (`alert_owner_id` is the assignee), and a user with write access to the alert can
+    rewrite its history, but IRIS then appends its own entry naming that user, which fails
+    the check. Reads the IRIS API key from `/etc/iris/API_KEY` (Secret `iris-api-key`) and
+    the customer to org map from `/etc/siem/org-map.json`. `AllowedArtifacts` limits what a
+    tag may run.
   - `Custom.Server.KeycloakSync`: Keycloak users become Velociraptor users with the grants
     of `/etc/siem/role-map.json` (operators, every org) and `/etc/siem/group-map.json` (a
     tenant group, its own org); users that lose them are removed from the orgs. It logs in
