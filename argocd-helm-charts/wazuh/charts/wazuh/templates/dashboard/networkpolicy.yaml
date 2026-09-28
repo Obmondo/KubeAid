@@ -13,9 +13,23 @@ spec:
     - Ingress
     - Egress
   ingress:
+    {{- /* KubeAid patch: ingressFrom null keeps the upstream rule (any source); a list
+         restricts the dashboard port to those peers, and an empty list drops the rule
+         (other policies, e.g. the security-operations chart's, then admit peers). */}}
+    {{- $from := .Values.dashboard.networkPolicy.ingressFrom }}
+    {{- if kindIs "slice" $from }}
+    {{- if $from }}
     - ports:
         - protocol: TCP
           port: {{ .Values.dashboard.service.httpPort }}
+      from:
+        {{- toYaml $from | nindent 8 }}
+    {{- end }}
+    {{- else }}
+    - ports:
+        - protocol: TCP
+          port: {{ .Values.dashboard.service.httpPort }}
+    {{- end }}
     {{- with .Values.dashboard.networkPolicy.extraIngresses }}
     {{- toYaml . | nindent 4 }}
     {{- end }}

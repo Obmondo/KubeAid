@@ -1,0 +1,284 @@
+{{- /*
+  Namespace-wide NetworkPolicies for one Wazuh per tenant (README section 11,
+  networkPolicies in values.yaml). The subchart's per-component policies stay; these
+  add a default deny for every pod in the namespace (DNS excepted) and the flows to and
+  from the central namespace, the ingress controller, Keycloak, the agents and the Wazuh
+  CTI feed. NetworkPolicies are additive: a flow passes when any policy selecting the
+  pod admits it.
+*/}}
+{{- $np := .Values.networkPolicies }}
+{{- if $np.enabled }}
+{{- $fn := include "kubeaid-wazuh.fullname" . }}
+{{- $ns := .Release.Namespace }}
+{{- $sub := .Values.wazuh | default dict }}
+{{- $central := dict "namespaceSelector" (dict "matchLabels" (dict "kubernetes.io/metadata.name" $np.centralNamespace)) }}
+{{- $managerSel := dict "app" (printf "%s-manager" $fn) }}
+{{- $indexerSel := dict "app" (printf "%s-indexer" $fn) }}
+{{- $dashboardSel := dict "app" (printf "%s-dashboard" $fn) }}
+{{- if $np.defaultDeny }}
+---
+# Everything in the namespace is denied both ways unless a policy admits it.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fn }}-default-deny
+  namespace: {{ $ns }}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+  egress:
+    - to:
+        {{- toYaml $np.dns | nindent 8 }}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+{{- end }}
+---
+# Manager: the central reconciler, MISP list export and central dashboard call the
+# API; agents from outside enrol and send events; alerts go to IRIS.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fn }}-manager-flows
+  namespace: {{ $ns }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml $managerSel | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 55000
+      from:
+        {{- range $np.managerApiClients }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $np.centralNamespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml . | nindent 14 }}
+        {{- end }}
+    {{- if or .Values.agentService.enabled .Values.agentTcpRoutes.enabled }}
+    # Agents: enrolment (1515) and events (1514). The agentService externalIPs carry
+    # traffic from outside the cluster; agentTcpRoutes come through the ingress
+    # controller.
+    - ports:
+        - protocol: TCP
+          port: 1514
+        - protocol: TCP
+          port: 1515
+      from:
+        {{- with $np.agentSources }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- if .Values.agentTcpRoutes.enabled }}
+        {{- toYaml $np.ingressController | nindent 8 }}
+        {{- end }}
+    {{- end }}
+  egress:
+    {{- if .Values.irisIntegration.enabled }}
+    # IRIS integration (custom-iris hook_url).
+    - ports:
+        - protocol: TCP
+          port: 8000
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $np.centralNamespace }}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: dfir-iris
+              app.kubernetes.io/component: app
+    {{- end }}
+    {{- if $np.managerToMisp }}
+    # MISP in the central namespace (integrations querying indicators).
+    - ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $np.centralNamespace }}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: misp
+              app: misp
+    {{- end }}
+{{- if $np.cti.enabled }}
+---
+{{- if $np.cilium }}
+# Wazuh CTI feed (vulnerability detection): HTTPS to addresses outside the cluster
+# only. Set wazuh.wazuh.{master,worker}.networkPolicy.ctiEgress false so the
+# subchart's HTTPS-to-anywhere rule goes away.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{ $fn }}-manager-cti
+  namespace: {{ $ns }}
+spec:
+  endpointSelector:
+    matchLabels:
+      {{- toYaml $managerSel | nindent 6 }}
+  egress:
+    - toEntities:
+        - world
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+{{- else }}
+# Wazuh CTI feed (vulnerability detection): HTTPS to public addresses.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fn }}-manager-cti
+  namespace: {{ $ns }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml $managerSel | nindent 6 }}
+  policyTypes: [Egress]
+  egress:
+    - ports:
+        - protocol: TCP
+          port: 443
+      to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: {{ toYaml $np.privateRanges | nindent 14 }}
+{{- end }}
+{{- end }}
+---
+# Indexer: the central search indexer connects as a node (cross-cluster search);
+# the reconciler manages the tenant's indices (e.g. retention) over REST.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fn }}-indexer-flows
+  namespace: {{ $ns }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml $indexerSel | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 9300
+      from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $np.centralNamespace }}
+          podSelector:
+            matchLabels:
+              app: wazuh-indexer
+    - ports:
+        - protocol: TCP
+          port: 9200
+      from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $np.centralNamespace }}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: siem-reconciler
+---
+# The subchart's securityadmin Job reaches the indexer.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fn }}-indexer-job
+  namespace: {{ $ns }}
+spec:
+  podSelector:
+    matchLabels:
+      job-name: {{ $fn }}-indexer
+  policyTypes: [Egress]
+  egress:
+    - ports:
+        - protocol: TCP
+          port: 9200
+        - protocol: TCP
+          port: 9300
+      to:
+        - podSelector:
+            matchLabels:
+              {{- toYaml $indexerSel | nindent 14 }}
+---
+# Dashboard: published through the ingress controller only. Set
+# wazuh.dashboard.networkPolicy.ingressFrom to [] so the subchart's any-source rule
+# goes away.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fn }}-dashboard-flows
+  namespace: {{ $ns }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml $dashboardSel | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: {{ ((($sub.dashboard | default dict).service | default dict).httpPort) | default 5601 }}
+      from:
+        {{- toYaml $np.ingressController | nindent 8 }}
+{{- if $np.keycloak.to }}
+{{- range $c := list (dict "name" "dashboard" "sel" $dashboardSel) (dict "name" "indexer" "sel" $indexerSel) }}
+---
+# OIDC: the {{ $c.name }} reaches Keycloak (discovery, keys, token exchange).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fn }}-{{ $c.name }}-keycloak
+  namespace: {{ $ns }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml $c.sel | nindent 6 }}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        {{- toYaml $np.keycloak.to | nindent 8 }}
+      ports:
+        {{- range $np.keycloak.ports }}
+        - protocol: TCP
+          port: {{ . }}
+        {{- end }}
+{{- end }}
+{{- end }}
+---
+# cert-manager HTTP-01 solver pods for the dashboard's Ingress certificate.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fn }}-acme-solver
+  namespace: {{ $ns }}
+spec:
+  podSelector:
+    matchLabels:
+      acme.cert-manager.io/http01-solver: "true"
+  policyTypes: [Ingress]
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 8089
+      from:
+        {{- toYaml $np.ingressController | nindent 8 }}
+{{- range $name, $spec := $np.extraPolicies }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fn }}-{{ $name }}
+  namespace: {{ $ns }}
+spec:
+  {{- toYaml $spec | nindent 2 }}
+{{- end }}
+{{- end }}

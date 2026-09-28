@@ -78,3 +78,66 @@ agentService:
   eventsPort: null
   nodeType: master
 
+
+# Namespace-wide NetworkPolicies for one Wazuh per tenant (README section 11;
+# templates/networkpolicies.yaml). Off by default, as a standalone install has no
+# central namespace; the security-operations tenants turn it on. Adds a default deny
+# for every pod in the release namespace (DNS excepted) next to the subchart's
+# per-component policies, and admits exactly the SOC flows. For the loose subchart
+# rules to go, also set:
+#   wazuh.dashboard.networkPolicy.ingressFrom: []      (dashboard open to any source)
+#   wazuh.wazuh.master.networkPolicy.ctiEgress: false  (HTTPS to any address; cti below)
+#   wazuh.wazuh.worker.networkPolicy.ctiEgress: false
+networkPolicies:
+  enabled: false
+  defaultDeny: true
+  # DNS servers every pod may query (53/UDP and TCP).
+  dns:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+  # Namespace of the security-operations release (reconciler, MISP export, central
+  # search, IRIS, MISP).
+  centralNamespace: security-operations
+  # Pods in centralNamespace that call the manager API (55000), by labels.
+  managerApiClients:
+    - app.kubernetes.io/name: siem-reconciler
+    - app.kubernetes.io/name: misp-wazuh-cdb-export
+    - app: wazuh-dashboard
+  # Manager egress to MISP (80/443) in centralNamespace.
+  managerToMisp: true
+  # Ingress controller pods that publish the dashboard (and carry agentTcpRoutes).
+  ingressController:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: traefik
+  # Where the dashboard and indexer reach Keycloak for OIDC: the ingress controller in
+  # front of it (a public host name pinned with hostAliases) or its own namespace.
+  # Empty `to` renders no Keycloak egress.
+  keycloak:
+    to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: traefik
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: keycloakx
+    ports: [443, 8443, 8080]
+  # Sources admitted to the agent ports 1514/1515 with agentService or agentTcpRoutes.
+  # Agents dial in from anywhere, so this is the one intended 0.0.0.0/0 rule; narrow it
+  # to the tenant's egress ranges where they are known.
+  agentSources:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+  # Wazuh CTI feed (vulnerability detection): HTTPS from the managers to the internet.
+  cti:
+    enabled: true
+  # true: CiliumNetworkPolicy to the `world` entity (never in-cluster addresses).
+  # false (other CNIs): a NetworkPolicy to 0.0.0.0/0 minus privateRanges.
+  cilium: true
+  privateRanges: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10]
+  # More NetworkPolicies, name suffix -> spec (podSelector, policyTypes, ingress, egress).
+  extraPolicies: {}

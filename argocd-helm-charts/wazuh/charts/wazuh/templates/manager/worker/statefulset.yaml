@@ -96,6 +96,13 @@ spec:
         - name: filebeat-certs
           secret:
             secretName: filebeat-tls
+        {{- if and .Values.certificates.enabled .Values.wazuh.managerTls.enabled }}
+        # KubeAid patch: API and authd key pair (wazuh.managerTls).
+        - name: manager-tls
+          secret:
+            secretName: {{ .Values.wazuh.managerTls.secretName }}
+            defaultMode: 0400
+        {{- end }}
         - name: result-config
           emptyDir: {}
         {{- with .Values.wazuh.agentGroupConfConfigMap }}
@@ -254,6 +261,25 @@ spec:
               name: filebeat-certs
               readOnly: true
               subPath: tls.key
+            {{- if and .Values.certificates.enabled .Values.wazuh.managerTls.enabled }}
+            # KubeAid patch: copied over the self-signed API and authd key pairs at start.
+            - name: manager-tls
+              mountPath: /wazuh-config-mount/api/configuration/ssl/server.crt
+              subPath: tls.crt
+              readOnly: true
+            - name: manager-tls
+              mountPath: /wazuh-config-mount/api/configuration/ssl/server.key
+              subPath: tls.key
+              readOnly: true
+            - name: manager-tls
+              mountPath: /wazuh-config-mount/etc/sslmanager.cert
+              subPath: tls.crt
+              readOnly: true
+            - name: manager-tls
+              mountPath: /wazuh-config-mount/etc/sslmanager.key
+              subPath: tls.key
+              readOnly: true
+            {{- end }}
             {{- if include "wazuh.filebeat.overridden" . }}
             - mountPath: /var/ossec/data_tmp/exclusion/etc/filebeat/filebeat.yml
               name: config
