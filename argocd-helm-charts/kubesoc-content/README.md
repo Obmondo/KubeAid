@@ -51,7 +51,7 @@ then stops rendering `wazuh.localRules` and the hand-copied `<ruleset>` in each 
 | `velociraptor/artifacts/*.yaml` | Velociraptor artifacts. security-operations `files/velociraptor/*.yaml` are rolled out with them. | the server's datastore (`artifact_set`) |
 | `ai/prompts/*` | Prompts. `triage-system.txt` is the IRIS triage prompt (`TRIAGE_SYSTEM_PROMPT_FILE` in `ai-triage.py`). | mounted by the consumer |
 | `tenants/<code>/wazuh/...` | Files for one tenant only, same layout as `wazuh/`; a file with a shared file's name replaces it for that tenant. | that tenant's manager |
-| `tests/<name>/` | Fixtures: `input.log` (one event per line) and `expected.json`. | CI |
+| `tests/<name>/` | Fixtures: `input.log` (one event per line) and `expected.json`. `tests/pending/` holds fixtures nobody has replayed yet; CI ignores them. | CI |
 
 `local_rules.xml` and `local_decoder.xml` belong to the wazuh chart (rewritten at every
 start) and are refused here. Name files `kubesoc-*` so they never shadow a stock file.
@@ -114,6 +114,9 @@ content list the manager has not registered as an error and uploads nothing to i
    Add `"location": "EventChannel"` for events that need a location. Add a negative fixture
    (`tests/<rule-id>-benign/`, expecting the parent rule) when a lookup or match should not
    fire. Test-only list content for lists the package does not ship goes in `tests/lists/`.
+   Keep the fixture in `tests/pending/<rule-id>/` until `tests/logtest.sh` has replayed it
+   (the parent rule's decoder and level are easy to get wrong from reading alone), then move
+   it up one level: CI only runs what sits directly under `tests/`.
 3. Bump `VERSION`.
 
 ## Test locally

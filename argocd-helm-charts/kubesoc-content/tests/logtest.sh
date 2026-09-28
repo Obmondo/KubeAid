@@ -14,6 +14,8 @@
 #                                "location": "optional, e.g. EventChannel"}
 #   tests/lists/<name>          test content for lists the package does not ship
 #                               (the MISP-fed ones), registered like the real ones
+#   tests/pending/<name>/       fixtures waiting for their first local replay; this
+#                               script skips them (no expected.json one level up)
 #   tests/rule-excludes.txt     stock rule files the tenants exclude
 set -euo pipefail
 cd "$(dirname "$0")/.."

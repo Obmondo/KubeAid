@@ -5,7 +5,9 @@
 #   - rule ids are unique across the package (tenant overlays may redefine a
 #     shared file by name, not an id in another file);
 #   - list names are what the Wazuh API accepts, list lines look like CDB;
-#   - every fixture has input.log and an expected.json with rule_id, level, decoder;
+#   - every fixture has input.log and an expected.json with rule_id, level, decoder
+#     (tests/pending/ holds fixtures that have not been replayed yet: neither this
+#     script nor logtest.sh looks at them);
 #   - rules without a fixture are listed (a warning).
 #   argocd-helm-charts/kubesoc-content/tests/lint.sh
 set -euo pipefail
@@ -37,7 +39,7 @@ done
 tested=""
 for d in tests/*/; do
   d=${d%/}
-  [[ "$(basename "$d")" == lists ]] && continue
+  case "$(basename "$d")" in lists | pending) continue ;; esac
   [[ -f "$d/input.log" ]] || err "$d: no input.log"
   python3 - "$d/expected.json" <<'PY' || err "$d/expected.json needs rule_id, level (int) and decoder"
 import json, sys
