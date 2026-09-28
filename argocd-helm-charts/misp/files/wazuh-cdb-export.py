@@ -23,9 +23,12 @@ MISP_URL = os.environ["MISP_URL"].rstrip("/")
 MISP_KEY = os.environ.get("MISP_READONLY_KEY") or os.environ["MISP_KEY"]
 MISP_KEY_KIND = "read-only" if os.environ.get("MISP_READONLY_KEY") else "admin"
 # Several managers (one Wazuh per tenant): WAZUH_TARGETS is JSON
-# [{"name": "001", "url": "https://...:55000", "verifyTls": false}, ...] and each
-# target's login is read from /wazuh-creds/<name>/{API_USERNAME,API_PASSWORD}.
-# Without it, the single manager from WAZUH_URL / WAZUH_USER / WAZUH_PASS.
+# [{"name": "001", "url": "https://...:55000", "caFile": "/wazuh-ca/ca.crt"}, ...]
+# and each target's login is read from /wazuh-creds/<name>/{API_USERNAME,API_PASSWORD}.
+# Without it, the single manager from WAZUH_URL / WAZUH_USER / WAZUH_PASS
+# (WAZUH_CA_FILE, WAZUH_VERIFY_TLS). Certificates are verified against caFile (the
+# CA that issued the manager's API certificate) or the system roots; verifyTls false
+# turns verification off.
 WAZUH_TARGETS = json.loads(os.environ.get("WAZUH_TARGETS") or "[]")
 CREDS_DIR = os.environ.get("WAZUH_CREDS_DIR", "/wazuh-creds")
 # JSON: [{"name": "misp-malicious-ip", "types": ["ip-dst", "ip-src"]}, ...]
@@ -37,8 +40,8 @@ DRY_RUN = os.environ.get("DRY_RUN", "false").lower() == "true"
 
 
 
-def tls_context(verify):
-    ctx = ssl.create_default_context()
+def tls_context(verify, cafile=None):
+    ctx = ssl.create_default_context(cafile=cafile or None)
     if not verify:
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
@@ -51,7 +54,8 @@ def targets():
         return [{
             "name": "wazuh", "url": os.environ["WAZUH_URL"].rstrip("/"),
             "user": os.environ["WAZUH_USER"], "password": os.environ["WAZUH_PASS"],
-            "ctx": tls_context(os.environ.get("WAZUH_VERIFY_TLS", "true").lower() == "true"),
+            "ctx": tls_context(os.environ.get("WAZUH_VERIFY_TLS", "true").lower() == "true",
+                               os.environ.get("WAZUH_CA_FILE")),
         }]
     out = []
     for t in WAZUH_TARGETS:
@@ -59,7 +63,8 @@ def targets():
         with open(os.path.join(creds, "API_USERNAME")) as u, open(os.path.join(creds, "API_PASSWORD")) as p:
             user, password = u.read().strip(), p.read().strip()
         out.append({"name": t["name"], "url": t["url"].rstrip("/"), "user": user,
-                    "password": password, "ctx": tls_context(bool(t.get("verifyTls", True)))})
+                    "password": password,
+                    "ctx": tls_context(bool(t.get("verifyTls", True)), t.get("caFile"))})
     return out
 
 

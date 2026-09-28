@@ -83,6 +83,13 @@ spec:
         - name: wazuh-authd-pass
           secret:
             secretName: {{ .Values.wazuh.authd.existingSecret | default "wazuh-authd-pass" }}
+        {{- if and .Values.certificates.enabled .Values.wazuh.managerTls.enabled }}
+        # KubeAid patch: API and authd key pair (wazuh.managerTls).
+        - name: manager-tls
+          secret:
+            secretName: {{ .Values.wazuh.managerTls.secretName }}
+            defaultMode: 0400
+        {{- end }}
         - emptyDir: {}
           name: result-config
         {{- with .Values.wazuh.agentGroupConfConfigMap }}
@@ -251,6 +258,25 @@ spec:
               mountPath: /wazuh-config-mount/etc/authd.pass
               subPath: authd.pass
               readOnly: true
+            {{- if and .Values.certificates.enabled .Values.wazuh.managerTls.enabled }}
+            # KubeAid patch: copied over the self-signed API and authd key pairs at start.
+            - name: manager-tls
+              mountPath: /wazuh-config-mount/api/configuration/ssl/server.crt
+              subPath: tls.crt
+              readOnly: true
+            - name: manager-tls
+              mountPath: /wazuh-config-mount/api/configuration/ssl/server.key
+              subPath: tls.key
+              readOnly: true
+            - name: manager-tls
+              mountPath: /wazuh-config-mount/etc/sslmanager.cert
+              subPath: tls.crt
+              readOnly: true
+            - name: manager-tls
+              mountPath: /wazuh-config-mount/etc/sslmanager.key
+              subPath: tls.key
+              readOnly: true
+            {{- end }}
             # Rules and decoders
             - mountPath: /wazuh-config-mount/etc/decoders/local_decoder.xml
               name: config

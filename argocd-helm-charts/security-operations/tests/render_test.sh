@@ -201,7 +201,7 @@ if render -f "$SCRIPT_DIR/values-2-tenants.yaml" --set misp.wazuhCdbExport.enabl
 else
   ko "checks.mispTargets=false"; cat "$TMP/err"
 fi
-if render --set wazuh.enabled=false --set velociraptor.enabled=false --set dfir-iris.enabled=false --set misp.enabled=false --set ollama.enabled=false --set socCA.enabled=false >"$TMP/none.yaml"; then
+if render --set wazuh.enabled=false --set velociraptor.enabled=false --set dfir-iris.enabled=false --set misp.enabled=false --set ollama.enabled=false --set socCA.enabled=false --set networkPolicies.enabled=false >"$TMP/none.yaml"; then
   [ "$(objects "$TMP/none.yaml" | awk '{print $1" "$2}' | tr '\n' ' ')" = "ConfigMap siem-tenants " ] \
     && ok "all components off leaves only siem-tenants" || ko "components off: $(objects "$TMP/none.yaml")"
 else
@@ -413,6 +413,79 @@ else
   ko "renders with IRIS SSO"; cat "$TMP/err"
 fi
 expect_failure "keycloakSync refuses an unmapped login claim" "mappingUsername preferred_username, email or sub" "${IR[@]}" --set dfir-iris.authentication.oidc.mappingUsername=nickname
+# --- network policies and TLS -------------------------------------------
+# Every workload on (values-netpol.yaml). netpol_check.py: a default deny, a policy
+# of its own for every workload, and no rule open to anywhere except the agent
+# frontend (Velociraptor 8000) and MISP's internet egress (Cilium world, 80/443).
+NP=(-f "$SCRIPT_DIR/values-2-tenants.yaml" -f "$SCRIPT_DIR/values-netpol.yaml")
+NETPOL_CHECK="$CHARTS_ROOT/wazuh/tests/netpol_check.py"
+if render "${NP[@]}" >"$TMP/np.yaml"; then
+  ok "renders with every workload"
+  yq ea -o=json '[.]' "$TMP/np.yaml" >"$TMP/np.json"
+  if out=$(python3 "$NETPOL_CHECK" "$TMP/np.json" --ns "$NS" --open-ingress 8000 --world-egress 80,443); then
+    ok "default deny, a policy per workload, nothing open beyond the agent frontend"
+  else
+    ko "network policies: $out"
+  fi
+  npq() { yq -N "select(.kind == \"$1\" and .metadata.name == \"$2\") | $3" "$TMP/np.yaml" | sed '/^$/d'; }
+  [ "$(npq NetworkPolicy secops-default-deny '.spec.egress[0].ports | map(.protocol + "/" + (.port|tostring)) | join(",")')" = "UDP/53,TCP/53" ] \
+    && ok "default deny keeps DNS" || ko "default deny DNS"
+  [ "$(npq NetworkPolicy secops-iris-app '.spec.ingress[0].from[] | select(.namespaceSelector.matchExpressions) | .podSelector.matchLabels.app')" = "wazuh-manager" ] \
+    && ok "tenant managers reach IRIS" || ko "IRIS ingress from the tenant managers"
+  [ "$(npq NetworkPolicy secops-reconciler '[.spec.egress[].ports[].port] | map(tostring) | join(",")')" = "443,8443,8080,8000,55000,9200,5601,8001" ] \
+    && ok "reconciler egress: Keycloak, IRIS, managers, indexers, dashboard, Velociraptor" || ko "reconciler egress: $(npq NetworkPolicy secops-reconciler '[.spec.egress[].ports[].port]' | tr '\n' ' ')"
+  for w in reconciler iris-postgres iris-rabbitmq; do
+    [ "$(npq CiliumNetworkPolicy "secops-$w-apiserver" '.spec.egress[0].toEntities[0]')" = "kube-apiserver" ] \
+      && ok "$w reaches the Kubernetes API" || ko "$w API server egress"
+  done
+  [ "$(npq CiliumNetworkPolicy secops-misp-internet '.spec.egress[0].toEntities[0]')" = "world" ] \
+    && ok "MISP feeds through the world entity" || ko "MISP internet egress"
+  [ "$(npq NetworkPolicy secops-misp-wazuh-cdb-export '.spec.egress[1].ports[0].port')" = "55000" ] \
+    && ok "MISP export reaches the tenant managers" || ko "MISP export egress"
+  [ "$(npq NetworkPolicy wazuh-dashboard '.spec.ingress[] | select(.from == null) | .ports[0].port')" = "" ] \
+    && ok "central dashboard not open to any source" || ko "central dashboard any-source rule"
+  [ "$(npq NetworkPolicy velociraptor '.spec.ingress[] | select(.ports[0].port == 8003) | .from[0].namespaceSelector.matchLabels["kubernetes.io/metadata.name"]')" = "monitoring" ] \
+    && ok "Velociraptor metrics for Prometheus only" || ko "Velociraptor metrics peers"
+  [ "$(npq NetworkPolicy velociraptor '.spec.egress[].to[]? | select(.ipBlock) | .ipBlock.cidr')" = "" ] \
+    && ok "Velociraptor has no CIDR egress" || ko "Velociraptor CIDR egress"
+  # TLS: the reconciler and the MISP export verify against the soc-ca.
+  [ "$(npq Certificate soc-ca-trust '.spec.issuerRef.name + "/" + .spec.secretName')" = "soc-ca/soc-ca-trust" ] \
+    && ok "soc-ca trust Certificate here" || ko "soc-ca trust Certificate"
+  cfg=$(npq ConfigMap siem-tenants '.data["tenants.json"]')
+  [ "$(jq -r '[.components.wazuh[] | (.caFile + ":" + (.insecureSkipVerify // false | tostring))] + [.components.wazuhCentral.caFile + ":" + (.components.wazuhCentral.insecureSkipVerify // false | tostring)] | unique | join(",")' <<<"$cfg")" = "/etc/soc-ca/ca.crt:false" ] \
+    && ok "reconciler verifies managers and indexer against the soc-ca" || ko "reconciler TLS: $(jq -c '.components.wazuh' <<<"$cfg")"
+  [ "$(yq -N 'select(.kind == "CronJob" and .metadata.name == "siem-reconciler") | .spec.jobTemplate.spec.template.spec.volumes[] | select(.name == "soc-ca") | .secret.secretName + "/" + (.secret.optional | tostring)' "$TMP/np.yaml")" = "soc-ca-trust/true" ] \
+    && ok "reconciler mounts the CA" || ko "reconciler CA volume"
+  [ "$(yq -N 'select(.kind == "CronJob" and .metadata.name == "misp-wazuh-cdb-export") | .spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "WAZUH_TARGETS") | .value' "$TMP/np.yaml" | jq -r 'map(.caFile) | unique | join(",")')" = "/wazuh-ca/ca.crt" ] \
+    && ok "MISP export verifies against the soc-ca" || ko "MISP export CA"
+  [ "$(jq -r '[.enrolment[].caSecretRef | .namespace + "/" + .name + "/" + .key] | join(",")' <<<"$cfg")" = "wazuh-001/wazuh-manager-tls/ca.crt,wazuh-002/wazuh-manager-tls/ca.crt" ] \
+    && ok "enrolment bundles carry the manager CA" || ko "enrolment CA: $(jq -c '.enrolment' <<<"$cfg")"
+  [ "$(npq ConfigMap wazuh-dashboard-config '.data["opensearch_dashboards.yml"]' | yq '.["opensearch.ssl.verificationMode"]')" = "full" ] \
+    && ok "central dashboard verifies the indexer" || ko "dashboard verificationMode"
+else
+  ko "renders with every workload"; cat "$TMP/err"
+fi
+if render "${NP[@]}" --set tls.insecureSkipVerify=true >"$TMP/insecure.yaml"; then
+  [ "$(yq -N 'select(.kind == "ConfigMap" and .metadata.name == "siem-tenants") | .data["tenants.json"]' "$TMP/insecure.yaml" | jq -r '[.components.wazuh[].insecureSkipVerify, .components.wazuhCentral.insecureSkipVerify] | unique | map(tostring) | join(",")')" = "true" ] \
+    && ok "tls.insecureSkipVerify is an explicit opt-out" || ko "tls.insecureSkipVerify"
+else
+  ko "renders with tls.insecureSkipVerify"; cat "$TMP/err"
+fi
+if render "${NP[@]}" --set networkPolicies.cilium=false --set-json 'networkPolicies.kubeApiServer.to=[{"ipBlock":{"cidr":"192.0.2.1/32"}}]' >"$TMP/nocilium.yaml"; then
+  [ "$(yq -N 'select(.kind == "CiliumNetworkPolicy" and .metadata.name == "secops-*") | .metadata.name' "$TMP/nocilium.yaml")" = "" ] \
+    && ok "no CiliumNetworkPolicy of this chart without Cilium" || ko "Cilium policies with cilium=false"
+  [ "$(yq -N 'select(.kind == "NetworkPolicy" and .metadata.name == "secops-reconciler-apiserver") | .spec.egress[0].to[0].ipBlock.cidr' "$TMP/nocilium.yaml")" = "192.0.2.1/32" ] \
+    && ok "API server egress from kubeApiServer.to without Cilium" || ko "API server ipBlock"
+else
+  ko "renders without Cilium"; cat "$TMP/err"
+fi
+expect_failure "API server peers required without Cilium" "networkPolicies.kubeApiServer.to is required" "${NP[@]}" --set networkPolicies.cilium=false
+if render "${NP[@]}" --set networkPolicies.enabled=false >"$TMP/nonp.yaml"; then
+  [ "$(yq -N 'select(.metadata.name == "secops-*") | .metadata.name' "$TMP/nonp.yaml")" = "" ] \
+    && ok "networkPolicies.enabled=false renders none" || ko "policies with networkPolicies.enabled=false"
+else
+  ko "renders with networkPolicies.enabled=false"; cat "$TMP/err"
+fi
 
 echo
 echo "==================================="

@@ -131,19 +131,27 @@ wazuhCdbExport:
     credentialsSecret: ""
     usernameKey: API_USERNAME
     passwordKey: API_PASSWORD
-    # The Wazuh chart's API presents the certificate bundled with the Wazuh
-    # package (CN=wazuh.com, self-signed), not one from the cluster CA, so there
-    # is nothing to verify against. Turn on only after replacing that cert.
+    # Verify the manager's API certificate (against caSecret, else the system
+    # roots). By default the Wazuh chart's API presents the certificate the image
+    # generates (CN=wazuh.com, self-signed), which cannot be verified: set the wazuh
+    # chart's wazuh.managerTls.enabled (a certificate from its issuer) and caSecret
+    # to that issuer's CA, or set this false.
     verifyTls: false
+  # Secret in this namespace holding the CA (key caSecretKey) that issued the
+  # managers' API certificates, e.g. a cert-manager Certificate's Secret from the
+  # same issuer (ca.crt). Mounted at /wazuh-ca; every target verifies against it
+  # unless it sets its own caFile. Empty: the system roots.
+  caSecret: ""
+  caSecretKey: ca.crt
   # Several managers (one Wazuh per tenant) instead of `wazuh`: each entry gets the
   # same lists; MISP is queried once per run. `name` is a label for the logs and the
   # mount path; `credentialsSecret` (keys usernameKey/passwordKey, default
   # API_USERNAME/API_PASSWORD) must be in this namespace. A manager that fails does
   # not stop the others; the job then exits non-zero.
+  # verifyTls (default true) and caFile (a path in the container) per target.
   #   - name: "001"
   #     url: https://wazuh.wazuh-001.svc:55000
   #     credentialsSecret: wazuh-api-cred-001
-  #     verifyTls: false
   targets: []
   # Safety cap per list; a CDB list of hundreds of thousands of keys is fine for
   # Wazuh but a runaway feed should not be.

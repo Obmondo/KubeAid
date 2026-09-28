@@ -82,7 +82,8 @@ opensearch.hosts: "{{ .Values.externalIndexer.host }}:{{ .Values.externalIndexer
 {{- fail "Please enable either .Values.indexer.enabled or .Values.externalIndexer.enabled" }}
 {{- end }}
 
-opensearch.ssl.verificationMode: none
+{{- /* KubeAid patch: dashboard.opensearchVerificationMode (upstream: none). */}}
+opensearch.ssl.verificationMode: {{ .Values.dashboard.opensearchVerificationMode | default "none" }}
 opensearch.requestHeadersWhitelist: [ authorization,securitytenant ]
 opensearch_security.multitenancy.enabled: false
 opensearch_security.readonly_mode.roles: ["kibana_read_only"]

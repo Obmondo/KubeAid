@@ -39,10 +39,14 @@ spec:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   egress:
+    {{- /* KubeAid patch: ctiEgress false drops the HTTPS-to-anywhere rule; allow the
+         CTI feed with a narrower policy instead (e.g. a CiliumNetworkPolicy to world). */}}
+    {{- if ne .Values.wazuh.master.networkPolicy.ctiEgress false }}
     # Wazuh CTI (Cyber Threat Intelligence)
     - ports:
         - protocol: TCP
           port: 443
+    {{- end }}
     - ports:
         - protocol: TCP
           port: {{ .Values.indexer.service.httpPort }}

@@ -9,6 +9,9 @@ agentService:
   externalIPs: [192.0.2.10]
   registrationPort: 20015
   eventsPort: 20014
+# Namespace default deny and the SOC flows (templates/networkpolicies.yaml).
+networkPolicies:
+  enabled: true
 wazuh:
   fullnameOverride: wazuh
   # Cluster nodes are not a tenant's endpoints.
@@ -30,24 +33,21 @@ wazuh:
       # The central search indexer may connect as a node (cross-cluster search).
       extraNodesDn:
         - "CN=wazuh-indexer,O=central,L=California,C=US"
-    networkPolicy:
-      extraIngresses:
-        - ports:
-            - protocol: TCP
-              port: 9300
-          from:
-            - namespaceSelector:
-                matchLabels:
-                  kubernetes.io/metadata.name: security-operations
-              podSelector:
-                matchLabels:
-                  app: wazuh-indexer
   dashboard:
+    # Verify the indexer's certificate (issued by the shared CA, named wazuh-indexer).
+    opensearchVerificationMode: full
+    networkPolicy:
+      # Only networkPolicies.ingressController reaches the dashboard.
+      ingressFrom: []
     cred:
       existingSecret: wazuh-dashboard-cred
       passwordHash: "$2a$12$examplehashexamplehashexamplehashexamplehashexampleha"
   wazuh:
     key: "0123456789abcdef0123456789abcdef"
+    # API and authd certificate from the shared CA; agents verify the public name.
+    managerTls:
+      enabled: true
+      extraDnsNames: [agents.example.com]
     apiCred:
       existingSecret: wazuh-api-cred
     authd:
@@ -96,47 +96,8 @@ wazuh:
           mountPath: /var/ossec/integrations/iris
           readOnly: true
       networkPolicy:
-        extraIngresses:
-          # Agents from outside the cluster (agentService).
-          - ports:
-              - protocol: TCP
-                port: 1514
-              - protocol: TCP
-                port: 1515
-            from:
-              - ipBlock:
-                  cidr: 0.0.0.0/0
-          # Reconciler and MISP list export in the central namespace.
-          - ports:
-              - protocol: TCP
-                port: 55000
-            from:
-              - namespaceSelector:
-                  matchLabels:
-                    kubernetes.io/metadata.name: security-operations
-        extraEgresses:
-          # IRIS integration (8000) and MISP (80) in the central namespace.
-          - ports:
-              - protocol: TCP
-                port: 8000
-            to:
-              - namespaceSelector:
-                  matchLabels:
-                    kubernetes.io/metadata.name: security-operations
-                podSelector:
-                  matchLabels:
-                    app.kubernetes.io/name: dfir-iris
-                    app.kubernetes.io/component: app
-          - ports:
-              - protocol: TCP
-                port: 80
-            to:
-              - namespaceSelector:
-                  matchLabels:
-                    kubernetes.io/metadata.name: security-operations
-                podSelector:
-                  matchLabels:
-                    app.kubernetes.io/name: misp
+        # HTTPS to the internet only (networkPolicies.cti), not to any address.
+        ctiEgress: false
       extraConf: |
         <integration>
           <name>custom-iris</name>

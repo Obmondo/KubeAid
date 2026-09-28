@@ -488,8 +488,18 @@ dashboard:
   ## @param dashboard.networkPolicy.enabled Specifies whether a NetworkPolicy should be created.
   ## @param dashboard.networkPolicy.extraIngresses specify additional ingress rules for the NetworkPolicy.
   ## @param dashboard.networkPolicy.extraEgresses specify additional egress rules for the NetworkPolicy.
+  ## KubeAid patch. opensearch.ssl.verificationMode of the dashboard towards the indexer:
+  ## none (upstream), certificate (chain only) or full (chain and host name). The
+  ## indexer's node certificate names <indexer fullname>-indexer, the host the dashboard
+  ## dials, and root-ca.pem is the issuer's CA, so full works with the chart's own
+  ## certificates.
+  opensearchVerificationMode: none
   networkPolicy:
     enabled: true
+    ## KubeAid patch. Peers admitted to the dashboard port. null (default) admits any
+    ## source (upstream behaviour); a list restricts the port to those peers; an empty
+    ## list drops the rule, so only extraIngresses and other policies admit peers.
+    ingressFrom: null
     extraIngresses: []
     extraEgresses: []
   ## @param dashboard.service.type Type of the created service.
@@ -765,6 +775,24 @@ wazuh:
     port: 1516
   ## @param wazuh.nodeSelector nodeSelector
   nodeSelector: {}
+  ## KubeAid patch. A certificate from certificates.issuer for the manager API (55000)
+  ## and authd (1515), instead of the self-signed ones the image generates (API:
+  ## CN=wazuh.com; authd: CN=<pod name>). The image's entrypoint copies
+  ## /wazuh-config-mount over /var/ossec at every start, so the Secret's key pair
+  ## replaces api/configuration/ssl/server.{crt,key} and etc/sslmanager.{cert,key}
+  ## there. API clients (the SOC reconciler, the MISP export) and agents enrolling with
+  ## the CA (agent-auth -v, WAZUH_REGISTRATION_CA) can then verify the manager against
+  ## the issuer's CA (ca.crt of the Secret). Agents check the host name they dial, so
+  ## list the public agent address in extraDnsNames / ipAddresses. The processes read
+  ## the files at start only: restart the manager after cert-manager renews the
+  ## certificate (renewBefore leaves that much time). Needs certificates.enabled.
+  managerTls:
+    enabled: false
+    secretName: wazuh-manager-tls
+    extraDnsNames: []
+    ipAddresses: []
+    duration: 8760h # 1y
+    renewBefore: 2160h # 90d
   ## @skip wazuh.env
   env:
     FILEBEAT_SSL_VERIFICATION_MODE: full
@@ -932,6 +960,10 @@ wazuh:
     ## @param wazuh.master.networkPolicy.extraEgresses specify additional egress rules
     networkPolicy:
       enabled: true
+      ## KubeAid patch. HTTPS egress to any address for the Wazuh CTI feed
+      ## (vulnerability detection). false drops that rule; allow the feed with a
+      ## narrower policy instead.
+      ctiEgress: true
       extraIngresses: []
       extraEgresses: []
     ## @param wazuh.master.pvc.extraLabels Add addtional labels to the PersistentVolumeClaim metadata
@@ -1029,6 +1061,10 @@ wazuh:
     ## @param wazuh.worker.networkPolicy.extraEgresses specify additional egress rules
     networkPolicy:
       enabled: true
+      ## KubeAid patch. HTTPS egress to any address for the Wazuh CTI feed
+      ## (vulnerability detection). false drops that rule; allow the feed with a
+      ## narrower policy instead.
+      ctiEgress: true
       extraIngresses: []
       extraEgresses: []
     ## @param wazuh.worker.pvc.extraLabels Add addtional labels to the PersistentVolumeClaim metadata

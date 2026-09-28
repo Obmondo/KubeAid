@@ -407,8 +407,8 @@ holds one tenant's data. `tests/values-tenant.yaml` is a complete example, check
 - **One port pair per tenant.** Agent traffic is not TLS on 1514, so Traefik cannot route
   it by host name. `agentService` gives each tenant its own ports on a shared external
   address (a Service with `externalIPs`, mapped to 1515 and 1514 on the master), so adding a
-  tenant changes nothing cluster-wide; the manager's NetworkPolicy must then admit 1514/1515
-  from outside (`wazuh.master.networkPolicy.extraIngresses`, see the example). Per-tenant
+  tenant changes nothing cluster-wide; `networkPolicies` then admits 1514/1515 from outside
+  (`agentSources`). Per-tenant
   Traefik entry points (`agentTcpRoutes.*.entryPoint`) or an address per tenant also work.
 - **Shared CA.** `certificates.issuer` names one CA ClusterIssuer for all releases, so the
   indexers trust each other (the node certificate follows it, see the patches below).
@@ -421,9 +421,26 @@ holds one tenant's data. `tests/values-tenant.yaml` is a complete example, check
   `wazuh.key`.
 - **Fixed IRIS customer.** The IRIS integration's `customer_name` option sends every alert
   of the manager to one IRIS customer (section 10).
-- **Network policies** stay deny-by-default; open indexer 9300 to the central namespace,
-  manager 55000 to whoever manages the API, and egress to IRIS, with the `extraIngresses`
-  / `extraEgresses` values.
+- **Network policies** (`networkPolicies.enabled`, `templates/networkpolicies.yaml`): a
+  default deny for every pod in the namespace (DNS excepted) and the SOC flows: manager API
+  (55000) from the central reconciler, MISP export and dashboard only; agents (1514/1515)
+  from `agentSources` (`0.0.0.0/0`, the one intended open rule); manager egress to IRIS
+  (8000) and MISP (80/443) in `centralNamespace` and the Wazuh CTI feed (443 to the Cilium
+  `world` entity, or `0.0.0.0/0` minus private ranges with `cilium: false`); indexer 9300
+  from the central indexer and 9200 from the reconciler; the securityadmin Job to the
+  indexer; dashboard (5601) and HTTP-01 solvers from `ingressController`; dashboard and
+  indexer to `keycloak`. Set `wazuh.dashboard.networkPolicy.ingressFrom: []` and
+  `wazuh.wazuh.{master,worker}.networkPolicy.ctiEgress: false` as well, or the subchart's
+  any-source dashboard rule and HTTPS-to-anywhere manager rule stay (policies are
+  additive). `tests/netpol_check.py` checks a render for a default deny, a policy per
+  workload and no open rule beyond the listed ports.
+- **Manager certificate** (`wazuh.managerTls.enabled`): the API (55000) and authd (1515)
+  present a certificate from `certificates.issuer` instead of the image's self-signed ones,
+  so API clients verify it with the shared CA and agents can enrol with
+  `WAZUH_REGISTRATION_CA` (the enrolment bundle carries the CA). List the address agents
+  dial in `managerTls.extraDnsNames` (or `ipAddresses`): agent-auth checks it. The manager
+  reads the files at start; restart it after a renewal. `dashboard.opensearchVerificationMode:
+  full` makes the dashboard verify the indexer.
 - **`agent.enabled: false`**: the cluster's own nodes are not a tenant's endpoints.
 
 The central instance is the same chart with `wazuh.enabled: false` (no manager), an indexer
@@ -449,6 +466,18 @@ with the security-operations umbrella chart:
 - `indexer.config.extraNodesDn` (section 11): extra DNs appended to `plugins.security.nodes_dn`
   in `templates/indexer/configmap.yaml`, plus the value. `nodes_dn.yml` is not read unless
   dynamic nodes_dn config is enabled, so a cross-cluster search node must be listed here.
+- `dashboard.networkPolicy.ingressFrom` (section 11): `null` keeps the upstream any-source
+  rule on the dashboard port, a list restricts it, `[]` drops it
+  (`templates/dashboard/networkpolicy.yaml`).
+- `wazuh.{master,worker}.networkPolicy.ctiEgress` (section 11): `false` drops the
+  HTTPS-to-anywhere egress rule (`templates/manager/{master,worker}/networkpolicy.yaml`).
+- `dashboard.opensearchVerificationMode` (section 11): `opensearch.ssl.verificationMode` of the
+  dashboard, upstream hard-coded `none` (`templates/_helpers.tpl`).
+- `wazuh.managerTls` (section 11): `templates/certs/manager/certificate.yaml` and a
+  `manager-tls` Secret volume in `templates/manager/{master,worker}/statefulset.yaml`, mounted
+  under `/wazuh-config-mount` so the image's entrypoint copies it over
+  `api/configuration/ssl/server.{crt,key}` and `etc/sslmanager.{cert,key}` at every start
+  (the API chowns its pair to the wazuh user). Nothing renders while it is off.
 - `dashboard.wazuhAppConfigSecret` (section 11): a Secret volume mounted over
   `data/wazuh/config/wazuh.yml` in `templates/dashboard/deployment.yaml`, plus the value.
   Nothing renders while it is empty.

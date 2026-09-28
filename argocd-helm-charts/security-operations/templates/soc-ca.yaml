@@ -43,5 +43,33 @@ metadata:
 spec:
   ca:
     secretName: {{ .name }}
+{{- if .trustSecret }}
+---
+# The CA for clients in this namespace: ca.crt of this Certificate's Secret is the CA
+# above. The reconciler and the MISP list export verify the tenants' Wazuh managers
+# and the central indexer against it (tls in values.yaml). Its own key pair is unused.
+# Before the reconciler's Sync hook (wave -1).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .trustSecret }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "secops.labels" $ | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  commonName: {{ .trustSecret }}
+  secretName: {{ .trustSecret }}
+  duration: 8760h # 1 year
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  usages:
+    - client auth
+  issuerRef:
+    name: {{ .name }}
+    kind: ClusterIssuer
+{{- end }}
 {{- end }}
 {{- end }}

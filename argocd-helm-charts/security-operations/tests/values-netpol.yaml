@@ -1,0 +1,26 @@
+# Every workload on, for the network policy and TLS checks in render_test.sh (with
+# values-2-tenants.yaml).
+reconciler:
+  enabled: true
+  image:
+    tag: test
+misp:
+  wazuhCdbExport:
+    enabled: true
+    targets:
+      - name: "001"
+        url: https://wazuh.wazuh-001.svc:55000
+        credentialsSecret: wazuh-api-cred-001
+      - name: "002"
+        url: https://wazuh.wazuh-002.svc:55000
+        credentialsSecret: wazuh-api-cred-002
+dfir-iris:
+  keycloakSync:
+    enabled: true
+    keycloak:
+      url: https://keycloak.example.com/auth
+      realm: soc
+      clientId: iris-sync
+    existingSecret: iris-keycloak-sync
+  aiTriage:
+    enabled: true

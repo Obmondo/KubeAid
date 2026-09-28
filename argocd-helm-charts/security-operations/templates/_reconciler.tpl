@@ -51,9 +51,26 @@ spec:
         - name: config
           mountPath: /etc/siem
           readOnly: true
+        {{- if include "secops.caSecret" . }}
+        - name: soc-ca
+          mountPath: /etc/soc-ca
+          readOnly: true
+        {{- end }}
   volumes:
     - name: config
       configMap:
         name: siem-tenants
+    {{- with include "secops.caSecret" . }}
+    # CA of the managers' and indexers' certificates (tls in values.yaml). Optional,
+    # so a hook run before cert-manager has issued it still starts; the Wazuh
+    # components then report the missing file.
+    - name: soc-ca
+      secret:
+        secretName: {{ . }}
+        optional: true
+        items:
+          - key: ca.crt
+            path: ca.crt
+    {{- end }}
 {{- end }}
 {{- end }}
