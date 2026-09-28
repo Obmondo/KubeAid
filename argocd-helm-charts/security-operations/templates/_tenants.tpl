@@ -142,8 +142,14 @@ app.kubernetes.io/part-of: security-operations
 {{- $tenants := include "secops.tenants" . | fromJsonArray -}}
 {{- if $tenants -}}
 {{- $w := list -}}
+{{- $withIndexer := or .Values.retention.enabled (eq (.Values.reconciler.mode | default "cronjob") "deployment") -}}
 {{- range $tenants -}}
-{{- $w = append $w (dict "tenant" .code "url" (printf "https://%s.%s.svc:55000" $tw.managerService .namespace) "credSecretRef" (dict "namespace" .namespace "name" $tw.apiCredSecret "usernameKey" "API_USERNAME" "passwordKey" "API_PASSWORD") "insecureSkipVerify" true) -}}
+{{- $entry := dict "tenant" .code "url" (printf "https://%s.%s.svc:55000" $tw.managerService .namespace) "credSecretRef" (dict "namespace" .namespace "name" $tw.apiCredSecret "usernameKey" "API_USERNAME" "passwordKey" "API_PASSWORD") "insecureSkipVerify" true -}}
+{{- if $withIndexer -}}
+{{- /* The tenant's own indexer: retention policy and health probes. */ -}}
+{{- $_ := set $entry "indexer" (dict "url" (printf "https://%s.%s.svc:9200" ($tw.indexerService | default "wazuh-indexer") .namespace) "credSecretRef" (dict "namespace" .namespace "name" ($tw.indexerCredSecret | default "wazuh-indexer-cred") "usernameKey" "INDEXER_USERNAME" "passwordKey" "INDEXER_PASSWORD") "insecureSkipVerify" true) -}}
+{{- end -}}
+{{- $w = append $w $entry -}}
 {{- end -}}
 {{- $_ := set $c "wazuh" $w -}}
 {{- end -}}
@@ -267,4 +273,19 @@ app.kubernetes.io/part-of: security-operations
 {{- end -}}
 {{- end -}}
 {{- toYaml $out -}}
+{{- end -}}
+
+{{/*
+  Retention (ISM) settings for the reconciler, as YAML; empty when
+  retention.enabled is false. Per-tenant days come from tenants[].retentionDays.
+*/}}
+{{- define "secops.retention" -}}
+{{- $r := .Values.retention | default dict -}}
+{{- if $r.enabled -}}
+{{- $out := dict "policyId" ($r.policyId | default "kubesoc-retention") "warmAfterDays" (int ($r.warmAfterDays | default 0)) -}}
+{{- if .Values.wazuh.enabled -}}{{- $_ := set $out "centralDays" (int ($r.centralDays | default 0)) -}}{{- end -}}
+{{- with $r.indexPatterns -}}{{- $_ := set $out "indexPatterns" . -}}{{- end -}}
+{{- with $r.centralIndexPatterns -}}{{- $_ := set $out "centralIndexPatterns" . -}}{{- end -}}
+{{- toYaml $out -}}
+{{- end -}}
 {{- end -}}

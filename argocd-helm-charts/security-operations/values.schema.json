@@ -63,7 +63,7 @@
             "pattern": "^[a-z0-9]{1,32}$"
           },
           "name": {"type": "string", "minLength": 1},
-          "retentionDays": {"type": "integer", "minimum": 1},
+          "retentionDays": {"type": "integer", "minimum": 1, "maximum": 3650},
           "idp": {"type": "object"},
           "agentPorts": {
             "type": "object",
@@ -90,16 +90,32 @@
         "apiCredSecret": {"type": "string", "minLength": 1},
         "authdSecret": {"type": "string", "minLength": 1},
         "managerService": {"type": "string", "minLength": 1},
-        "indexerNodesService": {"type": "string", "minLength": 1}
+        "indexerNodesService": {"type": "string", "minLength": 1},
+        "indexerService": {"type": "string", "minLength": 1},
+        "indexerCredSecret": {"type": "string", "minLength": 1}
       }
     },
-    "defaultRetentionDays": {"type": "integer", "minimum": 1},
+    "defaultRetentionDays": {"type": "integer", "minimum": 1, "maximum": 3650},
+    "retention": {
+      "type": "object",
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "policyId": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$"},
+        "indexPatterns": {"type": "array", "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._*-]*$"}},
+        "warmAfterDays": {"type": "integer", "minimum": 0},
+        "centralDays": {"type": "integer", "minimum": 0, "maximum": 3650},
+        "centralIndexPatterns": {"type": "array", "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._*-]*$"}}
+      }
+    },
     "reconciler": {
       "type": "object",
       "properties": {
         "enabled": {"type": "boolean"},
         "dryRun": {"type": "boolean"},
-        "postSync": {"type": "boolean"}
+        "postSync": {"type": "boolean"},
+        "mode": {"type": "string", "enum": ["cronjob", "deployment"]},
+        "interval": {"type": "string", "pattern": "^([0-9]+(\\.[0-9]+)?(s|m|h))+$"},
+        "metricsPort": {"type": "integer", "minimum": 1, "maximum": 65535}
       }
     }
   }

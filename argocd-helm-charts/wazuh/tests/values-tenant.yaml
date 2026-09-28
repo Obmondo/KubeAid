@@ -42,6 +42,17 @@ wazuh:
               podSelector:
                 matchLabels:
                   app: wazuh-indexer
+        # The SIEM reconciler: retention (ISM) policy and health probes.
+        - ports:
+            - protocol: TCP
+              port: 9200
+          from:
+            - namespaceSelector:
+                matchLabels:
+                  kubernetes.io/metadata.name: security-operations
+              podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: siem-reconciler
   dashboard:
     cred:
       existingSecret: wazuh-dashboard-cred
