@@ -33,12 +33,37 @@ keycloak:
   realm: soc
   # Master-realm admin the reconciler logs in as, and its password (read only).
   # The reconciler's ServiceAccount may read exactly this Secret. The default is
-  # the KubeAid keycloakx chart's.
+  # the KubeAid keycloakx chart's. With reconcilerClient enabled it is only the
+  # fallback while that client cannot log in yet; set adminSecretRef to null once
+  # it can, which also drops the reconciler's read access to the admin Secret.
   adminUsername: admin
   adminSecretRef:
     namespace: keycloakx
     name: keycloak-admin
     key: KEYCLOAK_PASSWORD
+  # The reconciler's own identity in the realm: a confidential client whose service
+  # account holds only the realm-management roles below, so a run can no longer
+  # touch the master realm or other realms. The reconciler creates the client (and
+  # generates its secret in Secret secretName, key KEYCLOAK_CLIENT_SECRET, in the
+  # release namespace) on the first run, logged in as the admin, and logs in as
+  # the client from the next run on. Every role it grants to other clients must be
+  # in `roles` (Keycloak only lets an identity hand out roles it holds).
+  reconcilerClient:
+    enabled: false
+    clientId: siem-reconciler
+    secretName: siem-reconciler-keycloak
+    roles:
+      - view-realm
+      - manage-realm
+      - view-users
+      - manage-users
+      - query-users
+      - query-groups
+      - view-clients
+      - manage-clients
+      - query-clients
+      - view-identity-providers
+      - manage-identity-providers
   # Realm policy the reconciler enforces. Remove a key to leave that setting alone.
   bruteForceProtected: true
   otpPolicy:
@@ -157,6 +182,32 @@ ai:
   irisGroups: [Analysts]
   irisKeySecret: iris-ai-triage
 
+# IRIS identity of each tenant's Wazuh manager (custom-iris integration). The
+# reconciler creates one IRIS service account per tenant, <loginPrefix><code>, in
+# the group `group` (created with exactly `permissions`: add alerts, look up its
+# customer id), with the tenant's customer as its only customer, and keeps its API
+# key in Secret `secretName` (key API_KEY) in the tenant namespace, which the
+# manager mounts. A compromised manager can then only add alerts to its own
+# tenant. enabled: false goes back to copying the central iris-api-key Secret
+# into every tenant namespace.
+tenantIris:
+  enabled: true
+  loginPrefix: svc_wazuh_
+  group: Wazuh alert intake
+  permissions: [alerts_write, customers_read]
+  secretName: iris-api-key
+
+# Read-only MISP identity of the IOC export (misp.wazuhCdbExport). The reconciler
+# creates the MISP user `email` with role `role` in the admin key's organisation
+# and keeps its auth key in Secret `secretName` (key `key`), which the export job
+# prefers over the site admin key (misp.wazuhCdbExport.misp.readOnlyKeySecret).
+# While that Secret does not exist yet the job keeps using the admin key.
+mispReadOnly:
+  enabled: true
+  email: ioc-export@kubesoc.invalid
+  role: Read Only
+  secretName: misp-export-key
+
 # Public entry points. Everything else is meant for the internal ingress class.
 # The Wazuh agent entry is per tenant (tenantWazuh.agentHost, tenants[].agentPorts).
 publicIngress:
@@ -230,6 +281,13 @@ velociraptorArtifacts:
         IrisUrl: http://dfir-iris-app:8000
         IrisKeyFile: /etc/iris/API_KEY
         OrgMapFile: /etc/siem/org-map.json
+        # Automatic response is off: a JSON string {"<Wazuh rule id>": {"<os>":
+        # "<artifact>"}} turns it on, e.g.
+        #   '{"99901": {"darwin": "Custom.MacOS.Remediation.RemoveByHash"}}'
+        # It only acts on alerts that tenantIris' service account of the alert's
+        # customer created and nobody else touched (CreatorMapFile).
+        AutoRules: "{}"
+        CreatorMapFile: /etc/siem/alert-creators.json
     Custom.Server.KeycloakSync:
       enabled: true
       parameters:
@@ -376,7 +434,7 @@ velociraptor:
     podAnnotations:
       # sha256 of the velociraptor-artifacts data; templates/checks.yaml fails the
       # render with the new value when the artifacts change.
-      checksum/server-artifacts: 97b1418a6ad84e174cf1da3cb355a56f3fe15f69451756b32868623dc7d6a34f
+      checksum/server-artifacts: 3bbb2c7c343f903c510e4e964fe253c98c7d651f9e9290755d915684eda00b02
     # /etc/siem: tenant maps for the server artifacts (group-map.json, role-map.json,
     # org-map.json), from the velociraptor-tenants ConfigMap.
     # /etc/iris/API_KEY: IRIS API key for Custom.Server.IrisCollector.
@@ -428,6 +486,15 @@ velociraptor:
 dfir-iris:
   enabled: true
   fullnameOverride: dfir-iris
+  # With authentication.type oidc: no local password form next to SSO unless a
+  # cluster opts in (localFallback: true, break-glass for the local administrator),
+  # and SSO users matched on the immutable Keycloak user id (sub), so an IdP user
+  # named like a local login (administrator, svc_*) cannot sign in as it. The
+  # keycloakSync job creates and renames users to that id (dfir-iris README).
+  authentication:
+    localFallback: false
+    oidc:
+      mappingUsername: sub
   # IRIS creates its second database (iris_tasks) itself on first start, which
   # the CNPG app role may not do: publish the superuser Secret and use it.
   global:
@@ -457,6 +524,10 @@ misp:
     valkey:
       deploymentStrategy: Recreate
   wazuhCdbExport:
+    misp:
+      # Created and kept by the reconciler (mispReadOnly); the admin key stays the
+      # fallback until it exists.
+      readOnlyKeySecret: misp-export-key
     # One target per tenant manager; a parent chart cannot compute these from
     # `tenants`, so list them (checks.mispTargets). The credentials Secrets are
     # copied from the tenant namespaces by the reconciler (wazuh-api-cred-<code>).

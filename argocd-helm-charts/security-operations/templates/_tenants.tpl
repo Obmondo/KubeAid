@@ -136,7 +136,14 @@ app.kubernetes.io/part-of: security-operations
 {{- end -}}
 {{- $_ := set $iris "serviceAccounts" (list $sa) -}}
 {{- end -}}
+{{- with include "secops.tenantIris" . | fromYaml -}}
+{{- $_ := set $iris "groups" .groups -}}
+{{- $_ := set $iris "serviceAccounts" (concat ($iris.serviceAccounts | default list) .serviceAccounts) -}}
+{{- end -}}
 {{- $_ := set $c "iris" $iris -}}
+{{- end -}}
+{{- with include "secops.mispReadOnly" . | fromYaml -}}
+{{- $_ := set $c "misp" . -}}
 {{- end -}}
 {{- $tw := .Values.tenantWazuh -}}
 {{- $tenants := include "secops.tenants" . | fromJsonArray -}}
@@ -201,15 +208,16 @@ app.kubernetes.io/part-of: security-operations
 
 {{/*
   Secret copies between the central and the tenant namespaces, as a YAML list:
-  the IRIS API key to every tenant manager (IRIS integration), and every tenant's
-  Wazuh API login here for the MISP list export (wazuh-api-cred-<code>).
+  every tenant's Wazuh API login here for the MISP list export
+  (wazuh-api-cred-<code>), and, only with tenantIris.enabled false, the central
+  IRIS API key to every tenant manager (IRIS integration).
 */}}
 {{- define "secops.secretCopies" -}}
 {{- $ns := .Release.Namespace -}}
 {{- $tw := .Values.tenantWazuh -}}
 {{- $out := list -}}
 {{- range $t := include "secops.tenants" . | fromJsonArray -}}
-{{- if (index $.Values "dfir-iris").enabled -}}
+{{- if and (index $.Values "dfir-iris").enabled (not $.Values.tenantIris.enabled) -}}
 {{- $out = append $out (dict "from" (dict "namespace" $ns "name" "iris-api-key" "key" "API_KEY") "to" (dict "namespace" $t.namespace "name" "iris-api-key" "key" "API_KEY")) -}}
 {{- end -}}
 {{- if $.Values.misp.enabled -}}
@@ -267,4 +275,59 @@ app.kubernetes.io/part-of: security-operations
 {{- end -}}
 {{- end -}}
 {{- toYaml $out -}}
+{{- end -}}
+
+{{/*
+  Per-tenant IRIS identities of the tenant Wazuh managers, as YAML {groups,
+  serviceAccounts}, empty unless dfir-iris and tenantIris are enabled: the owned
+  group tenantIris.group, and per tenant the service account
+  <loginPrefix><code> in it with only the tenant's customer, its API key kept in
+  <secretName>/API_KEY in the tenant namespace (the manager's custom-iris key).
+*/}}
+{{- define "secops.tenantIris" -}}
+{{- $ti := .Values.tenantIris -}}
+{{- if and (index .Values "dfir-iris").enabled $ti.enabled -}}
+{{- $accounts := list -}}
+{{- range include "secops.tenants" . | fromJsonArray -}}
+{{- $accounts = append $accounts (dict "login" (printf "%s%s" $ti.loginPrefix .code) "name" (printf "Wazuh manager %s" .name) "groups" (list $ti.group) "create" true "customers" (list .name) "apiKeySecretRef" (dict "namespace" .namespace "name" $ti.secretName "key" "API_KEY")) -}}
+{{- end -}}
+{{- toYaml (dict "groups" (list (dict "name" $ti.group "description" "Alerts from one tenant's Wazuh manager (custom-iris)" "permissions" $ti.permissions)) "serviceAccounts" $accounts) -}}
+{{- end -}}
+{{- end -}}
+
+{{/* IRIS alert creator per customer for the IrisCollector guard, as JSON: {"<tenant name>": "<loginPrefix><code>"}. */}}
+{{- define "secops.alertCreators" -}}
+{{- $out := dict -}}
+{{- range (include "secops.tenantIris" . | fromYaml).serviceAccounts -}}
+{{- $_ := set $out (first .customers) .login -}}
+{{- end -}}
+{{- toPrettyJson $out -}}
+{{- end -}}
+
+{{/*
+  The reconciler's MISP component, as YAML, empty unless misp and mispReadOnly
+  are enabled: the site admin key (the misp chart's misp-api-key) and the
+  read-only export user with its key Secret.
+*/}}
+{{- define "secops.mispReadOnly" -}}
+{{- $m := .Values.mispReadOnly -}}
+{{- if and .Values.misp.enabled $m.enabled -}}
+{{- $mc := .Values.misp.misp | default dict -}}
+{{- $ns := .Release.Namespace -}}
+{{- toYaml (dict "url" "http://misp" "apiKeySecretRef" (dict "namespace" $ns "name" ($mc.apiKeySecretValue | default "misp-api-key") "key" "key") "users" (list (dict "email" $m.email "role" $m.role "apiKeySecretRef" (dict "namespace" $ns "name" $m.secretName "key" "key")))) -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+  The reconciler's own Keycloak client (keycloak.reconcilerClient), as a YAML list
+  of zero or one client: confidential, service account only, holding exactly the
+  listed realm-management roles, secret generated in reconcilerClient.secretName.
+*/}}
+{{- define "secops.reconcilerClient" -}}
+{{- $rc := .Values.keycloak.reconcilerClient | default dict -}}
+{{- if $rc.enabled -}}
+{{- toYaml (list (dict "clientId" $rc.clientId "name" "SIEM reconciler" "description" "Service account the siem-reconciler logs in as (client credentials)" "serviceAccountsEnabled" true "serviceAccountClientRoles" (dict "realm-management" $rc.roles) "secretRef" (dict "namespace" .Release.Namespace "name" $rc.secretName "key" "KEYCLOAK_CLIENT_SECRET"))) -}}
+{{- else -}}
+[]
+{{- end -}}
 {{- end -}}

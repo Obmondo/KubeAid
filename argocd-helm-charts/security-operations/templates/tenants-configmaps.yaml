@@ -6,6 +6,9 @@
 #   group-map.json  Keycloak group -> {role, orgs}: each tenant's group gets its own org.
 #   role-map.json   Keycloak realm role -> {role, orgs}: the central team, every org.
 #   org-map.json    IRIS customer name -> Velociraptor org name.
+#   alert-creators.json  IRIS customer name -> login of the tenant's Wazuh manager
+#                   (tenantIris), the only creator whose alerts may trigger
+#                   IrisCollector's automatic response.
 {{- $vr := .Values.toolRoles.velociraptor }}
 {{- $gmap := dict }}
 {{- $omap := dict }}
@@ -29,6 +32,8 @@ data:
     {{- toPrettyJson $rmap | nindent 4 }}
   org-map.json: |
     {{- toPrettyJson $omap | nindent 4 }}
+  alert-creators.json: |
+    {{- include "secops.alertCreators" . | nindent 4 }}
 {{- end }}
 {{- if (index .Values "dfir-iris").enabled }}
 ---
@@ -62,8 +67,11 @@ data:
 {{- if .idp }}{{ $_ := set $t "idp" .idp }}{{ end }}
 {{- $tenantsOut = append $tenantsOut $t }}
 {{- end }}
-{{- $clients := include "secops.clients" . | fromYamlArray }}
-{{- $cfg := dict "domain" .Values.domain "tenantGroupPrefix" .Values.tenantGroupPrefix "keycloak" (omit .Values.keycloak "clients") "operators" $ops "tenants" $tenantsOut "clients" $clients "secrets" (include "secops.secrets" (dict "root" . "clients" $clients) | fromYamlArray) "components" (include "secops.components" . | fromYaml) }}
+{{- $clients := concat (include "secops.clients" . | fromYamlArray) (include "secops.reconcilerClient" . | fromYamlArray) }}
+{{- $kc := omit .Values.keycloak "clients" "reconcilerClient" }}
+{{- if not $kc.adminSecretRef }}{{ $kc = omit $kc "adminSecretRef" }}{{ end }}
+{{- with .Values.keycloak.reconcilerClient }}{{ if .enabled }}{{ $_ := set $kc "clientCredentials" (dict "clientId" .clientId "secretRef" (dict "namespace" $.Release.Namespace "name" .secretName "key" "KEYCLOAK_CLIENT_SECRET")) }}{{ end }}{{ end }}
+{{- $cfg := dict "domain" .Values.domain "tenantGroupPrefix" .Values.tenantGroupPrefix "keycloak" $kc "operators" $ops "tenants" $tenantsOut "clients" $clients "secrets" (include "secops.secrets" (dict "root" . "clients" $clients) | fromYamlArray) "components" (include "secops.components" . | fromYaml) }}
 {{- with include "secops.enrolment" . | fromYamlArray }}{{ $_ := set $cfg "enrolment" . }}{{ end }}
 {{- with include "secops.secretCopies" . | fromYamlArray }}{{ $_ := set $cfg "secretCopies" . }}{{ end }}
 apiVersion: v1

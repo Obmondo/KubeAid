@@ -145,7 +145,7 @@ cfg=$(yq 'select(.kind == "ConfigMap" and .metadata.name == "siem-tenants") | .d
 # kubeaid-cli pkg/siem/config rejects unknown fields; keep to its schema.
 extra=$(jq -r '(keys - ["domain","tenantGroupPrefix","keycloak","operators","tenants","clients","secrets","components","enrolment","secretCopies"]),
                ([.tenants[] | keys[]] | unique - ["code","name","retentionDays","idp"]),
-               (.components | keys - ["iris","wazuh","wazuhCentral","velociraptor"]) | .[]' <<<"$cfg")
+               (.components | keys - ["iris","wazuh","wazuhCentral","velociraptor","misp"]) | .[]' <<<"$cfg")
 [ -z "$extra" ] && ok "siem-tenants keeps to the reconciler schema" || ko "unknown siem-tenants fields: $extra"
 [ "$(jq -r '.tenantGroupPrefix' <<<"$cfg")" = tenant- ] && ok "tenant group prefix" || ko "tenant group prefix"
 [ "$(jq -r '[.secrets[] | .namespace + "/" + .name] | join(",")' <<<"$cfg")" = "$NS/wazuh-dashboard-oidc,wazuh-001/wazuh-dashboard-oidc,wazuh-002/wazuh-dashboard-oidc,$NS/velociraptor-oidc,$NS/dfir-iris-oidc,$NS/oidc-credentials,$NS/iris-keycloak-sync,$NS/wazuh-api-cred" ] \
@@ -165,8 +165,8 @@ extra=$(jq -r '(keys - ["domain","tenantGroupPrefix","keycloak","operators","ten
   && ok "enrolment bundles" || ko "enrolment: $(jq -c .enrolment <<<"$cfg")"
 [ "$(jq -r '[.enrolment[].agentVersion] | unique | join(",")' <<<"$cfg")" = "4.14.3-1" ] \
   && ok "enrolment agent version matches the managers" || ko "agentVersion: $(jq -c '[.enrolment[].agentVersion]' <<<"$cfg")"
-[ "$(jq -r '[.secretCopies[] | .to.namespace + "/" + .to.name + ":" + .to.key] | join(",")' <<<"$cfg")" = "wazuh-001/iris-api-key:API_KEY,$NS/wazuh-api-cred-001:API_USERNAME,$NS/wazuh-api-cred-001:API_PASSWORD,wazuh-002/iris-api-key:API_KEY,$NS/wazuh-api-cred-002:API_USERNAME,$NS/wazuh-api-cred-002:API_PASSWORD" ] \
-  && ok "Secret copies" || ko "secretCopies: $(jq -c .secretCopies <<<"$cfg")"
+[ "$(jq -r '[.secretCopies[] | .to.namespace + "/" + .to.name + ":" + .to.key] | join(",")' <<<"$cfg")" = "$NS/wazuh-api-cred-001:API_USERNAME,$NS/wazuh-api-cred-001:API_PASSWORD,$NS/wazuh-api-cred-002:API_USERNAME,$NS/wazuh-api-cred-002:API_PASSWORD" ] \
+  && ok "Secret copies (no shared IRIS key)" || ko "secretCopies: $(jq -c .secretCopies <<<"$cfg")"
 [ "$(yq 'select(.kind == "Namespace" and .metadata.name == "wazuh-002") | .metadata.labels["security-operations.kubeaid.io/tenant"]' "$R2")" = "002" ] \
   && ok "tenant namespace label" || ko "tenant namespace label"
 [ "$(yq 'select(.kind == "Namespace" and .metadata.name == "wazuh-002") | .metadata.annotations["argocd.argoproj.io/sync-options"]' "$R2")" = "Prune=false,Delete=false" ] \
@@ -316,6 +316,75 @@ else
   ko "renders with the API client bootstrap"; cat "$TMP/err"
 fi
 expect_failure "publisher image must be the reconciler image" "must equal reconciler.image" "${AC[@]}" --set velociraptor.velociraptor.apiClient.publisherImage.tag=other
+
+# --- identities and API keys (README 6.1) ---------------------------------
+iris=$(jq -c '.components.iris' <<<"$cfg")
+[ "$(jq -c '.groups' <<<"$iris")" = '[{"description":"Alerts from one tenant'"'"'s Wazuh manager (custom-iris)","name":"Wazuh alert intake","permissions":["alerts_write","customers_read"]}]' ] \
+  && ok "IRIS intake group with alert write and customer read only" || ko "IRIS groups: $iris"
+[ "$(jq -r '[.serviceAccounts[] | select(.login | startswith("svc_wazuh_")) | .login + ":" + (.customers | join("+")) + ":" + .apiKeySecretRef.namespace + "/" + .apiKeySecretRef.name + "/" + .apiKeySecretRef.key] | join(",")' <<<"$iris")" = "svc_wazuh_001:Tenant A:wazuh-001/iris-api-key/API_KEY,svc_wazuh_002:Tenant B:wazuh-002/iris-api-key/API_KEY" ] \
+  && ok "one IRIS account per tenant, own customer, key in the tenant namespace" || ko "tenant IRIS accounts: $iris"
+[ "$(jq -r '.serviceAccounts[] | select(.login == "svc_ai") | has("customers")' <<<"$iris")" = "false" ] \
+  && ok "svc_ai keeps every customer" || ko "svc_ai customers: $iris"
+[ "$(yq 'select(.metadata.name == "velociraptor-tenants") | .data["alert-creators.json"]' "$R2" | jq -c .)" = '{"Tenant A":"svc_wazuh_001","Tenant B":"svc_wazuh_002"}' ] \
+  && ok "alert creator map for the IrisCollector guard" || ko "alert-creators.json"
+[ "$(jq -r '.serverMonitoring[0].parameters | .AutoRules + " " + .CreatorMapFile' <<<"$velo")" = "{} /etc/siem/alert-creators.json" ] \
+  && ok "automatic response off by default, creator map wired" || ko "IrisCollector AutoRules: $velo"
+grep -q "^    default: '{}'$" "$CHART_DIR/files/velociraptor/Custom.Server.IrisCollector.yaml" && ! grep -q "RemoveByHash\"}}'$" "$CHART_DIR/files/velociraptor/Custom.Server.IrisCollector.yaml" \
+  && ok "IrisCollector AutoRules artifact default is empty" || ko "IrisCollector AutoRules default"
+if render -f "$SCRIPT_DIR/values-2-tenants.yaml" --set tenantIris.enabled=false >"$TMP/shared.yaml"; then
+  c=$(yq 'select(.metadata.name == "siem-tenants") | .data["tenants.json"]' "$TMP/shared.yaml")
+  [ "$(jq -r '[.secretCopies[] | select(.to.name == "iris-api-key") | .to.namespace] | join(",")' <<<"$c"),$(jq -r '[.components.iris.serviceAccounts[].login] | join("+")' <<<"$c"),$(jq -r '.components.iris | has("groups")' <<<"$c")" = "wazuh-001,wazuh-002,svc_ai,false" ] \
+    && ok "tenantIris.enabled=false copies the shared key again" || ko "tenantIris off: $(jq -c '[.secretCopies, .components.iris]' <<<"$c")"
+else
+  ko "render with tenantIris off"; cat "$TMP/err"
+fi
+misp=$(jq -c '.components.misp' <<<"$cfg")
+[ "$(jq -r '.apiKeySecretRef.name + " " + .users[0].role + " " + .users[0].apiKeySecretRef.name + "/" + .users[0].apiKeySecretRef.key' <<<"$misp")" = "misp-api-key Read Only misp-export-key/key" ] \
+  && ok "read-only MISP user for the export" || ko "components.misp: $misp"
+EXP=(-f "$SCRIPT_DIR/values-2-tenants.yaml" --set misp.wazuhCdbExport.enabled=true --set checks.mispTargets=false
+     --set-json 'misp.wazuhCdbExport.targets=[{"name":"001","url":"https://wazuh.wazuh-001.svc:55000","credentialsSecret":"wazuh-api-cred-001"}]')
+if render "${EXP[@]}" >"$TMP/exp.yaml"; then
+  [ "$(yq -o=json -I=0 'select(.kind == "CronJob" and .metadata.name == "misp-wazuh-cdb-export") | .spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "MISP_READONLY_KEY") | .valueFrom.secretKeyRef' "$TMP/exp.yaml")" = '{"name":"misp-export-key","key":"key","optional":true}' ] \
+    && ok "export prefers the read-only key, optional" || ko "export MISP_READONLY_KEY"
+else
+  ko "render with the export"; cat "$TMP/err"
+fi
+RC=(-f "$SCRIPT_DIR/values-2-tenants.yaml" --set reconciler.enabled=true --set reconciler.image.tag=test --set keycloak.reconcilerClient.enabled=true)
+if render "${RC[@]}" >"$TMP/rc.yaml"; then
+  c=$(yq 'select(.metadata.name == "siem-tenants") | .data["tenants.json"]' "$TMP/rc.yaml")
+  [ "$(jq -c '.keycloak.clientCredentials' <<<"$c")" = "{\"clientId\":\"siem-reconciler\",\"secretRef\":{\"key\":\"KEYCLOAK_CLIENT_SECRET\",\"name\":\"siem-reconciler-keycloak\",\"namespace\":\"$NS\"}}" ] \
+    && ok "reconciler logs in with its client" || ko "clientCredentials: $(jq -c .keycloak <<<"$c")"
+  [ "$(jq -r '.keycloak | has("reconcilerClient")' <<<"$c"),$(jq -r '.keycloak.adminSecretRef.name' <<<"$c")" = "false,keycloak-admin" ] \
+    && ok "admin kept as bootstrap fallback" || ko "keycloak block: $(jq -c .keycloak <<<"$c")"
+  [ "$(jq -c '.clients[] | select(.clientId == "siem-reconciler") | [.serviceAccountsEnabled, (.serviceAccountClientRoles["realm-management"] | index("manage-realm") != null), (.serviceAccountClientRoles["realm-management"] | index("realm-admin"))]' <<<"$c")" = '[true,true,null]' ] \
+    && ok "reconciler client: service account with realm-management roles, not realm-admin" || ko "reconciler client: $(jq -c '.clients[-1]' <<<"$c")"
+  [ "$(jq -r '.secrets[] | select(.name == "siem-reconciler-keycloak") | .keys[0].key' <<<"$c")" = "KEYCLOAK_CLIENT_SECRET" ] \
+    && ok "reconciler client secret generated" || ko "reconciler client secret"
+else
+  ko "renders with the reconciler client"; cat "$TMP/err"
+fi
+if render "${RC[@]}" --set keycloak.adminSecretRef=null >"$TMP/rc2.yaml"; then
+  c=$(yq 'select(.metadata.name == "siem-tenants") | .data["tenants.json"]' "$TMP/rc2.yaml")
+  [ "$(jq -r '.keycloak | has("adminSecretRef")' <<<"$c")" = "false" ] && ok "no admin login once adminSecretRef is null" || ko "adminSecretRef still rendered"
+  objects "$TMP/rc2.yaml" | grep -q " keycloakx$" && ko "Keycloak Secret reader without admin" || ok "no Keycloak Secret reader without admin"
+else
+  ko "renders with the reconciler client only"; cat "$TMP/err"
+fi
+expect_failure "Keycloak needs the admin or the reconciler client" "anyOf" -f "$SCRIPT_DIR/values-2-tenants.yaml" --set keycloak.adminSecretRef=null
+IR=(-f "$SCRIPT_DIR/values-2-tenants.yaml" --set dfir-iris.authentication.type=oidc --set dfir-iris.authentication.oidc.issuerUrl=https://keycloak.example.com/auth/realms/soc
+    --set dfir-iris.authentication.oidc.clientId=iris --set dfir-iris.authentication.oidc.existingSecret=dfir-iris-oidc
+    --set dfir-iris.keycloakSync.enabled=true --set dfir-iris.keycloakSync.existingSecret=iris-keycloak-sync
+    --set dfir-iris.keycloakSync.keycloak.url=https://keycloak.example.com/auth --set dfir-iris.keycloakSync.keycloak.realm=soc --set dfir-iris.keycloakSync.keycloak.clientId=iris-sync)
+if render "${IR[@]}" >"$TMP/iris.yaml"; then
+  envs=$(yq -o=json -I=0 'select(.kind == "Deployment" and .metadata.name == "dfir-iris-app") | .spec.template.spec.containers[0].env' "$TMP/iris.yaml")
+  [ "$(jq -r '[.[] | select(.name == "IRIS_AUTHENTICATION_LOCAL_FALLBACK" or .name == "OIDC_MAPPING_USERNAME") | .value] | join(",")' <<<"$envs")" = "False,sub" ] \
+    && ok "IRIS SSO: no local fallback, users matched on sub" || ko "IRIS auth env: $envs"
+  [ "$(yq 'select(.kind == "CronJob" and .metadata.name == "dfir-iris-keycloak-sync") | .spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "LOGIN_ATTRIBUTE") | .value' "$TMP/iris.yaml")" = "id" ] \
+    && ok "keycloakSync logins follow the sub claim" || ko "keycloakSync LOGIN_ATTRIBUTE"
+else
+  ko "renders with IRIS SSO"; cat "$TMP/err"
+fi
+expect_failure "keycloakSync refuses an unmapped login claim" "mappingUsername preferred_username, email or sub" "${IR[@]}" --set dfir-iris.authentication.oidc.mappingUsername=nickname
 
 echo
 echo "==================================="

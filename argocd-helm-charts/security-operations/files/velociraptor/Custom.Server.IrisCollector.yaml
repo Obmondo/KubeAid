@@ -21,7 +21,10 @@ description: |
   tagged, so the same path runs without an analyst and is logged on the case. The
   endpoint and its OS are looked up in the org of the alert's customer only; an
   alert whose customer maps to no org, or whose host is not in that org, is left
-  New for an analyst.
+  New for an analyst. Off by default (AutoRules {}), and only for alerts that the
+  IRIS login mapped to the alert's customer (CreatorMap / CreatorMapFile, the
+  tenant's own Wazuh manager) created and nobody else changed since: every entry of
+  the alert's modification_history must name that login.
 type: SERVER_EVENT
 parameters:
   - name: IrisUrl
@@ -68,8 +71,27 @@ parameters:
     description: |
       JSON: Wazuh rule id -> {Velociraptor OS name (darwin, windows, linux) ->
       artifact}. A New alert tagged rule:<id> from an endpoint with a mapped OS is
-      escalated and responded to automatically. Empty object disables it.
-    default: '{"99901": {"darwin": "Custom.MacOS.Remediation.RemoveByHash"}}'
+      escalated and responded to automatically, e.g.
+      {"99901": {"darwin": "Custom.MacOS.Remediation.RemoveByHash"}}.
+      Empty object (the default) disables it.
+    default: '{}'
+  - name: CreatorMap
+    description: |
+      JSON: IRIS customer name or customer id (as a string) -> the IRIS login whose
+      alerts for that customer may trigger AutoRules, e.g. {"Tenant A":
+      "svc_wazuh_001"}. An alert qualifies only when every entry of its
+      modification_history (IRIS records the acting login on create and on each
+      update) names that login, so an alert added or edited by anyone else (another
+      tenant's key, an analyst, the AI triage account) never triggers a response.
+      A customer without an entry gets no automatic response. Entries here win over
+      CreatorMapFile.
+    default: '{}'
+  - name: CreatorMapFile
+    description: |
+      File with a JSON object of the same shape as CreatorMap, read on every cycle
+      when set (the security-operations chart mounts the tenant managers' logins
+      there). A missing or empty file counts as {}.
+    default: /etc/siem/alert-creators.json
   - name: IocMap
     description: |
       JSON: artifact parameter name -> IRIS IOC types whose values fill it.
@@ -278,14 +300,25 @@ export: |
   LET newalerts = SELECT * FROM foreach(
       row={ SELECT parse_json(data=Content).data.alerts AS l
             FROM http_client(url=IrisUrl + '/alerts/filter', params=dict(per_page=50, alert_status_id=2), headers=H) },
-      query={ SELECT alert_id, alert_title, alert_tags, alert_customer_id, customer.customer_name AS cust_name, assets, iocs FROM foreach(row=l) })
+      query={ SELECT alert_id, alert_title, alert_tags, alert_customer_id, customer.customer_name AS cust_name, assets, iocs, modification_history AS hist FROM foreach(row=l) })
   LET mapped = SELECT *,
           parse_string_with_regex(string=alert_tags, regex='(^|,)rule:(?P<rule>[0-9]+)(,|$)').rule AS rule,
           assets[0].asset_name AS hostname,
           orgfor(cid=alert_customer_id, cname=cust_name) AS org_id
       FROM newalerts WHERE assets
+  -- creator guard: customer -> the one login allowed to trigger a response; every
+  -- modification_history entry must be that login (a NULL user counts as foreign)
+  LET CMAPFILE = if(condition=CreatorMapFile, then=read_file(filename=CreatorMapFile), else='')
+  LET CMAP = if(condition=CMAPFILE, then=parse_json(data=CMAPFILE), else=dict()) + parse_json(data=CreatorMap)
+  LET creatorfor(cid, cname) = if(condition=get(item=CMAP, field=str(str=cid)), then=get(item=CMAP, field=str(str=cid)),
+      else=get(item=CMAP, field=str(str=cname)))
+  LET histusers(h) = SELECT _value.user AS u FROM items(item=h)
+  LET foreign(h, want) = SELECT 1 AS bad FROM histusers(h=h) WHERE NOT u = want
+  LET creatorok(h, want) = want AND histusers(h=h)[0].u = want AND NOT foreign(h=h, want=want)[0].bad
+  LET trusted = SELECT * FROM mapped
+      WHERE creatorok(h=hist, want=creatorfor(cid=alert_customer_id, cname=cust_name))
   LET located = SELECT *, hostin(org=org_id, host=hostname)[0].client_id AS client_id
-      FROM mapped WHERE rule AND get(item=AMAP, field=rule) AND org_id
+      FROM trusted WHERE rule AND get(item=AMAP, field=rule) AND org_id
   -- a {subquery} passed as a function argument is not collapsed; make it a column first
   LET withos = SELECT *, osin(org=org_id, c=client_id)[0].os AS os FROM located WHERE client_id
   LET autos = SELECT *, get(item=get(item=AMAP, field=rule), field=os) AS art FROM withos
