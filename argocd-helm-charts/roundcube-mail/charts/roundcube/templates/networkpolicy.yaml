@@ -1,0 +1,56 @@
+---
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "common.names.fullname" . }}
+  labels:
+    {{- include "common.labels.standard" . | nindent 4 }}
+    {{- if .Values.networkPolicy.additionalLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.networkPolicy.additionalLabels "context" $) | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- if .Values.networkPolicy.additionalAnnotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.networkPolicy.additionalAnnotations "context" $) | nindent 4 }}
+    {{- end }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "common.labels.matchLabels" . | nindent 6 }}
+  policyTypes:
+    - Egress
+  egress:
+    # IMAP traffic
+    - to:
+        {{- .Values.networkPolicy.egress.imap.peers | toYaml | nindent 8 }}
+      ports:
+        - port: {{ .Values.imap.port }}
+          protocol: TCP
+
+    # SMTP traffic
+    - to:
+        {{- .Values.networkPolicy.egress.smtp.peers | toYaml | nindent 8 }}
+      ports:
+        - port: {{ .Values.smtp.port }}
+          protocol: TCP
+
+    {{- if .Values.config.plugins.managesieve.enabled }}
+    # managesieve configuration
+    - to:
+        {{- .Values.networkPolicy.egress.managesieve.peers | toYaml | nindent 8 }}
+      ports:
+        - port: {{ .Values.config.plugins.managesieve.config.port }}
+          protocol: TCP
+    {{- end }}
+
+    # always allow DNS
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+
+    {{- if .Values.networkPolicy.egress.additionalRules }}
+    {{- .Values.networkPolicy.egress.additionalRules | toYaml | nindent 4 }}
+    {{- end }}
+{{- end -}}

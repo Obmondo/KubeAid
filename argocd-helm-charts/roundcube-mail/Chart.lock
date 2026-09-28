@@ -1,0 +1,6 @@
+dependencies:
+- name: roundcube
+  repository: https://helm-charts.mlohr.com/
+  version: 1.16.0
+digest: sha256:16704498f59750617ad36a7ec03207ca33ee01b83419a038bffbcc8ee6d289d7
+generated: "2026-08-24T23:35:22.668387156+05:30"

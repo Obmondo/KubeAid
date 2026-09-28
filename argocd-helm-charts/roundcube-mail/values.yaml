@@ -1,0 +1,19 @@
+roundcube:
+  # IMAP/SMTP backend - no sane generic default exists, required: set both
+  # in cluster values to point at the actual mail server.
+  imap:
+    host: ""
+  smtp:
+    host: ""
+
+  # No bundled database option in this chart (source: external only) -
+  # sqlite needs no real network host, but the field is still required by
+  # the chart's own validation, so a placeholder value is set here.
+  database:
+    source: external
+  externalDatabase:
+    type: sqlite
+    host: "unused-for-sqlite"
+
+  ingress:
+    enabled: false  # required: enable + configure host/tls in cluster values if HTTP access is needed

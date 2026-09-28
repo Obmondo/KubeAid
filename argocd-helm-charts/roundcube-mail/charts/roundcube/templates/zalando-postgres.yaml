@@ -1,0 +1,20 @@
+---
+{{- if eq .Values.database.source "zalando-postgres" -}}
+apiVersion: "acid.zalan.do/v1"
+kind: postgresql
+metadata:
+  name: {{ include "common.names.fullname" . }}-db
+  labels:
+    {{- include "common.labels.standard" . | nindent 4 }}
+spec:
+  teamId: "{{ include "common.names.fullname" . }}"
+  volume:
+    size: "{{ .Values.database.volumeSize }}"
+    storageClass: "{{ .Values.database.storageClassName }}"
+  numberOfInstances: {{ .Values.database.instances }}
+  preparedDatabases:
+    roundcube:
+      defaultUsers: true
+  postgresql:
+    version: "15"
+{{- end -}}

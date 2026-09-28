@@ -1,0 +1,7 @@
+/.git/
+/.gitignore
+/.gitlab-ci.yml
+/values.*.yaml
+/*.tgz
+/*.tgz.prov
+*.png
