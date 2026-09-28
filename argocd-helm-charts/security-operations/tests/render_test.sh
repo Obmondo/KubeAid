@@ -700,7 +700,13 @@ if render "${BK[@]}" --set backup.opensearch.type=s3 --set backup.opensearch.pol
 else
   ko "renders an s3 repository with a policy"; cat "$TMP/err"
 fi
-if render "${BK[@]}" --set backup.verifyRestore.enabled=true >"$TMP/bk3.yaml"; then
+if render "${BK[@]}" --set backup.verifyRestore.enabled=true --set monitoring.prometheusRule.enabled=true >"$TMP/bk3.yaml"; then
+  # A backup that stopped working is only discovered when it is needed.
+  alerts=$(yq -N 'select(.kind == "PrometheusRule") | .spec.groups[] | select(.name == "kubesoc-backups") | .rules[].alert' "$TMP/bk3.yaml" | paste -sd, -)
+  [ "$alerts" = "KubeSocVeleroBackupFailing,KubeSocVeleroBackupStale,KubeSocIndexerSnapshotStale,KubeSocRestoreCheckFailing" ] \
+    && ok "backup staleness and failure alerts" || ko "backup alerts: $alerts"
+  [ -z "$(yq -N 'select(.kind == "PrometheusRule") | .spec.groups[] | select(.name == "kubesoc-backups") | .rules[] | select(.labels.alert_id != .alert or .labels.severity == null) | .alert' "$TMP/bk3.yaml")" ] \
+    && ok "backup alerts carry alert_id and severity" || ko "backup alert labels"
   [ "$(yq -N 'select(.kind == "CronJob" and .metadata.name == "kubesoc-restore-check") | .spec.schedule' "$TMP/bk3.yaml")" = "0 4 1 * *" ] \
     && ok "the restore check runs monthly" || ko "restore check schedule"
   [ "$(yq -N 'select(.kind == "Role" and .metadata.name == "kubesoc-restore-check") | .rules[] | select(.resourceNames != null) | .resourceNames[0]' "$TMP/bk3.yaml")" = "iris-pgsql-restore-check" ] \

@@ -93,6 +93,7 @@ component blocks exactly as for the standalone charts (see their READMEs), one l
 | `backup.opensearch.*` | on, `fs`, daily, 30 days | Snapshot `CronJob` per indexer; `type: s3` needs an indexer image with `repository-s3` |
 | `backup.opensearch.numberOfReplicas` | `null` | Shard copies applied to the alert indices on every run; `null` leaves them alone |
 | `backup.verifyRestore.*` | off, monthly | Recovers the newest IRIS database backup into a scratch cluster and queries it |
+| `monitoring.prometheusRule.backupStaleHours` | `36` | A backup backend with no successful run for this long is an alert |
 | `networkPolicies.objectStore` | outside the cluster, 443/9000 | Where the backups are written, for the restore check's scratch cluster |
 | `ai.irisLogin`, `ai.irisGroups`, `ai.irisKeySecret` | `svc_ai`, `[Analysts]`, `iris-ai-triage` | IRIS service account of the triage job; the reconciler creates it, gives it these groups and every tenant as customer, and keeps its API key in that Secret (key `IRIS_API_KEY`, read by `dfir-iris.aiTriage.existingSecret`). Turn the job on with `dfir-iris.aiTriage.enabled` |
 | `publicIngress.velociraptorHost` | `""` | Hostname Velociraptor clients dial |
@@ -605,6 +606,12 @@ newest CloudNativePG `Backup` of the IRIS database into a scratch `Cluster`, run
 failure). It is off by default because it creates and deletes a `Cluster`; its RBAC is
 limited to the `Backup` list, the scratch `Cluster` by name, that cluster's volumes and
 `pods/exec`. A backup nobody has restored is a hope, not a backup.
+
+**Alerts.** With `monitoring.prometheusRule.enabled` the backup block adds a
+`kubesoc-backups` group: the Velero schedules failing or having no successful backup for
+`monitoring.prometheusRule.backupStaleHours` (36 by default, so one missed daily run is not
+an alert), the same for each namespace's snapshot `CronJob`, and the restore check failing.
+A backup that quietly stopped working is otherwise only discovered when it is needed.
 
 **Network policies.** The snapshot Job only reaches the indexer in its own namespace
 (`secops-backup-snapshot`, rendered into the tenant namespaces too, since those are the wazuh

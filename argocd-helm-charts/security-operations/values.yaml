@@ -615,6 +615,9 @@ monitoring:
     reconcilerStaleSeconds: 1800
     # A CronJob (MISP CDB export, AI triage) without a success for this long.
     jobStaleSeconds: 3600
+    # A backup backend without a successful run for this many hours (backup.*).
+    # Longer than the daily schedules, so one missed run is not an alert.
+    backupStaleHours: 36
     # Share of a tenant's once-connected agents that is disconnected.
     agentsDisconnectedRatio: 0.2
     # Keycloak workload the platform logs in through (kube-state-metrics).
