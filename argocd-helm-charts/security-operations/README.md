@@ -9,7 +9,8 @@ namespace, configured for several tenants from one list:
 | Velociraptor | `../velociraptor` | Endpoint forensics and response, one org per tenant |
 | DFIR-IRIS | `../dfir-iris` | Case management, one customer per tenant; PostgreSQL and RabbitMQ through kubeaid-addons |
 | MISP | `../misp` | Threat intelligence, fed into every tenant's Wazuh as CDB lists |
-| Ollama | `../ollama` | Local model for advisory alert triage in IRIS |
+| Ollama | `../ollama` | Local model (default `mistral:7b`) for the advisory AI assistant in IRIS: alert triage, case summaries, hunting suggestions |
+| kubesoc portal | `../kubesoc-portal` | Optional SSO landing page with per-tenant links (`kubesoc-portal.enabled`) |
 
 **Every tenant has its own Wazuh** (manager, indexer, dashboard): a separate release of the
 `wazuh` chart in the tenant's namespace, see the wazuh chart README, section 11. An agent can
@@ -224,12 +225,59 @@ Helm replaces lists instead of merging them. When you set one of the lists in
 keep. The central NetworkPolicies repeat the tenant namespace label key; change both
 together.
 
+### AI assistant and MISP sightings
+
+`dfir-iris.aiTriage` runs the local AI assistant (dfir-iris README, "AI assistant"): alert
+triage (on when the job is on), case summary and report drafts for cases tagged
+`ai:summarize` (`caseSummary.enabled`), and hunting suggestions for case notes titled
+`ai:hunt: <question>` (`hunt.enabled`). It only writes notes and tags; nothing is run.
+Enable:
+
+```yaml
+dfir-iris:
+  aiTriage:
+    enabled: true
+    dryRun: false        # after reading a dry-run job log
+    caseSummary: {enabled: true}
+    hunt: {enabled: true}
+ollama:
+  ollama:
+    ollama:
+      models:
+        pull: [mistral:7b]   # once, with networkPolicy.allowModelDownload: true
+```
+
+`dfir-iris.mispSightings` adds MISP sightings for the indicators of cases closed as true
+positive (dfir-iris README, "MISP sightings"). It needs a MISP key with sighting rights in
+Secret `misp-sightings-key` (key `key`), sealed by the operator.
+
+Flows (for NetworkPolicies): the AI job (`app.kubernetes.io/component: ai-triage`) ->
+`dfir-iris-app:8000` and `ollama:11434`; the sightings job
+(`app.kubernetes.io/component: misp-sightings`) -> `dfir-iris-app:8000` and `misp:80`.
+Neither needs the indexer or the internet.
+
+### Landing portal
+
+`kubesoc-portal.enabled: true` deploys the portal (`../kubesoc-portal`) at
+`hosts.portal` (default `portal.<domain>`; `kubesoc-portal.ingress.host` must match, the
+render fails otherwise) with `kubesoc-portal.oauth2Proxy.oidcIssuerUrl` set to
+`<keycloak.url>/realms/<keycloak.realm>` as reached from the pod. From `tenants` and
+`portal` this chart renders ConfigMap `kubesoc-portal-links`: a card per tenant, shown to
+its group `<tenantGroupPrefix><code>` and to the `operators` roles, with links built from
+`portal.tenantLinks` URL templates. IRIS customer ids and Velociraptor org ids are assigned
+by those tools, so the customer-filtered IRIS link and the org link need
+`portal.irisCustomerIds` / `portal.velociraptorOrgIds` (tenant code -> id); without them the
+link falls back to the tool's start page. The reconciler keeps the Keycloak client
+`kubesoc-portal` and Secret `kubesoc-portal-oidc`. Flows: ingress controller -> portal
+pod 4180; portal -> Keycloak.
+
 ## 8. What is not derived from `tenants`
 
 A parent chart cannot compute its subcharts' values, so these need one entry per tenant:
 
 - **MISP export targets**: `misp.wazuhCdbExport.targets` (checked by `checks.mispTargets`).
 - **The tenant Wazuh releases** themselves (section 3).
+- **Portal deep-link ids**: `portal.irisCustomerIds`, `portal.velociraptorOrgIds` (optional).
 - **Velociraptor artifacts** of your own (`velociraptorArtifacts.extraFiles`). The shipped
   ones read the tenant maps from `/etc/siem` on every cycle (section 6), so they need nothing
   per tenant. To do the same, give each map parameter a file parameter and read the file when
@@ -264,5 +312,8 @@ A parent chart cannot compute its subcharts' values, so these need one entry per
 2-tenant and 3-tenant fixture and checks object uniqueness, namespaces, names, that no
 manager runs centrally, selectors, that tenant `003` adds only its own entries, the
 reconciler input, input validation, the reconciler objects, and the Velociraptor API, API
-client bootstrap and shipped artifacts. The tenant side is covered by
+client bootstrap and shipped artifacts, the AI assistant and MISP sightings jobs, and the
+landing portal (links per tenant, Keycloak client, hardening). The AI scripts have their own
+tests (`../dfir-iris/tests`, fake IRIS/Ollama/MISP), so has the portal
+(`../kubesoc-portal/tests`). The tenant side is covered by
 `../wazuh/tests/tenant_render_test.sh`.
