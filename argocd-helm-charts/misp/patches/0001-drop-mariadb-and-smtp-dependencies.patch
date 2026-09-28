@@ -1,0 +1,25 @@
+diff --git a/Chart.yaml b/Chart.yaml
+index 974e127..56df2ef 100644
+--- a/Chart.yaml
++++ b/Chart.yaml
+@@ -25,17 +25,10 @@ type: application
+ version: 5.0.1
+ appVersion: "2.5.44"
+ 
++# KubeAid: the upstream mariadb (Bitnami) and smtp dependencies are removed.
++# The database comes from the mariadb-operator (see ../../templates/mariadb.yaml)
++# and mail goes through the cluster relay. Only valkey is vendored.
+ dependencies:
+-  - name: mariadb
+-    version: 19.0.5
+-    repository: "oci://registry-1.docker.io/bitnamicharts"
+-    condition: mariadb.enabled
+-
+-  - name: smtp
+-    version: 2.4.0
+-    repository: "https://charts.ntppool.org/"
+-    condition: smtp.enabled
+-
+   - name: valkey
+     repository: "oci://ghcr.io/valkey-io/valkey-helm"
+     version: "0.9.4"

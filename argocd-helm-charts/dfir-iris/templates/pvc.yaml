@@ -5,6 +5,10 @@ metadata:
   name: {{ include "dfir-iris.pvcName" . }}
   labels:
     {{- include "dfir-iris.labels" . | nindent 4 }}
+  annotations:
+    # The case evidence store: never deleted by an Argo CD prune (automated
+    # sync with prune on) or when the Application is deleted.
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
 spec:
   accessModes:
     {{- toYaml .Values.persistence.accessModes | nindent 4 }}

@@ -1,0 +1,51 @@
+diff --git a/templates/deployment-misp.yaml b/templates/deployment-misp.yaml
+index 19ef1d0..7ddf7e0 100644
+--- a/templates/deployment-misp.yaml
++++ b/templates/deployment-misp.yaml
+@@ -35,6 +35,8 @@ spec:
+       {{- toYaml . | nindent 8 }}
+       {{- end }}
+       annotations:
++        # KubeAid patch: envFrom does not roll the pod when the ConfigMap changes.
++        checksum/env: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+         {{- with .Values.commonAnnotations }}
+         {{- toYaml . | nindent 8 }}
+         {{- end }}
+@@ -42,6 +44,10 @@ spec:
+       {{- (include "misp-charts.misp.misp.image.imagePullSecrets" .) | indent 6 }}
+       automountServiceAccountToken: {{ .Values.serviceAccount.automount }}
+       serviceAccountName: {{ include "misp-charts.serviceAccountName" . }}
++      {{- with .Values.hostAliases }}
++      hostAliases:
++        {{- toYaml . | nindent 8 }}
++      {{- end }}
+       containers:
+       - env:
+         - name: MYSQL_USER
+@@ -73,6 +79,9 @@ spec:
+         {{- end }}
+         - name: KUBERNETES_CLUSTER_DOMAIN
+           value: {{ quote .Values.clusterDomain }}
++        {{- with .Values.extraEnv }}
++        {{- toYaml . | nindent 8 }}
++        {{- end }}
+         envFrom:
+         - configMapRef:
+             name: {{ include "misp-charts.fullname" . }}-env
+diff --git a/values.yaml b/values.yaml
+index cda2c65..38dc07c 100644
+--- a/values.yaml
++++ b/values.yaml
+@@ -255,6 +255,12 @@ pvc:
+     storageClass: ""
+     storageRequest: 1Gi
+ 
++# -- (KubeAid patch) Extra env vars for the misp container, e.g. misp-docker settings
++# the ConfigMap does not expose (OIDC_MIXEDAUTH, OIDC_ISSUER, OIDC_AUTH_METHOD).
++extraEnv: []
++# -- (KubeAid patch) hostAliases for the misp pod, e.g. to reach an IdP whose public
++# name does not resolve to a reachable address from inside the cluster.
++hostAliases: []
+ # -- Optionally specify extra list of additional volumes
+ extraVolumes: []
+ #  - name: hostpath-volume
