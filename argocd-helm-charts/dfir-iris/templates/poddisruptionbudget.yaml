@@ -1,0 +1,27 @@
+{{- /*
+  Budgets for the app and the worker, rendered once either runs more than one
+  replica: with a single replica a budget would only block a drain for ever.
+*/}}
+{{- range $component := list "app" "worker" }}
+{{- $c := index $.Values $component }}
+{{- if and $c.podDisruptionBudget.enabled (gt (int $c.replicas) 1) }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "dfir-iris.fullname" $ }}-{{ $component }}
+  labels:
+    {{- include "dfir-iris.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "dfir-iris.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: {{ $component }}
+  {{- if $c.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ $c.podDisruptionBudget.minAvailable }}
+  {{- else }}
+  maxUnavailable: {{ $c.podDisruptionBudget.maxUnavailable | default 1 }}
+  {{- end }}
+{{- end }}
+{{- end }}

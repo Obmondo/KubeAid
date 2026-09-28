@@ -284,6 +284,11 @@ app:
       memory: 512Mi
     limits:
       memory: 2Gi
+  # Rendered with replicas above 1: without it a node drain can take the last
+  # app pod and the UI with it.
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
 
 worker:
   replicas: 1
@@ -295,6 +300,9 @@ worker:
       memory: 512Mi
     limits:
       memory: 2Gi
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
 
 # One volume shared by app and worker for downloads, user templates and server
 # data. With ReadWriteOnce the worker is pinned to the app's node by affinity;
@@ -330,3 +338,20 @@ securityContext:
 
 nodeSelector: {}
 tolerations: []
+
+# Spread the app and worker pods over failure domains. Empty: no constraint, so
+# Kubernetes may put every replica on one node. The wanted value is normally
+# kubernetes.io/hostname, or topology.kubernetes.io/zone across zones.
+# Ignored with one replica, and with a ReadWriteOnce volume, which already pins
+# the worker to the app's node.
+topologySpreadTopologyKey: ""
+# ScheduleAnyway keeps a pod schedulable when no domain is free; DoNotSchedule
+# refuses instead.
+topologySpreadWhenUnsatisfiable: ScheduleAnyway
+
+# Deployment strategy of the app and worker. Recreate, because the shared volume
+# is ReadWriteOnce by default and a rolling update would start the new pod while
+# the old one still holds it (Multi-Attach). Set RollingUpdate together with a
+# ReadWriteMany persistence.accessModes, so an upgrade is not an outage.
+strategy:
+  type: Recreate
