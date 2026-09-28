@@ -1,0 +1,1003 @@
+diff --git b/files/filebeat/alerts-pipeline.json b/files/filebeat/alerts-pipeline.json
+new file mode 100644
+index 0000000..ac75363
+--- /dev/null
++++ b/files/filebeat/alerts-pipeline.json
+@@ -0,0 +1,149 @@
++{
++  "description": "Wazuh alerts pipeline",
++  "processors": [
++    { "json" : { "field" : "message", "add_to_root": true } },
++    {
++      "set": {
++        "field": "data.aws.region",
++        "value": "{{data.aws.awsRegion}}",
++        "override": false,
++        "ignore_failure": true,
++        "ignore_empty_value" : true
++      }
++    },
++    {
++      "set": {
++        "field": "data.aws.accountId",
++        "value": "{{data.aws.aws_account_id}}",
++        "override": false,
++        "ignore_failure": true,
++        "ignore_empty_value" : true
++      }
++    },
++    {
++      "geoip": {
++        "field": "data.srcip",
++        "target_field": "GeoLocation",
++        "properties": ["city_name", "country_name", "region_name", "location"],
++        "ignore_missing": true,
++        "ignore_failure": true
++      }
++    },
++    {
++      "geoip": {
++        "field": "data.win.eventdata.ipAddress",
++        "target_field": "GeoLocation",
++        "properties": ["city_name", "country_name", "region_name", "location"],
++        "ignore_missing": true,
++        "ignore_failure": true
++      }
++    },
++    {
++      "geoip": {
++        "field": "data.aws.sourceIPAddress",
++        "target_field": "GeoLocation",
++        "properties": ["city_name", "country_name", "region_name", "location"],
++        "ignore_missing": true,
++        "ignore_failure": true
++      }
++    },
++    {
++      "geoip": {
++        "field": "data.aws.client_ip",
++        "target_field": "GeoLocation",
++        "properties": ["city_name", "country_name", "region_name", "location"],
++        "ignore_missing": true,
++        "ignore_failure": true
++      }
++    },
++    {
++      "geoip": {
++        "field": "data.aws.service.action.networkConnectionAction.remoteIpDetails.ipAddressV4",
++        "target_field": "GeoLocation",
++        "properties": ["city_name", "country_name", "region_name", "location"],
++        "ignore_missing": true,
++        "ignore_failure": true
++      }
++    },
++    {
++      "geoip": {
++        "field": "data.aws.httpRequest.clientIp",
++        "target_field": "GeoLocation",
++        "properties": ["city_name", "country_name", "region_name", "location"],
++        "ignore_missing": true,
++        "ignore_failure": true
++      }
++    },
++    {
++      "geoip": {
++        "field": "data.ms-graph.ipAddress",
++        "target_field": "GeoLocation",
++        "properties": ["city_name", "country_name", "region_name", "location"],
++        "ignore_missing": true,
++        "ignore_failure": true
++      }
++    },
++    {
++      "geoip": {
++        "field": "data.ms-graph.actor.ipAddress",
++        "target_field": "GeoLocation",
++        "properties": ["city_name", "country_name", "region_name", "location"],
++        "ignore_missing": true,
++        "ignore_failure": true
++      }
++    },
++    {
++      "geoip": {
++        "field": "data.gcp.jsonPayload.sourceIP",
++        "target_field": "GeoLocation",
++        "properties": ["city_name", "country_name", "region_name", "location"],
++        "ignore_missing": true,
++        "ignore_failure": true
++      }
++    },
++    {
++      "geoip": {
++        "field": "data.office365.ClientIP",
++        "target_field": "GeoLocation",
++        "properties": ["city_name", "country_name", "region_name", "location"],
++        "ignore_missing": true,
++        "ignore_failure": true
++      }
++    },
++    {
++      "date": {
++        "field": "timestamp",
++        "target_field": "@timestamp",
++        "formats": ["ISO8601"],
++        "ignore_failure": false
++      }
++    },
++    {
++      "date_index_name": {
++        "field": "timestamp",
++        "date_rounding": "d",
++        "index_name_prefix": "{{fields.index_prefix}}",
++        "index_name_format": "yyyy.MM.dd",
++        "ignore_failure": false
++      }
++    },
++    { "remove": { "field": "message", "ignore_missing": true, "ignore_failure": true } },
++    { "remove": { "field": "ecs", "ignore_missing": true, "ignore_failure": true } },
++    { "remove": { "field": "beat", "ignore_missing": true, "ignore_failure": true } },
++    { "remove": { "field": "input_type", "ignore_missing": true, "ignore_failure": true } },
++    { "remove": { "field": "tags", "ignore_missing": true, "ignore_failure": true } },
++    { "remove": { "field": "count", "ignore_missing": true, "ignore_failure": true } },
++    { "remove": { "field": "@version", "ignore_missing": true, "ignore_failure": true } },
++    { "remove": { "field": "log", "ignore_missing": true, "ignore_failure": true } },
++    { "remove": { "field": "offset", "ignore_missing": true, "ignore_failure": true } },
++    { "remove": { "field": "type", "ignore_missing": true, "ignore_failure": true } },
++    { "remove": { "field": "host", "ignore_missing": true, "ignore_failure": true } },
++    { "remove": { "field": "fields", "ignore_missing": true, "ignore_failure": true } },
++    { "remove": { "field": "event", "ignore_missing": true, "ignore_failure": true } },
++    { "remove": { "field": "fileset", "ignore_missing": true, "ignore_failure": true } },
++    { "remove": { "field": "service", "ignore_missing": true, "ignore_failure": true } }
++  ],
++  "on_failure" : [{
++    "drop" : { }
++  }]
++}
+diff --git b/files/ruleset-reloader.sh b/files/ruleset-reloader.sh
+new file mode 100644
+index 0000000..d560e6e
+--- /dev/null
++++ b/files/ruleset-reloader.sh
+@@ -0,0 +1,60 @@
++#!/bin/sh
++# Reload this worker's analysisd whenever the ruleset on its disk changes.
++#
++# A worker gets etc/rules, etc/decoders and etc/lists from the master by cluster
++# integrity sync, and after a pod start that sync lands tens of seconds AFTER
++# analysisd has loaded the stale copy on the PVC. Nothing reloads it, so a new
++# rule stays inactive on the node that analyses the agents' events, silently.
++# This loop watches those directories and asks the API to reload analysisd on
++# this node once they have settled: once after every start, and again after any
++# later sync that changes them.
++#
++# It talks to the worker's own API on localhost, so no NetworkPolicy change is
++# needed; the worker forwards authentication and the reload to the master over
++# the cluster port it already uses.
++set -u
++
++API="https://localhost:55000"
++NODE="${HOSTNAME}"
++SETTLE="${RELOAD_SETTLE_SECONDS:-90}"
++POLL="${RELOAD_POLL_SECONDS:-30}"
++DIRS="${RULESET_DIRS:-/var/ossec/etc/rules /var/ossec/etc/decoders /var/ossec/etc/lists}"
++
++log() { echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') ruleset-reloader: $*"; }
++
++# Name, size and mtime of the source files. The compiled *.cdb files are left
++# out: analysisd rewrites them on every reload, which would retrigger this loop.
++fingerprint() {
++  find $DIRS -type f ! -name '*.cdb' -exec stat -c '%n %s %Y' {} + 2>/dev/null \
++    | sort | sha256sum | cut -d' ' -f1
++}
++
++# Credentials and token go to curl on stdin (-K -), not argv, so ps never shows them.
++reload() {
++  # Escape \ and " for curl's config syntax; the password never becomes an argument.
++  user=$(printf '%s:%s' "${API_USERNAME}" "${API_PASSWORD}" | sed 's/[\\"]/\\&/g')
++  token=$(printf 'user = "%s"\n' "${user}" \
++    | curl -skf --max-time 30 -K - -X POST "${API}/security/user/authenticate?raw=true") || return 1
++  out=$(printf 'header = "Authorization: Bearer %s"\n' "${token}" \
++    | curl -skf --max-time 60 -K - -X PUT "${API}/cluster/analysisd/reload?nodes_list=${NODE}") || return 1
++  echo "${out}" | grep -Eq '"total_failed_items": ?0[,}]' || { log "API answered: ${out}"; return 1; }
++}
++
++log "watching ${DIRS} (settle ${SETTLE}s, poll ${POLL}s)"
++last=""
++while :; do
++  cur=$(fingerprint)
++  if [ "${cur}" != "${last}" ]; then
++    # Wait until the tree has stopped changing, so the reload sees the whole sync.
++    while sleep "${SETTLE}"; now=$(fingerprint); [ "${now}" != "${cur}" ]; do
++      cur="${now}"
++    done
++    if reload; then
++      last="${cur}"
++      log "analysisd reloaded on ${NODE}"
++    else
++      log "reload failed (API not up yet, or worker not connected); retrying"
++    fi
++  fi
++  sleep "${POLL}"
++done
+diff --git a/templates/_filebeat_config.tpl b/templates/_filebeat_config.tpl
+index 6164ed5..c469cd4 100644
+--- a/templates/_filebeat_config.tpl
++++ b/templates/_filebeat_config.tpl
+@@ -7,6 +7,13 @@ filebeat.modules:
+       enabled: true
+     archives:
+       enabled: {{ if include "wazuh.archives.enabled" . }}true{{ else }}false{{ end }}
++{{- if include "wazuh.indexRouting.enabled" . }}
++
++# The alerts pipeline is mounted over the module's own (tenant index routing). Filebeat
++# only uploads a pipeline the indexer does not have yet unless told to overwrite, so
++# without this the stock pipeline already in the indexer would stay in use.
++filebeat.overwrite_pipelines: true
++{{- end }}
+ 
+ setup.template.json.enabled: true
+ setup.template.overwrite: true
+diff --git a/templates/_helpers.tpl b/templates/_helpers.tpl
+index d652e31..61fc22b 100644
+--- a/templates/_helpers.tpl
++++ b/templates/_helpers.tpl
+@@ -191,11 +191,73 @@ Whether to mount our own filebeat.yml. Only when asked for, so existing releases
+ using the image's own file.
+ */}}
+ {{- define "wazuh.filebeat.overridden" -}}
+-{{- if or (include "wazuh.archives.enabled" .) ((.Values.wazuh.filebeat).config) -}}
++{{- if or (include "wazuh.archives.enabled" .) ((.Values.wazuh.filebeat).config) (include "wazuh.indexRouting.enabled" .) -}}
+ true
+ {{- end -}}
+ {{- end -}}
+ 
++{{/*
++Whether filebeat sends alerts to per-tenant indices, chosen by an agent label.
++*/}}
++{{- define "wazuh.indexRouting.enabled" -}}
++{{- if (((.Values.wazuh).filebeat).indexRouting).enabled -}}
++true
++{{- end -}}
++{{- end -}}
++
++{{/*
++The alerts ingest pipeline with tenant routing. Starts from the pipeline shipped in the
++manager image (files/filebeat/alerts-pipeline.json, a verbatim copy - refresh it when the
++image tag changes) and replaces its single date_index_name processor with two:
++
++  - agent.labels.<labelKey> set and matching valuePattern:
++      <index_prefix><label>-<date>   e.g. wazuh-alerts-4.x-101-2026.09
++  - otherwise the stock one, unchanged: wazuh-alerts-4.x-<date>
++
++The label is checked against valuePattern before it becomes part of an index name, so an
++agent cannot pick an arbitrary index. Both names still match the wazuh template
++(index_patterns wazuh-alerts-4.x-*) and the dashboard's wazuh-alerts-* index pattern.
++*/}}
++{{- define "wazuh.filebeat.alertsPipeline" -}}
++{{- $r := .Values.wazuh.filebeat.indexRouting -}}
++{{- $key := $r.labelKey | default "tenant" -}}
++{{- if not (regexMatch "^[a-z0-9_]+$" $key) -}}
++{{- fail (printf "wazuh.filebeat.indexRouting.labelKey must match ^[a-z0-9_]+$ (got %q)" $key) -}}
++{{- end -}}
++{{- $pattern := $r.valuePattern | default "^[a-z0-9]{1,32}$" -}}
++{{- if contains "/" $pattern -}}
++{{- fail "wazuh.filebeat.indexRouting.valuePattern must not contain /" -}}
++{{- end -}}
++{{- $cond := printf "ctx.agent?.labels?.%s instanceof String && ctx.agent.labels.%s ==~ /%s/" $key $key $pattern -}}
++{{- $pipeline := .Files.Get "files/filebeat/alerts-pipeline.json" | fromJson -}}
++{{- $processors := list -}}
++{{- $found := 0 -}}
++{{- range $pipeline.processors -}}
++{{- if hasKey . "date_index_name" -}}
++{{- $found = add1 $found -}}
++{{- $stock := get . "date_index_name" -}}
++{{- $routed := deepCopy $stock -}}
++{{- $_ := set $routed "tag" "tenant-index" -}}
++{{- $_ := set $routed "if" $cond -}}
++{{- $_ := set $routed "index_name_prefix" (printf "%s{{agent.labels.%s}}-" $stock.index_name_prefix $key) -}}
++{{- $_ := set $routed "date_rounding" ($r.dateRounding | default $stock.date_rounding) -}}
++{{- $_ := set $routed "index_name_format" ($r.indexNameFormat | default $stock.index_name_format) -}}
++{{- $default := deepCopy $stock -}}
++{{- $_ := set $default "tag" "default-index" -}}
++{{- $_ := set $default "if" (printf "!(%s)" $cond) -}}
++{{- $processors = append $processors (dict "date_index_name" $routed) -}}
++{{- $processors = append $processors (dict "date_index_name" $default) -}}
++{{- else -}}
++{{- $processors = append $processors . -}}
++{{- end -}}
++{{- end -}}
++{{- if ne $found 1 -}}
++{{- fail (printf "files/filebeat/alerts-pipeline.json must hold exactly one date_index_name processor, found %d" $found) -}}
++{{- end -}}
++{{- $_ := set $pipeline "processors" $processors -}}
++{{- toPrettyJson $pipeline | replace "\\u0026" "&" | replace "\\u003c" "<" | replace "\\u003e" ">" -}}
++{{- end -}}
++
+ 
+ {{- define "wazuh.archives.enabled" -}}
+ {{- if (.Values.wazuh.archives).enabled -}}
+diff --git a/templates/certs/node/certificate.yaml b/templates/certs/node/certificate.yaml
+index fed8576..3618e59 100644
+--- a/templates/certs/node/certificate.yaml
++++ b/templates/certs/node/certificate.yaml
+@@ -32,6 +32,12 @@ spec:
+     - {{ include "wazuh.indexer.fullname" $ }}-indexer-{{ $i }}.{{ include "wazuh.indexer.fullname" $ }}-indexer-nodes.{{ $.Release.Namespace }}.svc.cluster.local
+     {{- end }}
+   issuerRef:
+-    # Indexer have to use the CA Issuer so that the certificate can be validated with node-tls secret
+-    name: {{ include "wazuh.fullname" . }}-ca-issuer
++    # Indexer have to use the CA Issuer so that the certificate can be validated with node-tls secret.
++    # KubeAid patch: with certificates.issuer.name set (a shared CA issuer), the node certificate
++    # comes from it directly, so ca.crt is that CA and indexers of several releases trust each
++    # other (cross-cluster search).
++    name: {{ .Values.certificates.issuer.name | default (printf "%s-ca-issuer" (include "wazuh.fullname" .)) }}
++    {{- if and .Values.certificates.issuer.name (eq .Values.certificates.issuer.type "ClusterIssuer") }}
++    kind: ClusterIssuer
++    {{- end }}
+ {{- end }}
+\ No newline at end of file
+diff --git a/templates/certs/node.crp.yaml b/templates/certs/node.crp.yaml
+index 93c947b..74be8d4 100644
+--- a/templates/certs/node.crp.yaml
++++ b/templates/certs/node.crp.yaml
+@@ -8,7 +8,10 @@ metadata:
+ spec:
+   selector:
+     issuerRef:
+-      name: {{ include "wazuh.fullname" . }}-ca-issuer
++      name: {{ .Values.certificates.issuer.name | default (printf "%s-ca-issuer" (include "wazuh.fullname" .)) }}
++      {{- if and .Values.certificates.issuer.name (eq .Values.certificates.issuer.type "ClusterIssuer") }}
++      kind: ClusterIssuer
++      {{- end }}
+   allowed:
+     # ── This policy is ONLY for end-entity certs, not for CAs
+     isCA: false
+diff --git a/templates/dashboard/deployment.yaml b/templates/dashboard/deployment.yaml
+index 25090e3..7712ed4 100644
+--- a/templates/dashboard/deployment.yaml
++++ b/templates/dashboard/deployment.yaml
+@@ -67,6 +67,14 @@ spec:
+         - name: dashboard-certs
+           secret:
+             secretName: dashboard-tls
++        {{- with .Values.dashboard.wazuhAppConfigSecret }}
++        # KubeAid patch: wazuh.yml of the Wazuh app from a Secret (several API hosts).
++        - name: wazuh-app-config
++          secret:
++            # Not optional: a missing key under subPath would become a directory.
++            # The pod waits in ContainerCreating until the Secret exists.
++            secretName: {{ . }}
++        {{- end }}
+       {{- if .Values.wazuh.images.imagePullSecrets.enabled }}
+       imagePullSecrets:
+       {{- range .Values.wazuh.images.imagePullSecrets.secret }}
+@@ -115,6 +123,12 @@ spec:
+               name: dashboard-certs
+               readOnly: true
+               subPath: ca.crt
++            {{- if .Values.dashboard.wazuhAppConfigSecret }}
++            - mountPath: /usr/share/wazuh-dashboard/data/wazuh/config/wazuh.yml
++              name: wazuh-app-config
++              readOnly: true
++              subPath: wazuh.yml
++            {{- end }}
+           ports:
+             - containerPort: {{ .Values.dashboard.service.httpPort }}
+               name: dashboard
+diff --git a/templates/indexer/configmap.yaml b/templates/indexer/configmap.yaml
+index 68cb969..f3bc2cc 100644
+--- a/templates/indexer/configmap.yaml
++++ b/templates/indexer/configmap.yaml
+@@ -38,6 +38,10 @@ data:
+     plugins.security.enable_snapshot_restore_privilege: true
+     plugins.security.nodes_dn:
+       - CN={{ include "wazuh.indexer.fullname" . }}-indexer,O={{ .Values.certificates.subject.organization }},L={{ .Values.certificates.subject.locality }},C={{ .Values.certificates.subject.country }}
++      {{- /* KubeAid patch: more node DNs, e.g. a cross-cluster search node of another release. */}}
++      {{- range .Values.indexer.config.extraNodesDn }}
++      - {{ . | quote }}
++      {{- end }}
+     plugins.security.restapi.roles_enabled:
+     - "all_access"
+     - "security_rest_api_access"
+diff --git a/templates/indexer/secret-securityconfig.yaml b/templates/indexer/secret-securityconfig.yaml
+index 5860ee7..0506c48 100644
+--- a/templates/indexer/secret-securityconfig.yaml
++++ b/templates/indexer/secret-securityconfig.yaml
+@@ -125,6 +125,12 @@ stringData:
+         - "readall"
+     {{- if and .Values.indexer.ldap.roleMappings .Values.indexer.ldap.roleMappings.readall.backendRoles }}
+         {{- toYaml .Values.indexer.ldap.roleMappings.readall.backendRoles | nindent 8 }}
++    {{- end }}
++    {{- if and .Values.dashboard.sso.oidc.roleMappings .Values.dashboard.sso.oidc.roleMappings.readall .Values.dashboard.sso.oidc.roleMappings.readall.backendRoles }}
++        {{- toYaml .Values.dashboard.sso.oidc.roleMappings.readall.backendRoles | nindent 8 }}
++    {{- end }}
++    {{- if and .Values.dashboard.sso.saml.roleMappings .Values.dashboard.sso.saml.roleMappings.readall .Values.dashboard.sso.saml.roleMappings.readall.backendRoles }}
++        {{- toYaml .Values.dashboard.sso.saml.roleMappings.readall.backendRoles | nindent 8 }}
+     {{- end }}
+       hosts: []
+       users: []
+@@ -610,6 +616,11 @@ stringData:
+       tenant_permissions: []
+       static: false
+ 
++{{- end }}
++{{- with .Values.indexer.config.extraRoles }}
++
++    # Extra roles (indexer.config.extraRoles)
++{{ toYaml . | indent 4 }}
+ {{- end }}
+   config.yml: |-
+ {{- if .Values.indexer.config.securityConfig }}
+@@ -635,6 +646,9 @@ stringData:
+         #default_tenant: ""
+         #server_username: kibanaserver
+         #index: '.kibana'
++        {{- if .Values.indexer.config.doNotFailOnForbidden }}
++        do_not_fail_on_forbidden: true
++        {{- end }}
+         http:
+           anonymous_auth_enabled: false
+           xff:
+diff --git a/templates/manager/configmap.yaml b/templates/manager/configmap.yaml
+index 0066bd6..11ca622 100644
+--- a/templates/manager/configmap.yaml
++++ b/templates/manager/configmap.yaml
+@@ -12,7 +12,14 @@ data:
+   local_rules.xml: {{ .Values.wazuh.localRules | default (.Files.Get "files/local_rules.xml") | default "<group></group>" | quote }}
+   internal_options.conf: {{ .Values.wazuh.internalOptions | default (.Files.Get "files/internal_options.conf") | default "# fallback" | quote }}
+ {{- if include "wazuh.filebeat.overridden" . }}
+-  filebeat.yml: {{ (.Values.wazuh.filebeat).config | default (include "wazuh.filebeat_config" .) | quote }}
++{{- $filebeatYml := (.Values.wazuh.filebeat).config | default (include "wazuh.filebeat_config" .) }}
++{{- if and (include "wazuh.indexRouting.enabled" .) (not (regexMatch "(?m)^filebeat\\.overwrite_pipelines:\\s*true" $filebeatYml)) }}
++{{- fail "wazuh.filebeat.indexRouting needs filebeat.overwrite_pipelines: true in wazuh.filebeat.config" }}
++{{- end }}
++  filebeat.yml: {{ $filebeatYml | quote }}
++{{- end }}
++{{- if include "wazuh.indexRouting.enabled" . }}
++  alerts-pipeline.json: {{ include "wazuh.filebeat.alertsPipeline" . | quote }}
+ {{- end }}
+ 
+ {{- if .Values.wazuh.agentGroupConf }}
+diff --git a/templates/manager/master/statefulset.yaml b/templates/manager/master/statefulset.yaml
+index 86b71fe..32bc1f2 100644
+--- a/templates/manager/master/statefulset.yaml
++++ b/templates/manager/master/statefulset.yaml
+@@ -32,6 +32,13 @@ spec:
+         {{- end }}
+       name: wazuh-manager-master
+       annotations:
++        {{- /* KubeAid: roll the manager whenever the rendered ConfigMap changes. ossec.conf,
++             local_rules.xml, local_decoder.xml and the agent group confs are copied out of
++             it into /var/ossec/etc only at container start, so a synced change would
++             otherwise stay inactive until someone restarts the pod. Unlike the upstream
++             autoreload block below this hashes nothing random: the Secrets it also hashes
++             carry randAlphaNum defaults and would roll the pod on every render. */}}
++        checksum/config: {{ include (print $.Template.BasePath "/manager/configmap.yaml") . | sha256sum }}
+         {{- if .Values.autoreload.enabled }}
+         checksum/configmap: {{ include (print $.Template.BasePath "/manager/configmap.yaml") . | sha256sum }}
+         checksum/filebeat-certificate: {{ include (print $.Template.BasePath "/certs/filebeat/certificate.yaml") . | sha256sum }}
+@@ -78,6 +85,13 @@ spec:
+             secretName: {{ .Values.wazuh.authd.existingSecret | default "wazuh-authd-pass" }}
+         - emptyDir: {}
+           name: result-config
++        {{- with .Values.wazuh.agentGroupConfConfigMap }}
++        # KubeAid: agent group confs from a ConfigMap managed outside this chart.
++        - name: agent-group-conf-extra
++          configMap:
++            name: {{ . }}
++            optional: true
++        {{- end }}
+       {{- with .Values.wazuh.master.additionalVolumes }}
+         {{- toYaml . | nindent 8 }}
+       {{- end }}
+@@ -104,6 +118,31 @@ spec:
+               name: config
+               readOnly: true
+               subPath: script.sh
++        {{- if .Values.wazuh.agentGroupConfConfigMap }}
++        # KubeAid: every key <group>.conf of wazuh.agentGroupConfConfigMap becomes
++        # etc/shared/<group>/agent.conf, next to the wazuh.agentGroupConf groups.
++        - name: agent-group-conf
++          image: {{ .Values.wazuh.initContainer.image }}
++          imagePullPolicy: {{ .Values.wazuh.images.pullPolicy }}
++          command:
++            - sh
++            - -c
++            - |
++              for f in /agent-group-conf-extra/*.conf; do
++                [ -f "$f" ] || continue
++                g=$(basename "$f" .conf)
++                mkdir -p "/wazuh-config-mount/etc/shared/$g"
++                cp "$f" "/wazuh-config-mount/etc/shared/$g/agent.conf"
++              done
++          resources:
++            {{- toYaml .Values.wazuh.initContainer.resources | nindent 12 }}
++          volumeMounts:
++            - mountPath: /wazuh-config-mount/etc/
++              name: result-config
++            - mountPath: /agent-group-conf-extra
++              name: agent-group-conf-extra
++              readOnly: true
++        {{- end }}
+         {{- with .Values.wazuh.extraInitContainers }}
+         {{- toYaml . | nindent 8 }}
+         {{- end }}
+@@ -143,13 +182,44 @@ spec:
+                 - /bin/sh
+                 - -c
+                 - |
++                  # postStart fires as the container starts, before the image's
++                  # entrypoint has copied /wazuh-config-mount into /var/ossec, so a
++                  # new group's directory does not exist yet. Wait for it (the
++                  # entrypoint keeps running while the hook waits), then hand it to the
++                  # wazuh user: wazuh-remoted builds merged.mg in there and fails
++                  # with "Permission denied" on a root-owned directory, leaving
++                  # agents that are only in that group without their shared config.
++                  # remoted rebuilds merged.mg on its own, no restart needed.
+                   {{- range .Values.wazuh.agentGroupConf }}
+-                  if [ -d "/var/ossec/etc/shared/{{ .name }}" ]; then
+-                    chown -R wazuh:wazuh /var/ossec/etc/shared/{{ .name }}
+-                    chmod 770 /var/ossec/etc/shared/{{ .name }}
+-                    chmod 660 /var/ossec/etc/shared/{{ .name }}/* 2>/dev/null || true
+-                  fi
++                  for i in $(seq 1 90); do
++                    if [ -f "/var/ossec/etc/shared/{{ .name }}/agent.conf" ]; then
++                      sleep 3
++                      chown -R wazuh:wazuh /var/ossec/etc/shared/{{ .name }}
++                      chmod 2770 /var/ossec/etc/shared/{{ .name }}
++                      chmod 660 /var/ossec/etc/shared/{{ .name }}/* 2>/dev/null || true
++                      break
++                    fi
++                    sleep 2
++                  done
++                  {{- end }}
++                  {{- if .Values.wazuh.agentGroupConfConfigMap }}
++                  # Same for the groups from wazuh.agentGroupConfConfigMap, whose
++                  # names are only known at runtime.
++                  for d in /wazuh-config-mount/etc/shared/*/; do
++                    g=$(basename "$d")
++                    for i in $(seq 1 90); do
++                      if [ -f "/var/ossec/etc/shared/$g/agent.conf" ]; then
++                        sleep 3
++                        chown -R wazuh:wazuh "/var/ossec/etc/shared/$g"
++                        chmod 2770 "/var/ossec/etc/shared/$g"
++                        chmod 660 "/var/ossec/etc/shared/$g"/* 2>/dev/null || true
++                        break
++                      fi
++                      sleep 2
++                    done
++                  done
+                   {{- end }}
++                  true
+           volumeMounts:
+             # Wazuh Config
+             - mountPath: /wazuh-config-mount/etc/
+@@ -191,6 +261,13 @@ spec:
+               readOnly: true
+               subPath: filebeat.yml
+             {{- end }}
++            {{- if include "wazuh.indexRouting.enabled" . }}
++            # Tenant index routing: replaces the wazuh module's alerts pipeline.
++            - mountPath: /usr/share/filebeat/module/wazuh/alerts/ingest/pipeline.json
++              name: config
++              readOnly: true
++              subPath: alerts-pipeline.json
++            {{- end }}
+             # PVC
+             - name: {{ include "wazuh.fullname" . }}-manager-master
+               mountPath: /var/ossec/api/configuration
+diff --git a/templates/manager/worker/statefulset.yaml b/templates/manager/worker/statefulset.yaml
+index d47e157..8e93250 100644
+--- a/templates/manager/worker/statefulset.yaml
++++ b/templates/manager/worker/statefulset.yaml
+@@ -30,6 +30,13 @@ spec:
+         {{- end }}
+       name: wazuh-manager-worker
+       annotations:
++        {{- /* KubeAid: roll the manager whenever the rendered ConfigMap changes. ossec.conf,
++             local_rules.xml, local_decoder.xml and the agent group confs are copied out of
++             it into /var/ossec/etc only at container start, so a synced change would
++             otherwise stay inactive until someone restarts the pod. Unlike the upstream
++             autoreload block below this hashes nothing random: the Secrets it also hashes
++             carry randAlphaNum defaults and would roll the pod on every render. */}}
++        checksum/config: {{ include (print $.Template.BasePath "/manager/configmap.yaml") . | sha256sum }}
+         {{- if .Values.autoreload.enabled }}
+         checksum/configmap: {{ include (print $.Template.BasePath "/manager/configmap.yaml") . | sha256sum }}
+         checksum/filebeat-certificate: {{ include (print $.Template.BasePath "/certs/filebeat/certificate.yaml") . | sha256sum }}
+@@ -91,6 +98,13 @@ spec:
+             secretName: filebeat-tls
+         - name: result-config
+           emptyDir: {}
++        {{- with .Values.wazuh.agentGroupConfConfigMap }}
++        # KubeAid: agent group confs from a ConfigMap managed outside this chart.
++        - name: agent-group-conf-extra
++          configMap:
++            name: {{ . }}
++            optional: true
++        {{- end }}
+       {{- with .Values.wazuh.worker.additionalVolumes }}
+         {{- toYaml . | nindent 8 }}
+       {{- end }}
+@@ -117,6 +131,31 @@ spec:
+               name: config
+               readOnly: true
+               subPath: script.sh
++        {{- if .Values.wazuh.agentGroupConfConfigMap }}
++        # KubeAid: every key <group>.conf of wazuh.agentGroupConfConfigMap becomes
++        # etc/shared/<group>/agent.conf, next to the wazuh.agentGroupConf groups.
++        - name: agent-group-conf
++          image: {{ .Values.wazuh.initContainer.image }}
++          imagePullPolicy: {{ .Values.wazuh.images.pullPolicy }}
++          command:
++            - sh
++            - -c
++            - |
++              for f in /agent-group-conf-extra/*.conf; do
++                [ -f "$f" ] || continue
++                g=$(basename "$f" .conf)
++                mkdir -p "/wazuh-config-mount/etc/shared/$g"
++                cp "$f" "/wazuh-config-mount/etc/shared/$g/agent.conf"
++              done
++          resources:
++            {{- toYaml .Values.wazuh.initContainer.resources | nindent 12 }}
++          volumeMounts:
++            - mountPath: /wazuh-config-mount/etc/
++              name: result-config
++            - mountPath: /agent-group-conf-extra
++              name: agent-group-conf-extra
++              readOnly: true
++        {{- end }}
+         {{- with .Values.wazuh.extraInitContainers }}
+         {{- toYaml . | nindent 8 }}
+         {{- end }}
+@@ -156,13 +195,44 @@ spec:
+                 - /bin/sh
+                 - -c
+                 - |
++                  # postStart fires as the container starts, before the image's
++                  # entrypoint has copied /wazuh-config-mount into /var/ossec, so a
++                  # new group's directory does not exist yet. Wait for it (the
++                  # entrypoint keeps running while the hook waits), then hand it to the
++                  # wazuh user: wazuh-remoted builds merged.mg in there and fails
++                  # with "Permission denied" on a root-owned directory, leaving
++                  # agents that are only in that group without their shared config.
++                  # remoted rebuilds merged.mg on its own, no restart needed.
+                   {{- range .Values.wazuh.agentGroupConf }}
+-                  if [ -d "/var/ossec/etc/shared/{{ .name }}" ]; then
+-                    chown -R wazuh:wazuh /var/ossec/etc/shared/{{ .name }}
+-                    chmod 770 /var/ossec/etc/shared/{{ .name }}
+-                    chmod 660 /var/ossec/etc/shared/{{ .name }}/* 2>/dev/null || true
+-                  fi
++                  for i in $(seq 1 90); do
++                    if [ -f "/var/ossec/etc/shared/{{ .name }}/agent.conf" ]; then
++                      sleep 3
++                      chown -R wazuh:wazuh /var/ossec/etc/shared/{{ .name }}
++                      chmod 2770 /var/ossec/etc/shared/{{ .name }}
++                      chmod 660 /var/ossec/etc/shared/{{ .name }}/* 2>/dev/null || true
++                      break
++                    fi
++                    sleep 2
++                  done
++                  {{- end }}
++                  {{- if .Values.wazuh.agentGroupConfConfigMap }}
++                  # Same for the groups from wazuh.agentGroupConfConfigMap, whose
++                  # names are only known at runtime.
++                  for d in /wazuh-config-mount/etc/shared/*/; do
++                    g=$(basename "$d")
++                    for i in $(seq 1 90); do
++                      if [ -f "/var/ossec/etc/shared/$g/agent.conf" ]; then
++                        sleep 3
++                        chown -R wazuh:wazuh "/var/ossec/etc/shared/$g"
++                        chmod 2770 "/var/ossec/etc/shared/$g"
++                        chmod 660 "/var/ossec/etc/shared/$g"/* 2>/dev/null || true
++                        break
++                      fi
++                      sleep 2
++                    done
++                  done
+                   {{- end }}
++                  true
+           volumeMounts:
+             # Wazuh config
+             - mountPath: /wazuh-config-mount/etc/
+@@ -190,6 +260,13 @@ spec:
+               readOnly: true
+               subPath: filebeat.yml
+             {{- end }}
++            {{- if include "wazuh.indexRouting.enabled" . }}
++            # Tenant index routing: replaces the wazuh module's alerts pipeline.
++            - mountPath: /usr/share/filebeat/module/wazuh/alerts/ingest/pipeline.json
++              name: config
++              readOnly: true
++              subPath: alerts-pipeline.json
++            {{- end }}
+             # PVC
+             - name: {{ include "wazuh.fullname" . }}-manager-worker
+               mountPath: /var/ossec/api/configuration
+@@ -269,6 +346,41 @@ spec:
+           {{- with .Values.wazuh.worker.additionalEnv }}
+             {{- toYaml . | nindent 12 }}
+           {{- end }}
++        {{- with .Values.wazuh.worker.rulesetReloader }}
++        {{- if .enabled }}
++        # KubeAid: reloads this worker's analysisd once the master's ruleset has synced
++        # to it, after every start and after later syncs. See files/ruleset-reloader.sh.
++        - name: ruleset-reloader
++          image: "{{ $.Values.wazuh.images.repository }}:{{ $.Values.wazuh.images.tag }}"
++          imagePullPolicy: {{ $.Values.wazuh.images.pullPolicy }}
++          command:
++            - /bin/sh
++            - -c
++            - |
++{{ $.Files.Get "files/ruleset-reloader.sh" | indent 14 }}
++          env:
++            - name: RELOAD_SETTLE_SECONDS
++              value: {{ .settleSeconds | quote }}
++            - name: RELOAD_POLL_SECONDS
++              value: {{ .pollSeconds | quote }}
++          envFrom:
++            - secretRef:
++                name: {{ $.Values.wazuh.apiCred.existingSecret | default "wazuh-api-cred" }}
++          {{- with .resources }}
++          resources:
++            {{- toYaml . | nindent 12 }}
++          {{- end }}
++          {{- with .securityContext }}
++          securityContext:
++            {{- toYaml . | nindent 12 }}
++          {{- end }}
++          volumeMounts:
++            - name: {{ include "wazuh.fullname" $ }}-manager-worker
++              mountPath: /var/ossec/etc
++              subPath: wazuh/var/ossec/etc
++              readOnly: true
++        {{- end }}
++        {{- end }}
+   volumeClaimTemplates:
+     - apiVersion: v1
+       kind: PersistentVolumeClaim
+diff --git a/tests/render_test.sh b/tests/render_test.sh
+index ac2fa5a..1546664 100644
+--- a/tests/render_test.sh
++++ b/tests/render_test.sh
+@@ -3,7 +3,7 @@
+ # BackendTLSPolicy / Certificate) and for the config templating fix (#173).
+ #
+ # Usage: charts/wazuh/tests/render_test.sh
+-# Requires: helm on PATH. No cluster access needed (pure `helm template`).
++# Requires: helm, yq (v4) and jq on PATH. No cluster access needed (pure `helm template`).
+ # Fetches the chart's dependencies (cert-manager) on every run, so it works
+ # from a clean checkout without a manual `helm dependency build` step.
+ set -uo pipefail
+@@ -74,6 +74,17 @@ assert_not_contains() {
+   fi
+ }
+ 
++assert_equals() {
++  local name="$1" expected="$2" actual="$3"
++  if [ -n "$expected" ] && [ "$expected" = "$actual" ]; then
++    echo "PASS: $name"
++    pass=$((pass + 1))
++  else
++    echo "FAIL: $name (expected '$expected', got '$actual')"
++    fail=$((fail + 1))
++  fi
++}
++
+ LISTENERSET=templates/dashboard/listenerset.yaml
+ HTTPROUTE=templates/dashboard/httproute.yaml
+ BACKENDTLSPOLICY=templates/dashboard/backendtlspolicy.yaml
+@@ -265,6 +276,85 @@ assert_contains "an override alone does not enable archives" "$out" '<logall_jso
+ out=$(render_only "$MASTER_STS" "${override_args[@]}")
+ assert_contains "an override alone still mounts filebeat.yml" "$out" "$FILEBEAT_MOUNT"
+ 
++echo "== KubeAid: checksum/config rolls the managers on a config change, and only then =="
++config_sum() { render_only "$1" "${@:2}" | grep 'checksum/config:' | awk '{print $2}'; }
++for sts in "$MASTER_STS" "$WORKER_STS"; do
++  base=$(config_sum "$sts")
++  assert_equals "checksum is stable across renders (${sts##*/manager/})" "$base" "$(config_sum "$sts")"
++  assert_equals "an unrelated value leaves it alone (${sts##*/manager/})" "$base" \
++    "$(config_sum "$sts" --set wazuh.worker.storageSize=70Gi)"
++  for change in 'wazuh.localRules=<group/>' 'wazuh.master.extraConf=<!-- x -->' \
++                'wazuh.worker.extraConf=<!-- x -->' 'wazuh.agentGroupConf[0].agent=<agent_config/>'; do
++    changed=$(config_sum "$sts" --set-string "$change")
++    if [ -n "$changed" ] && [ "$changed" != "$base" ]; then
++      echo "PASS: ${change%%=*} changes the checksum (${sts##*/manager/})"; pass=$((pass + 1))
++    else
++      echo "FAIL: ${change%%=*} did not change the checksum (${sts##*/manager/})"; fail=$((fail + 1))
++    fi
++  done
++done
++
++echo "== KubeAid: the worker's ruleset-reloader sidecar is opt-in =="
++out=$(render_only "$WORKER_STS")
++assert_not_contains "no sidecar by default" "$out" "name: ruleset-reloader"
++out=$(render_only "$WORKER_STS" --set wazuh.worker.rulesetReloader.enabled=true)
++assert_contains "the sidecar is added when enabled" "$out" "name: ruleset-reloader"
++assert_contains "it reads the API credentials Secret" "$out" "name: wazuh-api-cred"
++assert_contains "it mounts the worker's etc read-only" "$out" "subPath: wazuh/var/ossec/etc"
++out=$(render_only "$MASTER_STS" --set wazuh.worker.rulesetReloader.enabled=true)
++assert_not_contains "the master gets no sidecar" "$out" "name: ruleset-reloader"
++
++echo "== KubeAid: tenant index routing (wazuh.filebeat.indexRouting) is opt-in =="
++PIPELINE_MOUNT=/usr/share/filebeat/module/wazuh/alerts/ingest/pipeline.json
++out=$(render_only "$MANAGER_CONFIGMAP")
++assert_not_contains "no pipeline in the ConfigMap by default" "$out" "alerts-pipeline.json"
++for sts in "$MASTER_STS" "$WORKER_STS"; do
++  out=$(render_only "$sts")
++  assert_not_contains "no pipeline mount by default (${sts##*/manager/})" "$out" "$PIPELINE_MOUNT"
++done
++routing_args=(--set wazuh.filebeat.indexRouting.enabled=true --set wazuh.filebeat.indexRouting.labelKey=unit
++              --set-string 'wazuh.filebeat.indexRouting.valuePattern=^[0-9]{3}$'
++              --set wazuh.filebeat.indexRouting.dateRounding=M --set wazuh.filebeat.indexRouting.indexNameFormat=yyyy.MM)
++out=$(render_only "$MANAGER_CONFIGMAP" "${routing_args[@]}")
++assert_contains "the patched pipeline is in the ConfigMap" "$out" "alerts-pipeline.json:"
++assert_contains "filebeat.yml overwrites the pipeline in the indexer" "$out" 'filebeat.overwrite_pipelines: true'
++assert_contains "filebeat.yml keeps the entrypoint's hosts placeholder" "$out" "hosts: ['https://wazuh.indexer:9200']"
++pipeline=$(render_only "$MANAGER_CONFIGMAP" "${routing_args[@]}" | yq '.data["alerts-pipeline.json"]')
++if jq -e . >/dev/null 2>&1 <<<"$pipeline"; then echo "PASS: the pipeline is valid JSON"; pass=$((pass + 1)); else echo "FAIL: the pipeline is not valid JSON"; fail=$((fail + 1)); fi
++assert_equals "stock processors are kept, date_index_name becomes two" \
++  "$(( $(jq '.processors|length' "$CHART_DIR/files/filebeat/alerts-pipeline.json") + 1 ))" "$(jq '.processors|length' <<<"$pipeline")"
++assert_equals "tenant index prefix carries the label" '{{fields.index_prefix}}{{agent.labels.unit}}-' \
++  "$(jq -r '.processors[].date_index_name | select(.tag=="tenant-index") | .index_name_prefix' <<<"$pipeline")"
++assert_equals "tenant index is only used for a matching label" \
++  'ctx.agent?.labels?.unit instanceof String && ctx.agent.labels.unit ==~ /^[0-9]{3}$/' \
++  "$(jq -r '.processors[].date_index_name | select(.tag=="tenant-index") | .if' <<<"$pipeline")"
++assert_equals "tenant index uses the configured rounding" "M yyyy.MM" \
++  "$(jq -r '.processors[].date_index_name | select(.tag=="tenant-index") | "\(.date_rounding) \(.index_name_format)"' <<<"$pipeline")"
++assert_equals "the stock index keeps its prefix and daily rounding" '{{fields.index_prefix}} d yyyy.MM.dd' \
++  "$(jq -r '.processors[].date_index_name | select(.tag=="default-index") | "\(.index_name_prefix) \(.date_rounding) \(.index_name_format)"' <<<"$pipeline")"
++for sts in "$MASTER_STS" "$WORKER_STS"; do
++  out=$(render_only "$sts" "${routing_args[@]}")
++  assert_contains "pipeline is mounted in ${sts##*/manager/}" "$out" "$PIPELINE_MOUNT"
++  assert_contains "filebeat.yml is mounted in ${sts##*/manager/}" "$out" "$FILEBEAT_MOUNT"
++done
++expect_failure "a label key that is not [a-z0-9_]+ is refused" \
++  render --set wazuh.filebeat.indexRouting.enabled=true --set 'wazuh.filebeat.indexRouting.labelKey=a.b'
++expect_failure "an own filebeat.yml without overwrite_pipelines is refused" \
++  render --set wazuh.filebeat.indexRouting.enabled=true --set 'wazuh.filebeat.config=# mine'
++expect_success "an own filebeat.yml with overwrite_pipelines is accepted" \
++  render --set wazuh.filebeat.indexRouting.enabled=true --set-string 'wazuh.filebeat.config=filebeat.overwrite_pipelines: true'
++
++echo "== KubeAid: extra OpenSearch roles and do_not_fail_on_forbidden =="
++out=$(render_only templates/indexer/secret-securityconfig.yaml)
++assert_not_contains "do_not_fail_on_forbidden is not set by default" "$out" "do_not_fail_on_forbidden: true"
++assert_not_contains "no extra roles by default" "$out" "Extra roles"
++out=$(render_only templates/indexer/secret-securityconfig.yaml --set indexer.config.doNotFailOnForbidden=true \
++  --set 'indexer.config.extraRoles.tenant-a-reader.index_permissions[0].index_patterns[0]=wazuh-alerts-4.x-a-*')
++assert_contains "do_not_fail_on_forbidden is set when asked for" "$out" "do_not_fail_on_forbidden: true"
++roles=$(yq '.stringData["roles.yml"]' <<<"$out")
++assert_equals "the extra role lands in roles.yml" 'wazuh-alerts-4.x-a-*' "$(yq '.["tenant-a-reader"].index_permissions[0].index_patterns[0]' <<<"$roles")"
++assert_equals "the stock roles are kept" 'true' "$(yq '.manage_wazuh_index.reserved' <<<"$roles")"
++
+ echo
+ echo "==================================="
+ echo "PASS: $pass  FAIL: $fail"
+diff --git a/values.yaml b/values.yaml
+index be23228..cde96f6 100644
+--- a/values.yaml
++++ b/values.yaml
+@@ -228,6 +228,23 @@ indexer:
+     tenants: ""
+     nodesDn: ""
+     whitelist: ""
++    ## KubeAid patch. Extra node DNs appended to plugins.security.nodes_dn in opensearch.yml,
++    ## e.g. the node certificate DN of a central indexer that searches this one with
++    ## cross-cluster search. nodes_dn.yml (nodesDn above) is only read when the security
++    ## plugin's dynamic nodes_dn config is enabled, which it is not by default.
++    ## @param indexer.config.extraNodesDn Extra node certificate DNs.
++    extraNodesDn: []
++    ## Extra roles appended to roles.yml (also after an indexer.config.roles override), as
++    ## a map in the security plugin's roles.yml format. Map them with
++    ## dashboard.sso.*.extraRoleMappings or indexer.ldap.extraRoleMappings.
++    ## @param indexer.config.extraRoles Extra OpenSearch security roles.
++    extraRoles: {}
++    ## With false (the default) a search over a wildcard such as wazuh-alerts-* fails with
++    ## 403 as soon as it covers one index the user may not read. Set true when some users
++    ## may read only part of an index family (per-tenant indices): the search then runs on
++    ## the indices they may read. Ignored with an indexer.config.securityConfig override.
++    ## @param indexer.config.doNotFailOnForbidden Set do_not_fail_on_forbidden in config.yml.
++    doNotFailOnForbidden: false
+   ## @param indexer.additionalConfigs Additional configurations to add to the configmap
+   additionalConfigs: {}
+   ## LDAP / Active Directory authentication for the indexer (OpenSearch Security)
+@@ -498,6 +515,13 @@ dashboard:
+ 
+   ## @param dashboard.additionalEnv Possibility to define additional env vars in the pod.
+   additionalEnv: []
++  ## KubeAid patch. Name of a Secret whose key wazuh.yml replaces the Wazuh app config
++  ## (data/wazuh/config/wazuh.yml), e.g. to list several manager APIs. The image's start
++  ## script leaves the file alone when it contains the host id 1513629884013, so give the
++  ## first host that id and put checks/pattern settings in the file, not in env vars.
++  ## Empty: the image writes a single host from WAZUH_API_URL and the API credentials.
++  ## @param dashboard.wazuhAppConfigSecret Secret with wazuh.yml for the Wazuh app.
++  wazuhAppConfigSecret: ""
+   ## @param dashboard.enable_ssl with this you will be able to access kibana on http port instead of
+   enable_ssl: false
+   ## @param dashboard.config Configuration of the dashboard parameters, this should not be changed.
+@@ -549,6 +573,9 @@ dashboard:
+       roleMappings:
+         allAccess:
+           backendRoles: []
++        ## Backend roles mapped to the built-in readall role (read on every index).
++        readall:
++          backendRoles: []
+         kibanaServer:
+           backendRoles: []
+         kibanaUser:
+@@ -588,6 +615,9 @@ dashboard:
+       roleMappings:
+         allAccess:
+           backendRoles: []
++        ## Backend roles mapped to the built-in readall role (read on every index).
++        readall:
++          backendRoles: []
+         kibanaServer:
+           backendRoles: []
+         kibanaUser:
+@@ -766,6 +796,34 @@ wazuh:
+   ## @param wazuh.filebeat.config Override for filebeat.yml. If empty, the generated config is used.
+   filebeat:
+     config: ""
++    ## Per-tenant alert indices. An agent label (set in the agent's ossec.conf or, better,
++    ## in its group's agent.conf, see agentGroupConf) picks the index:
++    ##   <label key="tenant">acme</label>  ->  wazuh-alerts-4.x-acme-<date>
++    ## Alerts without the label, or whose value does not match valuePattern, keep the
++    ## stock wazuh-alerts-4.x-<date>. Both stay under the wazuh index template
++    ## (wazuh-alerts-4.x-*) and the dashboard's wazuh-alerts-* index pattern, so per-tenant
++    ## access is a matter of index permissions on wazuh-alerts-4.x-<tenant>-*.
++    ## Mounts a patched copy of the module's alerts pipeline (files/filebeat/) on the
++    ## managers and turns on filebeat.overwrite_pipelines so it replaces the one already in
++    ## the indexer. Turning this off again does NOT restore the stock pipeline in the
++    ## indexer: delete it (DELETE _ingest/pipeline/filebeat-<version>-wazuh-alerts-pipeline)
++    ## and restart the managers, and filebeat uploads the stock one.
++    ## @param wazuh.filebeat.indexRouting.enabled Route alerts to per-tenant indices by agent label.
++    ## @param wazuh.filebeat.indexRouting.labelKey Agent label key ([a-z0-9_]+); read from agent.labels.<key>.
++    ## @param wazuh.filebeat.indexRouting.valuePattern Painless regex the label value must match to be used in an index name.
++    ## @param wazuh.filebeat.indexRouting.dateRounding date_index_name rounding for tenant indices (y, M, w, d, h); empty keeps the stock daily.
++    ## @param wazuh.filebeat.indexRouting.indexNameFormat Date format for tenant indices (e.g. yyyy.MM); empty keeps the stock yyyy.MM.dd.
++    indexRouting:
++      enabled: false
++      labelKey: tenant
++      valuePattern: "^[a-z0-9]{1,32}$"
++      dateRounding: ""
++      indexNameFormat: ""
++  ## @param wazuh.agentGroupConfConfigMap Name of a ConfigMap managed outside this chart whose keys `<group>.conf` become `etc/shared/<group>/agent.conf` on the managers (KubeAid addition)
++  ## Copied at container start like agentGroupConf, so a change needs a manager restart
++  ## (this chart cannot hash a ConfigMap it does not render). A group that is also in
++  ## agentGroupConf keeps the agentGroupConf content.
++  agentGroupConfConfigMap: ""
+   ## @skip wazuh.agentGroupConf
+   agentGroupConf:
+     - name: example
+@@ -965,6 +1023,30 @@ wazuh:
+       pod: {}
+       container: {}
+ 
++    ## @param wazuh.worker.rulesetReloader.enabled Run a sidecar that reloads the worker's analysisd after the master's ruleset has synced to it (files/ruleset-reloader.sh).
++    ## @param wazuh.worker.rulesetReloader.settleSeconds Seconds the synced ruleset must stay unchanged before the reload.
++    ## @param wazuh.worker.rulesetReloader.pollSeconds Seconds between checks of the ruleset on disk.
++    ## @param wazuh.worker.rulesetReloader.resources Resources of the sidecar.
++    ## @param wazuh.worker.rulesetReloader.securityContext securityContext of the sidecar. 999 is the wazuh user of the manager image, which owns /var/ossec/etc.
++    rulesetReloader:
++      enabled: false
++      settleSeconds: 90
++      pollSeconds: 30
++      resources:
++        requests:
++          cpu: 5m
++          memory: 16Mi
++        limits:
++          memory: 64Mi
++      securityContext:
++        runAsUser: 999
++        runAsGroup: 999
++        runAsNonRoot: true
++        allowPrivilegeEscalation: false
++        readOnlyRootFilesystem: true
++        capabilities:
++          drop: ["ALL"]
++
+ agent:
+   ## @param agent.enabled Enable the agent.
+   enabled: true
