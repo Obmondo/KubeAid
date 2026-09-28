@@ -44,5 +44,16 @@ check "no generated passwords" "" \
 check "fixed IRIS customer in ossec.conf" "1" \
   "$(q 'select(.kind=="ConfigMap" and .metadata.name=="wazuh-manager-config") | .data["master.conf"]' | grep -c '"customer_name": "Tenant 001"')"
 
+# KubeAid wazuh.ruleset patch: extra lists and excludes land inside the stock <ruleset>.
+rs=$(helm template wazuh-001 . -n wazuh-001 -f tests/values-tenant.yaml \
+  --set 'wazuh.wazuh.ruleset.extraLists={etc/lists/misp-malicious-ip}' \
+  --set 'wazuh.wazuh.ruleset.extraRuleExcludes={0999-malicious-ioc-rules.xml}' |
+  yq -N 'select(.kind=="ConfigMap" and .metadata.name=="wazuh-manager-config") | .data["master.conf"]' |
+  sed -n '/<ruleset>/,/<\/ruleset>/p')
+check "one <ruleset> block" "1" "$(grep -c '<ruleset>' <<<"$rs")"
+check "extra list registered" "1" "$(grep -c '<list>etc/lists/misp-malicious-ip</list>' <<<"$rs")"
+check "stock IoC file excluded" "1" "$(grep -c '<rule_exclude>0999-malicious-ioc-rules.xml</rule_exclude>' <<<"$rs")"
+check "stock entries kept" "1" "$(grep -c '<rule_exclude>0215-policy_rules.xml</rule_exclude>' <<<"$rs")"
+
 echo "tenant mode: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]

@@ -422,6 +422,12 @@ with the security-operations umbrella chart:
 - `indexer.config.extraNodesDn` (section 11): extra DNs appended to `plugins.security.nodes_dn`
   in `templates/indexer/configmap.yaml`, plus the value. `nodes_dn.yml` is not read unless
   dynamic nodes_dn config is enabled, so a cross-cluster search node must be listed here.
+- `wazuh.ruleset.extraLists` / `wazuh.ruleset.extraRuleExcludes`: extra `<list>` and
+  `<rule_exclude>` entries appended to the stock `<ruleset>` in
+  `templates/_ossec_conf.tpl` (master and worker), plus the values. A second `<ruleset>`
+  in `extraConf` with a `rule_exclude` makes analysisd rebuild the ruleset from that block
+  alone, so callers had to repeat the stock entries; this keeps one block. Nothing renders
+  while both are empty. Used by the kubesoc-content package (its README).
 - `dashboard.wazuhAppConfigSecret` (section 11): a Secret volume mounted over
   `data/wazuh/config/wazuh.yml` in `templates/dashboard/deployment.yaml`, plus the value.
   Nothing renders while it is empty.
