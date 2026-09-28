@@ -18,7 +18,10 @@ import urllib.error
 import urllib.request
 
 MISP_URL = os.environ["MISP_URL"].rstrip("/")
-MISP_KEY = os.environ["MISP_KEY"]
+# A read-only user's key when there is one (security-operations mispReadOnly), else
+# the site admin key.
+MISP_KEY = os.environ.get("MISP_READONLY_KEY") or os.environ["MISP_KEY"]
+MISP_KEY_KIND = "read-only" if os.environ.get("MISP_READONLY_KEY") else "admin"
 # Several managers (one Wazuh per tenant): WAZUH_TARGETS is JSON
 # [{"name": "001", "url": "https://...:55000", "verifyTls": false}, ...] and each
 # target's login is read from /wazuh-creds/<name>/{API_USERNAME,API_PASSWORD}.
@@ -166,7 +169,7 @@ def wazuh_reload(t, token):
 # ---- main -------------------------------------------------------------------
 def main():
     managers = targets()
-    log(f"MISP {MISP_URL} -> {len(managers)} Wazuh manager(s), {len(LISTS)} lists, dry_run={DRY_RUN}")
+    log(f"MISP {MISP_URL} ({MISP_KEY_KIND} key) -> {len(managers)} Wazuh manager(s), {len(LISTS)} lists, dry_run={DRY_RUN}")
     rendered = {}
     for spec in LISTS:
         entries = misp_attributes(spec["types"])
