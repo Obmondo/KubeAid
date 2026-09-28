@@ -273,6 +273,45 @@ global:
         "k8s:app.kubernetes.io/name": blackbox-exporter
 ```
 
+## PostgreSQL backups
+
+`global.postgresql.backups` renders a barman-cloud `ObjectStore`, turns on WAL archiving on
+the `Cluster` (`isWALArchiver: true`) and adds a `ScheduledBackup`, so a restore can roll
+forward to any point between two base backups rather than only to the last one.
+
+```yaml
+global:
+  postgresql:
+    enabled: true
+    instanceName: iris
+    backups:
+      enabled: true
+      cloud: aws                       # any S3-compatible store
+      destinationPath: s3://kubesoc-backups/kubesoc/iris-pgsql
+      endpointURL: https://s3.example.com   # omit for AWS S3
+      schedule: "0 0 0 * * *"          # CNPG cron: the first field is seconds
+      retentionPolicy: 30d
+      secretName: kubesoc-backup-s3    # default: <instanceName>-pgsql-backup-creds
+      accessKeyIdKey: ACCESS_KEY_ID
+      secretAccessKeySecretKeyRef: ACCESS_SECRET_KEY
+      revision: 1
+```
+
+Things to know:
+
+- **`revision` starts a new series.** The `Cluster` archives to `serverName: revision-<n>`.
+  After restoring into a new cluster, bump it, or the recovered cluster archives into the
+  series it was restored from and the two histories interleave.
+- **Restores are never in place.** CloudNativePG recovers into a *new* `Cluster`
+  (`bootstrap.recovery`, `global.postgresql.recover`), which is why `kubeaid-cli siem
+  restore` prints the PostgreSQL step instead of doing it.
+- **The pods carry `velero.io/exclude-from-backup`** (`inheritedMetadata`), so a Velero
+  backup of the namespace skips the database volumes and leaves them to barman. A file-system
+  copy of a running PostgreSQL data directory is not a backup.
+- `global.postgresql.topologyKey` is the failure domain the instances are kept apart in;
+  with `podAntiAffinityType: required` and `instances: 3`, setting it to
+  `topology.kubernetes.io/zone` needs three zones.
+
 ## Adding a new operator resource type
 
 1. Add a template in `templates/<resource>.yaml` guarded by `{{- if ((.Values.global).<type>).enabled }}`

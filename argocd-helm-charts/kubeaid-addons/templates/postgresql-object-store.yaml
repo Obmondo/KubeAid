@@ -16,22 +16,26 @@ spec:
     {{- end }}
     {{- if or (eq ($backups.cloud | default "") "aws") (eq ($backups.provider | default "") "aws") }}
     s3Credentials:
-      {{- if $backups.aws.enableKube2IAMIntegration }}
+      {{- if ($backups.aws | default dict).enableKube2IAMIntegration }}
       inheritFromIAMRole: true
       {{- else }}
+      {{- $secret := $backups.secretName | default (printf "%s-pgsql-backup-creds" .Values.global.postgresql.instanceName) }}
       accessKeyId:
-        name: {{ .Values.global.postgresql.instanceName }}-pgsql-backup-creds
-        key: ACCESS_KEY_ID
+        name: {{ $secret }}
+        key: {{ $backups.accessKeyIdKey | default "ACCESS_KEY_ID" }}
       secretAccessKey:
-        name: {{ .Values.global.postgresql.instanceName }}-pgsql-backup-creds
-        key: ACCESS_SECRET_KEY
+        name: {{ $secret }}
+        key: {{ $backups.secretAccessKeyKey | default "ACCESS_SECRET_KEY" }}
       {{- end }}
     {{- end }}
 
+    {{- $wal := $backups.wal | default dict }}
     wal:
-      compression: gzip
-      encryption: AES256
-      maxParallel: 8
+      compression: {{ $wal.compression | default "gzip" }}
+      encryption: {{ $wal.encryption | default "AES256" }}
+      maxParallel: {{ $wal.maxParallel | default 8 }}
 
-  retentionPolicy: {{ $backups.retentionPolicy }}
+  {{- with $backups.retentionPolicy }}
+  retentionPolicy: {{ . }}
+  {{- end }}
 {{- end }}

@@ -1,0 +1,74 @@
+{{- /*
+  Scheduled logical backups of the MISP database (externalMariadb.backup), as a
+  mariadb-operator Backup with a schedule. The operator runs mariadb-dump into
+  the storage below and prunes what is older than maxRetention.
+
+  `kubeaid-cli siem backup` clones this object without its schedule for a backup
+  out of band, and `siem restore` turns each Backup of a set into a Restore, so
+  the storage and the credentials only have to be right here.
+*/}}
+{{- if and .Values.externalMariadb.enabled .Values.externalMariadb.backup.enabled }}
+{{- $m := .Values.externalMariadb }}
+{{- $b := $m.backup }}
+{{- $s := $b.storage }}
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: Backup
+metadata:
+  name: {{ $b.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: mariadb
+    app.kubernetes.io/instance: {{ $m.name }}
+    kubesoc.io/backup: mariadb
+spec:
+  mariaDbRef:
+    name: {{ $m.name }}
+  schedule:
+    cron: {{ $b.schedule | quote }}
+    suspend: false
+  maxRetention: {{ $b.maxRetention }}
+  compression: {{ $b.compression }}
+  successfulJobsHistoryLimit: {{ $b.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ $b.failedJobsHistoryLimit }}
+  {{- with $b.databases }}
+  databases:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  storage:
+    {{- if eq $s.type "S3" }}
+    s3:
+      bucket: {{ $s.s3.bucket }}
+      {{- with $s.s3.prefix }}
+      prefix: {{ . }}
+      {{- end }}
+      endpoint: {{ $s.s3.endpoint | default "s3.amazonaws.com" }}
+      {{- with $s.s3.region }}
+      region: {{ . }}
+      {{- end }}
+      tls:
+        enabled: {{ $s.s3.tls }}
+        {{- with $s.s3.caSecret }}
+        caSecretKeyRef:
+          name: {{ . }}
+          key: ca.crt
+        {{- end }}
+      accessKeyIdSecretKeyRef:
+        name: {{ $s.s3.credentialsSecret }}
+        key: {{ $s.s3.accessKeyIdKey }}
+      secretAccessKeySecretKeyRef:
+        name: {{ $s.s3.credentialsSecret }}
+        key: {{ $s.s3.secretAccessKeyKey }}
+    {{- else if eq $s.type "PersistentVolumeClaim" }}
+    persistentVolumeClaim:
+      accessModes:
+        {{- toYaml $s.persistentVolumeClaim.accessModes | nindent 8 }}
+      resources:
+        requests:
+          storage: {{ $s.persistentVolumeClaim.size }}
+      {{- with $s.persistentVolumeClaim.storageClass }}
+      storageClassName: {{ . }}
+      {{- end }}
+    {{- else }}
+    {{- fail (printf "externalMariadb.backup.storage.type %q: use S3 or PersistentVolumeClaim" $s.type) }}
+    {{- end }}
+{{- end }}

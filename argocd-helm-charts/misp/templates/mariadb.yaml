@@ -7,7 +7,34 @@ metadata:
   name: {{ .Values.externalMariadb.name }}
   namespace: {{ .Release.Namespace }}
 spec:
-  replicas: 1
+{{- $m := .Values.externalMariadb }}
+{{- $replicas := int ($m.replicas | default 1) }}
+  replicas: {{ $replicas }}
+{{- if gt $replicas 1 }}
+  # More than one server: the operator runs one primary with asynchronous
+  # replication to the rest and fails over on its own. MISP keeps writing to the
+  # primary through the Service the operator repoints.
+  replication:
+    enabled: true
+    primary:
+      automaticFailover: true
+    replica:
+      waitPoint: {{ $m.waitPoint | default "AfterSync" }}
+{{- if $m.podDisruptionBudget.enabled }}
+  podDisruptionBudget:
+    minAvailable: {{ $m.podDisruptionBudget.minAvailable | quote }}
+{{- end }}
+{{- with $m.topologyKey }}
+  affinity:
+    antiAffinityEnabled: true
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - topologyKey: {{ . }}
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ $m.name }}
+{{- end }}
+{{- end }}
   rootPasswordSecretKeyRef:
     name: {{ .Values.externalMariadb.name }}-root
     key: password

@@ -645,6 +645,72 @@ fi
   && ok "no portal client while the portal is off" || ko "portal client rendered while off"
 expect_failure "portal host must match the client" "must equal the portal host" "${PORTAL[@]}" --set kubesoc-portal.ingress.host=other.example.com
 
+# --- Backups (values.yaml `backup`) -----------------------------------------
+BK=(-f "$SCRIPT_DIR/values-2-tenants.yaml" --set backup.enabled=true
+    --set dfir-iris.global.postgresql.backups.enabled=true
+    --set misp.externalMariadb.backup.enabled=true)
+[ -z "$(yq -N 'select(.metadata.labels["kubesoc.io/backup"] != null) | .kind' "$R2")" ] \
+  && ok "backups off: nothing rendered" || ko "backup objects while backup.enabled is false"
+if render "${BK[@]}" >"$TMP/bk.yaml"; then
+  ok "renders with the backup block on"
+  got=$(yq -N 'select(.metadata.labels["kubesoc.io/backup"] != null) | .kind + "/" + .metadata.name + "@" + .metadata.namespace' "$TMP/bk.yaml" | sort | paste -sd' ' -)
+  [ "$got" = "Backup/misp-mariadb-backup@security-operations ConfigMap/kubesoc-backup-scripts@security-operations ConfigMap/kubesoc-backup-scripts@wazuh-001 ConfigMap/kubesoc-backup-scripts@wazuh-002 CronJob/kubesoc-indexer-snapshot@security-operations CronJob/kubesoc-indexer-snapshot@wazuh-001 CronJob/kubesoc-indexer-snapshot@wazuh-002 NetworkPolicy/secops-backup-snapshot@wazuh-001 NetworkPolicy/secops-backup-snapshot@wazuh-002 Schedule/kubesoc-daily@velero Schedule/kubesoc-weekly@velero" ] \
+    && ok "the MISP Backup, a snapshot CronJob per indexer and the Schedules in Velero's namespace" || ko "backup objects: $got"
+  # `kubeaid-cli siem backup` finds the Schedule by the release namespace in its
+  # template, and the snapshot CronJobs by their label; both must stay as they are.
+  [ "$(yq -N 'select(.kind == "Schedule" and .metadata.name == "kubesoc-daily") | .spec.template.includedNamespaces | join(",")' "$TMP/bk.yaml")" = "security-operations,wazuh-001,wazuh-002" ] \
+    && ok "the daily Schedule covers the release and tenant namespaces" || ko "Schedule namespaces"
+  [ "$(yq -N 'select(.kind == "Schedule") | .spec.template.ttl' "$TMP/bk.yaml" | paste -sd, -)" = "336h0m0s,672h0m0s" ] \
+    && ok "14 daily and 4 weekly copies" || ko "Schedule ttl"
+  [ "$(yq -N 'select(.kind == "Schedule" and .metadata.name == "kubesoc-daily") | .spec.template.defaultVolumesToFsBackup' "$TMP/bk.yaml")" = "true" ] \
+    && ok "volumes are copied with Kopia, not CSI snapshots" || ko "defaultVolumesToFsBackup"
+  [ "$(yq -N 'select(.kind == "CronJob" and .metadata.name == "kubesoc-indexer-snapshot") | .metadata.labels["kubesoc.io/backup"]' "$TMP/bk.yaml" | sort -u)" = "opensearch-snapshot" ] \
+    && ok "siem backup finds the snapshot CronJobs by label" || ko "snapshot CronJob label"
+  env=$(yq -N 'select(.kind == "CronJob" and .metadata.namespace == "wazuh-001") | .spec.jobTemplate.spec.template.spec.containers[0].env[] | .name + "=" + (.value // "")' "$TMP/bk.yaml")
+  grep -qx 'INDEXER_URL=https://wazuh-indexer.wazuh-001.svc:9200' <<<"$env" && ok "a tenant Job talks to its own indexer" || ko "tenant indexer URL: $env"
+  grep -qx 'SNAPSHOT_ON_RUN=true' <<<"$env" && ok "a run snapshots while no policy manages it" || ko "SNAPSHOT_ON_RUN"
+  repo=$(yq -N 'select(.kind == "CronJob" and .metadata.namespace == "security-operations" and .metadata.name == "kubesoc-indexer-snapshot") | .spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "REPOSITORY_BODY") | .value' "$TMP/bk.yaml")
+  [ "$(jq -r '.type + " " + .settings.location' <<<"$repo")" = "fs /mnt/snapshots" ] \
+    && ok "the default repository is the shared volume" || ko "repository body: $repo"
+  [ "$(yq -N 'select(.kind == "NetworkPolicy" and .metadata.name == "secops-backup-snapshot") | .metadata.namespace' "$TMP/bk.yaml" | sort | paste -sd, -)" = "security-operations,wazuh-001,wazuh-002" ] \
+    && ok "the snapshot Job has a policy in every namespace" || ko "snapshot network policies"
+else
+  ko "renders with the backup block on"; cat "$TMP/err"
+fi
+# A backup set is only complete with the databases in it.
+expect_failure "the IRIS database must back itself up" "dfir-iris.global.postgresql.backups.enabled" \
+  -f "$SCRIPT_DIR/values-2-tenants.yaml" --set backup.enabled=true
+expect_failure "the MISP database must back itself up" "misp.externalMariadb.backup.enabled" \
+  -f "$SCRIPT_DIR/values-2-tenants.yaml" --set backup.enabled=true --set dfir-iris.global.postgresql.backups.enabled=true
+if render "${BK[@]}" --set checks.backupTargets=false >/dev/null; then
+  ok "checks.backupTargets: false is the way out" || true
+else
+  ko "checks.backupTargets: false still fails"; cat "$TMP/err"
+fi
+expect_failure "an unknown snapshot repository type is refused" "use fs or s3" "${BK[@]}" --set backup.opensearch.type=gcs
+if render "${BK[@]}" --set backup.opensearch.type=s3 --set backup.opensearch.policy.enabled=true \
+     --set backup.opensearch.numberOfReplicas=1 >"$TMP/bk2.yaml"; then
+  env=$(yq -N 'select(.kind == "CronJob" and .metadata.namespace == "wazuh-001") | .spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.value != null) | .name + "=" + .value' "$TMP/bk2.yaml")
+  [ "$(jq -r '.type + " " + .settings.bucket + " " + .settings.base_path' <<<"$(grep -m1 '^REPOSITORY_BODY=' <<<"$env" | cut -d= -f2-)")" = "s3 kubesoc-backups kubesoc/opensearch" ] \
+    && ok "an s3 repository points at the object store" || ko "s3 repository body"
+  grep -qx 'SNAPSHOT_ON_RUN=false' <<<"$env" && ok "the policy takes the snapshots instead" || ko "SNAPSHOT_ON_RUN with a policy"
+  grep -qx 'NUMBER_OF_REPLICAS=1' <<<"$env" && ok "the shard copies reach the Job" || ko "NUMBER_OF_REPLICAS"
+  [ "$(jq -r '.snapshot_config.repository' <<<"$(grep -m1 '^POLICY_BODY=' <<<"$env" | cut -d= -f2-)")" = "kubesoc" ] \
+    && ok "the snapshot policy names the repository" || ko "policy body"
+else
+  ko "renders an s3 repository with a policy"; cat "$TMP/err"
+fi
+if render "${BK[@]}" --set backup.verifyRestore.enabled=true >"$TMP/bk3.yaml"; then
+  [ "$(yq -N 'select(.kind == "CronJob" and .metadata.name == "kubesoc-restore-check") | .spec.schedule' "$TMP/bk3.yaml")" = "0 4 1 * *" ] \
+    && ok "the restore check runs monthly" || ko "restore check schedule"
+  [ "$(yq -N 'select(.kind == "Role" and .metadata.name == "kubesoc-restore-check") | .rules[] | select(.resourceNames != null) | .resourceNames[0]' "$TMP/bk3.yaml")" = "iris-pgsql-restore-check" ] \
+    && ok "the restore check may only own the scratch cluster" || ko "restore check RBAC"
+  [ -n "$(yq -N 'select(.kind == "NetworkPolicy" and .metadata.name == "secops-restore-check-postgres") | .metadata.name' "$TMP/bk3.yaml")" ] \
+    && ok "the scratch cluster may reach the object store" || ko "scratch cluster policy"
+else
+  ko "renders the restore check"; cat "$TMP/err"
+fi
+
 echo
 echo "==================================="
 echo "PASS: $pass  FAIL: $fail"
