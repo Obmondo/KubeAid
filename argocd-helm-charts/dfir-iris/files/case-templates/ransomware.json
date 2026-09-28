@@ -1,0 +1,52 @@
+{
+  "name": "Ransomware",
+  "display_name": "Ransomware",
+  "description": "Encryption in progress or suspected: isolate first, collect evidence, find patient zero.",
+  "author": "kubesoc",
+  "classification": "malicious-code:ransomware",
+  "title_prefix": "[RANSOM]",
+  "summary": "First alert:\nAffected hosts:\nRansom note / extension:\nShares affected:\nBackups verified:",
+  "tags": ["ransomware", "kubesoc"],
+  "tasks": [
+    {
+      "title": "Isolate every affected endpoint",
+      "description": "Tag each asset velociraptor:contain:isolate and get the approval task signed off. The endpoint keeps talking to Velociraptor only (IsolationAllowlist), so evidence can still be collected. Un-isolate later with velociraptor:contain:unisolate, which needs its own approval.",
+      "tags": ["velociraptor", "containment"]
+    },
+    {
+      "title": "Kill the encryptor",
+      "description": "Add the process executable SHA-256 as an IOC, then tag the asset velociraptor:contain:kill. Approve. The flow reports every process it killed onto this timeline.",
+      "tags": ["velociraptor", "containment"]
+    },
+    {
+      "title": "Memory image of patient zero",
+      "description": "Tag velociraptor:contain:memory (Windows: Windows.Memory.Acquisition, Linux: AVML). Approve. The image's SHA-256 is written on this case as chain of custody.",
+      "tags": ["velociraptor", "forensics"]
+    },
+    {
+      "title": "Triage collection on every affected host",
+      "description": "Tag velociraptor:contain:triage. Compare the timelines to find the first encrypted file and the initial access.",
+      "tags": ["velociraptor", "forensics"]
+    },
+    {
+      "title": "Check backups before anything is restored",
+      "description": "Verify that backups predate the compromise and are not reachable from the compromised credentials. Record who verified and when.",
+      "tags": ["recovery"]
+    },
+    {
+      "title": "Scope the blast radius",
+      "description": "Which shares, which service accounts, which domain privileges. Add every host that the encryptor could reach as an asset.",
+      "tags": ["scoping"]
+    },
+    {
+      "title": "Decide on notification",
+      "description": "Personal data involved? Note the regulatory clock (GDPR: 72 hours from awareness) and who decided what.",
+      "tags": ["legal"]
+    },
+    {
+      "title": "Rebuild and un-isolate",
+      "description": "Rebuild from known-good media, rotate every credential the host held, then un-isolate with velociraptor:contain:unisolate.",
+      "tags": ["recovery"]
+    }
+  ]
+}

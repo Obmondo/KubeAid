@@ -1,0 +1,47 @@
+{
+  "name": "Account takeover",
+  "display_name": "Account takeover",
+  "description": "A user or service account is being used by someone else: cut the sessions, find what they reached.",
+  "author": "kubesoc",
+  "classification": "intrusion:account-compromise",
+  "title_prefix": "[ATO]",
+  "summary": "Account:\nFirst suspicious sign-in:\nSource IPs / ASN:\nMFA state:\nWhat the account can reach:",
+  "tags": ["account-takeover", "kubesoc"],
+  "tasks": [
+    {
+      "title": "Confirm the takeover",
+      "description": "Compare sign-in locations, user agents and times against the user's normal pattern. Ask the user directly. Add the source IPs as ip-src IOCs.",
+      "tags": ["triage"]
+    },
+    {
+      "title": "Revoke sessions and reset credentials",
+      "description": "In Keycloak: log out all sessions, reset the password, revoke refresh tokens and application passwords, re-enrol MFA. Record the time - everything after it is the attacker's, everything before is evidence.",
+      "tags": ["containment"]
+    },
+    {
+      "title": "Review what the account did",
+      "description": "Mail rules and forwarding, OAuth grants, API tokens, group memberships, data downloads. Add each finding as a case event.",
+      "tags": ["scoping"]
+    },
+    {
+      "title": "Triage the endpoints the account signed in from",
+      "description": "If a company endpoint was used, tag its asset velociraptor:contain:triage and approve, to rule out an infostealer on the device.",
+      "tags": ["velociraptor", "forensics"]
+    },
+    {
+      "title": "Isolate the endpoint if malware is found",
+      "description": "Tag velociraptor:contain:isolate and approve; add the sample's SHA-256 as an IOC and tag velociraptor:contain:quarantine-file.",
+      "tags": ["velociraptor", "containment"]
+    },
+    {
+      "title": "Hunt for the same source across other accounts",
+      "description": "Search the SIEM for the attacker's IPs, ASN and user agent over the last 90 days across all accounts of this tenant.",
+      "tags": ["hunting"]
+    },
+    {
+      "title": "Close-out",
+      "description": "Was MFA enabled, was it phishable, which control would have stopped it. Record the decision.",
+      "tags": ["lessons-learned"]
+    }
+  ]
+}

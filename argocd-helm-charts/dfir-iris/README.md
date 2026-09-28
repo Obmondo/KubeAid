@@ -132,3 +132,29 @@ plus tags `ai:triaged`, `ai:sev:<level>`, `ai:fp:<likely|unlikely|unknown>`
   already on the alert, and a retyped value can be wrong.
 - Keep the model service without internet egress (a NetworkPolicy on its
   namespace), so no alert content leaves the cluster.
+
+## Case templates (`files/case-templates`)
+
+Three ready-made case templates for the playbooks the Velociraptor response
+actions were built for: `phishing.json`, `ransomware.json` and
+`account-takeover.json`. Each one carries the tasks in order, and the tasks name
+the exact asset tag an analyst sets to run a response action
+(`velociraptor:contain:triage`, `:isolate`, `:kill`, `:memory`,
+`:quarantine-file`, `:remove-file`, `:unisolate`), so the playbook and the
+tooling cannot drift apart.
+
+The chart does not load them: IRIS 2.4 has no idempotent "upsert template" API,
+and a template that an analyst has since edited must not be overwritten by a
+sync. Load each one once, per IRIS instance, as a user with
+`case_templates_write`:
+
+```bash
+curl -s -X POST "$IRIS_URL/manage/case-templates/add" \
+  -H "Authorization: Bearer $IRIS_API_KEY" -H 'Content-Type: application/json' \
+  -d "$(jq -n --slurpfile t files/case-templates/phishing.json \
+        '{case_template_json: ($t[0] | tojson)}')"
+```
+
+or paste the file into *Advanced ▸ Case templates ▸ Add template* in the UI.
+Verify with `GET /manage/case-templates/list`. A case started from a template
+keeps the template id, so the collector's tags work the same either way.
