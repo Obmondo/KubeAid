@@ -711,6 +711,24 @@ else
   ko "renders the restore check"; cat "$TMP/err"
 fi
 
+# --- Keycloak back channel (keycloak.internalURL) ---------------------------
+if render -f "$SCRIPT_DIR/values-2-tenants.yaml" --set reconciler.enabled=true --set reconciler.image.tag=t \
+     --set velociraptor.velociraptor.apiClient.publisherImage.tag=t \
+     --set keycloak.internalURL=http://keycloakx-http.keycloakx.svc/auth >"$TMP/kc.yaml"; then
+  kc=$(yq -N 'select(.kind == "ConfigMap" and .metadata.name == "siem-tenants") | .data["tenants.json"]' "$TMP/kc.yaml")
+  [ "$(jq -r '.keycloak.url' <<<"$kc")" = "http://keycloakx-http.keycloakx.svc/auth" ] \
+    && ok "the reconciler dials Keycloak in the cluster" || ko "reconciler Keycloak URL"
+  # The reconciler's config decoder rejects unknown fields.
+  [ "$(jq -r '.keycloak | has("internalURL")' <<<"$kc")" = "false" ] \
+    && ok "internalURL is not a reconciler config key" || ko "internalURL leaked into tenants.json"
+  [ "$(jq -r '.components.velociraptor.serverMonitoring[] | select(.artifact | test("Keycloak")) | .parameters.KcUrl' <<<"$kc")" = "http://keycloakx-http.keycloakx.svc/auth" ] \
+    && ok "the Velociraptor Keycloak sync uses the back channel" || ko "KeycloakSync KcUrl"
+else
+  ko "renders with keycloak.internalURL"; cat "$TMP/err"
+fi
+[ "$(jq -r '.keycloak.url' <<<"$(yq -N 'select(.kind == "ConfigMap" and .metadata.name == "siem-tenants") | .data["tenants.json"]' "$R2")")" = "https://keycloak.example.com/auth" ] \
+  && ok "without internalURL the public URL is used for both" || ko "default Keycloak URL"
+
 echo
 echo "==================================="
 echo "PASS: $pass  FAIL: $fail"

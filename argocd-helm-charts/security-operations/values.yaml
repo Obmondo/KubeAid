@@ -29,9 +29,22 @@ hosts:
 # except `clients` goes to the reconciler as is (keycloak section of its
 # tenants.json); the component charts take their own Keycloak settings.
 keycloak:
-  # Root URL including any context path, as the reconciler reaches it, e.g.
-  # http://keycloakx-http.keycloakx.svc/auth
+  # Root URL including any context path. This is the browser-facing one: it is
+  # the issuer in every token, so it must be the name the users' browsers use.
   url: https://keycloak.example.com/auth
+  # The same Keycloak as the pods in the cluster reach it, e.g.
+  # http://keycloakx-http.keycloakx.svc/auth. Used for every back-channel call
+  # (the reconciler's admin API, the Velociraptor Keycloak sync, OIDC discovery
+  # where a component takes a separate discovery URL); `url` stays the issuer,
+  # which still matches because Keycloak's frontend URL decides what it puts in
+  # the discovery document, not the address it was fetched from. Empty: `url`
+  # is used for both, which needs it to resolve and be reachable from the pods.
+  #
+  # Components that cannot split the two (Velociraptor, IRIS, MISP: they fetch
+  # discovery from the issuer itself) need `url` to resolve inside the cluster.
+  # Add a CoreDNS rewrite for it rather than pinning an IP - see the README,
+  # "Reaching Keycloak", and the KubeAid coredns chart's `rewrites`.
+  internalURL: ""
   realm: soc
   # Master-realm admin the reconciler logs in as, and its password (read only).
   # The reconciler's ServiceAccount may read exactly this Secret. The default is

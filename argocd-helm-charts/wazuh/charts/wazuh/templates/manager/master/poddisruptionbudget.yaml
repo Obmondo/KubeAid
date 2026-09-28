@@ -1,8 +1,10 @@
 {{- /*
   KubeAid patch. The master is a single pod that every worker and every agent
-  enrolment depends on, and its /var/ossec/etc holds client.keys, so a node
-  drain must not take it while nothing else can serve. minAvailable: 1 makes a
-  drain wait for the replacement pod instead of evicting the only one.
+  enrolment depends on, and its /var/ossec/etc holds client.keys. With one
+  replica, minAvailable: 1 refuses voluntary eviction outright rather than
+  delaying it: draining that node becomes a decision someone makes
+  (kubectl drain --disable-eviction), not something unattended maintenance does.
+  Off by default for exactly that reason.
 */}}
 {{- if .Values.wazuh.master.enabled }}
 {{- if .Values.wazuh.master.pdb.enabled }}

@@ -14,3 +14,24 @@ customDNS:
   #   - example.com
   #   - example.io
   #   - example.org
+
+# Name rewrites, in the default server block: a query for `from` is answered as
+# if it were for `to`, so a pod resolving a public host name gets the ClusterIP
+# of a Service inside the cluster. No IP is written down anywhere, which is the
+# point: an ingress Service that is deleted and recreated gets a new ClusterIP,
+# and anything that pinned that IP (pod hostAliases) breaks silently.
+#
+# The usual case is a host that is only served by an internal ingress: the SOC
+# components reach Keycloak by its public name, which resolves nowhere useful
+# inside the cluster.
+#
+#   rewrites:
+#     - from: keycloak.example.com
+#       to: traefik-internal.traefik.svc.cluster.local
+#
+# `to` must be a name CoreDNS itself can answer, so a Service in the cluster.
+# Each entry renders `rewrite name exact <from> <to>` into the `.override` key
+# of the coredns-custom ConfigMap, which is what the default server block
+# imports (`answer auto` rewrites the reply back, so the client sees the name it
+# asked for).
+rewrites: []

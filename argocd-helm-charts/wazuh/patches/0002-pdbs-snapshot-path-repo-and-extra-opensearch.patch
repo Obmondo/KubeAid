@@ -62,15 +62,17 @@ index c453c898d..a531a8b6b 100644
  {{- end }}
 diff --git b/templates/manager/master/poddisruptionbudget.yaml b/templates/manager/master/poddisruptionbudget.yaml
 new file mode 100644
-index 000000000..795bacbb7
+index 000000000..3534b305f
 --- /dev/null
 +++ b/templates/manager/master/poddisruptionbudget.yaml
-@@ -0,0 +1,27 @@
+@@ -0,0 +1,29 @@
 +{{- /*
 +  KubeAid patch. The master is a single pod that every worker and every agent
-+  enrolment depends on, and its /var/ossec/etc holds client.keys, so a node
-+  drain must not take it while nothing else can serve. minAvailable: 1 makes a
-+  drain wait for the replacement pod instead of evicting the only one.
++  enrolment depends on, and its /var/ossec/etc holds client.keys. With one
++  replica, minAvailable: 1 refuses voluntary eviction outright rather than
++  delaying it: draining that node becomes a decision someone makes
++  (kubectl drain --disable-eviction), not something unattended maintenance does.
++  Off by default for exactly that reason.
 +*/}}
 +{{- if .Values.wazuh.master.enabled }}
 +{{- if .Values.wazuh.master.pdb.enabled }}
@@ -180,7 +182,7 @@ index 1546664f8..f27d41a73 100644
  echo "==================================="
  echo "PASS: $pass  FAIL: $fail"
 diff --git b/values.yaml b/values.yaml
-index 1d17a05a9..fbec4efc9 100644
+index 1d17a05a9..cc3e706c5 100644
 --- b/values.yaml
 +++ b/values.yaml
 @@ -124,9 +124,13 @@ indexer:
@@ -226,13 +228,14 @@ index 1d17a05a9..fbec4efc9 100644
    ## @param dashboard.livenessProbe.periodSeconds How often to perform the probe.
    ## @param dashboard.livenessProbe.timeoutSeconds When the probe times out.
    ## @param dashboard.livenessProbe.failureThreshold Minimum failures for the probe to be considered failed.
-@@ -901,6 +917,16 @@ wazuh:
+@@ -901,6 +917,17 @@ wazuh:
    master:
      ## @param wazuh.master.enabled Enable the master
      enabled: true
 +    ## KubeAid patch. The master is a single pod every worker and every enrolment
-+    ## depends on, and its volume holds client.keys: with a budget a node drain
-+    ## waits for the replacement instead of evicting the only one.
++    ## depends on, and its volume holds client.keys. With one replica,
++    ## minAvailable: 1 refuses voluntary eviction rather than delaying it, so a
++    ## drain of that node needs a deliberate --disable-eviction. Off by default.
 +    ## @param wazuh.master.pdb.enabled Enables pdb for the master.
 +    ## @skip wazuh.master.pdb.minAvailable
 +    ## @skip wazuh.master.pdb.maxUnavailable
@@ -243,7 +246,7 @@ index 1d17a05a9..fbec4efc9 100644
      ## @param wazuh.master.annotations additional annotations set on statefulset.
      annotations: {}
      ## @param wazuh.master.extraPodLabels Extra labels to add to the master pods.
-@@ -1047,9 +1073,13 @@ wazuh:
+@@ -1047,9 +1074,13 @@ wazuh:
            targetPort: 1514
      ## @param wazuh.worker.pdb.enabled Enables pdb for worker.
      ## @skip wazuh.worker.pdb.maxUnavailable

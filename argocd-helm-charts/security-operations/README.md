@@ -55,7 +55,8 @@ component blocks exactly as for the standalone charts (see their READMEs), one l
 |---|---|---|
 | `domain` | `example.com` | Base domain; hostnames default to `<component>.<domain>` |
 | `hosts.{wazuh,iris,misp,velociraptor}` | `""` | Override one hostname (`wazuh` = central search). Used for OIDC redirect URIs and alert links, not for the ingresses |
-| `keycloak.url`, `keycloak.realm` | | Realm every component logs in through, as the reconciler reaches it |
+| `keycloak.url`, `keycloak.realm` | | Realm every component logs in through; `url` is the browser-facing issuer |
+| `keycloak.internalURL` | `""` | The same Keycloak as the pods reach it; every back-channel call uses it (section 7, Reaching Keycloak) |
 | `keycloak.adminUsername`, `keycloak.adminSecretRef` | `admin`, `keycloakx/keycloak-admin/KEYCLOAK_PASSWORD` | Admin login the reconciler reads (the KubeAid keycloakx default) |
 | `keycloak.bruteForceProtected`, `.otpPolicy`, `.requireTOTP`, `.mfaFlow` | on, TOTP, on, `browser-mfa` | Realm policy the reconciler enforces; remove a key to leave it alone |
 | `keycloak.clients` | `[]` | OIDC clients for the reconciler; empty derives one per enabled component, one per tenant dashboard, plus `iris-sync` |
@@ -514,6 +515,43 @@ link falls back to the tool's start page. The reconciler keeps the Keycloak clie
 controller -> portal pod 4180, portal -> Keycloak (the issuer, normally out through the
 ingress) and DNS. The portal only links to the tools; it never proxies them, so the
 dashboards staying SSO-only changes nothing for it.
+
+### Reaching Keycloak
+
+`keycloak.url` is the **browser-facing** URL: it is the `iss` claim of every token, so it has
+to be the name the users' browsers use. The problem is that the pods have to reach Keycloak
+too, and a Keycloak published only by an internal ingress does not resolve to anything useful
+from inside the cluster.
+
+There are three answers, in order of preference:
+
+1. **`keycloak.internalURL`** — the same Keycloak as the pods reach it, e.g.
+   `http://keycloakx-http.keycloakx.svc/auth`. Every back-channel call uses it (the
+   reconciler's admin API, the Velociraptor Keycloak sync, and OIDC discovery for the
+   components that take a separate discovery URL, which is the Wazuh dashboard and indexer).
+   `keycloak.url` stays the issuer and still matches, because what Keycloak puts in its
+   discovery document comes from its own frontend URL, not from the address it was fetched
+   from. Nothing here has to be re-rendered when a Service is recreated.
+
+2. **A CoreDNS rewrite**, for the components that cannot split the two — Velociraptor, IRIS
+   and MISP all fetch discovery from the issuer itself and will not accept a mismatch. In the
+   KubeAid `coredns` chart:
+
+   ```yaml
+   rewrites:
+     - from: keycloak.example.com
+       to: traefik-internal.traefik.svc.cluster.local
+   ```
+
+   A query for the public name is answered with the internal ingress Service's address, and
+   `answer auto` rewrites the reply back, so TLS still verifies against the public
+   certificate. No IP is written down.
+
+3. **`keycloak.hostAliasIP` (kubeaid-cli) / `reconciler.hostAliases` — deprecated.** These
+   pin the host name to a ClusterIP in every SOC pod. A ClusterIP is not stable: delete and
+   recreate the ingress Service and it changes, after which SSO breaks in every component at
+   once, silently, until someone re-renders. Keep it only as a stop-gap, and only where
+   neither of the two above is available.
 
 ### Backups
 

@@ -68,7 +68,9 @@ data:
 {{- $tenantsOut = append $tenantsOut $t }}
 {{- end }}
 {{- $clients := concat (include "secops.clients" . | fromYamlArray) (include "secops.reconcilerClient" . | fromYamlArray) }}
-{{- $kc := omit .Values.keycloak "clients" "reconcilerClient" }}
+{{- $kc := omit .Values.keycloak "clients" "reconcilerClient" "internalURL" }}
+{{- /* The reconciler only ever calls Keycloak; give it the in-cluster URL. */}}
+{{- with .Values.keycloak.internalURL }}{{ $_ := set $kc "url" . }}{{ end }}
 {{- if not $kc.adminSecretRef }}{{ $kc = omit $kc "adminSecretRef" }}{{ end }}
 {{- with .Values.keycloak.reconcilerClient }}{{ if .enabled }}{{ $_ := set $kc "clientCredentials" (dict "clientId" .clientId "secretRef" (dict "namespace" $.Release.Namespace "name" .secretName "key" "KEYCLOAK_CLIENT_SECRET")) }}{{ end }}{{ end }}
 {{- $cfg := dict "domain" .Values.domain "tenantGroupPrefix" .Values.tenantGroupPrefix "keycloak" $kc "operators" $ops "tenants" $tenantsOut "clients" $clients "secrets" (include "secops.secrets" (dict "root" . "clients" $clients) | fromYamlArray) "components" (include "secops.components" . | fromYaml) }}

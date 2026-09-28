@@ -918,8 +918,9 @@ wazuh:
     ## @param wazuh.master.enabled Enable the master
     enabled: true
     ## KubeAid patch. The master is a single pod every worker and every enrolment
-    ## depends on, and its volume holds client.keys: with a budget a node drain
-    ## waits for the replacement instead of evicting the only one.
+    ## depends on, and its volume holds client.keys. With one replica,
+    ## minAvailable: 1 refuses voluntary eviction rather than delaying it, so a
+    ## drain of that node needs a deliberate --disable-eviction. Off by default.
     ## @param wazuh.master.pdb.enabled Enables pdb for the master.
     ## @skip wazuh.master.pdb.minAvailable
     ## @skip wazuh.master.pdb.maxUnavailable
