@@ -72,6 +72,9 @@ component blocks exactly as for the standalone charts (see their READMEs), one l
 | `tenantWazuh.{apiCredSecret,authdSecret}` | `wazuh-api-cred`, `wazuh-authd-pass` | Secrets in each tenant namespace the reconciler reads |
 | `tenantWazuh.{managerService,indexerNodesService}` | `wazuh`, `wazuh-indexer-nodes` | Service names of a tenant release (`fullnameOverride: wazuh`) |
 | `socCA.*` | enabled, `soc-ca` in `cert-manager` | CA ClusterIssuer every Wazuh instance uses |
+| `socCA.trustSecret` | `soc-ca-trust` | Certificate from the CA in this namespace; its `ca.crt` is what the reconciler and the MISP export verify against |
+| `tls.caSecret`, `tls.insecureSkipVerify` | `""` (= `socCA.trustSecret`), `false` | CA the reconciler verifies the tenant managers and the central indexer with; the explicit opt-out (section 7) |
+| `networkPolicies.*` | enabled, Cilium | Default deny in this namespace and one policy per workload; peers for the ingress controller, Keycloak, Prometheus, operators (section 7) |
 | `defaultRetentionDays` | `365` | Alert retention when a tenant sets none |
 | `checks.mispTargets` | `true` | Fail the render when the MISP export lacks a tenant's manager |
 | `ai.irisLogin`, `ai.irisGroups`, `ai.irisKeySecret` | `svc_ai`, `[Analysts]`, `iris-ai-triage` | IRIS service account of the triage job; the reconciler creates it, gives it these groups and every tenant as customer, and keeps its API key in that Secret (key `IRIS_API_KEY`, read by `dfir-iris.aiTriage.existingSecret`). Turn the job on with `dfir-iris.aiTriage.enabled` |
@@ -224,6 +227,71 @@ Helm replaces lists instead of merging them. When you set one of the lists in
 keep. The central NetworkPolicies repeat the tenant namespace label key; change both
 together.
 
+### Network policies
+
+`networkPolicies` (`templates/networkpolicies.yaml`) denies all ingress and egress of every
+pod in this namespace except DNS (`secops-default-deny`) and gives each workload a policy
+(`secops-<workload>`) admitting exactly its flows. The component charts' own policies stay;
+policies are additive. The tenant namespaces get the same from the wazuh chart
+(`networkPolicies.enabled` in each tenant release, which kubeaid-cli renders; wazuh README
+section 11). The flows:
+
+| From | To | Port |
+|---|---|---|
+| `ingressController` (traefik) | IRIS app, MISP, Velociraptor GUI and frontend, central dashboard, HTTP-01 solvers | 8000; 80/443/8080; 8889/8000; 5601; 8089 |
+| agents (anywhere) | Velociraptor frontend | 8000 (the chart's `frontendAllowedCIDRs`) |
+| reconciler | Keycloak, IRIS app, tenant managers, tenant and central indexers, central dashboard, Velociraptor API, Kubernetes API | `keycloak.ports`; 8000; 55000; 9200; 5601; 8001; 443/6443 |
+| IRIS app | Postgres, RabbitMQ, MISP, Keycloak | 5432; 5672; 80/443; `keycloak.ports` |
+| IRIS worker | Postgres, RabbitMQ, MISP | 5432; 5672; 80/443 |
+| IRIS Keycloak sync | Keycloak, IRIS app | `keycloak.ports`; 8000 |
+| IRIS triage | IRIS app, Ollama | 8000; 11434 |
+| Velociraptor | IRIS app (artifacts), Keycloak | 8000; `keycloak.ports` |
+| tenant managers | IRIS app, MISP | 8000; 80/443 |
+| MISP | MariaDB, Valkey, misp-modules, Keycloak, internet (feeds) | 3306; 6379; 6666; `keycloak.ports`; 80/443 |
+| misp-modules | Valkey, internet (enrichment) | 6379; 80/443 |
+| MISP export | MISP, tenant managers | 80/443; 55000 |
+| central indexer | tenant indexers (cross-cluster search) | 9300 |
+| central dashboard | tenant managers, Keycloak | 55000; `keycloak.ports` |
+| CNPG operator | Postgres | 5432, 8000 |
+| RabbitMQ operators | RabbitMQ | 15672 |
+| MariaDB operator | MariaDB | 3306 |
+| Postgres, RabbitMQ | themselves (replication, clustering), Kubernetes API | 5432/8000; 4369/25672; 443/6443 |
+| Prometheus | Postgres, RabbitMQ, Valkey, Velociraptor, reconciler | 9187; 15692; 9121; 8003; `reconcilerMetricsPorts` |
+
+The Kubernetes API and the internet are Cilium entities (`kube-apiserver`, `world`) in
+CiliumNetworkPolicies, since on Cilium an ipBlock never matches either; with
+`networkPolicies.cilium: false` they become NetworkPolicies to `kubeApiServer.to` (required
+then) and to `0.0.0.0/0` minus `privateRanges`. `mispInternet.enabled: false` closes MISP's
+internet access (feeds then need a proxy or `extraPolicies`). Anything else a cluster needs
+(an object store for backups, a feed on a private address, another UI in front) goes into
+`networkPolicies.extraPolicies`.
+
+Rolling it out on a running cluster: the policies apply on sync, and a missing rule shows as
+a connection timeout, not an error. After the sync, check `kubectl get cnp,netpol -n
+<namespace>`, then watch drops (`hubble observe -n <namespace> --verdict DROPPED`) while the
+reconciler, the IRIS syncs, the MISP export and a UI login each run once. Adjust the peers
+(`ingressController`, `keycloak`, `prometheus`, `operators`) to the cluster's namespaces and
+labels before syncing; `networkPolicies.enabled: false` removes all of them again.
+
+### TLS verification
+
+The reconciler verifies the tenants' manager APIs (`https://wazuh.<tenant namespace>.svc:55000`)
+and the central indexer (`https://wazuh-indexer:9200`) against the soc-ca: the chart issues
+`socCA.trustSecret` from it here and mounts its `ca.crt` at `/etc/soc-ca/ca.crt` (the
+`caFile` of those components in `siem-tenants`). The indexers' node certificates always come
+from the soc-ca; the manager API presents a soc-ca certificate once the tenant release sets
+`wazuh.managerTls.enabled` (wazuh README section 11; kubeaid-cli renders it with the agent
+host as an extra name). The MISP export verifies the same way (`misp.wazuhCdbExport.caSecret`),
+and the central dashboard verifies the indexer (`opensearchVerificationMode: full`).
+`tls.insecureSkipVerify: true` (or `insecureSkipVerify` per component in
+`reconciler.components`, `verifyTls: false` per MISP target) is the explicit opt-out, for
+tenant releases that do not have `managerTls` yet.
+
+Not covered: IRIS, MISP and the Wazuh dashboards serve plain HTTP inside the cluster (TLS
+ends at the ingress controller); the network policies above limit who can reach those ports.
+The managers' authd `ssl_verify_host no` concerns agent certificates, which enrolment does not
+use (it is password based); agents verify the manager with the CA in the enrolment bundle.
+
 ## 8. What is not derived from `tenants`
 
 A parent chart cannot compute its subcharts' values, so these need one entry per tenant:
@@ -249,7 +317,10 @@ A parent chart cannot compute its subcharts' values, so these need one entry per
 - The Velociraptor API client bootstrap needs the reconciler image with `publish-api-client`,
   and its image is set twice (`reconciler.image`, `velociraptor.velociraptor.apiClient.publisherImage`).
 - The Kubernetes API egress of the Velociraptor pod is a CiliumNetworkPolicy; on another CNI
-  add an equivalent rule to `velociraptor.velociraptor.networkPolicy.extraEgress`.
+  add an equivalent rule to `velociraptor.velociraptor.networkPolicy.extraEgress`
+  (`networkPolicies.cilium: false` covers this chart's own workloads).
+- The Wazuh managers read their API and authd certificate (`wazuh.managerTls`) at start
+  only: restart them after cert-manager renews it (within `renewBefore`, 90 days).
 - The MISP to Wazuh CDB export stays off (`misp.wazuhCdbExport.enabled`) until the list
   registration and rules are in the tenant releases (misp README, section 5).
 - kubeaid-addons' Cilium policies for RabbitMQ and Celery select on
@@ -264,5 +335,8 @@ A parent chart cannot compute its subcharts' values, so these need one entry per
 2-tenant and 3-tenant fixture and checks object uniqueness, namespaces, names, that no
 manager runs centrally, selectors, that tenant `003` adds only its own entries, the
 reconciler input, input validation, the reconciler objects, and the Velociraptor API, API
-client bootstrap and shipped artifacts. The tenant side is covered by
+client bootstrap and shipped artifacts. With every workload on (`tests/values-netpol.yaml`)
+it runs `../wazuh/tests/netpol_check.py`: a default deny, a policy of its own for every
+workload, and no rule open to any address except the Velociraptor frontend (8000) and MISP's
+internet egress; plus the reconciler's and the MISP export's CA. The tenant side is covered by
 `../wazuh/tests/tenant_render_test.sh`.

@@ -31,6 +31,13 @@
 {{- toJson $out -}}
 {{- end -}}
 
+{{/* Secret in this namespace (key ca.crt) with the CA the reconciler verifies the
+  Wazuh managers and the central indexer against: tls.caSecret, else the soc-ca
+  trust Certificate's Secret. Empty when neither is set. */}}
+{{- define "secops.caSecret" -}}
+{{- if .Values.tls.caSecret -}}{{ .Values.tls.caSecret }}{{- else if and .Values.socCA.enabled .Values.socCA.trustSecret -}}{{ .Values.socCA.trustSecret }}{{- end -}}
+{{- end -}}
+
 {{/* Public hostname of a component: (dict "root" $ "c" "wazuh"). */}}
 {{- define "secops.host" -}}
 {{- $h := index .root.Values.hosts .c -}}
@@ -127,6 +134,13 @@ app.kubernetes.io/part-of: security-operations
 {{- define "secops.components" -}}
 {{- $ns := .Release.Namespace -}}
 {{- $c := dict -}}
+{{- /* TLS towards the tenant managers and the central indexer (tls in values.yaml). */ -}}
+{{- $tlsOpts := dict -}}
+{{- if .Values.tls.insecureSkipVerify -}}
+{{- $_ := set $tlsOpts "insecureSkipVerify" true -}}
+{{- else if include "secops.caSecret" . -}}
+{{- $_ := set $tlsOpts "caFile" "/etc/soc-ca/ca.crt" -}}
+{{- end -}}
 {{- if (index .Values "dfir-iris").enabled -}}
 {{- $iris := dict "url" "http://dfir-iris-app:8000" "apiKeySecretRef" (dict "namespace" $ns "name" "iris-keycloak-sync" "key" "IRIS_API_KEY") -}}
 {{- if .Values.ai.irisLogin -}}
@@ -143,7 +157,7 @@ app.kubernetes.io/part-of: security-operations
 {{- if $tenants -}}
 {{- $w := list -}}
 {{- range $tenants -}}
-{{- $w = append $w (dict "tenant" .code "url" (printf "https://%s.%s.svc:55000" $tw.managerService .namespace) "credSecretRef" (dict "namespace" .namespace "name" $tw.apiCredSecret "usernameKey" "API_USERNAME" "passwordKey" "API_PASSWORD") "insecureSkipVerify" true) -}}
+{{- $w = append $w (dict "tenant" .code "url" (printf "https://%s.%s.svc:55000" $tw.managerService .namespace) "credSecretRef" (dict "namespace" .namespace "name" $tw.apiCredSecret "usernameKey" "API_USERNAME" "passwordKey" "API_PASSWORD") | merge (deepCopy $tlsOpts)) -}}
 {{- end -}}
 {{- $_ := set $c "wazuh" $w -}}
 {{- end -}}
@@ -154,7 +168,7 @@ app.kubernetes.io/part-of: security-operations
 {{- end -}}
 {{- $idx := (.Values.wazuh.wazuh.indexer | default dict) -}}
 {{- $credSecret := ((($idx.cred | default dict).existingSecret) | default "indexer-cred") -}}
-{{- $central := dict "url" "https://wazuh-indexer:9200" "credSecretRef" (dict "namespace" $ns "name" $credSecret "usernameKey" "INDEXER_USERNAME" "passwordKey" "INDEXER_PASSWORD") "insecureSkipVerify" true "remotes" $remotes "dashboardConfigSecret" (dict "namespace" $ns "name" "wazuh-app-config") -}}
+{{- $central := dict "url" "https://wazuh-indexer:9200" "credSecretRef" (dict "namespace" $ns "name" $credSecret "usernameKey" "INDEXER_USERNAME" "passwordKey" "INDEXER_PASSWORD") "remotes" $remotes "dashboardConfigSecret" (dict "namespace" $ns "name" "wazuh-app-config") | merge (deepCopy $tlsOpts) -}}
 {{- with .Values.centralSearch.indexPatterns -}}
 {{- $_ := set $central "dashboardURL" "http://wazuh-dashboard:5601" -}}
 {{- $_ := set $central "indexPatterns" . -}}

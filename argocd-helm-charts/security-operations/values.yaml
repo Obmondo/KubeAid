@@ -140,6 +140,21 @@ socCA:
   name: soc-ca
   namespace: cert-manager
   commonName: security-operations-ca
+  # A Certificate from this CA in the release namespace, whose Secret's ca.crt is what
+  # clients here verify against (tls below, misp.wazuhCdbExport.caSecret). Empty: none.
+  trustSecret: soc-ca-trust
+
+# TLS from the reconciler to the tenants' Wazuh manager APIs and the central indexer.
+# Verified by default against caSecret (mounted at /etc/soc-ca/ca.crt): the indexers'
+# node certificates come from soc-ca, and so do the managers' API certificates when
+# the tenant releases set wazuh.managerTls.enabled (kubeaid-cli renders that). The
+# names dialled (wazuh.<tenant namespace>.svc, wazuh-indexer) are in the certificates.
+tls:
+  # Secret in this namespace with key ca.crt. Empty: socCA.trustSecret (with socCA).
+  caSecret: ""
+  # Explicit opt-out: no verification at all (e.g. tenant managers still presenting
+  # the image's self-signed certificate). Per component: reconciler.components.
+  insecureSkipVerify: false
 
 # Render-time consistency checks between `tenants` and component values that
 # cannot be derived from it (README, "What is not derived from tenants").
@@ -162,6 +177,92 @@ ai:
 publicIngress:
   # Velociraptor frontend (8000), see velociraptor.frontendTcpRoute.
   velociraptorHost: ""
+
+# NetworkPolicies of this namespace (templates/networkpolicies.yaml, README "Network
+# policies"): a default deny for every pod (DNS excepted) and one policy per workload
+# admitting exactly its flows, next to the component charts' own policies. The tenant
+# namespaces get theirs from the wazuh chart (networkPolicies there). false renders
+# none of them (the component charts' policies stay).
+networkPolicies:
+  enabled: true
+  defaultDeny: true
+  # DNS servers every pod may query (53/UDP and TCP).
+  dns:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+  # Ingress controller pods that publish the UIs (and the Velociraptor frontend route).
+  ingressController:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: traefik
+  # Where pods reach Keycloak (keycloak.url and the OIDC issuers): the ingress
+  # controller in front of it (a public host name pinned with hostAliases) or its own
+  # namespace. Used by the reconciler, IRIS, its Keycloak sync, MISP, Velociraptor and
+  # the central Wazuh dashboard and indexer.
+  keycloak:
+    to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: traefik
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: keycloakx
+    ports: [443, 8443, 8080]
+  # Prometheus, for the metrics ports (CNPG 9187, RabbitMQ 15692, Valkey 9121,
+  # Velociraptor 8003, the reconciler's).
+  prometheus:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: monitoring
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: prometheus
+  # Metrics ports of the reconciler; reconciler.metrics.port is added when set.
+  reconcilerMetricsPorts: []
+  # Operators that manage the databases here, in whatever namespace they run.
+  operators:
+    cnpg:
+      - namespaceSelector: {}
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: cloudnative-pg
+    rabbitmq:
+      - namespaceSelector: {}
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: rabbitmq-cluster-operator
+    mariadb:
+      - namespaceSelector: {}
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: mariadb-operator
+  # Names the database pods are selected by (dfir-iris and misp chart defaults).
+  names:
+    irisPostgresCluster: iris-pgsql
+    irisRabbitmq: iris-rabbitmq
+    mispMariadb: misp-mariadb
+  # The Kubernetes API, for the reconciler and the CNPG and RabbitMQ pods. With cilium
+  # it is the kube-apiserver entity; without, list the API server endpoints as
+  # ipBlocks in `to`.
+  kubeApiServer:
+    ports: [443, 6443]
+    to: []
+  # MISP feeds and misp-modules enrichment: HTTP(S) to the internet.
+  mispInternet:
+    enabled: true
+    ports: [80, 443]
+  # true: CiliumNetworkPolicies for the Kubernetes API and the internet (the
+  # kube-apiserver and world entities). false (other CNIs): NetworkPolicies to
+  # kubeApiServer.to and to 0.0.0.0/0 minus privateRanges.
+  cilium: true
+  privateRanges: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10]
+  # More NetworkPolicies here, name suffix -> spec (podSelector, policyTypes, ingress,
+  # egress), e.g. a MISP feed on a private address or an object store for backups.
+  extraPolicies: {}
 
 # API-only setup (Keycloak roles/groups/clients, IRIS customers, Velociraptor
 # orgs, Wazuh RBAC) from the siem-tenants ConfigMap. Off until the image is
@@ -312,7 +413,12 @@ wazuh:
                     app.kubernetes.io/name: siem-reconciler
     dashboard:
       wazuhAppConfigSecret: wazuh-app-config
+      # Verify the indexer's certificate (soc-ca, named wazuh-indexer).
+      opensearchVerificationMode: full
       networkPolicy:
+        # Not open to any source: networkPolicies (secops-wazuh-dashboard) admits the
+        # ingress controller and the reconciler.
+        ingressFrom: []
         extraEgresses:
           # The Wazuh app calls every tenant's manager API.
           - ports:
@@ -409,6 +515,17 @@ velociraptor:
         mountPath: /etc/keycloak
         readOnly: true
     networkPolicy:
+      # Keycloak is reached through networkPolicies.keycloak (secops-velociraptor), not
+      # HTTPS to any address.
+      oidcEgressCIDRs: []
+      # Prometheus only (with serviceMonitor), not every pod in the cluster.
+      metricsAllowedFrom:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
       # The reconciler reaches the gRPC API.
       apiAllowedFrom:
         - podSelector:
@@ -463,8 +580,11 @@ misp:
     #   - name: "001"
     #     url: https://wazuh.wazuh-001.svc:55000
     #     credentialsSecret: wazuh-api-cred-001
-    #     verifyTls: false
+    # The managers' API certificates are verified against the soc-ca (the tenant
+    # releases' wazuh.managerTls); verifyTls: false on a target turns that off.
     targets: []
+    # Keep equal to socCA.trustSecret (or tls.caSecret).
+    caSecret: soc-ca-trust
 
 ollama:
   enabled: true
