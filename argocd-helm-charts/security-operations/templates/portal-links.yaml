@@ -1,0 +1,54 @@
+{{- /*
+  Links for the kubesoc-portal landing page (linksConfigMap), from `tenants`
+  and `portal`. Each tenant card is visible to its Keycloak group/role and to
+  the central team (operators); each tool enforces access itself.
+*/}}
+{{- if (index .Values "kubesoc-portal").enabled }}
+{{- $hosts := dict "domain" .Values.domain }}
+{{- range $c := list "wazuh" "iris" "misp" "velociraptor" }}
+{{- $_ := set $hosts (printf "%sHost" $c) (include "secops.host" (dict "root" $ "c" $c)) }}
+{{- end }}
+{{- $p := .Values.portal }}
+{{- $central := list }}
+{{- range $p.central }}
+{{- if or (not .component) (index $.Values .component).enabled }}
+{{- $u := .url }}
+{{- range $k, $v := $hosts }}{{- $u = replace (printf "{%s}" $k) $v $u }}{{- end }}
+{{- $central = append $central (dict "name" .name "url" $u "description" (.description | default "")) }}
+{{- end }}
+{{- end }}
+{{- $tenants := list }}
+{{- range $t := include "secops.tenants" . | fromJsonArray }}
+{{- $vars := merge (dict "code" $t.code "name" (urlquery $t.name) "tenantHost" $t.host "irisCustomerId" (toString (index ($p.irisCustomerIds | default dict) $t.code | default "")) "velociraptorOrgId" (toString (index ($p.velociraptorOrgIds | default dict) $t.code | default ""))) $hosts }}
+{{- $links := list }}
+{{- range $p.tenantLinks }}
+{{- if or (not .component) (index $.Values .component).enabled }}
+{{- $u := .url }}
+{{- if or (and (contains "{irisCustomerId}" $u) (not $vars.irisCustomerId)) (and (contains "{velociraptorOrgId}" $u) (not $vars.velociraptorOrgId)) }}
+{{- $u = required (printf "portal.tenantLinks %q needs a fallback" .name) .fallback }}
+{{- end }}
+{{- range $k, $v := $vars }}{{- $u = replace (printf "{%s}" $k) $v $u }}{{- end }}
+{{- $links = append $links (dict "name" .name "url" $u) }}
+{{- end }}
+{{- end }}
+{{- $tenants = append $tenants (dict "code" $t.code "name" $t.name "roles" (list $t.group) "links" $links) }}
+{{- end }}
+{{- $portal := index .Values "kubesoc-portal" }}
+{{- $want := include "secops.host" (dict "root" . "c" "portal") }}
+{{- if and $portal.ingress.enabled (ne $portal.ingress.host $want) }}
+{{- fail (printf "kubesoc-portal.ingress.host %q must equal the portal host %q (hosts.portal or portal.<domain>): the Keycloak client's redirect URI uses it" $portal.ingress.host $want) }}
+{{- end }}
+{{- $ops := .Values.operators }}
+{{- $opRoles := compact (list $ops.adminRole $ops.analystRole ($ops.analystGroup | default "")) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $portal.linksConfigMap.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: portal
+data:
+  links.json: |
+    {{- toPrettyJson (dict "title" ($portal.title | default "kubesoc") "subtitle" ($portal.subtitle | default "Security operations") "central" $central "tenants" $tenants "operatorRoles" $opRoles) | nindent 4 }}
+{{- end }}

@@ -90,6 +90,12 @@ app.kubernetes.io/part-of: security-operations
 {{- $u := printf "https://%s" (include "secops.host" (dict "root" . "c" "misp")) -}}
 {{- $c = append $c (dict "clientId" "misp" "name" "misp" "standardFlowEnabled" true "redirectUris" (list (printf "%s/users/login" $u)) "webOrigins" (list $u) "postLogoutRedirectUris" (list (printf "%s/users/login" $u)) "defaultClientScopes" (list "email") "protocolMappers" (list (dict "name" "realm roles" "protocolMapper" "oidc-usermodel-realm-role-mapper" "config" $flat)) "secretRef" (dict "namespace" $ns "name" "oidc-credentials" "key" "password")) -}}
 {{- end -}}
+{{- if (index .Values "kubesoc-portal").enabled -}}
+{{- /* Landing portal behind oauth2-proxy (keycloak-oidc provider: audience mapper, realm roles as role:<name>). */ -}}
+{{- $u := printf "https://%s" (include "secops.host" (dict "root" . "c" "portal")) -}}
+{{- $aud := dict "included.client.audience" "kubesoc-portal" "id.token.claim" "false" "access.token.claim" "true" -}}
+{{- $c = append $c (dict "clientId" "kubesoc-portal" "name" "kubesoc portal" "standardFlowEnabled" true "rootUrl" $u "redirectUris" (list (printf "%s/oauth2/callback" $u)) "webOrigins" (list $u) "postLogoutRedirectUris" (list (printf "%s/*" $u)) "defaultClientScopes" (list "web-origins" "acr" "profile" "roles" "basic" "email") "protocolMappers" (list (dict "name" "audience" "protocolMapper" "oidc-audience-mapper" "config" $aud) (dict "name" "groups" "protocolMapper" "oidc-group-membership-mapper" "config" $groups)) "secretRef" (dict "namespace" $ns "name" "kubesoc-portal-oidc" "key" "client-secret")) -}}
+{{- end -}}
 {{- if or (index .Values "dfir-iris").enabled .Values.velociraptor.enabled -}}
 {{- $c = append $c (dict "clientId" "iris-sync" "name" "DFIR-IRIS access sync" "description" "Read-only service account for the IRIS and Velociraptor Keycloak syncs" "serviceAccountsEnabled" true "fullScopeAllowed" false "serviceAccountClientRoles" (dict "realm-management" (list "view-users")) "scopeMappings" (dict "clients" (dict "realm-management" (list "view-users" "query-users" "query-groups"))) "secretRef" (dict "namespace" $ns "name" "iris-keycloak-sync" "key" "KEYCLOAK_CLIENT_SECRET")) -}}
 {{- end -}}
@@ -112,6 +118,10 @@ app.kubernetes.io/part-of: security-operations
 {{- $id := .clientId -}}
 {{- with .secretRef -}}
 {{- $keys := list (dict "key" .key) -}}
+{{- if eq .name "kubesoc-portal-oidc" -}}
+{{- /* oauth2-proxy's cookie secret: 32 characters = a 32-byte AES key. */ -}}
+{{- $keys = list (dict "key" .key) (dict "key" "cookie-secret") -}}
+{{- end -}}
 {{- if eq .name "wazuh-dashboard-oidc" -}}
 {{- /* The Wazuh chart reads the client id from the same Secret. */ -}}
 {{- $keys = list (dict "key" "OPENSEARCH_OIDC_CLIENT_ID" "value" $id) (dict "key" .key) (dict "key" "OPENSEARCH_COOKIE_PASSWORD") -}}

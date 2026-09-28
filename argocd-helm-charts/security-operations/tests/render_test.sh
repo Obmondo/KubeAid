@@ -585,6 +585,65 @@ if render -f "$SCRIPT_DIR/values-2-tenants.yaml" --set kubesoc-content.enabled=t
 else
   ko "content-set artifacts still need the checksum"; cat "$TMP/err"
 fi
+# --- AI assistant, MISP sightings, landing portal ---------------------------
+[ -z "$(yq 'select(.kind == "CronJob" and (.metadata.name == "dfir-iris-ai-triage" or .metadata.name == "dfir-iris-misp-sightings")) | .metadata.name' "$R2")" ] \
+  && ok "AI jobs off by default" || ko "AI jobs rendered by default"
+[ -z "$(yq 'select(.metadata.name == "kubesoc-portal" or .metadata.name == "kubesoc-portal-links") | .kind' "$R2")" ] \
+  && ok "portal off by default" || ko "portal rendered by default"
+AI=(-f "$SCRIPT_DIR/values-2-tenants.yaml" --set dfir-iris.aiTriage.enabled=true --set dfir-iris.aiTriage.caseSummary.enabled=true --set dfir-iris.aiTriage.hunt.enabled=true --set dfir-iris.mispSightings.enabled=true)
+if render "${AI[@]}" >"$TMP/ai.yaml"; then
+  ok "renders with the AI assistant and MISP sightings"
+  job=$(yq -o=json -I=0 'select(.kind == "CronJob" and .metadata.name == "dfir-iris-ai-triage") | .spec.jobTemplate.spec.template' "$TMP/ai.yaml")
+  [ "$(jq -c '.spec.containers[0].args' <<<"$job")" = '["triage","summary","hunt"]' ] && ok "AI modes in order" || ko "AI args: $(jq -c '.spec.containers[0].args' <<<"$job")"
+  [ "$(jq -r '.spec.containers[0].env[] | select(.name == "MODEL") | .value' <<<"$job")" = "mistral:7b" ] && ok "default model mistral:7b" || ko "model"
+  [ "$(jq -r '.metadata.labels["app.kubernetes.io/component"]' <<<"$job")" = "ai-triage" ] && ok "AI job carries the label Ollama admits" || ko "AI job label"
+  [ "$(jq -r '.spec.containers[0].securityContext.readOnlyRootFilesystem' <<<"$job")" = "true" ] && ok "AI job read-only root" || ko "AI job root fs"
+  [ "$(yq 'select(.kind == "ConfigMap" and .metadata.name == "dfir-iris-ai") | .data | keys | join(",")' "$TMP/ai.yaml")" = "ai_assist.py,kubesoc_ai.py,kubesoc_iris.py,misp_sightings.py" ] \
+    && ok "AI scripts ConfigMap" || ko "AI scripts ConfigMap"
+  ms=$(yq -o=json -I=0 'select(.kind == "CronJob" and .metadata.name == "dfir-iris-misp-sightings") | .spec.jobTemplate.spec.template.spec.containers[0]' "$TMP/ai.yaml")
+  [ "$(jq -r '[(.env[] | select(.name == "MISP_URL") | .value), (.env[] | select(.name == "MISP_KEY") | .valueFrom.secretKeyRef.name), (.env[] | select(.name == "IRIS_API_KEY") | .valueFrom.secretKeyRef.name), (.env[] | select(.name == "DRY_RUN") | .value), (.env[] | select(.name == "CREATE_EVENTS") | .value)] | join(" ")' <<<"$ms")" = "http://misp misp-sightings-key iris-ai-triage true false" ] \
+    && ok "MISP sightings wiring (dry run, no event creation)" || ko "MISP sightings env: $(jq -c .env <<<"$ms")"
+else
+  ko "renders with the AI assistant and MISP sightings"; cat "$TMP/err"
+fi
+expect_failure "AI assistant needs a mode" "at least one of" -f "$SCRIPT_DIR/values-2-tenants.yaml" --set dfir-iris.aiTriage.enabled=true --set dfir-iris.aiTriage.triage.enabled=false
+if render "${AI[@]}" --set dfir-iris.aiTriage.promptsConfigMap.name=kubesoc-ai-prompts >"$TMP/aip.yaml"; then
+  [ "$(yq 'select(.kind == "CronJob" and .metadata.name == "dfir-iris-ai-triage") | .spec.jobTemplate.spec.template.spec.volumes[] | select(.name == "prompts") | .configMap.name + " " + (.configMap.optional | tostring)' "$TMP/aip.yaml")" = "kubesoc-ai-prompts true" ] \
+    && ok "prompt overrides from a ConfigMap" || ko "prompts volume"
+else
+  ko "renders with a prompts ConfigMap"; cat "$TMP/err"
+fi
+
+PORTAL=(-f "$SCRIPT_DIR/values-2-tenants.yaml" --set kubesoc-portal.enabled=true --set-json 'portal.irisCustomerIds={"001":2}' --set-json 'portal.velociraptorOrgIds={"002":"O12AB"}')
+if render "${PORTAL[@]}" >"$TMP/portal.yaml"; then
+  ok "renders with the landing portal"
+  links=$(yq 'select(.kind == "ConfigMap" and .metadata.name == "kubesoc-portal-links") | .data["links.json"]' "$TMP/portal.yaml")
+  [ "$(jq -r '[.tenants[] | .code + "=" + (.roles | join(","))] | join(" ")' <<<"$links")" = "001=tenant-001 002=tenant-002" ] \
+    && ok "a portal card per tenant, visible to its group" || ko "portal tenants: $links"
+  [ "$(jq -r '.tenants[0].links[] | select(.name == "Wazuh dashboard") | .url' <<<"$links")" = "https://wazuh-001.example.com/app/wz-home" ] \
+    && ok "tenant Wazuh dashboard link" || ko "tenant Wazuh link"
+  [ "$(jq -r '[.tenants[] | .links[] | select(.name == "IRIS alerts") | .url] | join(" ")' <<<"$links")" = "https://iris.example.com/alerts?alert_customer_id=2 https://iris.example.com/alerts" ] \
+    && ok "IRIS customer filter with the id, fallback without" || ko "IRIS links"
+  [ "$(jq -r '[.tenants[] | .links[] | select(.name == "Velociraptor") | .url] | join(" ")' <<<"$links")" = "https://velociraptor.example.com/app/index.html https://velociraptor.example.com/app/index.html?org_id=O12AB#/dashboard" ] \
+    && ok "Velociraptor org link" || ko "Velociraptor links"
+  [ "$(jq -r '.operatorRoles | join(",")' <<<"$links")" = "administrator,analyst,soc-analysts" ] && ok "operators see every tenant" || ko "operator roles"
+  dep=$(yq -o=json -I=0 'select(.kind == "Deployment" and .metadata.name == "kubesoc-portal") | .spec.template.spec' "$TMP/portal.yaml")
+  [ "$(jq -r '[.containers[].securityContext.readOnlyRootFilesystem] | join(",")' <<<"$dep")" = "true,true" ] && ok "portal read-only root filesystems" || ko "portal root fs"
+  [ "$(jq -r '.securityContext.runAsNonRoot' <<<"$dep")" = "true" ] && ok "portal runs as non-root" || ko "portal runAsNonRoot"
+  yq 'select(.kind == "ConfigMap" and .metadata.name == "kubesoc-portal") | .data["nginx.conf"]' "$TMP/portal.yaml" | grep -q 'listen 127.0.0.1:8080;' \
+    && ok "page only reachable through oauth2-proxy" || ko "nginx listen"
+  [ "$(yq 'select(.kind == "Service" and .metadata.name == "kubesoc-portal") | .spec.ports[0].targetPort' "$TMP/portal.yaml")" = "http" ] && ok "portal Service" || ko "portal Service"
+  tj=$(yq 'select(.kind == "ConfigMap" and .metadata.name == "siem-tenants") | .data["tenants.json"]' "$TMP/portal.yaml")
+  [ "$(jq -r '.clients[] | select(.clientId == "kubesoc-portal") | .redirectUris[0]' <<<"$tj")" = "https://portal.example.com/oauth2/callback" ] \
+    && ok "reconciler keeps the portal client" || ko "portal client"
+  [ "$(jq -r '.secrets[] | select(.name == "kubesoc-portal-oidc") | [.keys[].key] | join(",")' <<<"$tj")" = "client-secret,cookie-secret" ] \
+    && ok "reconciler creates the portal secrets" || ko "portal secrets"
+else
+  ko "renders with the landing portal"; cat "$TMP/err"
+fi
+[ -z "$(yq 'select(.kind == "ConfigMap" and .metadata.name == "siem-tenants") | .data["tenants.json"]' "$R2" | jq -r '.clients[] | select(.clientId == "kubesoc-portal") | .clientId')" ] \
+  && ok "no portal client while the portal is off" || ko "portal client rendered while off"
+expect_failure "portal host must match the client" "must equal the portal host" "${PORTAL[@]}" --set kubesoc-portal.ingress.host=other.example.com
 
 echo
 echo "==================================="

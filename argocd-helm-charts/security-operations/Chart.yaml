@@ -43,3 +43,8 @@ dependencies:
     version: 0.1.0
     repository: file://../kubesoc-content
     condition: kubesoc-content.enabled
+  # SSO landing page with per-tenant links (off by default).
+  - name: kubesoc-portal
+    version: 0.1.0
+    repository: file://../kubesoc-portal
+    condition: kubesoc-portal.enabled

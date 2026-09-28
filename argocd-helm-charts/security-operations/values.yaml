@@ -22,6 +22,8 @@ hosts:
   iris: ""
   misp: ""
   velociraptor: ""
+  # The landing portal (kubesoc-portal), when enabled.
+  portal: ""
 
 # Keycloak realm that all components log in through. Everything in this block
 # except `clients` goes to the reconciler as is (keycloak section of its
@@ -716,6 +718,18 @@ dfir-iris:
     ollamaUrl: http://ollama:11434
     # Created and kept by the reconciler (ai.irisKeySecret).
     existingSecret: iris-ai-triage
+    # Case summaries (tag ai:summarize) and hunting suggestions (note
+    # "ai:hunt: <question>") are off by default: caseSummary.enabled,
+    # hunt.enabled. Prompt overrides: promptsConfigMap.name (dfir-iris README).
+  # IRIS -> MISP sightings for cases closed as true positive (off by default).
+  # The MISP key must be allowed to add sightings: create a MISP user for it and
+  # seal its auth key as misp-sightings-key (key "key"); the export key is
+  # read-only. The svc_ai IRIS key reads cases and sets the misp:sighted tag.
+  mispSightings:
+    misp:
+      url: http://misp
+      apiKeySecret: misp-sightings-key
+    existingSecret: iris-ai-triage
 
 misp:
   enabled: true
@@ -770,3 +784,66 @@ kubesoc-content:
   enabled: false
   canary: ""
   velociraptorArtifacts: true
+# SSO landing portal (../kubesoc-portal): one page behind Keycloak (oauth2-proxy)
+# with a card per tenant linking to its Wazuh dashboard, IRIS, Velociraptor,
+# MISP and the central search. The links are rendered by this chart from
+# `tenants` into ConfigMap kubesoc-portal-links (templates/portal-links.yaml);
+# the reconciler keeps the Keycloak client kubesoc-portal and its Secret
+# kubesoc-portal-oidc (client and cookie secret). Keep host and issuer in step
+# with `domain`, `hosts.portal` and `keycloak`.
+kubesoc-portal:
+  enabled: false
+  fullnameOverride: kubesoc-portal
+  linksConfigMap:
+    name: kubesoc-portal-links
+  oauth2Proxy:
+    oidcIssuerUrl: https://keycloak.example.com/auth/realms/soc
+  ingress:
+    className: traefik
+    host: portal.example.com
+
+# What the portal links to. URL placeholders: {code} {name} {tenantHost}
+# {wazuhHost} {irisHost} {mispHost} {velociraptorHost} {domain}
+# {irisCustomerId} {velociraptorOrgId}. `component` hides a link while that
+# component is disabled. A URL with {irisCustomerId} or {velociraptorOrgId}
+# needs the tenant's id below (IRIS and Velociraptor assign them at creation);
+# without it `fallback` is used.
+portal:
+  central:
+    - name: Central search
+      component: wazuh
+      url: "https://{wazuhHost}/app/wz-home"
+      description: Wazuh alerts of every tenant you may see
+    - name: DFIR-IRIS
+      component: dfir-iris
+      url: "https://{irisHost}/"
+      description: Cases and alerts
+    - name: Velociraptor
+      component: velociraptor
+      url: "https://{velociraptorHost}/app/index.html"
+      description: Endpoint forensics and hunts
+    - name: MISP
+      component: misp
+      url: "https://{mispHost}/events/index"
+      description: Threat intelligence
+  tenantLinks:
+    - name: Wazuh dashboard
+      url: "https://{tenantHost}/app/wz-home"
+    - name: IRIS alerts
+      component: dfir-iris
+      url: "https://{irisHost}/alerts?alert_customer_id={irisCustomerId}"
+      fallback: "https://{irisHost}/alerts"
+    - name: Velociraptor
+      component: velociraptor
+      url: "https://{velociraptorHost}/app/index.html?org_id={velociraptorOrgId}#/dashboard"
+      fallback: "https://{velociraptorHost}/app/index.html"
+    - name: MISP
+      component: misp
+      url: "https://{mispHost}/events/index"
+    - name: Central search
+      component: wazuh
+      url: "https://{wazuhHost}/app/data-explorer/discover"
+  # Tenant code -> IRIS customer id / Velociraptor org id (e.g. O1A2B3), for
+  # the deep links above.
+  irisCustomerIds: {}
+  velociraptorOrgIds: {}

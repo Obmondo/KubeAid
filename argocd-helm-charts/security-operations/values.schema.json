@@ -11,7 +11,8 @@
         "wazuh": {"type": "string"},
         "iris": {"type": "string"},
         "misp": {"type": "string"},
-        "velociraptor": {"type": "string"}
+        "velociraptor": {"type": "string"},
+        "portal": {"type": "string"}
       }
     },
     "keycloak": {

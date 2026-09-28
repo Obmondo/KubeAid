@@ -17,5 +17,8 @@ dependencies:
 - name: kubesoc-content
   repository: file://../kubesoc-content
   version: 0.1.0
-digest: sha256:05e8ea7f3f885bcb865aab4f1f3c21795cae5fee6d2c2e4550aeeb346f847785
-generated: "2026-09-28T17:59:29.963375+05:30"
+- name: kubesoc-portal
+  repository: file://../kubesoc-portal
+  version: 0.1.0
+digest: sha256:1c8293760e9101dd652e5af63621421c23de295dd48aa498f723b21afd563399
+generated: "2026-09-28T17:47:22.822202+05:30"

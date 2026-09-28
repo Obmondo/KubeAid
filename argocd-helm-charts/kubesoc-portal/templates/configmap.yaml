@@ -1,0 +1,28 @@
+{{- $fullname := include "kubesoc-portal.fullname" . }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fullname }}
+  labels:
+    {{- include "kubesoc-portal.labels" . | nindent 4 }}
+data:
+  nginx.conf: |
+    {{- include "kubesoc-portal.nginxConf" . | nindent 4 }}
+  index.html: |
+    {{- .Files.Get "files/index.html" | replace "@TITLE@" (.Values.title | toString | html) | nindent 4 }}
+  app.js: |
+    {{- .Files.Get "files/app.js" | nindent 4 }}
+  style.css: |
+    {{- .Files.Get "files/style.css" | nindent 4 }}
+{{- if not .Values.linksConfigMap.name }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fullname }}-links
+  labels:
+    {{- include "kubesoc-portal.labels" . | nindent 4 }}
+data:
+  links.json: |
+    {{- include "kubesoc-portal.linksJson" . | nindent 4 }}
+{{- end }}
