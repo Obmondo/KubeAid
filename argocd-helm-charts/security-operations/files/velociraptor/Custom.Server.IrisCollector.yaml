@@ -531,7 +531,7 @@ export: |
                          spec=to_dict(item={ SELECT art AS _key, env AS _value FROM scope() })).flow_id AS flow_id
       FROM ra_env
   LET ra_approved = SELECT case_id, asset_id, asset_name, org_id, client_id, action, art, task_id,
-          requester, flow_id, env,
+          requester, flow_id, env, v.login AS approver,
           log(message=format(format='IrisCollector: case %v asset %v action %v approved by %v -> %v %v %v',
               args=[case_id, asset_id, action, v.login, art, env, flow_id])) AS logged,
           note(cid=case_id, title='Velociraptor: ' + action + ' approved and running on ' + asset_name,
@@ -618,7 +618,7 @@ sources:
     query: |
       SELECT * FROM foreach(row={ SELECT * FROM clock(period=PollSeconds) },
                             query={ SELECT * FROM chain(a={ SELECT case_id, asset_id, action, task_id, 'denied' AS state, v.login AS approver FROM ra_denied },
-                                                        b={ SELECT case_id, asset_id, action, task_id, flow_id AS state, v.login AS approver FROM ra_approved }) })
+                                                        b={ SELECT case_id, asset_id, action, task_id, flow_id AS state, approver FROM ra_approved }) })
   - name: evidence
     query: |
       SELECT * FROM foreach(row={ SELECT * FROM clock(period=PollSeconds) },

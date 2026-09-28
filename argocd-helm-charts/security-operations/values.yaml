@@ -401,7 +401,7 @@ velociraptor:
     podAnnotations:
       # sha256 of the velociraptor-artifacts data; templates/checks.yaml fails the
       # render with the new value when the artifacts change.
-      checksum/server-artifacts: c8515294318e7b5f066ecebabf2d5ac8c33fc5f6d9c10805690a8e823960e498
+      checksum/server-artifacts: 7e15de101c61b55e007e31765dfcdd9e806d66e149b6e5fda540b68040a9d506
     # /etc/siem: tenant maps for the server artifacts (group-map.json, role-map.json,
     # org-map.json), from the velociraptor-tenants ConfigMap.
     # /etc/iris/API_KEY: IRIS API key for Custom.Server.IrisCollector.
