@@ -108,6 +108,7 @@ spec:
         items:
           - key: ca.crt
             path: ca.crt
+    {{- end }}
     {{- if (index .Values "kubesoc-content").enabled }}
     - name: content
       configMap:

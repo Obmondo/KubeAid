@@ -572,7 +572,7 @@ if render "${CT[@]}" >"$TMP/ct.yaml"; then
     && ok "content ConfigMap carries VERSION" || ko "content VERSION"
   [ "$(yq -N 'select(.metadata.name == "siem-tenants") | .data["tenants.json"]' "$TMP/ct.yaml" | jq -c '.components.content')" = '{"artifactDirs":["/etc/kubesoc-content-core/velociraptor"],"canary":"002","dir":"/etc/kubesoc-content","stateNamespace":"security-operations","velociraptor":true}' ] \
     && ok "reconciler input has the content component" || ko "content component: $(yq -N 'select(.metadata.name == "siem-tenants") | .data["tenants.json"]' "$TMP/ct.yaml" | jq -c '.components.content')"
-  [ "$(yq -N 'select(.kind == "CronJob") | [.spec.jobTemplate.spec.template.spec.volumes[].configMap.name] | join(",")' "$TMP/ct.yaml" | grep -v '^$')" = 'siem-tenants,kubesoc-content,velociraptor-artifacts' ] \
+  [ "$(yq -N 'select(.kind == "CronJob") | [.spec.jobTemplate.spec.template.spec.volumes[] | select(.configMap) | .configMap.name] | join(",")' "$TMP/ct.yaml" | grep -v '^$')" = 'siem-tenants,kubesoc-content,velociraptor-artifacts' ] \
     && ok "reconciler mounts the package and the core artifacts" || ko "reconciler volumes"
 else
   ko "renders with the content package"; cat "$TMP/err"

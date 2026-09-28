@@ -1,0 +1,59 @@
+{
+  "type": "object",
+  "properties": {
+    "interpretation": {
+      "type": "string",
+      "maxLength": 500
+    },
+    "wazuh_dql": {
+      "type": "string",
+      "maxLength": 1000
+    },
+    "opensearch_query": {
+      "type": "string",
+      "maxLength": 4000
+    },
+    "velociraptor_vql": {
+      "type": "string",
+      "maxLength": 3000
+    },
+    "time_range": {
+      "type": "string",
+      "maxLength": 60
+    },
+    "caveats": {
+      "type": "string",
+      "maxLength": 800
+    },
+    "attack_techniques": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 9
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 80
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      }
+    }
+  },
+  "required": [
+    "interpretation",
+    "wazuh_dql",
+    "opensearch_query",
+    "velociraptor_vql",
+    "time_range",
+    "caveats",
+    "attack_techniques"
+  ]
+}

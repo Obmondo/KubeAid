@@ -21,7 +21,9 @@ check "rules under flattened keys" "1" "$(cm '.data | keys | .[]' | grep -c '^wa
 check "rule content kept" "$(grep -c '<rule id=' wazuh/rules/kubesoc-0999-malicious-ioc.xml)" \
   "$(cm '.data["wazuh__rules__kubesoc-0999-malicious-ioc.xml"]' | grep -c '<rule id=')"
 check "agent group" "1" "$(cm '.data | keys | .[]' | grep -c '^wazuh__agent-groups__kubesoc-linux-baseline__agent.conf$')"
-check "prompts" "1" "$(cm '.data | keys | .[]' | grep -c '^ai__prompts__')"
+# One system prompt and one JSON schema for each AI mode (triage, summary, hunt);
+# tests/test_content_prompts.py in the dfir-iris chart checks they match the code.
+check "prompts" "6" "$(cm '.data | keys | .[]' | grep -c '^ai__prompts__')"
 check "no tests or docs" "0" "$(cm '.data | keys | .[]' | grep -cE 'tests|README' || true)"
 check "manifest carries tenant selection" '["wazuh/agent-groups/kubesoc-linux-baseline/agent.conf"]' \
   "$(cm '.data["manifest.json"]' | yq -p json -o json -I0 '.tenants["001"].include')"

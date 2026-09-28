@@ -1,0 +1,67 @@
+{
+  "type": "object",
+  "properties": {
+    "severity": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "false_positive": {
+      "type": "string",
+      "enum": [
+        "likely",
+        "unlikely",
+        "unknown"
+      ]
+    },
+    "category": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "summary": {
+      "type": "string",
+      "maxLength": 800
+    },
+    "next_action": {
+      "type": "string",
+      "maxLength": 400
+    },
+    "confidence": {
+      "type": "number"
+    },
+    "attack_techniques": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 9
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 80
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      }
+    }
+  },
+  "required": [
+    "severity",
+    "false_positive",
+    "category",
+    "summary",
+    "next_action",
+    "confidence",
+    "attack_techniques"
+  ]
+}

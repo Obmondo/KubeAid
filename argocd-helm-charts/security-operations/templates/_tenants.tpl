@@ -374,6 +374,10 @@ app.kubernetes.io/part-of: security-operations
 {{- toYaml (list (dict "clientId" $rc.clientId "name" "SIEM reconciler" "description" "Service account the siem-reconciler logs in as (client credentials)" "serviceAccountsEnabled" true "serviceAccountClientRoles" (dict "realm-management" $rc.roles) "secretRef" (dict "namespace" .Release.Namespace "name" $rc.secretName "key" "KEYCLOAK_CLIENT_SECRET"))) -}}
 {{- else -}}
 []
+{{- end -}}
+{{- end -}}
+
+{{/*
   Retention (ISM) settings for the reconciler, as YAML; empty when
   retention.enabled is false. Per-tenant days come from tenants[].retentionDays.
 */}}
