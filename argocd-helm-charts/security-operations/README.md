@@ -251,10 +251,13 @@ ollama:
 positive (dfir-iris README, "MISP sightings"). It needs a MISP key with sighting rights in
 Secret `misp-sightings-key` (key `key`), sealed by the operator.
 
-Flows (for NetworkPolicies): the AI job (`app.kubernetes.io/component: ai-triage`) ->
-`dfir-iris-app:8000` and `ollama:11434`; the sightings job
-(`app.kubernetes.io/component: misp-sightings`) -> `dfir-iris-app:8000` and `misp:80`.
-Neither needs the indexer or the internet.
+Flows to allow (the namespace is default-deny, so each needs a rule; both jobs also need
+DNS): the AI job (`app.kubernetes.io/component: ai-triage`) -> `dfir-iris-app:8000` and
+`ollama:11434`; the sightings job (`app.kubernetes.io/component: misp-sightings`) ->
+`dfir-iris-app:8000` and `misp:80`. Neither needs the indexer, Keycloak or the internet:
+both authenticate to IRIS with an API key, not OIDC, so they are unaffected by the IRIS
+OIDC settings. Ollama pulls a model only when `ollama.networkPolicy.allowModelDownload`
+is on; keep it off once the model is in the volume.
 
 ### Landing portal
 
@@ -268,8 +271,10 @@ its group `<tenantGroupPrefix><code>` and to the `operators` roles, with links b
 by those tools, so the customer-filtered IRIS link and the org link need
 `portal.irisCustomerIds` / `portal.velociraptorOrgIds` (tenant code -> id); without them the
 link falls back to the tool's start page. The reconciler keeps the Keycloak client
-`kubesoc-portal` and Secret `kubesoc-portal-oidc`. Flows: ingress controller -> portal
-pod 4180; portal -> Keycloak.
+`kubesoc-portal` and Secret `kubesoc-portal-oidc`. Flows to allow (default-deny): ingress
+controller -> portal pod 4180, portal -> Keycloak (the issuer, normally out through the
+ingress) and DNS. The portal only links to the tools; it never proxies them, so the
+dashboards staying SSO-only changes nothing for it.
 
 ## 8. What is not derived from `tenants`
 

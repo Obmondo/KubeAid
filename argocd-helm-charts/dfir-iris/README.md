@@ -161,9 +161,12 @@ Guardrails:
 
 Prompts: the built-in prompts and schemas (`files/ai/kubesoc_ai.py`) can be replaced per
 mode with `<mode>.system.txt` and `<mode>.schema.json` (mode `triage`, `summary`, `hunt`)
-from `promptsConfigMap.name` (e.g. the kubesoc content package) or inline `prompts`. A
-replacement schema must keep the default's fields. The note then records
-`custom-<sha256 prefix>` as the prompt version.
+from `promptsConfigMap.name` or inline `prompts`, mounted at `PROMPTS_DIR` (`/prompts`).
+The kubesoc-content package's `ai/prompts/` spelling (`<mode>-system.txt`,
+`<mode>-schema.json`) is read just as well, and `<MODE>_SYSTEM_PROMPT_FILE`
+(e.g. `TRIAGE_SYSTEM_PROMPT_FILE`) names one prompt file outright and wins over the
+directory. A replacement schema must keep the default's fields. The note then records
+`custom-<sha256 prefix>` as the prompt version, and the guard text stays either way.
 
 Enable (the security-operations umbrella wires the URL, key and NetworkPolicy):
 

@@ -134,6 +134,26 @@ class TestGuardrails(unittest.TestCase):
         with self.assertRaises(ValueError):
             ai.load_prompt("triage", d)
 
+    def test_prompt_file_kubesoc_content_names(self):
+        """kubesoc-content ships ai/prompts/<mode>-system.txt; both spellings are read."""
+        d = tempfile.mkdtemp()
+        with open(os.path.join(d, "triage-system.txt"), "w") as f:
+            f.write("Content package prompt.")
+        self.assertEqual(ai.load_prompt("triage", d).system, "Content package prompt.")
+
+    def test_prompt_file_env_override(self):
+        d = tempfile.mkdtemp()
+        path = os.path.join(d, "elsewhere.txt")
+        with open(path, "w") as f:
+            f.write("Named outright.")
+        with open(os.path.join(d, "triage-system.txt"), "w") as f:
+            f.write("From the directory.")
+        os.environ["TRIAGE_SYSTEM_PROMPT_FILE"] = path
+        try:
+            self.assertEqual(ai.load_prompt("triage", d).system, "Named outright.")
+        finally:
+            del os.environ["TRIAGE_SYSTEM_PROMPT_FILE"]
+
 
 class TestTriage(Base):
     def test_triage_writes_note_and_tags(self):

@@ -172,24 +172,37 @@ class Prompt:
         return f"{self.mode}/{self.version}"
 
 
+def _first_file(directory, names):
+    for name in names:
+        path = os.path.join(directory, name)
+        if os.path.isfile(path):
+            return path
+    return None
+
+
 def load_prompt(mode, directory=None):
     """Default prompt and schema for `mode`, each replaceable by a file in `directory`
-    (PROMPTS_DIR, a mounted ConfigMap): <mode>.system.txt and <mode>.schema.json.
-    The version names the built-in prompt or the sha256 of the files used. A schema
-    file must keep the fields the job renders; it may tighten or add."""
+    (PROMPTS_DIR, a mounted ConfigMap or the kubesoc-content package's ai/prompts):
+    <mode>.system.txt or <mode>-system.txt, and <mode>.schema.json or
+    <mode>-schema.json. <MODE>_SYSTEM_PROMPT_FILE names one prompt file outright and
+    wins over the directory. The version names the built-in prompt or the sha256 of
+    the files used. A schema file must keep the fields the job renders; it may
+    tighten or add."""
     system, schema = DEFAULTS[mode]
     schema = copy.deepcopy(schema)
     directory = directory if directory is not None else os.environ.get("PROMPTS_DIR", "/prompts")
     used = []
-    path = os.path.join(directory, f"{mode}.system.txt")
-    if directory and os.path.isfile(path):
+    path = os.environ.get(f"{mode.upper()}_SYSTEM_PROMPT_FILE", "")
+    if not (path and os.path.isfile(path)) and directory:
+        path = _first_file(directory, [f"{mode}.system.txt", f"{mode}-system.txt"])
+    if path and os.path.isfile(path):
         with open(path, encoding="utf-8") as f:
             text = f.read().strip()
         if text:
             system = text
             used.append(text)
-    path = os.path.join(directory, f"{mode}.schema.json")
-    if directory and os.path.isfile(path):
+    path = _first_file(directory, [f"{mode}.schema.json", f"{mode}-schema.json"]) if directory else None
+    if path:
         with open(path, encoding="utf-8") as f:
             text = f.read()
         loaded = json.loads(text)
