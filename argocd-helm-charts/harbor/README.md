@@ -392,4 +392,5 @@ See [example ArgoCD Application with ignoreDifferences](examples/argocd-applicat
 ## Docs
 
 - [Host your own central registry with KubeAid](../../docs/guides/harbor-registry.md) — deploying Harbor with KubeAid.
+- [Harbor: Acting as Air-Gapped Ops](../../docs/guides/harbor-air-gap.md) — HA settings and cross-cluster failover for pull-through-cache setups.
 - [Harbor upstream docs](https://goharbor.io/docs/2.0.0/administration/garbage-collection/)
