@@ -40,8 +40,26 @@ Keycloak client with `clientId: velociraptor` and the client secret in `gui.oidc
 ## 4. Image
 
 The upstream chart ships the author's hardened, rootless rebuild of Velociraptor
-(`ghcr.io/maximewewer/velociraptor`). For production, build your own image from the official
-binary and override `image.registry` / `image.repository`.
+(`ghcr.io/maximewewer/velociraptor`), which stays the default until KubeAid publishes its
+own.
+
+`build/kubesoc/velociraptor` in this repository builds that own image: the official
+Velocidex release binary for the version pinned in `versions.env`, checked against a pinned
+SHA-256 *and* the Velocidex release signature (the vendored public key
+`velocidex-release-key.asc`, fingerprint `0572 F28B 4EF1 9A04 3F4C BBE0 B22A 7FB1 9CB6 CFA1`),
+copied onto `gcr.io/distroless/base-debian12:nonroot` and run as 65532:65532 with the same
+entrypoint and arguments. Build it with `./build.sh` (it never pushes) and switch over:
+
+```yaml
+velociraptor:
+  image:
+    registry: ghcr.io
+    repository: obmondo/kubesoc-velociraptor
+    tag: "0.77.1"           # or pin digest: sha256:...
+```
+
+The chart's `securityContext` (non-root 65532, read-only root filesystem, no capabilities)
+applies to both images unchanged.
 
 ## 5. API clients (siem-reconciler)
 
@@ -71,16 +89,43 @@ apiServerEgress:
   enabled: true              # Cilium: the publisher reaches the Kubernetes API (only with apiClient)
 ```
 
-With `apiClient.enabled` two init containers run before the server: `api-client` runs
+With `apiClient.enabled` three init containers run before the server: `api-client` runs
 `velociraptor config api_client --name <apiClient.name> --role <apiClient.role>` against the
-merged config and the datastore (that registers the API user), and `api-client-publish`
-(`siem-reconciler publish-api-client`) writes the file into Secret `apiClient.secretName`
-(key `apiClient.secretKey`). Only the publisher mounts a ServiceAccount token (projected
-volume); the server container keeps none. Grant the ServiceAccount `get`, `update` and
-`patch` on that Secret and `create` on Secrets; this chart does not (the security-operations
-chart does). The api_client file names `localhost:8001`, so clients must dial
-`<fullname>-api:8001` themselves (the reconciler's `address`); the server certificate is
-checked against the pinned name `VelociraptorServer`, not the host name.
+merged config and the datastore (that registers the API user), `api-client-acl` runs
+`velociraptor acl grant <apiClient.name> <apiClient.policy>` (skipped when `policy` is
+empty), and `api-client-publish` (`siem-reconciler publish-api-client`) writes the file into
+Secret `apiClient.secretName` (key `apiClient.secretKey`). Only the publisher mounts a
+ServiceAccount token (projected volume); the server container keeps none. Grant the
+ServiceAccount `get`, `update` and `patch` on that Secret and `create` on Secrets; this
+chart does not (the security-operations chart does). The api_client file names
+`localhost:8001`, so clients must dial `<fullname>-api:8001` themselves (the reconciler's
+`address`); the server certificate is checked against the pinned name `VelociraptorServer`,
+not the host name.
+
+### Least privilege
+
+`acl grant` **replaces** the permissions the role gave the user, so `apiClient.policy` is
+the whole permission set the reconciler runs with. The default is the six permissions it
+actually needs (`any_query`, `read_results`, `org_admin`, `collect_server`,
+`server_artifact_writer`, `artifact_writer`) instead of `administrator`, which also carries
+`execve`, `filesystem_read`, `filesystem_write`, `network`, `impersonation`,
+`delete_results`, `server_admin`, `machine_state`, `collect_client`, `start_hunt` and
+`impersonation`. Each permission was checked on a local 0.77.1 server by dropping it from
+the set and re-running the reconciler's queries:
+
+| dropped | what breaks |
+|---|---|
+| `any_query` | every query: `PermissionDenied ... requires permission ANY_QUERY` |
+| `read_results` | `get_server_monitoring()` returns null (drift detection blind) |
+| `org_admin` | `orgs()` shows only the root org, `org_create()` and `_client_config` return null |
+| `collect_server` | `add_server_monitoring()` returns null |
+| `server_artifact_writer` | `artifact_set()` refuses SERVER/SERVER_EVENT artifacts |
+| `artifact_writer` | `artifact_set()` refuses CLIENT artifacts |
+
+Only the last two are needed by the content package (`artifact_set`); drop them from
+`policy` on a server whose artifacts come from the ConfigMap only. To go back to the old
+behaviour, set `apiClient.policy: null` (Helm merges maps, so `{}` keeps the defaults) and
+`apiClient.role: administrator`; the `api-client-acl` init container then disappears.
 
 ## Local patches to the vendored subchart
 
@@ -104,6 +149,9 @@ subchart:
   instead of `frontend.minions.enabled` alone.
 - `networkPolicy.apiAllowedFrom` (section 5): an ingress rule for `frontend.apiPort` in
   `templates/networkpolicy.yaml`.
+- `apiClient.policy` (section 5): the `api-client-acl` init container in the
+  `velociraptor.apiClientInitContainers` helper, and the least-privilege default policy
+  with `role: api` instead of `role: administrator`.
 - `apiClient` (section 5): the `velociraptor.apiClientInitContainers` and
   `velociraptor.apiClientVolumes` helpers in `templates/_helpers.tpl`, appended to the init
   containers and volumes in `templates/statefulset.yaml`, and `apiClient.imagePullSecrets`
