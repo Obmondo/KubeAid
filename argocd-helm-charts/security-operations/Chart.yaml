@@ -36,3 +36,10 @@ dependencies:
     version: 1.1.0
     repository: file://../ollama
     condition: ollama.enabled
+  # Detection content as code (Wazuh rules/decoders/lists/agent groups,
+  # Velociraptor artifacts, AI prompts), rolled out by the reconciler. Off by
+  # default: clusters render as before until it is switched on.
+  - name: kubesoc-content
+    version: 0.1.0
+    repository: file://../kubesoc-content
+    condition: kubesoc-content.enabled

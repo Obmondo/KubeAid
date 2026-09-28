@@ -478,3 +478,16 @@ ollama:
           matchLabels:
             app.kubernetes.io/name: dfir-iris
             app.kubernetes.io/component: ai-triage
+
+# Detection content as code: the kubesoc-content chart (README there) renders
+# ConfigMap kubesoc-content; the reconciler mounts it (plus velociraptor-artifacts)
+# and rolls it out to every tenant manager (canary first, validated, hot-reloaded,
+# rolled back on failure) and, with velociraptorArtifacts, to Velociraptor. Off by
+# default. With it on, turn velociraptor.velociraptor.customArtifacts off (the
+# checksum/server-artifacts annotation is then no longer checked) and let the wazuh
+# tenants' ruleset come from wazuh.ruleset.extraLists/extraRuleExcludes instead of
+# localRules plus a second <ruleset>.
+kubesoc-content:
+  enabled: false
+  canary: ""
+  velociraptorArtifacts: true

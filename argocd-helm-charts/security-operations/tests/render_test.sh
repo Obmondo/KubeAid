@@ -317,6 +317,37 @@ else
 fi
 expect_failure "publisher image must be the reconciler image" "must equal reconciler.image" "${AC[@]}" --set velociraptor.velociraptor.apiClient.publisherImage.tag=other
 
+# Detection content (kubesoc-content): off renders as before, on mounts the package.
+if [ -z "$(yq -N 'select(.kind == "ConfigMap" and .metadata.name == "kubesoc-content") | .metadata.name' "$TMP/ac.yaml")" ] \
+  && ! yq -N 'select(.metadata.name == "siem-tenants") | .data["tenants.json"]' "$TMP/ac.yaml" | jq -e '.components.content' >/dev/null; then
+  ok "content off: no package ConfigMap, no content component"
+else
+  ko "content off still renders content"
+fi
+CT=(-f "$SCRIPT_DIR/values-2-tenants.yaml" --set reconciler.enabled=true --set reconciler.image.tag=test
+    --set velociraptor.velociraptor.apiClient.publisherImage.tag=test
+    --set kubesoc-content.enabled=true --set kubesoc-content.canary=002
+    --set velociraptor.velociraptor.customArtifacts.enabled=false)
+if render "${CT[@]}" >"$TMP/ct.yaml"; then
+  ok "renders with the content package"
+  [ "$(yq -N 'select(.kind == "ConfigMap" and .metadata.name == "kubesoc-content") | .data.VERSION' "$TMP/ct.yaml")" = "$(tr -d '[:space:]' <"$SCRIPT_DIR/../../kubesoc-content/VERSION")" ] \
+    && ok "content ConfigMap carries VERSION" || ko "content VERSION"
+  [ "$(yq -N 'select(.metadata.name == "siem-tenants") | .data["tenants.json"]' "$TMP/ct.yaml" | jq -c '.components.content')" = '{"artifactDirs":["/etc/kubesoc-content-core/velociraptor"],"canary":"002","dir":"/etc/kubesoc-content","stateNamespace":"security-operations","velociraptor":true}' ] \
+    && ok "reconciler input has the content component" || ko "content component: $(yq -N 'select(.metadata.name == "siem-tenants") | .data["tenants.json"]' "$TMP/ct.yaml" | jq -c '.components.content')"
+  [ "$(yq -N 'select(.kind == "CronJob") | [.spec.jobTemplate.spec.template.spec.volumes[].configMap.name] | join(",")' "$TMP/ct.yaml" | grep -v '^$')" = 'siem-tenants,kubesoc-content,velociraptor-artifacts' ] \
+    && ok "reconciler mounts the package and the core artifacts" || ko "reconciler volumes"
+else
+  ko "renders with the content package"; cat "$TMP/err"
+fi
+expect_failure "content-set artifacts need the customArtifacts mount off" "customArtifacts.enabled to false" \
+  -f "$SCRIPT_DIR/values-2-tenants.yaml" --set kubesoc-content.enabled=true
+if render -f "$SCRIPT_DIR/values-2-tenants.yaml" --set kubesoc-content.enabled=true --set velociraptor.velociraptor.customArtifacts.enabled=false \
+  --set-json 'velociraptorArtifacts.extraFiles={"Custom.Extra.yaml":"name: Custom.Extra\n"}' >/dev/null; then
+  ok "content-set artifacts need no checksum annotation"
+else
+  ko "content-set artifacts still need the checksum"; cat "$TMP/err"
+fi
+
 echo
 echo "==================================="
 echo "PASS: $pass  FAIL: $fail"
