@@ -72,6 +72,8 @@ component blocks exactly as for the standalone charts (see their READMEs), one l
 | `tenantWazuh.{apiCredSecret,authdSecret}` | `wazuh-api-cred`, `wazuh-authd-pass` | Secrets in each tenant namespace the reconciler reads |
 | `tenantWazuh.{managerService,indexerNodesService}` | `wazuh`, `wazuh-indexer-nodes` | Service names of a tenant release (`fullnameOverride: wazuh`) |
 | `socCA.*` | enabled, `soc-ca` in `cert-manager` | CA ClusterIssuer every Wazuh instance uses |
+| `socCA.approverPolicy.enabled` | `false` | approver-policy CertificateRequestPolicies restricting `soc-ca` (section 5); needs cluster prerequisites |
+| `socCA.approverPolicy.{clusterDomain,maxDuration,certManagerServiceAccount}` | `cluster.local`, `2160h`, `cert-manager/cert-manager` | DNS suffix of the allowed names, longest certificate, the requester the policies are bound to |
 | `defaultRetentionDays` | `365` | Alert retention when a tenant sets none |
 | `checks.mispTargets` | `true` | Fail the render when the MISP export lacks a tenant's manager |
 | `ai.irisLogin`, `ai.irisGroups`, `ai.irisKeySecret` | `svc_ai`, `[Analysts]`, `iris-ai-triage` | IRIS service account of the triage job; the reconciler creates it, gives it these groups and every tenant as customer, and keeps its API key in that Secret (key `IRIS_API_KEY`, read by `dfir-iris.aiTriage.existingSecret`). Turn the job on with `dfir-iris.aiTriage.enabled` |
@@ -136,7 +138,42 @@ The `wazuh` component runs without a manager (`wazuh.wazuh.wazuh.{enabled,master
   (`dashboard.wazuhAppConfigSecret`), which the reconciler writes from the tenants' API
   logins. The dashboard waits for it on first start.
 - **Credentials**: set `wazuh.wazuh.indexer.cred` and `.dashboard.cred` (`existingSecret` +
-  `passwordHash`); the chart defaults are public.
+  `passwordHash`); the chart defaults are public. The indexer has no other internal users
+  (the upstream demo users are off, wazuh README section 8a), and with SSO on the dashboard
+  login is SSO only; `wazuh.wazuh.dashboard.basicAuth.breakGlass: true` adds the
+  username/password form for `admin`.
+
+### Restricting soc-ca (`socCA.approverPolicy`)
+
+`soc-ca` is a ClusterIssuer: by default anyone who may create a Certificate in any namespace
+can get `CN=admin,O=<any tenant>` (securityadmin on that tenant's indexer) or the central
+node DN `CN=wazuh-indexer,O=central,...` (a node every tenant indexer trusts) signed by it.
+`socCA.approverPolicy.enabled: true` renders (`templates/soc-ca-policy.yaml`):
+
+- one cert-manager approver-policy `CertificateRequestPolicy` per namespace that uses soc-ca:
+  `<name>-central` for this namespace (organization
+  `wazuh.wazuh.certificates.subject.organization`) and `<name>-tenant-<code>` for each
+  tenant namespace (organization `<tenantGroupPrefix><code>`, as kubeaid-cli renders it).
+  Each allows only that namespace, that organization, the common names `admin`,
+  `wazuh-indexer`, `wazuh-dashboard` and `wazuh-manager`, the Wazuh Service DNS names in
+  that namespace, no CA, RSA >= 2048 and at most `maxDuration`;
+- `<name>-root` for the CA certificate itself (`<name>-selfsigned` issuer, `socCA.namespace`);
+- a ClusterRole with `use` on those policies, bound by RoleBinding in each of those
+  namespaces to the cert-manager controller's ServiceAccount.
+
+Cluster prerequisites, which is why this is off by default:
+
+1. [approver-policy](https://cert-manager.io/docs/policy/approval/approver-policy/) is
+   installed (it brings the CRD; the sync fails without it).
+2. cert-manager's default approver is disabled
+   (`--controllers=*,-certificaterequests-approver` on the controller, and approver-policy
+   is given the approve permission for the issuers it handles). Otherwise the default
+   approver still approves every request and the policies change nothing.
+3. Every other issuer in the cluster (Let's Encrypt for the ingresses, other CAs) has a
+   policy of its own before step 2, or its certificates stop being issued.
+
+A tenant release whose `certificates.subject.organization` is not `<tenantGroupPrefix><code>`
+is denied; set the organization or the prefix accordingly.
 
 ## 6. Reconciler
 
@@ -264,5 +301,6 @@ A parent chart cannot compute its subcharts' values, so these need one entry per
 2-tenant and 3-tenant fixture and checks object uniqueness, namespaces, names, that no
 manager runs centrally, selectors, that tenant `003` adds only its own entries, the
 reconciler input, input validation, the reconciler objects, and the Velociraptor API, API
-client bootstrap and shipped artifacts. The tenant side is covered by
-`../wazuh/tests/tenant_render_test.sh`.
+client bootstrap and shipped artifacts, no OpenSearch demo users centrally, and the soc-ca
+approver policies. The tenant side is covered by `../wazuh/tests/tenant_render_test.sh` and
+`../wazuh/tests/hardening_render_test.sh`.

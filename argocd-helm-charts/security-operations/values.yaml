@@ -140,6 +140,23 @@ socCA:
   name: soc-ca
   namespace: cert-manager
   commonName: security-operations-ca
+  # cert-manager approver-policy CertificateRequestPolicies that restrict soc-ca
+  # to this namespace and the tenant namespaces, to the identities the Wazuh
+  # charts use and to each namespace's own organization (central O for the
+  # central search, <tenantGroupPrefix><code> for a tenant), plus RBAC for the
+  # cert-manager controller to use them (templates/soc-ca-policy.yaml). Off by
+  # default: it needs approver-policy installed and cert-manager's default
+  # approver disabled cluster-wide, after which every other issuer in the
+  # cluster needs a policy of its own too (README section 5).
+  approverPolicy:
+    enabled: false
+    clusterDomain: cluster.local
+    # Longest certificate soc-ca signs (the wazuh chart's certificates.duration).
+    maxDuration: 2160h
+    # The cert-manager controller, which creates the CertificateRequests.
+    certManagerServiceAccount:
+      name: cert-manager
+      namespace: cert-manager
 
 # Render-time consistency checks between `tenants` and component values that
 # cannot be derived from it (README, "What is not derived from tenants").

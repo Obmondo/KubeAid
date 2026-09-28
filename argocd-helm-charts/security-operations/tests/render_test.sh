@@ -317,6 +317,35 @@ else
 fi
 expect_failure "publisher image must be the reconciler image" "must equal reconciler.image" "${AC[@]}" --set velociraptor.velociraptor.apiClient.publisherImage.tag=other
 
+# --- hardening: indexer users, soc-ca scope, MISP Valkey password ---------
+users=$(yq -N 'select(.kind == "Secret" and .metadata.name == "wazuh-securityconfig") | .stringData["internal_users.yml"]' "$R2" | yq -r 'del(._meta) | keys | join(",")')
+[ "$users" = "admin,kibanaserver" ] && ok "central indexer: no demo users" || ko "central internal users: $users"
+grep -qE 'JJSXNfTowz7Uu5ttXfeYpeYE0arACvcwlPBStB1F|ae4ycwzwvLtZxwZ82RmiEunBbIPiAmGZduBAjKN0|u1ShR4l4uBS3Uv59Pa2y5|DpwmetHKwgYnorbgdvORCenv4NAK8cPUg8AI6pxLC' "$R2" \
+  && ko "demo user hash rendered" || ok "no demo user hash rendered"
+[ -z "$(yq -N 'select(.kind == "CertificateRequestPolicy") | .metadata.name' "$R2")" ] && ok "no soc-ca policy by default" || ko "soc-ca policy rendered by default"
+[ -z "$(yq -N 'select(.kind == "Certificate" and .metadata.name == "wazuh-root-ca") | .metadata.name' "$R2")" ] \
+  && ok "central Wazuh has no CA of its own under soc-ca" || ko "central wazuh-root-ca rendered"
+if render -f "$SCRIPT_DIR/values-2-tenants.yaml" --set socCA.approverPolicy.enabled=true >"$TMP/crp.yaml"; then
+  ok "renders with socCA.approverPolicy"
+  got=$(yq -N 'select(.kind == "CertificateRequestPolicy") | .metadata.name + "=" + (.spec.selector.namespace.matchNames | join(",")) + "/" + ((.spec.allowed.subject.organizations.values // []) | join(","))' "$TMP/crp.yaml" | paste -sd' ' -)
+  [ "$got" = "soc-ca-root=cert-manager/ soc-ca-central=security-operations/central soc-ca-tenant-001=wazuh-001/tenant-001 soc-ca-tenant-002=wazuh-002/tenant-002" ] \
+    && ok "one soc-ca policy per namespace, with its own organization" || ko "soc-ca policies: $got"
+  [ "$(yq -N 'select(.kind == "CertificateRequestPolicy" and .metadata.name == "soc-ca-tenant-001") | .spec.allowed.isCA' "$TMP/crp.yaml")" = "false" ] \
+    && ok "tenant policy allows no CA" || ko "tenant policy isCA"
+  [ "$(yq -N 'select(.kind == "RoleBinding" and .metadata.name == "soc-ca-approver-policy-use") | .metadata.namespace' "$TMP/crp.yaml" | paste -sd, -)" = "cert-manager,security-operations,wazuh-001,wazuh-002" ] \
+    && ok "policy use bound per namespace" || ko "policy RoleBindings"
+else
+  ko "renders with socCA.approverPolicy"; cat "$TMP/err"
+fi
+if render -f "$SCRIPT_DIR/values-2-tenants.yaml" --set misp.misp.env.redisPasswordSecret.name=misp-redis >"$TMP/redis.yaml"; then
+  [ "$(yq -N 'select(.kind == "ConfigMap" and (.metadata.name == "misp-env" or .metadata.name == "misp-modules-env")) | .data | keys | .[]' "$TMP/redis.yaml" | grep -cE '^REDIS_(PASSWORD|PW)$')" = 0 ] \
+    && ok "MISP Valkey password not in a ConfigMap" || ko "MISP Valkey password in a ConfigMap"
+  [ "$(yq -N 'select(.kind == "Deployment" and (.metadata.name == "misp" or .metadata.name == "misp-modules")) | .spec.template.spec.containers[0].env[] | select(.name == "REDIS_PASSWORD" or .name == "REDIS_PW") | .valueFrom.secretKeyRef.name' "$TMP/redis.yaml" | paste -sd, -)" = "misp-redis,misp-redis" ] \
+    && ok "MISP and misp-modules read the Valkey password from the Secret" || ko "MISP Valkey password env"
+else
+  ko "renders with misp redisPasswordSecret"; cat "$TMP/err"
+fi
+
 echo
 echo "==================================="
 echo "PASS: $pass  FAIL: $fail"
