@@ -7,13 +7,9 @@ name: kubesoc content
       - synchronize
       - reopened
     paths:
-      - 'argocd-helm-charts/kubesoc/kubesoc-content/**'
-      - 'argocd-helm-charts/kubesoc/security-operations/**'
-      - 'argocd-helm-charts/kubesoc/wazuh/**'
-      - 'argocd-helm-charts/kubesoc/misp/files/**'
-      - 'argocd-helm-charts/kubesoc/misp/tests/**'
-      - 'argocd-helm-charts/kubesoc/dfir-iris/files/**'
-      - 'argocd-helm-charts/kubesoc/dfir-iris/tests/**'
+      # The whole stack is one directory now, so one filter covers the umbrella
+      # and every component beside it.
+      - 'argocd-helm-charts/kubesoc/**'
       - '.github/workflows/kubesoc-content.yml'
   push:
     branches:
@@ -100,4 +96,4 @@ jobs:
       - name: wazuh (tenant mode)
         run: argocd-helm-charts/kubesoc/wazuh/tests/tenant_render_test.sh
       - name: security-operations
-        run: argocd-helm-charts/kubesoc/security-operations/tests/render_test.sh
+        run: argocd-helm-charts/kubesoc/tests/render_test.sh

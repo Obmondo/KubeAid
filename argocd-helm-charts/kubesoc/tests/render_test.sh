@@ -18,7 +18,9 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CHART_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-CHARTS_ROOT="$(cd "$CHART_DIR/.." && pwd)"
+# The component charts sit inside this chart now, beside templates/ and
+# charts/, not one directory up among the other KubeAid charts.
+COMPONENTS="$CHART_DIR"
 RELEASE=security-operations
 NS=security-operations
 TMP="$(mktemp -d)"
@@ -103,7 +105,7 @@ done
 # its kind and name inside the umbrella.
 # Wazuh is left out: the central instance is a search-only subset of it.
 for c in velociraptor dfir-iris misp ollama; do
-  helm template "$c" "$CHARTS_ROOT/$c" -n "$NS" --skip-tests 2>/dev/null >"$TMP/alone-$c.yaml"
+  helm template "$c" "$COMPONENTS/$c" -n "$NS" --skip-tests 2>/dev/null >"$TMP/alone-$c.yaml"
   missing=$(comm -23 <(objects "$TMP/alone-$c.yaml" | sort -u) <(sort -u "$TMP/objs2"))
   [ -z "$missing" ] && ok "standalone $c names kept" || ko "standalone $c objects missing: $missing"
 done
@@ -468,7 +470,7 @@ expect_failure "keycloakSync refuses an unmapped login claim" "mappingUsername p
 # of its own for every workload, and no rule open to anywhere except the agent
 # frontend (Velociraptor 8000) and MISP's internet egress (Cilium world, 80/443).
 NP=(-f "$SCRIPT_DIR/values-2-tenants.yaml" -f "$SCRIPT_DIR/values-netpol.yaml")
-NETPOL_CHECK="$CHARTS_ROOT/wazuh/tests/netpol_check.py"
+NETPOL_CHECK="$COMPONENTS/wazuh/tests/netpol_check.py"
 if render "${NP[@]}" >"$TMP/np.yaml"; then
   ok "renders with every workload"
   yq ea -o=json '[.]' "$TMP/np.yaml" >"$TMP/np.json"
@@ -618,7 +620,7 @@ CT=(-f "$SCRIPT_DIR/values-2-tenants.yaml" --set reconciler.enabled=true --set r
     --set velociraptor.velociraptor.customArtifacts.enabled=false)
 if render "${CT[@]}" >"$TMP/ct.yaml"; then
   ok "renders with the content package"
-  [ "$(yq -N 'select(.kind == "ConfigMap" and .metadata.name == "kubesoc-content") | .data.VERSION' "$TMP/ct.yaml")" = "$(tr -d '[:space:]' <"$SCRIPT_DIR/../../kubesoc-content/VERSION")" ] \
+  [ "$(yq -N 'select(.kind == "ConfigMap" and .metadata.name == "kubesoc-content") | .data.VERSION' "$TMP/ct.yaml")" = "$(tr -d '[:space:]' <"$SCRIPT_DIR/../kubesoc-content/VERSION")" ] \
     && ok "content ConfigMap carries VERSION" || ko "content VERSION"
   [ "$(yq -N 'select(.metadata.name == "siem-tenants") | .data["tenants.json"]' "$TMP/ct.yaml" | jq -c '.components.content')" = '{"artifactDirs":["/etc/kubesoc-content-core/velociraptor"],"canary":"002","dir":"/etc/kubesoc-content","stateNamespace":"security-operations","velociraptor":true}' ] \
     && ok "reconciler input has the content component" || ko "content component: $(yq -N 'select(.metadata.name == "siem-tenants") | .data["tenants.json"]' "$TMP/ct.yaml" | jq -c '.components.content')"

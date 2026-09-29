@@ -1,0 +1,15 @@
+tests/
+__pycache__/
+*.pyc
+
+# The component charts sit beside this one rather than under charts/, and reach
+# it through the charts/<name> symlinks. Without these the loader would also
+# pull each one in as plain files of the parent, packaging every component
+# twice. Anchored with a leading slash so charts/<name> is not matched.
+/dfir-iris/
+/kubesoc-content/
+/kubesoc-portal/
+/misp/
+/ollama/
+/velociraptor/
+/wazuh/
