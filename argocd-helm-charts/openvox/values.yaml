@@ -1,7 +1,8 @@
 global:
   postgresql:
     enabled: true
-    instanceName: openvox
+    # Must match the puppetdb OPENVOXDB_POSTGRES_HOSTNAME default (puppetserver-pgsql-rw)
+    instanceName: puppetserver
     instances: 1
     size: 2Gi
     monitoring:
