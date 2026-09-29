@@ -7,19 +7,19 @@ name: kubesoc content
       - synchronize
       - reopened
     paths:
-      - 'argocd-helm-charts/kubesoc-content/**'
-      - 'argocd-helm-charts/security-operations/**'
-      - 'argocd-helm-charts/wazuh/**'
-      - 'argocd-helm-charts/misp/files/**'
-      - 'argocd-helm-charts/misp/tests/**'
-      - 'argocd-helm-charts/dfir-iris/files/**'
-      - 'argocd-helm-charts/dfir-iris/tests/**'
+      - 'argocd-helm-charts/kubesoc/kubesoc-content/**'
+      - 'argocd-helm-charts/kubesoc/security-operations/**'
+      - 'argocd-helm-charts/kubesoc/wazuh/**'
+      - 'argocd-helm-charts/kubesoc/misp/files/**'
+      - 'argocd-helm-charts/kubesoc/misp/tests/**'
+      - 'argocd-helm-charts/kubesoc/dfir-iris/files/**'
+      - 'argocd-helm-charts/kubesoc/dfir-iris/tests/**'
       - '.github/workflows/kubesoc-content.yml'
   push:
     branches:
       - master
     paths:
-      - 'argocd-helm-charts/kubesoc-content/**'
+      - 'argocd-helm-charts/kubesoc/kubesoc-content/**'
       - '.github/workflows/kubesoc-content.yml'
 
 permissions:
@@ -30,7 +30,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CONTENT: argocd-helm-charts/kubesoc-content
+  CONTENT: argocd-helm-charts/kubesoc/kubesoc-content
 
 jobs:
   lint:
@@ -79,9 +79,9 @@ jobs:
           PYTHONDONTWRITEBYTECODE: "1"
         run: >-
           python -m pytest -q -p no:cacheprovider
-          argocd-helm-charts/misp/tests
-          argocd-helm-charts/wazuh/tests
-          argocd-helm-charts/dfir-iris/tests
+          argocd-helm-charts/kubesoc/misp/tests
+          argocd-helm-charts/kubesoc/wazuh/tests
+          argocd-helm-charts/kubesoc/dfir-iris/tests
 
   render:
     name: Chart render tests
@@ -98,6 +98,6 @@ jobs:
       - name: kubesoc-content
         run: ${CONTENT}/tests/render_test.sh
       - name: wazuh (tenant mode)
-        run: argocd-helm-charts/wazuh/tests/tenant_render_test.sh
+        run: argocd-helm-charts/kubesoc/wazuh/tests/tenant_render_test.sh
       - name: security-operations
-        run: argocd-helm-charts/security-operations/tests/render_test.sh
+        run: argocd-helm-charts/kubesoc/security-operations/tests/render_test.sh

@@ -38,11 +38,22 @@ jobs:
         env:
           BASE_REF: ${{ github.base_ref }}
         run: |
+          # Charts sit either directly under argocd-helm-charts/<chart> or one
+          # level down in a group directory, argocd-helm-charts/<group>/<chart>
+          # (kubesoc). Take the shortest prefix of each changed path that has a
+          # Chart.yaml, so a group directory never masks the charts inside it and
+          # a vendored subchart under <chart>/charts/ is never picked instead.
           changed="$(git diff --name-only "origin/${BASE_REF}"...HEAD -- argocd-helm-charts/ \
-            | cut -d/ -f2 | sort -u \
-            | while read -r chart; do
-                [ -f "argocd-helm-charts/${chart}/Chart.yaml" ] && echo "$chart"
-              done)" || true
+            | while read -r path; do
+                rel="${path#argocd-helm-charts/}"
+                one="${rel%%/*}"
+                two="$(echo "$rel" | cut -d/ -f1-2)"
+                if [ -f "argocd-helm-charts/${one}/Chart.yaml" ]; then
+                  echo "$one"
+                elif [ -f "argocd-helm-charts/${two}/Chart.yaml" ]; then
+                  echo "$two"
+                fi
+              done | sort -u)" || true
 
           if [ -z "$changed" ]; then
             echo "No charts changed."
