@@ -175,6 +175,9 @@ loki:
     replicas: 0
 ```
 
+Resource requests and limits for these components already come from this chart's `values.yaml`, override them if
+your volume needs more. Replicas do not, set them as above.
+
 Object storage here is a correctness requirement, not just more space. Each ingester flushes chunks to the
 shared bucket and any querier can read any of them. On a filesystem PVC each ingester writes to its own volume,
 no other querier can see those chunks, and queries come back missing data without reporting an error.

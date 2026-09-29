@@ -57,6 +57,16 @@ loki:
         retention_enabled: true
         delete_request_store: filesystem
 
+    ingester:
+      # Default 10m. A stream that falls behind while object storage is slow
+      # flushes all its chunks in one op, and hundreds of chunks do not finish in
+      # 10m, so the backlog never drains and the ingester runs out of memory.
+      flush_op_timeout: 30m
+      wal:
+        # Default 4GB. Must stay below the ingester memory limit (4Gi below),
+        # otherwise WAL replay OOMs before it starts flushing.
+        replay_memory_ceiling: 3GB
+
   singleBinary:
     # Chart default is 0, which deploys a StatefulSet with no pods.
     replicas: 1
@@ -75,6 +85,60 @@ loki:
   backend:
     replicas: 0
 
+  # Distributed targets. Only rendered with deploymentMode: Distributed, so these
+  # do nothing in Monolithic mode. Replicas are left at the upstream 0 on purpose:
+  # the chart refuses to render with both monolithic and distributed replicas set,
+  # so each cluster sets them when it switches, see README.
+  ingester:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        memory: 4Gi
+  distributor:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+  querier:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        memory: 1Gi
+  queryFrontend:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+  queryScheduler:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+  indexGateway:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        memory: 1Gi
+  compactor:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        memory: 1Gi
+
   # Nginx in front of Loki. Gives log shippers and Grafana one endpoint to talk to:
   # http://<release>-gateway.<namespace>.svc.cluster.local
   gateway:
@@ -86,8 +150,11 @@ loki:
   # when you move to SimpleScalable or Distributed.
   chunksCache:
     enabled: false
+    # Upstream default is 8192, which requests ~9.6Gi for one pod.
+    allocatedMemory: 2048
   resultsCache:
     enabled: false
+    allocatedMemory: 512
 
   # Synthetic log producer used to self-test the install, plus the helm test hook.
   # Neither is wanted in a GitOps managed cluster.
