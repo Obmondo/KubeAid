@@ -1,0 +1,26 @@
+{{- if .Values.frontendAllowedFrom }}
+# The upstream chart gates the frontend port with ipBlock CIDRs only. Cilium
+# identifies in-cluster pods by security identity, not by CIDR, so even
+# 0.0.0.0/0 does not admit the ingress controller and its dials time out.
+# NetworkPolicies are additive, so this second policy opens the frontend to
+# the listed peers (typically the traefik namespace, terminating nothing and
+# passing raw TLS through to the frontend).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "kubeaid-velociraptor.fullname" . }}-frontend-peers
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: velociraptor
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        {{- toYaml .Values.frontendAllowedFrom | nindent 8 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.velociraptor.frontend.containerPort | default 8000 }}
+{{- end }}

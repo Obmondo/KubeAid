@@ -1,0 +1,297 @@
+{{- /*
+  Backups of the SOC's own state (values.yaml `backup`, README "Backups"):
+
+    - Velero Schedules, in Velero's namespace, of this namespace and every
+      tenant's, so the volumes are covered: the tenants' Wazuh manager data
+      (client.keys) and indexer data, the Velociraptor datastore, the IRIS files
+      and the MISP attachments
+    - an OpenSearch snapshot CronJob next to every indexer
+    - a monthly Job that restores the newest IRIS database backup into a scratch
+      cluster and queries it
+
+  The two databases back themselves up in their own charts (a parent chart cannot
+  compute a subchart's values); checks.yaml makes sure they are switched on.
+
+  Everything here carries kubesoc.io/backup=<component>, which is what
+  `kubeaid-cli siem backup` and `siem restore` select on, next to the
+  kubesoc.io/backup-set label they put on the objects of one run.
+*/}}
+{{- if include "secops.backup.enabled" . }}
+{{- $b := .Values.backup }}
+{{- $ns := .Release.Namespace }}
+{{- $tenants := include "secops.tenants" . | fromJsonArray }}
+{{- $tw := .Values.tenantWazuh }}
+
+{{- if $b.velero.enabled }}
+{{- $v := $b.velero }}
+{{- $namespaces := include "secops.backup.namespaces" . | fromYamlArray }}
+{{- range $name, $s := dict "daily" $v.daily "weekly" $v.weekly }}
+{{- if $s.enabled }}
+---
+# Velero copies the volumes with Kopia, so no CSI snapshot support is needed and
+# a restore can land on another StorageClass. `kubeaid-cli siem backup` copies
+# this template into a one-off Backup, which is why the Schedule must list the
+# release namespace.
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: kubesoc-{{ $name }}
+  namespace: {{ $v.namespace }}
+  labels:
+    {{- include "secops.labels" $ | nindent 4 }}
+    kubesoc.io/backup: velero
+spec:
+  schedule: {{ $s.schedule | quote }}
+  template:
+    ttl: {{ $s.ttl }}
+    includedNamespaces:
+      {{- toYaml $namespaces | nindent 6 }}
+    {{- with $v.excludedResources }}
+    excludedResources:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    # The CloudNativePG volumes carry velero.io/exclude-from-backup
+    # (kubeaid-addons): their backup is barman's, with WAL archiving.
+    defaultVolumesToFsBackup: {{ $v.defaultVolumesToFsBackup }}
+    snapshotVolumes: {{ $v.snapshotVolumes }}
+    {{- with $v.storageLocation }}
+    storageLocation: {{ . }}
+    {{- end }}
+    metadata:
+      labels:
+        kubesoc.io/backup: velero
+        kubesoc.io/backup-schedule: {{ $name }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{- if $b.opensearch.enabled }}
+{{- $o := $b.opensearch }}
+{{- $indexers := list }}
+{{- if .Values.wazuh.enabled }}
+{{- $cred := ((((.Values.wazuh.wazuh | default dict).indexer | default dict).cred) | default dict).existingSecret | default "indexer-cred" }}
+{{- $indexers = append $indexers (dict "namespace" $ns "url" "https://wazuh-indexer:9200" "credSecret" $cred) }}
+{{- end }}
+{{- range $tenants }}
+{{- $indexers = append $indexers (dict "namespace" .namespace
+    "url" (printf "https://%s.%s.svc:9200" $tw.indexerService .namespace)
+    "credSecret" $tw.indexerCredSecret) }}
+{{- end }}
+{{- range $i := $indexers }}
+{{- if and $.Values.networkPolicies.enabled (ne $i.namespace $ns) }}
+---
+# The tenant namespaces are the wazuh chart's, and its default deny covers this
+# Job too. The release namespace's copy comes from templates/networkpolicies.yaml.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: secops-backup-snapshot
+  namespace: {{ $i.namespace }}
+  labels:
+    {{- include "secops.labels" $ | nindent 4 }}
+    kubesoc.io/backup: opensearch-snapshot
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: kubesoc-indexer-snapshot
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: wazuh-indexer
+      ports:
+        - protocol: TCP
+          port: 9200
+{{- end }}
+---
+# The script is the same everywhere; the ConfigMap is repeated per namespace
+# because a pod can only mount one from its own.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubesoc-backup-scripts
+  namespace: {{ $i.namespace }}
+  labels:
+    {{- include "secops.labels" $ | nindent 4 }}
+    kubesoc.io/backup: opensearch-snapshot
+data:
+  opensearch-snapshot.sh: |
+    {{- $.Files.Get "files/backup/opensearch-snapshot.sh" | nindent 4 }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kubesoc-indexer-snapshot
+  namespace: {{ $i.namespace }}
+  labels:
+    {{- include "secops.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: backup
+    # `kubeaid-cli siem backup` runs every CronJob with this label once.
+    kubesoc.io/backup: opensearch-snapshot
+spec:
+  schedule: {{ $o.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        {{- include "secops.backup.snapshotPod" (dict "root" $ "namespace" $i.namespace "url" $i.url "credSecret" $i.credSecret) | nindent 8 }}
+{{- end }}
+{{- end }}
+
+{{- if $b.verifyRestore.enabled }}
+{{- $r := $b.verifyRestore }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubesoc-restore-check
+  namespace: {{ $ns }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+---
+# Exactly what the check needs: read the Backups, own the scratch Cluster and its
+# volumes, and exec the query on its pod. It may not touch the live Cluster.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kubesoc-restore-check
+  namespace: {{ $ns }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+rules:
+  - apiGroups: ["postgresql.cnpg.io"]
+    resources: ["backups"]
+    verbs: ["get", "list"]
+  - apiGroups: ["postgresql.cnpg.io"]
+    resources: ["clusters"]
+    verbs: ["get", "list", "create", "patch", "delete"]
+    resourceNames: [{{ $r.scratchCluster | quote }}]
+  - apiGroups: ["postgresql.cnpg.io"]
+    resources: ["clusters"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["list", "delete", "deletecollection"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kubesoc-restore-check
+  namespace: {{ $ns }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kubesoc-restore-check
+subjects:
+  - kind: ServiceAccount
+    name: kubesoc-restore-check
+    namespace: {{ $ns }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubesoc-restore-check
+  namespace: {{ $ns }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+data:
+  verify-restore.sh: |
+    {{- .Files.Get "files/backup/verify-restore.sh" | nindent 4 }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kubesoc-restore-check
+  namespace: {{ $ns }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+    kubesoc.io/backup: restore-check
+spec:
+  schedule: {{ $r.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      # The script deletes the scratch cluster on its way out; give it room to.
+      activeDeadlineSeconds: {{ mul (add (int $r.timeoutMinutes) 10) 60 }}
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: kubesoc-restore-check
+            app.kubernetes.io/instance: {{ .Release.Name }}
+            kubesoc.io/backup: restore-check
+        spec:
+          serviceAccountName: kubesoc-restore-check
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: restore-check
+              image: "{{ $r.image.repository }}:{{ $r.image.tag }}"
+              imagePullPolicy: {{ $r.image.pullPolicy }}
+              command: ["/bin/sh", "/scripts/verify-restore.sh"]
+              env:
+                - name: NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.namespace
+                - name: CLUSTER
+                  value: {{ $r.cluster | quote }}
+                - name: SCRATCH
+                  value: {{ $r.scratchCluster | quote }}
+                - name: INSTANCES
+                  value: {{ $r.instances | quote }}
+                - name: STORAGE_SIZE
+                  value: {{ $r.storageSize | quote }}
+                - name: STORAGE_CLASS
+                  value: {{ $r.storageClass | quote }}
+                - name: DATABASE
+                  value: {{ $r.database | quote }}
+                - name: QUERY
+                  value: {{ $r.query | quote }}
+                - name: TIMEOUT_MINUTES
+                  value: {{ $r.timeoutMinutes | quote }}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              resources:
+                {{- toYaml $r.resources | nindent 16 }}
+              volumeMounts:
+                - name: scripts
+                  mountPath: /scripts
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: scripts
+              configMap:
+                name: kubesoc-restore-check
+            - name: tmp
+              emptyDir: {}
+{{- end }}
+{{- end }}

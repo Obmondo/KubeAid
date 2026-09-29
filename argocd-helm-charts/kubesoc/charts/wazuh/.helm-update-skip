@@ -1,0 +1,2 @@
+# bin/manage-helm-chart.sh --update-all skips this chart: charts/wazuh carries
+# KubeAid changes kept as patches/*.patch. Update it by hand (see README).

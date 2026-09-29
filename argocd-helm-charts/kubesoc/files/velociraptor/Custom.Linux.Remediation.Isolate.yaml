@@ -1,0 +1,76 @@
+name: Custom.Linux.Remediation.Isolate
+description: |
+  Network-isolate a Linux endpoint with nftables, leaving only the Velociraptor
+  server (and optionally DNS) reachable, so the SOC keeps control of the host
+  while it is contained. Set RemovePolicy to lift the isolation again.
+
+  The table (default kubesoc_isolate) holds an input, an output and a forward
+  chain, each with policy drop, plus accept rules for loopback, established
+  connections, the allowed servers and DNS.
+
+  Safety: with no ServerAllowlist this artifact refuses to do anything, because
+  dropping all traffic without an exception for the Velociraptor frontend would
+  cut the endpoint off from the SOC as well. The security-operations chart sets
+  the allowlist once (velociraptorArtifacts.monitoring
+  Custom.Server.IrisCollector.IsolationAllowlist) and the IRIS collector passes
+  it in with every isolate action.
+type: CLIENT
+parameters:
+  - name: ServerAllowlist
+    default: ""
+    description: |
+      Comma-separated IPs or CIDRs that stay reachable in both directions - the
+      Velociraptor frontend, and anything else the SOC needs (a jump host, a
+      package mirror). Empty refuses to isolate.
+  - name: AllowDNS
+    type: bool
+    default: "Y"
+    description: Keep udp/tcp 53 open so the client can still resolve the frontend name.
+  - name: TableName
+    default: kubesoc_isolate
+  - name: NftPath
+    default: /usr/sbin/nft
+  - name: RemovePolicy
+    type: bool
+    default: ""
+    description: Remove the isolation table instead of creating it (un-isolate).
+sources:
+  - query: |
+      -- every step is one `nft` invocation, so no ruleset file has to be
+      -- written to a read-only or noexec filesystem
+      LET Allow = filter(list=split(string=ServerAllowlist, sep=','), regex='.')
+      LET Chain(hook) = '{ type filter hook ' + hook + ' priority -10; policy drop; }'
+      LET Base = if(condition=RemovePolicy,
+          then=array(a=[NftPath, 'delete', 'table', 'inet', TableName]),
+          else=array(a=[NftPath, 'add', 'table', 'inet', TableName],
+                b=[NftPath, 'add', 'chain', 'inet', TableName, 'input', Chain(hook='input')],
+                c=[NftPath, 'add', 'chain', 'inet', TableName, 'output', Chain(hook='output')],
+                d=[NftPath, 'add', 'chain', 'inet', TableName, 'forward', Chain(hook='forward')],
+                e=[NftPath, 'add', 'rule', 'inet', TableName, 'input', 'iif', 'lo', 'accept'],
+                f=[NftPath, 'add', 'rule', 'inet', TableName, 'output', 'oif', 'lo', 'accept'],
+                g=[NftPath, 'add', 'rule', 'inet', TableName, 'input', 'ct', 'state', 'established,related', 'accept'],
+                h=[NftPath, 'add', 'rule', 'inet', TableName, 'output', 'ct', 'state', 'established,related', 'accept']))
+      LET Dns = if(condition=RemovePolicy OR NOT AllowDNS, then=array(),
+          else=array(a=[NftPath, 'add', 'rule', 'inet', TableName, 'output', 'udp', 'dport', '53', 'accept'],
+                b=[NftPath, 'add', 'rule', 'inet', TableName, 'output', 'tcp', 'dport', '53', 'accept']))
+      -- one accept rule per allowed server, in both directions
+      LET ServerRule(chain, direction, addr) = array(a=NftPath, b='add', c='rule', d='inet',
+          e=TableName, f=chain, g='ip', h=direction, i=addr, j='accept')
+      LET Servers = SELECT * FROM chain(
+          a={ SELECT ServerRule(chain='output', direction='daddr', addr=_value) AS argv
+              FROM foreach(row=Allow) },
+          b={ SELECT ServerRule(chain='input', direction='saddr', addr=_value) AS argv
+              FROM foreach(row=Allow) })
+      LET Plan = SELECT * FROM chain(
+          a={ SELECT _value AS argv FROM foreach(row=Base) },
+          b={ SELECT argv FROM Servers WHERE NOT RemovePolicy },
+          c={ SELECT _value AS argv FROM foreach(row=Dns) })
+      SELECT * FROM if(condition=(Allow[0] OR RemovePolicy),
+          then={ SELECT argv,
+                    { SELECT ReturnCode, Stderr FROM execve(argv=argv) } AS Result,
+                    if(condition=RemovePolicy, then='un-isolate', else='isolate') AS Action
+                 FROM Plan },
+          else={ SELECT array() AS argv, dict(ReturnCode=1,
+                    Stderr='refused: ServerAllowlist is empty, isolating would cut the endpoint off from Velociraptor too') AS Result,
+                    'refused' AS Action FROM scope() })
+

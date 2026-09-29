@@ -1,0 +1,40 @@
+{{- if .Values.dashboard.enabled }}
+{{- if .Values.dashboard.ingress.enabled -}}
+apiVersion:  networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "wazuh.fullname" . }}-dashboard
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ include "wazuh.fullname" . }}-dashboard
+  annotations:
+    {{- toYaml .Values.dashboard.ingress.annotations | nindent 4 }}
+spec:
+  {{- with .Values.dashboard.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.dashboard.ingress.tls }}
+  tls:
+    {{- range . }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ tpl . $ | quote }}
+        {{- end }}
+      {{- with .secretName }}
+      secretName: {{ . }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.dashboard.ingress.host }}
+      http:
+        paths:
+          - backend:
+              service:
+                name: {{ include "wazuh.fullname" . }}-dashboard
+                port:
+                  number: {{ .Values.dashboard.service.httpPort }}
+            path: /
+            pathType: Prefix
+{{- end -}}
+{{- end }}

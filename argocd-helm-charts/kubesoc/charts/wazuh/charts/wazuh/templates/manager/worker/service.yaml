@@ -1,0 +1,41 @@
+{{- if .Values.wazuh.worker.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "wazuh.fullname" . }}-manager-worker
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ include "wazuh.fullname" . }}-manager
+    node-type: worker
+  annotations:
+    {{- toYaml .Values.wazuh.worker.service.annotations | nindent 4 }}
+spec:
+  type: {{ .Values.wazuh.worker.service.type }}
+  {{- if .Values.global.dualStack.enabled }}
+  {{- if .Values.global.dualStack.ipFamilyPolicy }}
+  ipFamilyPolicy: {{ .Values.global.dualStack.ipFamilyPolicy }}
+  {{- end }}
+  {{- if .Values.global.dualStack.ipFamilies }}
+  ipFamilies:
+    {{- toYaml .Values.global.dualStack.ipFamilies | nindent 4 }}
+  {{- end }}
+  {{- end }}
+  ports:
+  {{- range .Values.wazuh.worker.service.ports }}
+    - name: {{ .name }}
+      protocol: {{ .protocol | default "TCP" }}
+      port: {{ .port }}
+      targetPort: {{ .targetPort }}
+      {{- if (and (eq $.Values.wazuh.worker.service.type "NodePort") (not (empty .nodePort))) }}
+      nodePort: {{ .nodePort }}
+      {{- end }}
+  {{- end }}
+{{- if .Values.wazuh.syslog_enable }}
+    - name: syslog
+      port: 514
+      targetPort: 514
+  {{- end }}
+  selector:
+    app: {{ include "wazuh.fullname" . }}-manager
+    node-type: worker
+{{- end }}

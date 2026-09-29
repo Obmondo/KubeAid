@@ -1,0 +1,357 @@
+# PostgreSQL and RabbitMQ come from kubeaid-addons (CNPG Cluster + RabbitmqCluster).
+# CNPG exposes the owner's credentials in <instanceName>-pgsql-app and the
+# read-write Service at <instanceName>-pgsql-rw; the RabbitMQ operator writes
+# <instanceName>-default-user with username/password/host/port.
+global:
+  postgresql:
+    enabled: true
+    instanceName: iris
+    instances: 1
+    size: 10Gi
+    database: iris_db
+    owner: raptor
+    monitoring:
+      enablePodMonitor: true
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        memory: 1Gi
+    backups:
+      enabled: false
+    logicalbackup:
+      enabled: false
+  rabbitmq:
+    enabled: true
+    instanceName: iris-rabbitmq
+    replicas: 1
+
+image:
+  repository: ghcr.io/dfir-iris/iriswebapp_app
+  tag: v2.4.20
+  pullPolicy: IfNotPresent
+
+# Connection details. Defaults follow the kubeaid-addons naming above; change
+# them only when pointing at databases you provisioned elsewhere.
+postgres:
+  host: iris-pgsql-rw
+  port: 5432
+  database: iris_db
+  # Secret with keys username and password (CNPG format). IRIS uses the same
+  # role for its "admin" (POSTGRES_USER, creates the database) and its runtime
+  # user (POSTGRES_ADMIN_USER), which is fine when the database already exists.
+  existingSecret: iris-pgsql-app
+rabbitmq:
+  # Secret with keys username and password (RabbitMQ operator format).
+  existingSecret: iris-rabbitmq-default-user
+  host: iris-rabbitmq
+  port: 5672
+
+# Application secrets, sealed in kubeaid-config. Keys:
+#   IRIS_SECRET_KEY, IRIS_SECURITY_PASSWORD_SALT, IRIS_ADM_PASSWORD
+secrets:
+  existingSecret: dfir-iris
+
+admin:
+  username: administrator
+  email: admin@example.com
+
+logLevel: info
+
+# Web UI authentication. IRIS 2.4 supports one type at a time: local, ldap or
+# oidc. With oidc the login page gets a "Use SSO" button; localFallback keeps
+# the username/password form next to it (break-glass for the local
+# administrator). API keys (Authorization: Bearer / X-IRIS-AUTH) work with
+# every type, so integrations and service accounts are unaffected.
+authentication:
+  type: local
+  # IRIS_AUTHENTICATION_LOCAL_FALLBACK. With oidc and false, /login redirects
+  # straight to the identity provider and local passwords stop working.
+  localFallback: true
+  # IRIS_AUTHENTICATION_CREATE_USER_IF_NOT_EXIST. OIDC users created on first
+  # login join the default organisation only: no group, no customer, so no
+  # permissions until an administrator assigns them. With false, only users
+  # pre-created in IRIS (login = the mapped username claim) can sign in.
+  createUserIfNotExist: false
+  oidc:
+    # e.g. https://keycloak.example.com/auth/realms/myrealm. Must equal the
+    # "iss" of the tokens; IRIS reads the discovery document from it. Register
+    # https://<ingress.host>/oidc-authorize as redirect URI on the client.
+    issuerUrl: ""
+    clientId: ""
+    # Secret holding the client secret (key below). Required when type is oidc.
+    existingSecret: ""
+    secretKey: OIDC_CLIENT_SECRET
+    scopes: openid email profile
+    # ID token claims. The username claim is matched against IRIS logins,
+    # including existing local users: with preferred_username, an IdP user whose
+    # username equals a local login (e.g. administrator) signs in as that user.
+    # sub (the IdP's immutable user id) or email cannot collide with a local login
+    # (IRIS logins of local accounts are plain names); keycloakSync then creates
+    # and renames users to the matching Keycloak attribute (README).
+    mappingUsername: preferred_username
+    mappingEmail: email
+
+# Extra /etc/hosts entries for app and worker, e.g. when the identity
+# provider's public hostname resolves to an address the pods cannot use.
+hostAliases: []
+#  - ip: 10.0.0.10
+#    hostnames:
+#      - keycloak.example.com
+
+# Keycloak -> IRIS access sync. IRIS's OIDC login reads only the username and
+# email claims, so group and customer membership cannot come from the token.
+# This CronJob reads realm roles and groups from Keycloak and sets each user's
+# IRIS groups and customers to exactly what the mapping yields: it creates
+# missing users, activates them, and on the next run revokes what was removed
+# in Keycloak (no mapped group or customer, or disabled/deleted in Keycloak,
+# means the IRIS user is deactivated). Keycloak becomes the one place where
+# access is granted and taken away.
+#
+# Needs a confidential Keycloak client with a service account holding the
+# realm-management role view-users (read only), and the API key of an IRIS
+# user with server_administrator. Both go into existingSecret.
+keycloakSync:
+  enabled: false
+  schedule: "*/5 * * * *"
+  # Start with a dry run and read the job log before letting it write.
+  dryRun: true
+  # Deactivate IRIS users that are not enabled Keycloak users (service
+  # accounts and protectedLogins are never touched).
+  deactivateOrphans: true
+  # IRIS logins the sync never touches. admin.username is always added. A
+  # Keycloak user with one of these names is reported and skipped: an SSO
+  # login with that name would sign in as the local account.
+  protectedLogins: []
+  keycloak:
+    url: ""        # e.g. https://keycloak.example.com/auth
+    realm: ""
+    clientId: ""
+  # Secret with the Keycloak client secret and the IRIS API key.
+  existingSecret: ""
+  keycloakSecretKey: KEYCLOAK_CLIENT_SECRET
+  irisApiKeySecretKey: IRIS_API_KEY
+  # Defaults to this release's app Service.
+  irisUrl: ""
+  # Keycloak realm role or group name -> IRIS group names and customer names.
+  # "*" means every customer. Groups the mapping names are owned by the sync;
+  # other IRIS groups a user has are left alone.
+  mapping:
+    roles: {}
+    #  administrator: {groups: [Administrators], customers: ["*"]}
+    #  analyst: {groups: [Analysts], customers: ["*"]}
+    groups: {}
+    #  site-a: {groups: [Analysts], customers: ["Site A"]}
+  # Read the mapping from a ConfigMap managed elsewhere instead of `mapping`
+  # above, e.g. one rendered per tenant by the security-operations umbrella
+  # chart. Same JSON shape ({"roles": {...}, "groups": {...}}). The sync reads it
+  # on every run, so a change needs no restart.
+  mappingConfigMap:
+    name: ""
+    key: mapping.json
+  activeDeadlineSeconds: 240
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+# kubesoc AI assistant with a self-hosted model (Ollama), README "AI assistant".
+# One CronJob runs the enabled modes in turn:
+#   triage       New alerts without an ai: tag get a note (severity, false-
+#                positive likelihood, category, summary, next step, ATT&CK
+#                techniques) and tags ai:triaged, ai:sev:*, ai:fp:*, ai:attack:*.
+#   caseSummary  Cases tagged ai:summarize (optionally: newly closed cases) get
+#                an incident summary and report draft note.
+#   hunt         A case note titled "ai:hunt: <question>" gets a note with a
+#                suggested Wazuh DQL filter, OpenSearch query and Velociraptor VQL.
+# Advisory only: the job writes notes and tags, nothing else. It never changes
+# severity, status or outcome and never runs a query, hunt or response. Case and
+# alert content is treated as untrusted data (fenced, escaped, redacted, schema-
+# constrained output), and every note says "AI draft - review required" with the
+# model and prompt version. Kept out of the detection path so a slow or absent
+# model never delays alerts.
+aiTriage:
+  enabled: false
+  # Start with a dry run: the job log shows each answer and its latency.
+  dryRun: true
+  schedule: "* * * * *"
+  # e.g. http://ollama.ollama.svc:11434 - keep the model service without
+  # internet egress; nothing leaves the cluster.
+  ollamaUrl: ""
+  # Mistral 7B (Apache-2.0): about 5 GB RAM at 4-bit, 30-70 s per alert on CPU.
+  # On a GPU node use mistral-small3.1 (24B, Apache-2.0, about 16 GB VRAM at
+  # 4-bit) for better summaries and queries; pull it in ollama.models.pull.
+  model: mistral:7b
+  # Seconds per model call. The job stops starting model calls 30 s before
+  # activeDeadlineSeconds; size the per-run limits below to fit.
+  timeoutSeconds: 180
+  activeDeadlineSeconds: 900
+  # Mask secret-like strings (passwords, tokens, keys, JWTs, credentials in
+  # URLs) before the model sees them. Hashes and IPs are kept.
+  redact: true
+  # IRIS note directory the case notes go into.
+  noteDirectory: AI drafts
+  triage:
+    enabled: true
+  # Alerts per run, and the Wazuh rule level below which alerts are skipped
+  # (0 = all IRIS alerts). Triage settings; kept at this level for compatibility.
+  maxPerRun: 3
+  minLevel: 0
+  caseSummary:
+    enabled: false
+    maxPerRun: 1
+    # Also draft for cases closed in the last lookbackDays days (no tag needed).
+    onClose: false
+    lookbackDays: 3
+  hunt:
+    enabled: false
+    maxPerRun: 2
+    # Open cases scanned for ai:hunt notes per run (newest first).
+    maxCases: 50
+  # Prompt and schema overrides: <mode>.system.txt and <mode>.schema.json with
+  # mode triage, summary or hunt. Missing files keep the built-in default; a
+  # schema must keep the default's fields. The note records the prompt version
+  # (built-in, or a hash of the files). The fixed guard text about untrusted
+  # data is always appended to the system prompt.
+  # Either a ConfigMap managed elsewhere (e.g. the kubesoc content package)...
+  promptsConfigMap:
+    name: ""
+  # ...or the files inline (ignored when promptsConfigMap.name is set).
+  prompts: {}
+  #  hunt.system.txt: |
+  #    You are a threat-hunting assistant ...
+  # Secret with the API key of an IRIS user that can read and update alerts
+  # and cases of the customers concerned (e.g. a dedicated service account in
+  # a group with alerts and case read/write).
+  existingSecret: ""
+  irisApiKeySecretKey: IRIS_API_KEY
+  irisUrl: ""
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+# IRIS -> MISP sightings, README "MISP sightings". Cases closed as true
+# positive (IRIS outcome "True positive with/without impact") add a sighting to
+# every case indicator MISP knows; the case is tagged misp:sighted. Optional:
+# a new unpublished MISP event for indicators MISP does not know (never TLP:RED
+# ones), and false-positive sightings for cases closed as false positive.
+mispSightings:
+  enabled: false
+  dryRun: true
+  schedule: "*/10 * * * *"
+  activeDeadlineSeconds: 300
+  # Only cases closed within this many days, so enabling it does not replay history.
+  lookbackDays: 7
+  # Case details read per run.
+  maxCases: 20
+  sightingSource: kubesoc
+  falsePositiveSightings: false
+  createEvents: false
+  # MISP distribution of created events: 0 your organisation only, 1 this
+  # community, 2 connected communities, 3 all.
+  eventDistribution: 0
+  misp:
+    # e.g. http://misp.<namespace>.svc
+    url: ""
+    # Secret with the auth key of a MISP user allowed to add sightings (and
+    # events, with createEvents). A read-only export key is not enough.
+    apiKeySecret: ""
+    apiKeySecretKey: key
+    verifyTls: true
+  # Secret with the API key of an IRIS user that can read the cases and
+  # update their tags.
+  existingSecret: ""
+  irisApiKeySecretKey: IRIS_API_KEY
+  irisUrl: ""
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
+
+app:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      memory: 2Gi
+  # Rendered with replicas above 1: without it a node drain can take the last
+  # app pod and the UI with it.
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+worker:
+  replicas: 1
+  # Celery worker processes per pod
+  numberOfChild: 2
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      memory: 2Gi
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+# One volume shared by app and worker for downloads, user templates and server
+# data. With ReadWriteOnce the worker is pinned to the app's node by affinity;
+# use ReadWriteMany (rook-ceph CephFS) to lift that.
+persistence:
+  enabled: true
+  existingClaim: ""
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 20Gi
+
+service:
+  type: ClusterIP
+  port: 8000
+
+# TLS terminates at the ingress; the upstream nginx container is not used.
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  host: iris.example.com
+  tls: []
+  #  - secretName: iris-tls
+  #    hosts:
+  #      - iris.example.com
+
+podSecurityContext:
+  fsGroup: 1000
+securityContext:
+  runAsNonRoot: false
+  allowPrivilegeEscalation: false
+
+nodeSelector: {}
+tolerations: []
+
+# Spread the app and worker pods over failure domains. Empty: no constraint, so
+# Kubernetes may put every replica on one node. The wanted value is normally
+# kubernetes.io/hostname, or topology.kubernetes.io/zone across zones.
+# Ignored with one replica, and with a ReadWriteOnce volume, which already pins
+# the worker to the app's node.
+topologySpreadTopologyKey: ""
+# ScheduleAnyway keeps a pod schedulable when no domain is free; DoNotSchedule
+# refuses instead.
+topologySpreadWhenUnsatisfiable: ScheduleAnyway
+
+# Deployment strategy of the app and worker. Recreate, because the shared volume
+# is ReadWriteOnce by default and a rolling update would start the new pod while
+# the old one still holds it (Multi-Attach). Set RollingUpdate together with a
+# ReadWriteMany persistence.accessModes, so an upgrade is not an outage.
+strategy:
+  type: Recreate

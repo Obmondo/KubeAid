@@ -1,0 +1,19 @@
+annotations:
+  category: Security
+apiVersion: v2
+appVersion: 0.77.1
+description: Velociraptor DFIR server - Helm chart for Kubernetes
+home: https://github.com/MaximeWewer
+keywords:
+- velociraptor
+- dfir
+- forensics
+- incident-response
+- security
+maintainers:
+- name: Maxime Wewer
+name: velociraptor
+sources:
+- https://github.com/Velocidex/velociraptor
+type: application
+version: 0.77.1-24-06-2026

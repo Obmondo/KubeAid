@@ -1,0 +1,49 @@
+name: Custom.Linux.Triage.Collect
+description: |
+  Triage collection for Linux: configuration, logs, persistence and shell
+  history, plus the live process list and network connections. Everything is
+  uploaded through the flow, so the server records the sha256 of every file and
+  the IRIS collector can write the chain of custody onto the case.
+type: CLIENT
+parameters:
+  - name: Globs
+    type: csv
+    default: |
+      Glob
+      /etc/**
+      /var/log/*.log
+      /var/log/{syslog,messages,auth.log,secure,audit/audit.log}*
+      /var/log/{wtmp,btmp,lastlog}
+      /var/log/journal/*/*.journal
+      /root/.*history
+      /home/*/.*history
+      /root/.ssh/*
+      /home/*/.ssh/*
+      /var/spool/cron/**
+      /etc/cron*/**
+      /etc/systemd/system/**
+      /usr/lib/systemd/system/*.service
+      /run/systemd/system/**
+      /tmp/**
+      /dev/shm/**
+    description: One glob per row.
+  - name: MaxFileSize
+    type: int
+    default: "104857600"
+sources:
+  - name: Uploads
+    query: |
+      LET specs = SELECT Glob FROM parse_csv(filename=Globs, accessor='data') WHERE Glob
+      SELECT OSPath, Size, Mtime,
+             upload(file=OSPath, name=OSPath.String) AS Upload
+      FROM glob(globs={ SELECT Glob FROM specs })
+      WHERE NOT IsDir AND Size < MaxFileSize
+  - name: Processes
+    query: |
+      SELECT Pid, Ppid, Name, Exe, CommandLine, Username, CreateTime FROM pslist()
+  - name: Connections
+    query: |
+      SELECT Pid, Family, Type, Status, Laddr.IP AS LocalAddress, Laddr.Port AS LocalPort,
+             Raddr.IP AS RemoteAddress, Raddr.Port AS RemotePort
+      FROM netstat()
+

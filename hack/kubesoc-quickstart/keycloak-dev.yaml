@@ -1,0 +1,85 @@
+# Development-mode Keycloak for the kubesoc quickstart only: in-memory database
+# (realms are lost on restart), plain HTTP behind the ingress. The admin password
+# is the keycloak-admin Secret the script creates; the security-operations chart
+# reads it from there (keycloak.adminSecretRef default).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  namespace: keycloakx
+  labels:
+    app.kubernetes.io/name: keycloak
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: keycloak
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: keycloak
+    spec:
+      containers:
+        - name: keycloak
+          image: quay.io/keycloak/keycloak:26.0.7
+          args: ["start-dev"]
+          env:
+            - name: KC_HTTP_RELATIVE_PATH
+              value: /auth
+            - name: KC_PROXY_HEADERS
+              value: xforwarded
+            - name: KC_HOSTNAME_STRICT
+              value: "false"
+            - name: KC_BOOTSTRAP_ADMIN_USERNAME
+              value: admin
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-admin
+                  key: KEYCLOAK_PASSWORD
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /auth/realms/master
+              port: http
+            initialDelaySeconds: 20
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloakx-http
+  namespace: keycloakx
+spec:
+  selector:
+    app.kubernetes.io/name: keycloak
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: keycloak
+  namespace: keycloakx
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: KEYCLOAK_HOST
+      http:
+        paths:
+          - path: /auth
+            pathType: Prefix
+            backend:
+              service:
+                name: keycloakx-http
+                port:
+                  name: http

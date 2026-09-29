@@ -12,9 +12,23 @@ metadata:
 
 spec:
   instances: {{ $postgresql.instances }}
+  {{- if $postgresql.enableSuperuserAccess }}
+  # Exposes the postgres superuser in <instanceName>-pgsql-superuser, for apps
+  # that must create databases or extensions themselves (DFIR-IRIS creates
+  # iris_tasks on first start).
+  enableSuperuserAccess: true
+  {{- end }}
 
   affinity:
     podAntiAffinityType: {{ $postgresql.podAntiAffinityType }}
+    {{- with $postgresql.topologyKey }}
+    # Failure domain the instances are kept apart in.
+    topologyKey: {{ . }}
+    {{- end }}
+
+  {{- if hasKey $postgresql "enablePDB" }}
+  enablePDB: {{ $postgresql.enablePDB }}
+  {{- end }}
 
   {{- if $postgresql.env }}
   env:
@@ -64,7 +78,7 @@ spec:
       isWALArchiver: true
       parameters:
         barmanObjectName: {{ .Values.global.postgresql.instanceName }}-pgsql-backups
-        serverName: "revision-{{ $postgresql.revision }}"
+        serverName: "revision-{{ $postgresql.backups.revision | default $postgresql.revision | default 1 }}"
   {{- end }}
 
   bootstrap:

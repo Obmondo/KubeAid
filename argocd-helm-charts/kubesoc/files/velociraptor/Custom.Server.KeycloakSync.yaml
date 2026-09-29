@@ -1,0 +1,126 @@
+name: Custom.Server.KeycloakSync
+description: |
+  Keep Velociraptor's users and org grants equal to Keycloak. Enabled Keycloak
+  users get the grants their realm roles (RoleMap) and groups (GroupMap) map to;
+  everyone else that Velociraptor knows, except Protected users, is removed from
+  the orgs the mapping does not give them. Runs as a server event; DryRun only
+  logs the plan. Needs the read-only Keycloak client secret in KcSecretFile.
+  A cycle changes nothing unless the token call, the user list and every per-user
+  lookup succeeded, both maps could be read and at least one grant is wanted, so a
+  Keycloak outage cannot wipe the user store.
+type: SERVER_EVENT
+parameters:
+  - name: KcUrl
+    description: Keycloak root URL including any context path, e.g. https://keycloak.example.com/auth
+    default: ""
+  - name: KcRealm
+    default: ""
+  - name: KcClientId
+    default: iris-sync
+    description: Confidential client with service account and view-users on the realm.
+  - name: KcSecretFile
+    default: /etc/keycloak/client_secret
+  - name: PollSeconds
+    type: int
+    default: "300"
+  - name: MaxUsers
+    type: int
+    default: "1000"
+    description: Page size of the Keycloak user list; raise before the realm outgrows it.
+  - name: DryRun
+    type: bool
+    default: "Y"
+  - name: Protected
+    description: |
+      Regex of Velociraptor users the sync never creates, changes or removes: local
+      accounts and API clients, which have no Keycloak user. siem-reconciler is the API
+      client of the security-operations reconciler; without it here the sync would
+      remove that user from every org on its first cycle.
+    default: '^(admin|VelociraptorServer|svc_.*|siem-reconciler)$'
+  - name: RoleMap
+    description: |
+      JSON: Keycloak realm role -> {"role": Velociraptor role, "orgs": [org ids or
+      names, "*" for every org]}. A user holding several mapped roles gets all of
+      their Velociraptor roles in the org. Used only when RoleMapFile is empty.
+    default: '{"administrator": {"role": "administrator", "orgs": ["*"]}, "analyst": {"role": "investigator", "orgs": ["*"]}}'
+  - name: RoleMapFile
+    description: |
+      File holding the RoleMap JSON, read on every cycle; replaces RoleMap when set.
+      The security-operations chart mounts its map there. When set but missing or
+      empty, the cycle changes nothing.
+    default: /etc/siem/role-map.json
+  - name: GroupMap
+    description: |
+      JSON: Keycloak group name -> {"role": ..., "orgs": [...]} with the same shape as
+      RoleMap, e.g. {"tenant-a": {"role": "investigator", "orgs": ["Tenant A"]}}. A
+      tenant's group maps to that tenant's org only. Used only when GroupMapFile is empty.
+    default: '{}'
+  - name: GroupMapFile
+    description: |
+      File holding the GroupMap JSON, read on every cycle; replaces GroupMap when set.
+      The security-operations chart mounts its map there. When set but missing or
+      empty, the cycle changes nothing.
+    default: /etc/siem/group-map.json
+export: |
+  LET SECRET = regex_replace(source=read_file(filename=KcSecretFile), re='\\s+$', replace='')
+  LET ADMIN = KcUrl + '/admin/realms/' + KcRealm
+  -- one row per cycle: the token, then the whole Keycloak and Velociraptor state read with it
+  LET tokresp = SELECT Response AS tokstatus, parse_json(data=Content).access_token AS tok
+      FROM http_client(url=KcUrl + '/realms/' + KcRealm + '/protocol/openid-connect/token', method='POST',
+                       headers=dict(`Content-Type`='application/x-www-form-urlencoded'),
+                       data='grant_type=client_credentials&client_id=' + KcClientId + '&client_secret=' + SECRET)
+  LET KH = dict(Authorization='Bearer ' + tok)
+  LET kcpage = SELECT Response, parse_json_array(data=Content) AS users
+      FROM http_client(url=ADMIN + '/users', params=dict(first='0', max=str(str=MaxUsers), briefRepresentation='true'), headers=KH)
+  LET kcroles(uid) = SELECT Response, parse_json_array(data=Content).name AS names
+      FROM http_client(url=ADMIN + '/users/' + uid + '/role-mappings/realm/composite', headers=KH)
+  LET kcgroups(uid) = SELECT Response, parse_json_array(data=Content).name AS names
+      FROM http_client(url=ADMIN + '/users/' + uid + '/groups', params=dict(briefRepresentation='true'), headers=KH)
+  LET kcusers = SELECT username, enabled, kcroles(uid=id)[0] AS R, kcgroups(uid=id)[0] AS G
+      FROM foreach(row=kcpage, query={ SELECT id, username, enabled FROM foreach(row=users) })
+  -- maps from their file when one is named, else from the parameter; an unreadable file
+  -- leaves the source empty, and the cycle is then not trusted (see apply)
+  LET RMAPSRC = if(condition=RoleMapFile, then=read_file(filename=RoleMapFile), else=RoleMap)
+  LET GMAPSRC = if(condition=GroupMapFile, then=read_file(filename=GroupMapFile), else=GroupMap)
+  LET RMAP = parse_json(data=RMAPSRC)
+  LET GMAP = parse_json(data=GMAPSRC)
+  LET ORGS = SELECT OrgId, Name FROM orgs()
+  LET orglist(spec) = SELECT OrgId FROM ORGS WHERE spec = '*' OR OrgId = spec OR Name = spec
+  LET grantsfor(u, entry) = SELECT u AS user, OrgId AS org, entry.role AS role
+      FROM foreach(row=entry.orgs, query={ SELECT OrgId FROM orglist(spec=_value) })
+  LET userwants(u, rnames, gnames) = SELECT * FROM chain(
+      a={ SELECT * FROM foreach(row=rnames, query={ SELECT * FROM grantsfor(u=u, entry=get(item=RMAP, field=_value)) WHERE get(item=RMAP, field=_value) }) },
+      b={ SELECT * FROM foreach(row=gnames, query={ SELECT * FROM grantsfor(u=u, entry=get(item=GMAP, field=_value)) WHERE get(item=GMAP, field=_value) }) })
+  -- KC is the Keycloak snapshot (a column of the cycle row); only enabled users count
+  LET wanted1 = SELECT user, org, role FROM foreach(row=KC, query={ SELECT * FROM userwants(u=username, rnames=R.names, gnames=G.names) WHERE enabled }) GROUP BY user, org, role
+  LET wanted = SELECT user, org, enumerate(items=role) AS roles FROM wanted1 GROUP BY user, org
+  LET current = SELECT name AS user, org_id AS org, roles FROM gui_users(all_orgs=true) WHERE NOT name =~ Protected
+  LET cur(u, o) = SELECT roles FROM CUR WHERE user = u AND org = o
+  LET missing(want, have) = SELECT _value FROM foreach(row=want) WHERE NOT _value in have
+  LET togrant = SELECT user, org, roles, have FROM foreach(row=wanted, query={ SELECT user, org, roles, cur(u=user, o=org)[0].roles AS have FROM scope() })
+      WHERE NOT have OR missing(want=roles, have=have)[0] OR missing(want=have, have=roles)[0]
+  LET wantsorg(u, o) = SELECT user FROM WANTED WHERE user = u AND org = o
+  LET torevoke = SELECT user, enumerate(items=org) AS orgs FROM CUR WHERE NOT wantsorg(u=user, o=org)[0].user GROUP BY user
+  LET unhealthy = SELECT username FROM foreach(row=KC) WHERE NOT (R.Response = 200 AND G.Response = 200)
+  LET snapshot = SELECT tokstatus, tok, { SELECT * FROM kcusers } AS KC, { SELECT * FROM current } AS CUR FROM tokresp
+  LET plan = SELECT * FROM foreach(row=snapshot, query={
+      SELECT tokstatus, KC, CUR, unhealthy[0].username AS bad, { SELECT * FROM wanted } AS WANTED FROM scope() })
+  LET apply = SELECT * FROM foreach(row=plan, query={
+      SELECT * FROM if(condition=tokstatus = 200 AND NOT bad AND WANTED AND RMAPSRC AND GMAPSRC,
+        then={ SELECT * FROM chain(
+          a={ SELECT 'grant' AS action, user, org, roles, have,
+                     if(condition=DryRun, then='dry-run', else=user_create(user=user, roles=roles, orgs=[org])) AS result
+              FROM togrant },
+          b={ SELECT 'revoke' AS action, user, orgs AS org, NULL AS roles, NULL AS have,
+                     if(condition=DryRun, then='dry-run', else=user_delete(user=user, orgs=orgs, really_do_it=true)) AS result
+              FROM torevoke }) },
+        else={ SELECT 'skip' AS action, NULL AS user, NULL AS org, NULL AS roles, NULL AS have,
+                      format(format='Keycloak read not trusted (token %v, users read %v, first failed lookup %v, grants wanted %v, maps read %v/%v); nothing changed',
+                             args=[tokstatus, len(list=KC), bad, len(list=WANTED), if(condition=RMAPSRC, then='yes', else='no'), if(condition=GMAPSRC, then='yes', else='no')]) AS result FROM scope() }) })
+sources:
+  - query: |
+      SELECT * FROM foreach(row={ SELECT * FROM clock(period=PollSeconds) },
+                            query={ SELECT timestamp(epoch=now()) AS at, action, user, org, roles, have, result,
+                                           log(message=format(format='KeycloakSync%s: %v %v %v %v -> %v', args=[if(condition=DryRun, then=' (dry-run)', else=''), action, user, org, roles, result])) AS logged
+                                    FROM apply })
+

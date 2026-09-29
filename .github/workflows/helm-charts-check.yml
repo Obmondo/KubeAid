@@ -38,11 +38,22 @@ jobs:
         env:
           BASE_REF: ${{ github.base_ref }}
         run: |
+          # A chart is argocd-helm-charts/<chart>, and may also be one level down
+          # in a group directory. Take the shortest prefix of a changed path that
+          # has a Chart.yaml: a group directory never masks the charts inside it,
+          # and a subchart under <chart>/charts/ is never picked instead of its
+          # parent (helm template on the parent already renders it).
           changed="$(git diff --name-only "origin/${BASE_REF}"...HEAD -- argocd-helm-charts/ \
-            | cut -d/ -f2 | sort -u \
-            | while read -r chart; do
-                [ -f "argocd-helm-charts/${chart}/Chart.yaml" ] && echo "$chart"
-              done)" || true
+            | while read -r path; do
+                rel="${path#argocd-helm-charts/}"
+                one="${rel%%/*}"
+                two="$(echo "$rel" | cut -d/ -f1-2)"
+                if [ -f "argocd-helm-charts/${one}/Chart.yaml" ]; then
+                  echo "$one"
+                elif [ -f "argocd-helm-charts/${two}/Chart.yaml" ]; then
+                  echo "$two"
+                fi
+              done | sort -u)" || true
 
           if [ -z "$changed" ]; then
             echo "No charts changed."

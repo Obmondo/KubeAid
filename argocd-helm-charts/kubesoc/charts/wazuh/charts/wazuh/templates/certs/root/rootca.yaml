@@ -1,0 +1,31 @@
+{{- /* KubeAid patch: every certificate comes from certificates.issuer.name when it is
+       set, so this release needs no CA of its own. Rendering one anyway gave each
+       release a CA key signed by the shared issuer that could mint any identity the
+       other releases trust. */}}
+{{- if and .Values.certificates.enabled (not .Values.certificates.issuer.name) }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "wazuh.fullname" . }}-root-ca
+  namespace: {{ .Release.Namespace }}  
+spec:
+  isCA: true
+  secretName: {{ include "wazuh.fullname" . }}-root-secret
+  commonName: {{ include "wazuh.fullname" . }}-root-ca
+  subject:
+    organizations:
+      - {{ .Values.certificates.subject.organization }}
+    countries:
+      - {{ .Values.certificates.subject.country }}
+    localities:
+      - {{ .Values.certificates.subject.locality }}
+  privateKey:
+    algorithm: RSA
+    size: 2048
+  duration: 87600h # 3650d
+  issuerRef:
+    name: {{ .Values.certificates.issuer.name | default (printf "%s-selfsigned-issuer" (include "wazuh.fullname" .)) }}
+    {{- if eq .Values.certificates.issuer.type "ClusterIssuer" }}
+    kind: ClusterIssuer
+    {{- end }}
+{{- end }}

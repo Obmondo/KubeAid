@@ -1,0 +1,72 @@
+shuffle:
+  shuffle:
+    # Public URL of the frontend, used in links and webhooks.
+    baseUrl: ""
+    timezone: Europe/Copenhagen
+
+  # Bundled Bitnami OpenSearch stays off (see .helm-prune). Point the backend at
+  # an OpenSearchCluster from the opensearch-operator chart in the same namespace.
+  opensearch:
+    enabled: false
+  backend:
+    replicaCount: 1
+    openSearch:
+      url: https://shuffle-opensearch:9200
+      username: admin
+      skipSSLVerify: true
+
+  frontend:
+    replicaCount: 1
+
+  # Broken upstream (see ingress below); leave off.
+  ingress:
+    enabled: false
+
+  orborus:
+    replicaCount: 1
+    # Orborus creates worker and app pods natively; no docker socket is needed.
+    manageWorkerDeployments: true
+    executionConcurrency: 25
+
+  worker:
+    enableHelmDeployment: false
+    manageAppDeployments: true
+
+# OpenSearchCluster for the backend, rendered by templates/opensearchcluster.yaml
+# (needs the opensearch-operator chart). Name must match backend.openSearch.url.
+externalOpensearch:
+  enabled: true
+  name: shuffle-opensearch
+  version: "2.19.1"
+  # Existing Secret with keys username (admin) and password; the password must
+  # satisfy OpenSearch's policy (8+ chars, upper, lower, digit, special) and
+  # match SHUFFLE_OPENSEARCH_PASSWORD in the backend's env Secret.
+  adminCredentialsSecret: ""
+  # Run without the security plugin (plain HTTP, no auth). Set
+  # backend.openSearch.url to http:// and leave the password empty. PoC only.
+  securityDisabled: false
+  # Extra opensearch.yml keys. For a single-node cluster set
+  # cluster.initial_cluster_manager_nodes to "<name>-nodes-0" so the node can
+  # elect itself when the operator's bootstrap pod is gone before it joined.
+  additionalConfig: {}
+  # Single-node clusters with securityDisabled: let nodes-0 bootstrap itself
+  # (see the template comment). Never for replicas > 1.
+  selfBootstrap: false
+  replicas: 1
+  diskSize: 30Gi
+  storageClass: ""
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      memory: 3Gi
+
+# Wrapper-level Ingress (templates/ingress.yaml); the upstream chart's Ingress
+# template is broken against the Bitnami common chart it ships with.
+ingress:
+  enabled: false
+  className: traefik
+  host: shuffle.example.com
+  annotations: {}
+  tlsSecretName: ""

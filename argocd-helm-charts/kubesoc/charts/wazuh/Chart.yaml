@@ -1,0 +1,7 @@
+apiVersion: v2
+name: wazuh
+version: 1.0.0
+dependencies:
+  - name: wazuh
+    version: 2.0.7
+    repository: https://morgoved.github.io/wazuh-helm/

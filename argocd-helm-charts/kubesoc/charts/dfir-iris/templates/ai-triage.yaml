@@ -1,0 +1,247 @@
+{{- /*
+  kubesoc AI assistant (aiTriage) and IRIS -> MISP sightings (mispSightings).
+  Both run python3 from the IRIS app image with the scripts in files/ai
+  (ConfigMap <fullname>-ai). See README "AI assistant" and "MISP sightings".
+*/}}
+{{- $fullname := include "dfir-iris.fullname" . }}
+{{- $t := .Values.aiTriage }}
+{{- $m := .Values.mispSightings }}
+{{- $scripts := dict }}
+{{- range $path, $_ := .Files.Glob "files/ai/*.py" }}
+{{- $_ := set $scripts (base $path) ($.Files.Get $path) }}
+{{- end }}
+{{- if or $t.enabled $m.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fullname }}-ai
+  labels:
+    {{- include "dfir-iris.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ai
+data:
+  {{- toYaml $scripts | nindent 2 }}
+{{- end }}
+{{- if $t.enabled }}
+{{- $modes := list }}
+{{- if $t.triage.enabled }}{{- $modes = append $modes "triage" }}{{- end }}
+{{- if $t.caseSummary.enabled }}{{- $modes = append $modes "summary" }}{{- end }}
+{{- if $t.hunt.enabled }}{{- $modes = append $modes "hunt" }}{{- end }}
+{{- if not $modes }}
+{{- fail "aiTriage.enabled needs at least one of aiTriage.triage, aiTriage.caseSummary or aiTriage.hunt enabled" }}
+{{- end }}
+{{- if and $t.prompts (not $t.promptsConfigMap.name) }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fullname }}-ai-prompts
+  labels:
+    {{- include "dfir-iris.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ai-triage
+data:
+  {{- range $k, $v := $t.prompts }}
+  {{ $k }}: {{ toString $v | quote }}
+  {{- end }}
+{{- end }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ $fullname }}-ai-triage
+  labels:
+    {{- include "dfir-iris.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ai-triage
+spec:
+  schedule: {{ $t.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: {{ $t.activeDeadlineSeconds }}
+      template:
+        metadata:
+          labels:
+            {{- include "dfir-iris.selectorLabels" . | nindent 12 }}
+            # The Ollama NetworkPolicy admits pods with this component label.
+            app.kubernetes.io/component: ai-triage
+          annotations:
+            checksum/ai-triage: {{ printf "%s%s" (toJson $scripts) (toJson $t) | sha256sum }}
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: triage
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command: ["python3", "/ai/ai_assist.py"]
+              args: {{ toJson $modes }}
+              env:
+                - name: IRIS_URL
+                  value: {{ $t.irisUrl | default (printf "http://%s-app:%v" $fullname .Values.service.port) | quote }}
+                - name: IRIS_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ required "aiTriage.existingSecret is required" $t.existingSecret }}
+                      key: {{ $t.irisApiKeySecretKey }}
+                - name: OLLAMA_URL
+                  value: {{ required "aiTriage.ollamaUrl is required" $t.ollamaUrl | quote }}
+                - name: MODEL
+                  value: {{ $t.model | quote }}
+                - name: MAX_PER_RUN
+                  value: {{ $t.maxPerRun | quote }}
+                - name: TIMEOUT_SECONDS
+                  value: {{ $t.timeoutSeconds | quote }}
+                - name: DEADLINE_SECONDS
+                  value: {{ max 60 (sub (int $t.activeDeadlineSeconds) 30) | quote }}
+                - name: MIN_LEVEL
+                  value: {{ $t.minLevel | quote }}
+                - name: DRY_RUN
+                  value: {{ $t.dryRun | quote }}
+                - name: REDACT
+                  value: {{ $t.redact | quote }}
+                - name: NOTE_DIRECTORY
+                  value: {{ $t.noteDirectory | quote }}
+                - name: SUMMARY_MAX_PER_RUN
+                  value: {{ $t.caseSummary.maxPerRun | quote }}
+                - name: SUMMARY_ON_CLOSE
+                  value: {{ $t.caseSummary.onClose | quote }}
+                - name: SUMMARY_LOOKBACK_DAYS
+                  value: {{ $t.caseSummary.lookbackDays | quote }}
+                - name: HUNT_MAX_PER_RUN
+                  value: {{ $t.hunt.maxPerRun | quote }}
+                - name: HUNT_MAX_CASES
+                  value: {{ $t.hunt.maxCases | quote }}
+                - name: PROMPTS_DIR
+                  value: /prompts
+                - name: PYTHONDONTWRITEBYTECODE
+                  value: "1"
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              resources:
+                {{- toYaml $t.resources | nindent 16 }}
+              volumeMounts:
+                - name: scripts
+                  mountPath: /ai
+                  readOnly: true
+                {{- if or $t.promptsConfigMap.name $t.prompts }}
+                - name: prompts
+                  mountPath: /prompts
+                  readOnly: true
+                {{- end }}
+          volumes:
+            - name: scripts
+              configMap:
+                name: {{ $fullname }}-ai
+            {{- if $t.promptsConfigMap.name }}
+            # Prompt and schema overrides (<mode>.system.txt, <mode>.schema.json),
+            # e.g. from the kubesoc content package. Optional: built-in defaults
+            # apply to whatever is missing.
+            - name: prompts
+              configMap:
+                name: {{ $t.promptsConfigMap.name }}
+                optional: true
+            {{- else if $t.prompts }}
+            - name: prompts
+              configMap:
+                name: {{ $fullname }}-ai-prompts
+            {{- end }}
+{{- end }}
+{{- if $m.enabled }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ $fullname }}-misp-sightings
+  labels:
+    {{- include "dfir-iris.labels" . | nindent 4 }}
+    app.kubernetes.io/component: misp-sightings
+spec:
+  schedule: {{ $m.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: {{ $m.activeDeadlineSeconds }}
+      template:
+        metadata:
+          labels:
+            {{- include "dfir-iris.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: misp-sightings
+          annotations:
+            checksum/misp-sightings: {{ printf "%s%s%s" (.Files.Get "files/ai/misp_sightings.py") (.Files.Get "files/ai/kubesoc_iris.py") (toJson $m) | sha256sum }}
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: sightings
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command: ["python3", "/ai/misp_sightings.py"]
+              env:
+                - name: IRIS_URL
+                  value: {{ $m.irisUrl | default (printf "http://%s-app:%v" $fullname .Values.service.port) | quote }}
+                - name: IRIS_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ required "mispSightings.existingSecret is required" $m.existingSecret }}
+                      key: {{ $m.irisApiKeySecretKey }}
+                - name: MISP_URL
+                  value: {{ required "mispSightings.misp.url is required" $m.misp.url | quote }}
+                - name: MISP_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ required "mispSightings.misp.apiKeySecret is required" $m.misp.apiKeySecret }}
+                      key: {{ $m.misp.apiKeySecretKey }}
+                - name: MISP_VERIFY_TLS
+                  value: {{ $m.misp.verifyTls | quote }}
+                - name: DRY_RUN
+                  value: {{ $m.dryRun | quote }}
+                - name: LOOKBACK_DAYS
+                  value: {{ $m.lookbackDays | quote }}
+                - name: MAX_CASES
+                  value: {{ $m.maxCases | quote }}
+                - name: SIGHTING_SOURCE
+                  value: {{ $m.sightingSource | quote }}
+                - name: FALSE_POSITIVE_SIGHTINGS
+                  value: {{ $m.falsePositiveSightings | quote }}
+                - name: CREATE_EVENTS
+                  value: {{ $m.createEvents | quote }}
+                - name: EVENT_DISTRIBUTION
+                  value: {{ $m.eventDistribution | quote }}
+                - name: PYTHONDONTWRITEBYTECODE
+                  value: "1"
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              resources:
+                {{- toYaml $m.resources | nindent 16 }}
+              volumeMounts:
+                - name: scripts
+                  mountPath: /ai
+                  readOnly: true
+          volumes:
+            - name: scripts
+              configMap:
+                name: {{ $fullname }}-ai
+{{- end }}

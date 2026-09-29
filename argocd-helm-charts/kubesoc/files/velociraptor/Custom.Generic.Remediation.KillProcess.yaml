@@ -1,0 +1,51 @@
+name: Custom.Generic.Remediation.KillProcess
+description: |
+  Kill processes on any OS by pid, by executable path/name regex or by the
+  SHA-256 of their executable, and report what was killed. Pairs with the IRIS
+  collector: the case's sha256 indicators arrive as Hashes, so "kill whatever is
+  running this sample" needs no further input from the analyst.
+
+  Nothing is killed unless at least one selector matches - an empty Pids, an
+  empty Hashes and the default NameRegex select nothing. Pid 0, pid 1 and the
+  Velociraptor process itself are never killed.
+type: CLIENT
+parameters:
+  - name: Pids
+    default: ""
+    description: Comma-separated process ids.
+  - name: NameRegex
+    default: ""
+    description: Regex matched against the process executable path (empty matches nothing).
+  - name: Hashes
+    default: ""
+    description: |
+      Comma-separated SHA-256 values of the process executable. Filled by the
+      IRIS collector from the case's sha256 indicators.
+  - name: MaxSize
+    type: int
+    default: "104857600"
+    description: Executables larger than this are not hashed (they are still matched by name or pid).
+sources:
+  - query: |
+      LET PidList = filter(list=split(string=Pids, sep=','), regex='[0-9]')
+      LET HashList = split(string=lowcase(string=Hashes), sep=',')
+      LET Me = SELECT Pid AS self, OS FROM info()
+      LET procs = SELECT Pid, Ppid, Name, Exe, Username, CommandLine FROM pslist()
+        WHERE Pid != Me[0].self AND Pid > 1
+      LET selected = SELECT *,
+             if(condition=Exe AND Hashes,
+                then=hash(path=Exe, max_size=MaxSize).SHA256, else='') AS sha
+        FROM procs
+      LET matched = SELECT *,
+             if(condition=str(str=Pid) in PidList, then='pid',
+                else=if(condition=NameRegex AND Exe =~ NameRegex, then='name',
+                    else=if(condition=sha AND sha in HashList, then='hash', else=''))) AS matched_by
+        FROM selected
+      SELECT Pid, Ppid, Name, Exe, Username, CommandLine, sha, matched_by,
+             { SELECT ReturnCode, Stderr FROM execve(argv=if(condition=(Me[0].OS = 'windows'),
+                   then=['taskkill', '/F', '/T', '/PID', str(str=Pid)],
+                   else=['/bin/kill', '-9', str(str=Pid)])) } AS Result,
+             if(condition={ SELECT Pid FROM pslist(pid=Pid) },
+                then=FALSE, else=TRUE) AS killed
+      FROM matched WHERE matched_by
+

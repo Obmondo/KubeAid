@@ -1,0 +1,5 @@
+# Must be rejected by values.schema.json: the code is the suffix of a namespace,
+# a host name and a cross-cluster search alias; no dashes keeps them unambiguous.
+tenants:
+  - code: a-b
+    name: Tenant With Dash

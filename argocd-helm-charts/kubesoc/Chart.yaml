@@ -1,0 +1,50 @@
+apiVersion: v2
+name: security-operations
+description: >-
+  Central side of a multi-tenant security operations stack as one release in one
+  namespace: a Wazuh search across every tenant's own Wazuh (cross-cluster
+  search), Velociraptor (DFIR), DFIR-IRIS (case management), MISP (threat intel)
+  and Ollama (local model for alert triage), configured from one tenants list.
+type: application
+version: 0.2.0
+keywords:
+  - siem
+  - soc
+  - dfir
+  - multi-tenant
+# The components are the KubeAid wrapper charts next to this one, symlinked into
+# charts/ (as dfir-iris does with kubeaid-addons), so a change to a wrapper is
+# picked up without re-packaging. Each can be switched off with <name>.enabled.
+dependencies:
+  - name: wazuh
+    version: 1.0.0
+    repository: file://charts/wazuh
+    condition: wazuh.enabled
+  - name: velociraptor
+    version: 1.0.0
+    repository: file://charts/velociraptor
+    condition: velociraptor.enabled
+  - name: dfir-iris
+    version: 0.4.0
+    repository: file://charts/dfir-iris
+    condition: dfir-iris.enabled
+  - name: misp
+    version: 1.1.0
+    repository: file://charts/misp
+    condition: misp.enabled
+  - name: ollama
+    version: 1.1.0
+    repository: file://charts/ollama
+    condition: ollama.enabled
+  # Detection content as code (Wazuh rules/decoders/lists/agent groups,
+  # Velociraptor artifacts, AI prompts), rolled out by the reconciler. Off by
+  # default: clusters render as before until it is switched on.
+  - name: kubesoc-content
+    version: 0.1.0
+    repository: file://charts/kubesoc-content
+    condition: kubesoc-content.enabled
+  # SSO landing page with per-tenant links (off by default).
+  - name: kubesoc-portal
+    version: 0.1.0
+    repository: file://charts/kubesoc-portal
+    condition: kubesoc-portal.enabled

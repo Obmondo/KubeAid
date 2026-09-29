@@ -1,0 +1,55 @@
+name: Custom.Linux.Remediation.RemoveByHash
+description: |
+  Quarantine or remove every regular file under the given globs whose SHA-256
+  matches an indicator, and report what happened. The Linux twin of
+  Custom.MacOS.Remediation.RemoveByHash: the case's sha256 IOCs arrive as
+  Hashes through the IRIS collector's IocMap.
+
+  Mode=quarantine (the default) copies the file into QuarantineDir under its own
+  hash and only then deletes the original, so the sample is still available for
+  analysis; Mode=delete removes it outright. A file whose copy fails is never
+  deleted.
+type: CLIENT
+parameters:
+  - name: Hashes
+    default: ""
+    description: |
+      Comma-separated SHA-256 values. Filled by the IRIS collector from the
+      case's sha256 indicators; empty removes nothing.
+  - name: Globs
+    default: /tmp/**,/var/tmp/**,/home/*/**,/dev/shm/**
+    description: Comma-separated globs to search; keep them narrow.
+  - name: Mode
+    default: quarantine
+    type: choices
+    choices:
+      - quarantine
+      - delete
+  - name: QuarantineDir
+    default: /var/lib/velociraptor/quarantine
+  - name: MaxSize
+    type: int
+    default: "104857600"
+sources:
+  - query: |
+      LET HashList = split(string=lowcase(string=Hashes), sep=',')
+      LET hits = SELECT OSPath, Size, hash(path=OSPath).SHA256 AS sha
+        FROM glob(globs=split(string=Globs, sep=','))
+        WHERE Hashes AND NOT IsDir AND Size < MaxSize AND hash(path=OSPath).SHA256 in HashList
+      LET prepared = SELECT *, if(condition=(Mode = 'quarantine'),
+              then={ SELECT ReturnCode FROM execve(argv=['/bin/mkdir', '-p', QuarantineDir]) },
+              else=dict(ReturnCode=0)) AS mkdir_rc
+        FROM hits
+      LET copied = SELECT *, if(condition=(Mode = 'quarantine'),
+              then={ SELECT ReturnCode FROM execve(argv=['/bin/cp', '-p', OSPath.String, QuarantineDir + '/' + sha]) },
+              else=dict(ReturnCode=0)) AS copy_rc
+        FROM prepared
+      SELECT OSPath, Size, sha, Mode,
+             if(condition=(Mode = 'quarantine'), then=QuarantineDir + '/' + sha, else='') AS quarantined,
+             copy_rc.ReturnCode AS copy_rc,
+             if(condition=(copy_rc.ReturnCode = 0),
+                then={ SELECT ReturnCode FROM execve(argv=['/bin/rm', '-f', OSPath.String]) },
+                else=dict(ReturnCode=-1)).ReturnCode AS rm_rc,
+             if(condition={ SELECT Size FROM stat(filename=OSPath.String) }, then=false, else=true) AS removed
+      FROM copied
+

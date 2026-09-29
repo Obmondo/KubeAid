@@ -1,0 +1,31 @@
+{{- if and .Values.certificates.enabled .Values.indexer.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "wazuh.fullname" . }}-admin
+  namespace: {{ .Release.Namespace }}
+spec:
+  # Secret names are always required.
+  secretName: admin-tls
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS8
+    size: 2048
+  duration: {{ .Values.certificates.duration }}
+  renewBefore: {{ .Values.certificates.renewBefore }}
+  isCA: false
+  commonName: admin
+  subject:
+    organizations:
+      - {{ .Values.certificates.subject.organization }}
+    countries:
+      - {{ .Values.certificates.subject.country }}
+    localities:
+      - {{ .Values.certificates.subject.locality }}
+  issuerRef:
+    # Admin cert must be signed by the CA Issuer so that it can be validated against node-tls secret
+    name: {{ .Values.certificates.issuer.name | default (printf "%s-ca-issuer" (include "wazuh.fullname" .)) }}
+    {{- if eq .Values.certificates.issuer.type "ClusterIssuer" }}
+    kind: ClusterIssuer
+    {{- end }}
+{{- end }}

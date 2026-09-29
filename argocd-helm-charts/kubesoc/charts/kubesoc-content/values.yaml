@@ -1,0 +1,33 @@
+# Switched from the security-operations umbrella (kubesoc-content.enabled); the
+# chart is not meant to be installed on its own.
+enabled: false
+
+# Package paths (as in this directory, e.g. wazuh/rules/x.xml) no tenant gets.
+exclude: []
+
+# Package paths only tenants that list them under tenants.<code>.include get.
+optional:
+  - wazuh/agent-groups/kubesoc-linux-baseline/agent.conf
+
+# Per tenant, by tenant code: include (optional paths) and exclude lists. Files
+# only one tenant needs go in tenants/<code>/wazuh/... instead; they are added to
+# (or replace, by name) the shared ones.
+tenants: {}
+#  "001":
+#    include:
+#      - wazuh/agent-groups/kubesoc-linux-baseline/agent.conf
+#    exclude:
+#      - wazuh/rules/kubesoc-0999-malicious-ioc.xml
+
+# The ConfigMap holds everything; Kubernetes caps an object at 1 MiB. The render
+# fails above this many bytes of content, well before the API server would.
+maxBytes: 900000
+
+# Read by the security-operations chart for the reconciler's input:
+# The tenant (code) whose manager is rolled out first; the others follow only when
+# it succeeds. Empty: the first tenant.
+canary: ""
+# Set the Velociraptor artifacts (security-operations files/velociraptor and
+# velociraptor/artifacts here) with artifact_set, instead of the server's
+# customArtifacts mount, which must then be off (checked at render time).
+velociraptorArtifacts: true

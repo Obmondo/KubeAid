@@ -1,0 +1,13 @@
+apiVersion: v2
+name: kubesoc-portal
+description: >-
+  kubesoc landing page behind Keycloak SSO: one static page with per-tenant
+  deep links into the SOC tools (Wazuh, DFIR-IRIS, Velociraptor, MISP, central
+  search). nginx (unprivileged, read-only root) behind oauth2-proxy.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - soc
+  - portal
+  - sso

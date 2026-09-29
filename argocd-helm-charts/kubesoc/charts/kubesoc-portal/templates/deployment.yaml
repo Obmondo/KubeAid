@@ -1,0 +1,164 @@
+{{- $fullname := include "kubesoc-portal.fullname" . }}
+{{- $o := .Values.oauth2Proxy }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}
+  labels:
+    {{- include "kubesoc-portal.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      {{- include "kubesoc-portal.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kubesoc-portal.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ printf "%s%s%s%s" (include "kubesoc-portal.nginxConf" .) (.Files.Get "files/index.html") (.Files.Get "files/app.js") (.Files.Get "files/style.css") | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.hostAliases }}
+      hostAliases:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: nginx
+          image: "{{ .Values.nginx.image.repository }}:{{ .Values.nginx.image.tag }}"
+          imagePullPolicy: {{ .Values.nginx.image.pullPolicy }}
+          {{- if not $o.enabled }}
+          ports:
+            - name: http
+              containerPort: 8080
+          {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          livenessProbe:
+            exec:
+              command: ["wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+            periodSeconds: 30
+          readinessProbe:
+            exec:
+              command: ["wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.nginx.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+              readOnly: true
+            - name: page
+              mountPath: /usr/share/nginx/html
+              readOnly: true
+            - name: links
+              mountPath: /srv/links
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+        {{- if $o.enabled }}
+        - name: oauth2-proxy
+          image: "{{ $o.image.repository }}:{{ $o.image.tag }}"
+          imagePullPolicy: {{ $o.image.pullPolicy }}
+          args:
+            - --provider=keycloak-oidc
+            - --oidc-issuer-url={{ required "oauth2Proxy.oidcIssuerUrl is required" $o.oidcIssuerUrl }}
+            - --client-id={{ $o.clientId }}
+            - --code-challenge-method=S256
+            - --redirect-url=https://{{ .Values.ingress.host }}/oauth2/callback
+            - --http-address=0.0.0.0:4180
+            - --upstream=http://127.0.0.1:8080/
+            - --reverse-proxy=true
+            - --email-domain=*
+            - --scope=openid email profile roles
+            - --cookie-name=_kubesoc_portal
+            - --cookie-secure=true
+            - --cookie-samesite=lax
+            - --cookie-expire={{ $o.cookieExpire }}
+            - --skip-provider-button=true
+            - --silence-ping-logging=true
+            {{- range $o.allowedRoles }}
+            - --allowed-role={{ . }}
+            {{- end }}
+            {{- range $o.allowedGroups }}
+            - --allowed-group={{ . }}
+            {{- end }}
+            {{- range $o.extraArgs }}
+            - {{ . }}
+            {{- end }}
+          env:
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $o.existingSecret }}
+                  key: {{ $o.clientSecretKey }}
+            - name: OAUTH2_PROXY_COOKIE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $o.existingSecret }}
+                  key: {{ $o.cookieSecretKey }}
+          ports:
+            - name: http
+              containerPort: 4180
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: http
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 10
+          resources:
+            {{- toYaml $o.resources | nindent 12 }}
+        {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ $fullname }}
+            items:
+              - key: nginx.conf
+                path: nginx.conf
+        - name: page
+          configMap:
+            name: {{ $fullname }}
+            items:
+              - key: index.html
+                path: index.html
+              - key: app.js
+                path: app.js
+              - key: style.css
+                path: style.css
+        - name: links
+          configMap:
+            name: {{ .Values.linksConfigMap.name | default (printf "%s-links" $fullname) }}
+            items:
+              - key: {{ if .Values.linksConfigMap.name }}{{ .Values.linksConfigMap.key }}{{ else }}links.json{{ end }}
+                path: links.json
+        - name: tmp
+          emptyDir:
+            sizeLimit: 16Mi
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

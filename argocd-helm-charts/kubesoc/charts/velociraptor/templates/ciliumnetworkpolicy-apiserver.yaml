@@ -1,0 +1,25 @@
+{{- if and .Values.apiServerEgress.enabled ((.Values.velociraptor.apiClient | default dict).enabled) }}
+# The api-client-publish init container (velociraptor.apiClient) writes the
+# api_client Secret through the Kubernetes API. The upstream NetworkPolicy allows
+# DNS egress and the listed peers only, and on Cilium an ipBlock never matches the
+# API server, so this policy adds the kube-apiserver entity. Policies are additive.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{ include "kubeaid-velociraptor.fullname" . }}-apiserver
+  namespace: {{ .Release.Namespace }}
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: velociraptor
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  egress:
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            {{- range .Values.apiServerEgress.ports }}
+            - port: {{ . | quote }}
+              protocol: TCP
+            {{- end }}
+{{- end }}

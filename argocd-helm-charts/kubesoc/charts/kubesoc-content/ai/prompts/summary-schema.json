@@ -1,0 +1,83 @@
+{
+  "type": "object",
+  "properties": {
+    "summary": {
+      "type": "string",
+      "maxLength": 1500
+    },
+    "timeline": {
+      "type": "array",
+      "maxItems": 15,
+      "items": {
+        "type": "object",
+        "properties": {
+          "time": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "event": {
+            "type": "string",
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "time",
+          "event"
+        ]
+      }
+    },
+    "impact": {
+      "type": "string",
+      "maxLength": 500
+    },
+    "attack_techniques": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 9
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 80
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      }
+    },
+    "recommended_actions": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "maxLength": 300
+      }
+    },
+    "open_questions": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "string",
+        "maxLength": 300
+      }
+    },
+    "confidence": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "summary",
+    "timeline",
+    "impact",
+    "attack_techniques",
+    "recommended_actions",
+    "open_questions",
+    "confidence"
+  ]
+}

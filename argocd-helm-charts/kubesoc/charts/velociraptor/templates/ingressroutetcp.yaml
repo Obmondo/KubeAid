@@ -1,0 +1,22 @@
+{{- if .Values.frontendTcpRoute.enabled }}
+# Agents speak mTLS straight to the frontend and pin its certificate, so the
+# ingress must forward raw TLS. The upstream chart only knows nginx
+# ssl-passthrough; on KubeAid clusters traefik does it with an IngressRouteTCP
+# on a dedicated entrypoint (add `ports.<entryPoint>` with a hostPort to the
+# traefik values, e.g. 8000, and open it in the Cilium host firewall).
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: {{ include "kubeaid-velociraptor.fullname" . }}-frontend
+  namespace: {{ .Release.Namespace }}
+spec:
+  entryPoints:
+    - {{ .Values.frontendTcpRoute.entryPoint }}
+  routes:
+    - match: HostSNI(`{{ .Values.frontendTcpRoute.host }}`)
+      services:
+        - name: {{ .Values.frontendTcpRoute.serviceName | default (printf "%s-frontend" (include "kubeaid-velociraptor.fullname" .)) }}
+          port: {{ .Values.frontendTcpRoute.port }}
+  tls:
+    passthrough: true
+{{- end }}

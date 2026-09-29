@@ -1,0 +1,139 @@
+{{- /*
+  Opt-in scope for the soc-ca ClusterIssuer (socCA.approverPolicy): cert-manager
+  approver-policy CertificateRequestPolicies that approve soc-ca certificates only
+  in this namespace and the tenant namespaces, only for the identities the Wazuh
+  charts use, and with each namespace's own organization - so a tenant namespace
+  cannot mint the central indexer's node DN (O=central), another tenant's admin DN
+  or a CA. The CA certificate itself gets a policy in socCA.namespace.
+
+  Prerequisite (cluster-wide, README section 5): approver-policy installed and
+  cert-manager's default approver disabled. Without that the default approver
+  still approves everything and these policies change nothing.
+*/}}
+{{- with .Values.socCA }}
+{{- if and .enabled .approverPolicy.enabled }}
+{{- $ap := .approverPolicy }}
+{{- $caName := .name }}
+{{- $domain := $ap.clusterDomain }}
+{{- $central := (($.Values.wazuh.wazuh | default dict).certificates | default dict).subject | default dict }}
+{{- $scopes := list }}
+{{- if $.Values.wazuh.enabled }}
+{{- $scopes = append $scopes (dict "policy" (printf "%s-central" $caName) "namespace" $.Release.Namespace "organization" ($central.organization | default "central")) }}
+{{- end }}
+{{- range $t := include "secops.tenants" $ | fromJsonArray }}
+{{- $scopes = append $scopes (dict "policy" (printf "%s-tenant-%s" $caName $t.code) "namespace" $t.namespace "organization" $t.group) }}
+{{- end }}
+{{- $policies := list (printf "%s-root" $caName) }}
+{{- range $scopes }}{{- $policies = append $policies .policy }}{{- end }}
+---
+apiVersion: policy.cert-manager.io/v1alpha1
+kind: CertificateRequestPolicy
+metadata:
+  name: {{ $caName }}-root
+  labels:
+    {{- include "secops.labels" $ | nindent 4 }}
+spec:
+  selector:
+    issuerRef:
+      name: {{ $caName }}-selfsigned
+      kind: ClusterIssuer
+      group: cert-manager.io
+    namespace:
+      matchNames: [{{ .namespace | quote }}]
+  allowed:
+    isCA: true
+    commonName:
+      value: {{ .commonName | quote }}
+      required: true
+    usages: ["digital signature", "key encipherment", "cert sign", "crl sign"]
+{{- range $scopes }}
+{{- $ns := .namespace }}
+---
+apiVersion: policy.cert-manager.io/v1alpha1
+kind: CertificateRequestPolicy
+metadata:
+  name: {{ .policy }}
+  labels:
+    {{- include "secops.labels" $ | nindent 4 }}
+spec:
+  selector:
+    issuerRef:
+      name: {{ $caName }}
+      kind: ClusterIssuer
+      group: cert-manager.io
+    namespace:
+      matchNames: [{{ $ns | quote }}]
+  allowed:
+    isCA: false
+    # The wazuh chart's certificates: admin (securityadmin), indexer node,
+    # dashboard, filebeat on the managers.
+    commonName:
+      value: "*"
+      required: true
+      validations:
+        - rule: "self in ['admin', 'wazuh-indexer', 'wazuh-dashboard', 'wazuh-manager']"
+          message: soc-ca signs only the Wazuh chart identities
+    dnsNames:
+      values:
+        - wazuh-indexer
+        - wazuh-dashboard
+        - wazuh-manager-master
+        - wazuh-manager-worker
+        - {{ printf "wazuh-*.%s" $ns | quote }}
+        - {{ printf "wazuh-*.%s.svc" $ns | quote }}
+        - {{ printf "wazuh-*.%s.svc.%s" $ns $domain | quote }}
+        - {{ printf "*.wazuh-indexer-nodes.%s.svc.%s" $ns $domain | quote }}
+        - {{ printf "*.wazuh-manager-cluster.%s.svc.%s" $ns $domain | quote }}
+    subject:
+      # The organization makes the DN unique per release (node DN, admin DN).
+      organizations:
+        values: [{{ .organization | quote }}]
+        required: true
+      countries:
+        values: ["*"]
+      localities:
+        values: ["*"]
+    usages: ["digital signature", "key encipherment", "server auth", "client auth"]
+  constraints:
+    maxDuration: {{ $ap.maxDuration | quote }}
+    privateKey:
+      algorithm: RSA
+      minSize: 2048
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $caName }}-approver-policy-use
+  labels:
+    {{- include "secops.labels" $ | nindent 4 }}
+rules:
+  - apiGroups: ["policy.cert-manager.io"]
+    resources: ["certificaterequestpolicies"]
+    verbs: ["use"]
+    resourceNames:
+      {{- toYaml $policies | nindent 6 }}
+{{- /* Bound per namespace, so the cert-manager controller may use the policies only
+       for requests in the namespaces they are meant for. */}}
+{{- $bindNs := list .namespace }}
+{{- range $scopes }}{{- $bindNs = append $bindNs .namespace }}{{- end }}
+{{- range $ns := $bindNs | uniq }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $caName }}-approver-policy-use
+  namespace: {{ $ns }}
+  labels:
+    {{- include "secops.labels" $ | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $caName }}-approver-policy-use
+subjects:
+  - kind: ServiceAccount
+    name: {{ $ap.certManagerServiceAccount.name }}
+    namespace: {{ $ap.certManagerServiceAccount.namespace }}
+{{- end }}
+{{- end }}
+{{- end }}

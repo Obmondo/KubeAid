@@ -1,0 +1,36 @@
+{{- if .Values.wazuh.master.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "wazuh.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ include "wazuh.fullname" . }}-manager
+    node-type: master
+  annotations:
+    {{- toYaml .Values.wazuh.master.service.annotations | nindent 4 }}
+spec:
+  type: {{ .Values.wazuh.master.service.type }}
+  {{- if .Values.global.dualStack.enabled }}
+  {{- if .Values.global.dualStack.ipFamilyPolicy }}
+  ipFamilyPolicy: {{ .Values.global.dualStack.ipFamilyPolicy }}
+  {{- end }}
+  {{- if .Values.global.dualStack.ipFamilies }}
+  ipFamilies:
+    {{- toYaml .Values.global.dualStack.ipFamilies | nindent 4 }}
+  {{- end }}
+  {{- end }}
+  ports:
+  {{- range .Values.wazuh.master.service.ports }}
+    - name: {{ .name }}
+      protocol: {{ .protocol | default "TCP" }}
+      port: {{ .port }}
+      targetPort: {{ .targetPort }}
+      {{- if (and (eq $.Values.wazuh.master.service.type "NodePort") (not (empty .nodePort))) }}
+      nodePort: {{ .nodePort }}
+      {{- end }}
+  {{- end }}
+  selector:
+    app: {{ include "wazuh.fullname" . }}-manager
+    node-type: master
+{{- end }}

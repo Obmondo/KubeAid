@@ -1,0 +1,18 @@
+# Where charts/misp comes from. The chart is not published to a Helm repository,
+# so bin/manage-helm-chart.sh --verify-patches clones it from git instead of
+# pulling it. See README section 1 for the upgrade procedure.
+url: https://github.com/cmu-sei/misp-helm
+ref: b9eab5c4674c98bf31fba3e184eb2111dc083f66
+# Directory of the chart inside the repository.
+path: .
+# Repository files that are not part of the vendored chart.
+exclude:
+  - .checkov.yaml
+  - .git
+  - .github
+  - .gitignore
+  - Makefile
+  - README.md.gotmpl
+  - ci
+  - ct.yaml
+  - tests

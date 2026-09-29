@@ -1,0 +1,24 @@
+dependencies:
+- name: wazuh
+  repository: file://../wazuh
+  version: 1.0.0
+- name: velociraptor
+  repository: file://../velociraptor
+  version: 1.0.0
+- name: dfir-iris
+  repository: file://../dfir-iris
+  version: 0.4.0
+- name: misp
+  repository: file://../misp
+  version: 1.1.0
+- name: ollama
+  repository: file://../ollama
+  version: 1.1.0
+- name: kubesoc-content
+  repository: file://../kubesoc-content
+  version: 0.1.0
+- name: kubesoc-portal
+  repository: file://../kubesoc-portal
+  version: 0.1.0
+digest: sha256:1c8293760e9101dd652e5af63621421c23de295dd48aa498f723b21afd563399
+generated: "2026-09-28T17:47:22.822202+05:30"

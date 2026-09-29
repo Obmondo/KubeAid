@@ -1,0 +1,101 @@
+# kubesoc landing portal. See README.md.
+
+# Page title and text logo.
+title: kubesoc
+subtitle: Security operations
+
+# Links shown on the page, as JSON (shape below). Either a ConfigMap managed
+# elsewhere - the security-operations umbrella renders kubesoc-portal-links
+# from its tenants list - or inline `links`.
+linksConfigMap:
+  name: ""
+  key: links.json
+links:
+  central: []
+  #  - name: DFIR-IRIS
+  #    url: https://iris.example.com
+  #    description: Cases and alerts
+  tenants: []
+  #  - code: "001"
+  #    name: Tenant A
+  #    # Keycloak realm roles or groups that make this tenant visible.
+  #    roles: [tenant-001]
+  #    links:
+  #      - name: Wazuh dashboard
+  #        url: https://wazuh-001.example.com/app/wz-home
+  # Realm roles or groups that see every tenant.
+  operatorRoles: []
+
+# Static page server. Listens on 127.0.0.1:8080 behind oauth2-proxy, or on
+# 0.0.0.0:8080 when oauth2Proxy.enabled is false (forward auth at the ingress).
+nginx:
+  image:
+    repository: nginxinc/nginx-unprivileged
+    tag: 1.29-alpine
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 5m
+      memory: 16Mi
+    limits:
+      memory: 64Mi
+
+# OIDC login in front of the page (Keycloak).
+oauth2Proxy:
+  enabled: true
+  image:
+    repository: quay.io/oauth2-proxy/oauth2-proxy
+    tag: v7.12.0
+    pullPolicy: IfNotPresent
+  # A placeholder, like ingress.host: the umbrella chart and kubeaid-cli set the
+  # real issuer. oauth2-proxy reads its discovery document at startup, so a
+  # release that kept this never serves the page rather than serving it open.
+  oidcIssuerUrl: https://keycloak.example.com/auth/realms/soc
+  clientId: kubesoc-portal
+  # Secret with the client secret and a cookie secret (16, 24 or 32 bytes).
+  # The security-operations reconciler creates both.
+  existingSecret: kubesoc-portal-oidc
+  clientSecretKey: client-secret
+  cookieSecretKey: cookie-secret
+  # Only these Keycloak realm roles / groups may sign in (empty: any user of
+  # the realm). The page itself only shows links; every tool enforces its own
+  # access.
+  allowedRoles: []
+  allowedGroups: []
+  cookieExpire: 8h
+  extraArgs: []
+  resources:
+    requests:
+      cpu: 5m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
+
+# Extra /etc/hosts entries, e.g. a Keycloak that resolves to an internal ingress:
+# [{ip: 10.0.0.10, hostnames: [keycloak.example.com]}]
+hostAliases: []
+
+replicas: 1
+
+service:
+  port: 80
+
+ingress:
+  enabled: true
+  className: ""
+  host: portal.example.com
+  annotations: {}
+  tls: []
+  #  - secretName: portal-tls
+  #    hosts: [portal.example.com]
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 101
+  runAsGroup: 101
+  seccompProfile:
+    type: RuntimeDefault
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

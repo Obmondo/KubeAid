@@ -1,0 +1,34 @@
+{{- if .Values.agentService.enabled }}
+{{- $s := .Values.agentService }}
+# Agents outside the cluster reach this release's manager directly, without an
+# ingress: a Service with externalIPs, served by kube-proxy or Cilium on the node
+# that holds the address. For one Wazuh per tenant (README section 11) every
+# tenant gets its own port pair on the same address, so nothing cluster-wide
+# (Traefik entry points) changes when a tenant is added. Agents dial
+# <address>:<registrationPort> to enrol and <address>:<eventsPort> for events;
+# the Service maps them to 1515 and 1514 on the manager. The manager's
+# NetworkPolicy must admit 1514/1515 from outside the cluster.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kubeaid-wazuh.fullname" . }}-agents
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ include "kubeaid-wazuh.fullname" . }}-manager
+spec:
+  type: ClusterIP
+  externalIPs:
+    {{- required "agentService.externalIPs needs at least one address" $s.externalIPs | toYaml | nindent 4 }}
+  ports:
+    - name: registration
+      protocol: TCP
+      port: {{ required "agentService.registrationPort is required" $s.registrationPort }}
+      targetPort: 1515
+    - name: agents-events
+      protocol: TCP
+      port: {{ required "agentService.eventsPort is required" $s.eventsPort }}
+      targetPort: 1514
+  selector:
+    app: {{ include "kubeaid-wazuh.fullname" . }}-manager
+    node-type: {{ $s.nodeType }}
+{{- end }}

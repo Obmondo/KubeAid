@@ -1,0 +1,27 @@
+---
+{{- if .Values.tests.enabled }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "ollama.fullname" . }}-test-connection"
+  namespace: {{ include "ollama.namespace" . }}
+  labels:
+    {{- include "ollama.labels" . | nindent 4 }}
+    {{- with .Values.tests.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  annotations:
+    "helm.sh/hook": test
+    {{- with .Values.tests.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['sh', '-ec']
+      args:
+        - >
+          wget -qO- "{{- if .Values.knative.enabled -}}http://{{ include "ollama.fullname" . }}.{{ include "ollama.namespace" . }}.svc.cluster.local{{- else -}}http://{{ include "ollama.fullname" . }}:{{ .Values.service.port }}{{- end -}}" >/dev/null
+  restartPolicy: Never
+{{ end }}

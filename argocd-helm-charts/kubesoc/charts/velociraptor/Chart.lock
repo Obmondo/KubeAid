@@ -1,0 +1,6 @@
+dependencies:
+- name: velociraptor
+  repository: oci://ghcr.io/maximewewer/charts
+  version: 0.77.1-24-06-2026
+digest: sha256:b5ccbee386cb2e851c4027b2e6a6742c79d8d6683f0983d462e4aca31a731f7c
+generated: "2026-09-21T17:30:32.842104+05:30"

@@ -1,0 +1,2203 @@
+{
+ "basePath": "/",
+ "components": {
+  "securitySchemes": {
+   "BearerAuth": {
+    "bearerFormat": "UUID",
+    "scheme": "bearer",
+    "type": "http"
+   }
+  }
+ },
+ "editing": true,
+ "host": "<my_ip>",
+ "id": "f5a4c255d4fab6b4ec6dece7d7e8dfb9",
+ "info": {
+  "contact": {
+   "email": "frikky@shuffler.io",
+   "name": "@frikkylikeme",
+   "url": "https://twitter.com/frikkylikeme"
+  },
+  "description": "IRIS API endpoints documentation. An API key is needed and can be found in every user profile under `My settings` > `API Key`. \n\nUpdated to support Alerts which came out in API v2.0.2\n",
+  "title": "IRIS v2",
+  "version": "1.0",
+  "x-categories": [
+   "Cases"
+  ],
+  "x-logo": "data:image/png;base64,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"
+ },
+ "openapi": "3.0.0",
+ "paths": {
+  "/alert/{alert_id}": {
+   "get": {
+    "description": "Fetch an alert",
+    "operationId": "Fetch_an_alert",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "alert_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Fetch an alert"
+   }
+  },
+  "/alerts/add": {
+   "post": {
+    "description": "Add an Alert",
+    "operationId": "Add_Alert",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"alert_title\": \"${alert_title}\",\n  \"alert_description\": \"${alert_description}\",\n  \"alert_source\": \"${alert_source}\",\n  \"alert_source_ref\": \"${alert_source_ref}\",\n  \"alert_source_link\": \"${alert_source_link}\",\n  \"alert_severity_id\": \"${alert_severity_id}\",\n  \"alert_status_id\": \"${alert_status_id}\",\n  \"alert_source_event_time\": \"${alert_source_event_time}\",\n  \"alert_note\": \"${alert_note}\",\n  \"alert_tags\": \"${alert_tags}\",\n  \"alert_customer_id\": \"2\",\n  \"alert_classification_id\": \"${alert_classification_id}\",\n  \"alert_source_content\": \"${alert_source_content}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"alert_title\": \"${alert_title}\",\n  \"alert_description\": \"${alert_description}\",\n  \"alert_source\": \"${alert_source}\",\n  \"alert_source_ref\": \"${alert_source_ref}\",\n  \"alert_source_link\": \"${alert_source_link}\",\n  \"alert_severity_id\": \"${alert_severity_id}\",\n  \"alert_status_id\": \"${alert_status_id}\",\n  \"alert_source_event_time\": \"${alert_source_event_time}\",\n  \"alert_note\": \"${alert_note}\",\n  \"alert_tags\": \"${alert_tags}\",\n  \"alert_customer_id\": \"2\",\n  \"alert_classification_id\": \"${alert_classification_id}\",\n  \"alert_source_content\": \"${alert_source_content}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "{\n  \"alert_title\": \"Low-reputation arbitrary code executed by signed executable\",\n  \"alert_description\": \"This is a test alert, courtesy of MS\",\n  \"alert_source\": \"Test Source\",\n  \"alert_source_ref\": \"Test-123\",\n  \"alert_source_link\": \"https://source_link.com\",\n  \"alert_source_content\": {\n  \"_id\": \"603f704aaf7417985bbf3b22\",\n  \"contextId\": \"206e2965-6533-48a6-ba9e-794364a84bf9\",\n  \"description\": \"Contoso user performed 11 suspicious activities MITRE Technique used Account Discovery (T1087) and subtechnique used Domain Account (T1087.002)\",\n  \"entities\": [],\n  \"idValue\": 15795464,\n  \"isSystemAlert\": false,\n  \"resolutionStatusValue\": 0,\n  \"severityValue\": 5,\n  \"statusValue\": 1,\n  \"stories\": [],\n  \"threatScore\": 34,\n  \"timestamp\": 1621941916475,\n  \"title\": \"Honeytoken activity\",\n  \"comment\": \"\",\n  \"handledByUser\": \"administrator@contoso.com\",\n  \"resolveTime\": \"2021-05-13T14:02:34.904Z\",\n  \"URL\": \n\"https://contoso.portal.cloudappsecurity.com/#/alerts/603f704aaf7417985bbf3b22\"\n  },\n  \"alert_severity_id\": 4,\n  \"alert_status_id\": 3,\n  \"alert_context\": {\n  \"context_key\": \"context_value\"\n  },\n  \"alert_source_event_time\": \"2023-03- 26T03:00:30\",\n  \"alert_note\": \"A note on\",\n  \"alert_tags\": \"defender,anothertag\",\n  \"alert_iocs\": [\n  {},\n  {}\n  ],\n  \"alert_assets\": [\n  {}\n  ],\n  \"alert_customer_id\": 1,\n  \"alert_classification_id\": 1\n}",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add Alert",
+    "x-required-fields": [
+     "${alert_title}"
+    ]
+   }
+  },
+  "/alerts/update/{alert_id}": {
+   "post": {
+    "description": "Update an Alert",
+    "operationId": "Update_Alert",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "alert_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"alert title\": \"${alert_title}\",\n  \"alert description\": \"${alert_description}\",\n  \"alert source\": \"${alert_source}\",\n  \"alert source ref\": \"${alert_source_ref}\",\n  \"alert source link\": \"${alert_source_link}\",\n  \"alert severity id\": \"${alert_severity_id}\",\n  \"alert status id\": \"${alert_status_id}\",\n  \"alert source event time\": \"${alert_source_event_time}\",\n  \"alert note\": \"${alert_note}\",\n  \"alert tags\": \"${alert_tags}\",\n  \"alert customer id\": \"2\",\n  \"alert classification id\": \"${alert_classification_id}\",\n  \"alert source content\": \"${alert_source_content}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"alert title\": \"${alert_title}\",\n  \"alert description\": \"${alert_description}\",\n  \"alert source\": \"${alert_source}\",\n  \"alert source ref\": \"${alert_source_ref}\",\n  \"alert source link\": \"${alert_source_link}\",\n  \"alert severity id\": \"${alert_severity_id}\",\n  \"alert status id\": \"${alert_status_id}\",\n  \"alert source event time\": \"${alert_source_event_time}\",\n  \"alert note\": \"${alert_note}\",\n  \"alert tags\": \"${alert_tags}\",\n  \"alert customer id\": \"2\",\n  \"alert classification id\": \"${alert_classification_id}\",\n  \"alert source content\": \"${alert_source_content}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "{\n  \"alert_title\": \"Low-reputation arbitrary code executed by signed executable\",\n  \"alert_description\": \"This is a test alert, courtesy of MS\",\n  \"alert_source\": \"Test Source\",\n  \"alert_source_ref\": \"Test-123\",\n  \"alert_source_link\": \"https://source_link.com\",\n  \"alert_source_content\": {\n  \"_id\": \"603f704aaf7417985bbf3b22\",\n  \"contextId\": \"206e2965-6533-48a6-ba9e-794364a84bf9\",\n  \"description\": \"Contoso user performed 11 suspicious activities MITRE Technique used Account Discovery (T1087) and subtechnique used Domain Account (T1087.002)\",\n  \"entities\": [],\n  \"idValue\": 15795464,\n  \"isSystemAlert\": false,\n  \"resolutionStatusValue\": 0,\n  \"severityValue\": 5,\n  \"statusValue\": 1,\n  \"stories\": [],\n  \"threatScore\": 34,\n  \"timestamp\": 1621941916475,\n  \"title\": \"Honeytoken activity\",\n  \"comment\": \"\",\n  \"handledByUser\": \"administrator@contoso.com\",\n  \"resolveTime\": \"2021-05-13T14:02:34.904Z\",\n  \"URL\": \n\"https://contoso.portal.cloudappsecurity.com/#/alerts/603f704aaf7417985bbf3b22\"\n  },\n  \"alert_severity_id\": 4,\n  \"alert_status_id\": 3,\n  \"alert_context\": {\n  \"context_key\": \"context_value\"\n  },\n  \"alert_source_event_time\": \"2023-03- 26T03:00:30\",\n  \"alert_note\": \"A note on\",\n  \"alert_tags\": \"defender,anothertag\",\n  \"alert_iocs\": [\n  {},\n  {}\n  ],\n  \"alert_assets\": [\n  {}\n  ],\n  \"alert_customer_id\": 1,\n  \"alert_classification_id\": 1\n}",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Update Alert"
+   }
+  },
+  "/case/assets/add": {
+   "post": {
+    "description": "Create an asset and link it to the case. ",
+    "operationId": "Add_a_new_asset",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"analysis_status_id\": \"${analysis_status_id}\",\n  \"asset_description\": \"${asset_description}\",\n  \"asset_domain\": \"${asset_domain}\",\n  \"asset_info\": \"${asset_info}\",\n  \"asset_ip\": \"${asset_ip}\",\n  \"asset_name\": \"${asset_name}\",\n  \"asset_type_id\": \"${asset_type_id}\",\n  \"cid\": \"${cid}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"analysis_status_id\": \"${analysis_status_id}\",\n  \"asset_description\": \"${asset_description}\",\n  \"asset_domain\": \"${asset_domain}\",\n  \"asset_info\": \"${asset_info}\",\n  \"asset_ip\": \"${asset_ip}\",\n  \"asset_name\": \"${asset_name}\",\n  \"asset_type_id\": \"${asset_type_id}\",\n  \"cid\": \"${cid}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "{\n  \"analysis_status_id\": [],\n  \"asset_compromised\": [],\n  \"asset_description\": \"\",\n  \"asset_domain\": \"\",\n  \"asset_id\": [],\n  \"asset_info\": \"\",\n  \"asset_ip\": \"\",\n  \"asset_name\": \"\",\n  \"asset_type_id\": [],\n  \"case_id\": [],\n  \"date_added\": \"\",\n  \"date_update\": \"\",\n  \"user_id\": []\n}",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add a new asset"
+   }
+  },
+  "/case/assets/delete/{asset_id}": {
+   "post": {
+    "description": "Delete an asset for the case. If the asset is linked in an event, the reference is also removed. ",
+    "operationId": "Delete_an_asset",
+    "parameters": [
+     {
+      "description": "Case ID",
+      "in": "query",
+      "name": "cid",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "asset_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"asset_id\": \"${asset_id}\",\n  \"cid\": \"${cid}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"asset_id\": \"${asset_id}\",\n  \"cid\": \"${cid}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "{\n  \"value\": {\n    \"data\": [ ],\n    \"message\": \"Deleted\",\n    \"status\": \"success\"\n  }\n}",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Delete an asset"
+   }
+  },
+  "/case/assets/list": {
+   "get": {
+    "description": "Get a list of the assets linked to the case. ",
+    "operationId": "Get_list_of_assets",
+    "parameters": [
+     {
+      "description": "Case ID",
+      "in": "query",
+      "name": "cid",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get list of assets"
+   }
+  },
+  "/case/assets/update/{asset_id}": {
+   "post": {
+    "description": "Update an asset",
+    "operationId": "Update_an_asset",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "asset_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"analysis_status_id\": \"${analysis_status_id}\",\n  \"asset_compromised\": \"${asset_compromised}\",\n  \"asset_description\": \"${asset_description}\",\n  \"asset_domain\": \"${asset_domain}\",\n  \"asset_info\": \"${asset_info}\",\n  \"asset_ip\": \"${asset_ip}\",\n  \"asset_name\": \"${asset_name}\",\n  \"asset_type_id\": \"${asset_type_id}\",\n  \"cid\": \"${cid}\",\n  \"ioc_links\": \"${ioc_links}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"analysis_status_id\": \"${analysis_status_id}\",\n  \"asset_compromised\": \"${asset_compromised}\",\n  \"asset_description\": \"${asset_description}\",\n  \"asset_domain\": \"${asset_domain}\",\n  \"asset_info\": \"${asset_info}\",\n  \"asset_ip\": \"${asset_ip}\",\n  \"asset_name\": \"${asset_name}\",\n  \"asset_type_id\": \"${asset_type_id}\",\n  \"cid\": \"${cid}\",\n  \"ioc_links\": \"${ioc_links}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "{\n  \"analysis_status_id\": [],\n  \"asset_compromised\": [],\n  \"asset_description\": \"\",\n  \"asset_domain\": \"\",\n  \"asset_id\": [],\n  \"asset_info\": \"\",\n  \"asset_ip\": \"\",\n  \"asset_name\": \"\",\n  \"asset_type_id\": [],\n  \"case_id\": [],\n  \"date_added\": \"\",\n  \"date_update\": \"\",\n  \"user_id\": []\n}",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Update an asset"
+   }
+  },
+  "/case/assets/{asset_id}": {
+   "get": {
+    "description": "Fetch the content of an asset",
+    "operationId": "Fetch_an_asset",
+    "parameters": [
+     {
+      "description": "Case ID",
+      "in": "query",
+      "name": "cid",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "asset_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "{\n  \"analysis_status_id\": [],\n  \"asset_compromised\": [],\n  \"asset_description\": \"\",\n  \"asset_domain\": \"\",\n  \"asset_id\": [],\n  \"asset_info\": \"\",\n  \"asset_ip\": \"\",\n  \"asset_name\": \"\",\n  \"asset_type_id\": [],\n  \"case_id\": [],\n  \"date_added\": \"\",\n  \"date_update\": \"\",\n  \"linked_ioc\": [],\n  \"user_id\": []\n}",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Fetch an asset"
+   }
+  },
+  "/case/evidences/add": {
+   "post": {
+    "description": "Link a new evidence to the case",
+    "operationId": "Add_an_evidence",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"cid\": \"${cid}\",\n  \"file_description\": \"${file_description}\",\n  \"file_hash\": \"${file_hash}\",\n  \"file_size\": \"${file_size}\",\n  \"filename\": \"${filename}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"cid\": \"${cid}\",\n  \"file_description\": \"${file_description}\",\n  \"file_hash\": \"${file_hash}\",\n  \"file_size\": \"${file_size}\",\n  \"filename\": \"${filename}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "{\n  \"date_added\": \"\",\n  \"file_description\": \"\",\n  \"file_hash\": \"\",\n  \"file_size\": [],\n  \"filename\": \"\",\n  \"id\": []\n}",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add an evidence"
+   }
+  },
+  "/case/evidences/delete/{evidence_id}": {
+   "get": {
+    "description": "Remove an evidence from the case. ",
+    "operationId": "Delete_a_case_evidence",
+    "parameters": [
+     {
+      "description": "Case ID",
+      "in": "query",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "evidence_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Delete a case evidence"
+   }
+  },
+  "/case/evidences/list": {
+   "get": {
+    "description": "Returns a list of all evidences",
+    "operationId": "Get_case_evidences",
+    "parameters": [
+     {
+      "description": "case id",
+      "in": "query",
+      "name": "cid",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get case evidences"
+   }
+  },
+  "/case/evidences/update/{evidence_id}": {
+   "post": {
+    "operationId": "Update_an_evidence",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "evidence_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"cid\": \"${cid}\",\n  \"file_description\": \"${file_description}\",\n  \"file_hash\": \"${file_hash}\",\n  \"file_size\": \"${file_size}\",\n  \"filename\": \"${filename}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"cid\": \"${cid}\",\n  \"file_description\": \"${file_description}\",\n  \"file_hash\": \"${file_hash}\",\n  \"file_size\": \"${file_size}\",\n  \"filename\": \"${filename}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "{\n  \"date_added\": \"\",\n  \"file_description\": \"\",\n  \"file_hash\": \"\",\n  \"file_size\": [],\n  \"filename\": \"\",\n  \"id\": []\n}",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Update an evidence"
+   }
+  },
+  "/case/evidences/{evidence_id}": {
+   "get": {
+    "description": "Returns information of a specific evidence",
+    "operationId": "Get_an_evidence",
+    "parameters": [
+     {
+      "description": "Case ID",
+      "in": "query",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "evidence_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "{\n  \"date_added\": \"\",\n  \"file_description\": \"\",\n  \"file_hash\": \"\",\n  \"file_size\": [],\n  \"filename\": \"\",\n  \"id\": []\n}",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get an evidence"
+   }
+  },
+  "/case/export": {
+   "get": {
+    "description": "Export a case in JSON format including all the information such as assets, iocs, etc. ",
+    "operationId": "Export_a_case_as_JSON",
+    "parameters": [
+     {
+      "description": "ID Of the case to export",
+      "in": "query",
+      "name": "cid",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Export a case as JSON"
+   }
+  },
+  "/case/ioc/add": {
+   "post": {
+    "operationId": "Add_a_new_ioc",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"cid\": \"${cid}\",\n  \"ioc_description\": \"${ioc_description}\",\n  \"ioc_tags\": \"${ioc_tags}\",\n  \"ioc_tlp_id\": \"${ioc_tlp_id}\",\n  \"ioc_type\": \"${ioc_type}\",\n  \"ioc_value\": \"${ioc_value}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"cid\": \"${cid}\",\n  \"ioc_description\": \"${ioc_description}\",\n  \"ioc_tags\": \"${ioc_tags}\",\n  \"ioc_tlp_id\": \"${ioc_tlp_id}\",\n  \"ioc_type\": \"${ioc_type}\",\n  \"ioc_value\": \"${ioc_value}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "{\n  \"ioc_description\": \"\",\n  \"ioc_id\": [],\n  \"ioc_misp\": \"\",\n  \"ioc_tags\": \"\",\n  \"ioc_tlp_id\": [],\n  \"ioc_type\": \"\",\n  \"ioc_value\": \"\",\n  \"user_id\": []\n}",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add a new ioc"
+   }
+  },
+  "/case/ioc/delete/{ioc_id}": {
+   "get": {
+    "description": "Delete an IOC from the case. If the IOC is still reference in other cases than it's only unlinked from the current case. ",
+    "operationId": "Delete_an_IOC",
+    "parameters": [
+     {
+      "description": "Case ID",
+      "in": "query",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "ioc_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Delete an IOC"
+   }
+  },
+  "/case/ioc/list": {
+   "get": {
+    "description": "Returns a list of IOCs as well as any existing linked with other cases. ",
+    "operationId": "Get_list_of_IOCs",
+    "parameters": [
+     {
+      "description": "Case ID",
+      "in": "query",
+      "name": "cid",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get list of IOCs"
+   }
+  },
+  "/case/ioc/update/{ioc_id}": {
+   "post": {
+    "operationId": "Update_an_IOC",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "ioc_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"cid\": \"${cid}\",\n  \"ioc_description\": \"${ioc_description}\",\n  \"ioc_tags\": \"${ioc_tags}\",\n  \"ioc_tlp_id\": \"${ioc_tlp_id}\",\n  \"ioc_type\": \"${ioc_type}\",\n  \"ioc_value\": \"${ioc_value}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"cid\": \"${cid}\",\n  \"ioc_description\": \"${ioc_description}\",\n  \"ioc_tags\": \"${ioc_tags}\",\n  \"ioc_tlp_id\": \"${ioc_tlp_id}\",\n  \"ioc_type\": \"${ioc_type}\",\n  \"ioc_value\": \"${ioc_value}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Update an IOC"
+   }
+  },
+  "/case/ioc/{ioc_id}": {
+   "get": {
+    "description": "Fetch the content of an ioc",
+    "operationId": "Fetch_an_ioc",
+    "parameters": [
+     {
+      "description": "Case ID",
+      "in": "query",
+      "name": "cid",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "ioc_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "{\n  \"ioc_description\": \"\",\n  \"ioc_id\": [],\n  \"ioc_tags\": \"\",\n  \"ioc_tlp_id\": [],\n  \"ioc_type\": \"\",\n  \"ioc_value\": \"\",\n  \"user_id\": []\n}",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Fetch an ioc"
+   }
+  },
+  "/case/notes/add": {
+   "post": {
+    "description": "Add a new note to an existing group. ",
+    "operationId": "Add_a_new_note",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"cid\": \"${cid}\",\n  \"group_id\": \"${group_id}\",\n  \"note_content\": \"${note_content}\",\n  \"note_title\": \"${note_title}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"cid\": \"${cid}\",\n  \"group_id\": \"${group_id}\",\n  \"note_content\": \"${note_content}\",\n  \"note_title\": \"${note_title}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "{\n  \"note_content\": \"\",\n  \"note_creationdate\": \"\",\n  \"note_id\": [],\n  \"note_lastupdate\": \"\",\n  \"note_title\": \"\"\n}",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add a new note"
+   }
+  },
+  "/case/notes/delete/{note_id}": {
+   "get": {
+    "description": "Delete the content of a note. ",
+    "operationId": "Delete_a_note",
+    "parameters": [
+     {
+      "description": "ID Of the case",
+      "in": "query",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "note_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Delete a note"
+   }
+  },
+  "/case/notes/groups": {
+   "get": {
+    "description": "Get a list of the notes and groups",
+    "operationId": "Get_list_of_groups_and_notes",
+    "parameters": [
+     {
+      "description": "Case ID",
+      "in": "query",
+      "name": "cid",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get list of groups and notes"
+   }
+  },
+  "/case/notes/groups/add": {
+   "post": {
+    "description": "The created group is empty. ",
+    "operationId": "Add_a_new_notes_group",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"cid\": \"${cid}\",\n  \"group_title\": \"${group_title}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"cid\": \"${cid}\",\n  \"group_title\": \"${group_title}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "{\n  \"group_creationdate\": \"\",\n  \"group_id\": [],\n  \"group_lastupdate\": \"\",\n  \"group_title\": \"\"\n}",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add a new notes group"
+   }
+  },
+  "/case/notes/groups/delete/{group_id}": {
+   "get": {
+    "description": "Delete a group with all notes linked to it. It is not possible to recover deleted notes. ",
+    "operationId": "Delete_a_group_note",
+    "parameters": [
+     {
+      "description": "ID Of the case",
+      "in": "query",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "group_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Delete a group note"
+   }
+  },
+  "/case/notes/save/{note_id}": {
+   "post": {
+    "description": "Update the content of a note. ",
+    "operationId": "Save_a_note",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "note_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"cid\": \"${cid}\",\n  \"note_content\": \"${note_content}\",\n  \"note_title\": \"${note_title}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"cid\": \"${cid}\",\n  \"note_content\": \"${note_content}\",\n  \"note_title\": \"${note_title}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Save a note"
+   }
+  },
+  "/case/notes/search": {
+   "post": {
+    "description": "Search in notes. The searched term is a wild carded. ",
+    "operationId": "Search_in_notes",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"cid\": \"${cid}\",\n  \"search_term\": \"${search_term}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"cid\": \"${cid}\",\n  \"search_term\": \"${search_term}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Search in notes"
+   }
+  },
+  "/case/notes/{note_id}": {
+   "get": {
+    "description": "Fetch the content and information of a note",
+    "operationId": "Fetch_a_note",
+    "parameters": [
+     {
+      "description": "ID Of the case",
+      "in": "query",
+      "name": "cid",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "note_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "{\n  \"note_creationdate\": \"\",\n  \"note_id\": [],\n  \"note_lastupdate\": \"\",\n  \"note_title\": \"\"\n}",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Fetch a note"
+   }
+  },
+  "/case/summary/update": {
+   "post": {
+    "description": "Update the summary of a case. Attention this will trigger an overwrite of the summary. Summaries are shared interactively between users. If an update summary is issue, every user will receive the change and their locale changes will be lost. ",
+    "operationId": "Update_case_summary",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"cid\": \"${cid}\",\n  \"summary\": \"${summary}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"cid\": \"${cid}\",\n  \"summary\": \"${summary}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Update case summary"
+   }
+  },
+  "/case/tasklog/add": {
+   "post": {
+    "description": "Add a task log to the case. The task log is registered under Activities and is be availble in reports templating. ",
+    "operationId": "Add_task_log",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"cid\": \"${cid}\",\n  \"log_content\": \"${log_content}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"cid\": \"${cid}\",\n  \"log_content\": \"${log_content}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add task log"
+   }
+  },
+  "/case/tasks/add": {
+   "post": {
+    "operationId": "Add_a_case_task",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"cid\": \"${cid}\",\n  \"task_assignee_id\": \"${task_assignee_id}\",\n  \"task_description\": \"${task_description}\",\n  \"task_status\": \"${task_status}\",\n  \"task_tags\": \"${task_tags}\",\n  \"task_title\": \"${task_title}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"cid\": \"${cid}\",\n  \"task_assignee_id\": \"${task_assignee_id}\",\n  \"task_description\": \"${task_description}\",\n  \"task_status\": \"${task_status}\",\n  \"task_tags\": \"${task_tags}\",\n  \"task_title\": \"${task_title}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "{\n  \"id\": [],\n  \"task_assignee_id\": [],\n  \"task_close_date\": \"\",\n  \"task_description\": \"\",\n  \"task_last_update\": \"\",\n  \"task_open_date\": \"\",\n  \"task_status\": \"\",\n  \"task_tags\": \"\",\n  \"task_title\": \"\"\n}",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add a case task"
+   }
+  },
+  "/case/tasks/delete/{task_id}": {
+   "get": {
+    "description": "Delete a case task",
+    "operationId": "Delete_a_case_task",
+    "parameters": [
+     {
+      "description": "Case ID",
+      "in": "query",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "task_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Delete a case task"
+   }
+  },
+  "/case/tasks/list": {
+   "get": {
+    "operationId": "Get_case_tasks",
+    "parameters": [
+     {
+      "description": "Case ID",
+      "in": "query",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get case tasks"
+   }
+  },
+  "/case/tasks/update/{task_id}": {
+   "post": {
+    "operationId": "Update_a_case_task",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "task_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"cid\": \"${cid}\",\n  \"task_assignee_id\": \"${task_assignee_id}\",\n  \"task_description\": \"${task_description}\",\n  \"task_status\": \"${task_status}\",\n  \"task_tags\": \"${task_tags}\",\n  \"task_title\": \"${task_title}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"cid\": \"${cid}\",\n  \"task_assignee_id\": \"${task_assignee_id}\",\n  \"task_description\": \"${task_description}\",\n  \"task_status\": \"${task_status}\",\n  \"task_tags\": \"${task_tags}\",\n  \"task_title\": \"${task_title}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "{\n  \"id\": [],\n  \"task_assignee_id\": [],\n  \"task_close_date\": 0,\n  \"task_description\": \"\",\n  \"task_last_update\": \"\",\n  \"task_open_date\": \"\",\n  \"task_status\": \"\",\n  \"task_tags\": \"\",\n  \"task_title\": \"\"\n}",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Update a case task"
+   }
+  },
+  "/case/tasks/{task_id}": {
+   "get": {
+    "description": "Return information of a specific task ",
+    "operationId": "Fetch_a_case_task",
+    "parameters": [
+     {
+      "description": "Case ID",
+      "in": "query",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "task_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Fetch a case task"
+   }
+  },
+  "/case/timeline/event/add": {
+   "post": {
+    "description": "Create a new event in the timeline",
+    "operationId": "Add_a_new_event",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"cid\": \"${cid}\",\n  \"color\": \"${color}\",\n  \"event_assets\": \"${event_assets}\",\n  \"event_category\": \"${event_category}\",\n  \"event_content\": \"${event_content}\",\n  \"event_date\": \"${event_date}\",\n  \"event_in_graph\": \"${event_in_graph}\",\n  \"event_in_summary\": \"${event_in_summary}\",\n  \"event_raw\": \"${event_raw}\",\n  \"event_source\": \"${event_source}\",\n  \"event_tags\": \"${event_tags}\",\n  \"event_time\": \"${event_time}\",\n  \"event_title\": \"${event_title}\",\n  \"event_tz\": \"${event_tz}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"cid\": \"${cid}\",\n  \"color\": \"${color}\",\n  \"event_assets\": \"${event_assets}\",\n  \"event_category\": \"${event_category}\",\n  \"event_content\": \"${event_content}\",\n  \"event_date\": \"${event_date}\",\n  \"event_in_graph\": \"${event_in_graph}\",\n  \"event_in_summary\": \"${event_in_summary}\",\n  \"event_raw\": \"${event_raw}\",\n  \"event_source\": \"${event_source}\",\n  \"event_tags\": \"${event_tags}\",\n  \"event_time\": \"${event_time}\",\n  \"event_title\": \"${event_title}\",\n  \"event_tz\": \"${event_tz}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add a new event"
+   }
+  },
+  "/case/timeline/event/delete/{event_id}": {
+   "get": {
+    "description": "Delete an event from the timeline",
+    "operationId": "Delete_an_event",
+    "parameters": [
+     {
+      "description": "Case ID",
+      "in": "query",
+      "name": "cid",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "event_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Delete an event"
+   }
+  },
+  "/case/timeline/event/update/{event_id}": {
+   "post": {
+    "description": "Update an event in the timeline",
+    "operationId": "Update_an_event",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "event_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"cid\": \"${cid}\",\n  \"event_assets\": \"${event_assets}\",\n  \"event_category\": \"${event_category}\",\n  \"event_color\": \"${event_color}\",\n  \"event_content\": \"${event_content}\",\n  \"event_date\": \"${event_date}\",\n  \"event_in_graph\": \"${event_in_graph}\",\n  \"event_in_summary\": \"${event_in_summary}\",\n  \"event_raw\": \"${event_raw}\",\n  \"event_source\": \"${event_source}\",\n  \"event_tags\": \"${event_tags}\",\n  \"event_time\": \"${event_time}\",\n  \"event_title\": \"${event_title}\",\n  \"event_tz\": \"${event_tz}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"cid\": \"${cid}\",\n  \"event_assets\": \"${event_assets}\",\n  \"event_category\": \"${event_category}\",\n  \"event_color\": \"${event_color}\",\n  \"event_content\": \"${event_content}\",\n  \"event_date\": \"${event_date}\",\n  \"event_in_graph\": \"${event_in_graph}\",\n  \"event_in_summary\": \"${event_in_summary}\",\n  \"event_raw\": \"${event_raw}\",\n  \"event_source\": \"${event_source}\",\n  \"event_tags\": \"${event_tags}\",\n  \"event_time\": \"${event_time}\",\n  \"event_title\": \"${event_title}\",\n  \"event_tz\": \"${event_tz}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "{\n  \"case_id\": [],\n  \"event_added\": \"\",\n  \"event_assets\": [],\n  \"event_category\": [],\n  \"event_color\": \"\",\n  \"event_content\": \"\",\n  \"event_date\": \"\",\n  \"event_date_wtz\": \"\",\n  \"event_id\": [],\n  \"event_in_graph\": [],\n  \"event_in_summary\": [],\n  \"event_raw\": \"\",\n  \"event_source\": \"\",\n  \"event_tags\": \"\",\n  \"event_time\": \"\",\n  \"event_title\": \"\",\n  \"event_tz\": \"\",\n  \"user_id\": []\n}",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Update an event"
+   }
+  },
+  "/case/timeline/event/{event_id}": {
+   "get": {
+    "description": "Return information of an event of the timeline",
+    "operationId": "Fetch_an_event",
+    "parameters": [
+     {
+      "description": "Case ID",
+      "in": "query",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "event_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Fetch an event"
+   }
+  },
+  "/case/timeline/get/{asset_id}": {
+   "get": {
+    "description": "Fetch the timeline of a case. asset_id allows to filter on a particular asset. If set to 0, all events are returned. ",
+    "operationId": "Fetch_the_timeline",
+    "parameters": [
+     {
+      "description": "Case ID",
+      "in": "query",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "asset_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Fetch the timeline"
+   }
+  },
+  "/case/timeline/state": {
+   "get": {
+    "description": "Fetch the state of the timeline. ",
+    "operationId": "Fetch_the_timeline",
+    "parameters": [
+     {
+      "description": "Case ID",
+      "in": "query",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Fetch the timeline"
+   }
+  },
+  "/customer/add": {
+   "post": {
+    "description": "Add a new customer that will be availble at case creations.",
+    "operationId": "Add_a_customer",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"customer_name\": \"${customer_name}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"customer_name\": \"${customer_name}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "{\n  \"client_id\": [],\n  \"customer_name\": \"\"\n}",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add a customer"
+   }
+  },
+  "/global/tasks/add": {
+   "post": {
+    "description": "Add a global task and assign it to a user. ",
+    "operationId": "Add_a_global_task",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"task_assignee\": \"${task_assignee}\",\n  \"task_description\": \"${task_description}\",\n  \"task_status\": \"${task_status}\",\n  \"task_tags\": \"${task_tags}\",\n  \"task_title\": \"${task_title}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"task_assignee\": \"${task_assignee}\",\n  \"task_description\": \"${task_description}\",\n  \"task_status\": \"${task_status}\",\n  \"task_tags\": \"${task_tags}\",\n  \"task_title\": \"${task_title}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add a global task"
+   }
+  },
+  "/global/tasks/delete/{task_id}": {
+   "get": {
+    "operationId": "Delete_a_global_task",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "task_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Delete a global task"
+   }
+  },
+  "/global/tasks/edit/{task_id}": {
+   "post": {
+    "operationId": "Edit_a_global_task",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "task_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"task_assignee\": \"${task_assignee}\",\n  \"task_description\": \"${task_description}\",\n  \"task_status\": \"${task_status}\",\n  \"task_tags\": \"${task_tags}\",\n  \"task_title\": \"${task_title}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"task_assignee\": \"${task_assignee}\",\n  \"task_description\": \"${task_description}\",\n  \"task_status\": \"${task_status}\",\n  \"task_tags\": \"${task_tags}\",\n  \"task_title\": \"${task_title}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Edit a global task"
+   }
+  },
+  "/global/tasks/list": {
+   "get": {
+    "description": "Get a list of the global tasks",
+    "operationId": "Your_GET_endpoint",
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Your GET endpoint"
+   }
+  },
+  "/global/tasks/update-status": {
+   "post": {
+    "description": "Update the status of a global task. ",
+    "operationId": "Update_a_global_task_status",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"task_id\": \"${task_id}\",\n  \"task_status\": \"${task_status}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"task_id\": \"${task_id}\",\n  \"task_status\": \"${task_status}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Update a global task status"
+   }
+  },
+  "/manage/cases/add": {
+   "post": {
+    "description": "Create a new immediate case. If cid is not set, a default case is used. This does not change the behavior of the request and is only used for internal tracking. ",
+    "operationId": "Add_a_new_case",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"case_customer\": \"${case_customer}\",\n  \"case_description\": \"${case_description}\",\n  \"case_name\": \"${case_name}\",\n  \"case_soc_id\": \"${case_soc_id}\",\n  \"cid\": \"${cid}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"case_customer\": \"${case_customer}\",\n  \"case_description\": \"${case_description}\",\n  \"case_name\": \"${case_name}\",\n  \"case_soc_id\": \"${case_soc_id}\",\n  \"cid\": \"${cid}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "{\n  \"case_customer\": [],\n  \"case_description\": \"\",\n  \"case_id\": [],\n  \"case_name\": \"\",\n  \"case_soc_id\": \"\",\n  \"close_date\": \"\",\n  \"open_date\": \"\",\n  \"user_id\": []\n}",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add a new case",
+    "x-label": "Create ticket",
+    "x-required-fields": [
+     "${case_customer}",
+     "${case_description}",
+     "${case_name}"
+    ]
+   }
+  },
+  "/manage/cases/close/{case_id}": {
+   "get": {
+    "description": "Close a case. The case will be listed under closed case. That's the only difference with an open case. It will stay editable and searchable. ",
+    "operationId": "Close_a_case",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "case_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "{\n  \"case_customer\": [],\n  \"case_description\": \"\",\n  \"case_id\": [],\n  \"case_name\": \"\",\n  \"case_soc_id\": \"\",\n  \"close_date\": \"\",\n  \"open_date\": \"\",\n  \"user_id\": []\n}",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Close a case"
+   }
+  },
+  "/manage/cases/delete/{case_id}": {
+   "get": {
+    "description": "Delete a case. This implies the deletion of everything linked to the case including summary, assets, notes, timeline, tasks and evidences. The IOCs will only be deleted if they are not referenced in another case. ",
+    "operationId": "Delete_a_case",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "case_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Delete a case"
+   }
+  },
+  "/manage/cases/list": {
+   "get": {
+    "description": "Returns a list of all the cases, open and closed. ",
+    "operationId": "Get_cases_list",
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Get cases list",
+    "x-label": "List tickets"
+   }
+  },
+  "/manage/cases/reopen/{case_id}": {
+   "get": {
+    "description": "Reopen a case previously closed. A case can be reopened if it is not closed. ",
+    "operationId": "Reopen_a_case",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "case_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "{\n  \"case_customer\": [],\n  \"case_description\": \"\",\n  \"case_id\": [],\n  \"case_name\": \"\",\n  \"case_soc_id\": \"\",\n  \"close_date\": \"\",\n  \"open_date\": \"\",\n  \"user_id\": []\n}",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Reopen a case"
+   }
+  },
+  "/manage/users/add": {
+   "post": {
+    "operationId": "Add_a_user",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"user_email\": \"${user_email}\",\n  \"user_login\": \"${user_login}\",\n  \"user_name\": \"${user_name}\",\n  \"user_password\": \"${user_password}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"user_email\": \"${user_email}\",\n  \"user_login\": \"${user_login}\",\n  \"user_name\": \"${user_name}\",\n  \"user_password\": \"${user_password}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "{\n  \"active\": [],\n  \"id\": [],\n  \"user_email\": \"\",\n  \"user_login\": \"\",\n  \"user_name\": \"\",\n  \"user_password\": \"\"\n}",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Add a user"
+   }
+  },
+  "/manage/users/delete/{user_id}": {
+   "get": {
+    "description": "Only users that never done any activities can be deleted. This is to prevent any internal logic errors and keep tracks of every past activities. ",
+    "operationId": "Delete_a_user",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "user_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Delete a user"
+   }
+  },
+  "/manage/users/update/{user_id}": {
+   "post": {
+    "operationId": "Update_a_user",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "user_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "example": "{\n  \"cid\": \"${cid}\",\n  \"user_email\": \"${user_email}\",\n  \"user_isadmin\": \"${user_isadmin}\",\n  \"user_login\": \"${user_login}\",\n  \"user_name\": \"${user_name}\",\n  \"user_password\": \"${user_password}\"\n}",
+      "in": "body",
+      "multiline": true,
+      "name": "body",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "example": {
+       "example": "{\n  \"cid\": \"${cid}\",\n  \"user_email\": \"${user_email}\",\n  \"user_isadmin\": \"${user_isadmin}\",\n  \"user_login\": \"${user_login}\",\n  \"user_name\": \"${user_name}\",\n  \"user_password\": \"${user_password}\"\n}"
+      }
+     },
+     "description": "Generated by Shuffler.io"
+    },
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "{\n  \"active\": [],\n  \"id\": [],\n  \"user_email\": \"\",\n  \"user_id\": [],\n  \"user_isadmin\": [],\n  \"user_login\": \"\",\n  \"user_name\": \"\",\n  \"user_password\": \"\"\n}",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Update a user"
+   }
+  },
+  "/manage/users/{user_id}": {
+   "get": {
+    "description": "Returns information of a specific user",
+    "operationId": "Fetch_a_user",
+    "parameters": [
+     {
+      "description": "Generated by shuffler.io OpenAPI",
+      "in": "path",
+      "name": "user_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {},
+    "responses": {
+     "default": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "example": "{\n  \"active\": [],\n  \"email\": \"\",\n  \"id\": [],\n  \"name\": \"\",\n  \"user\": \"\",\n  \"user_roles_str\": []\n}",
+         "type": "string"
+        }
+       }
+      },
+      "description": "default"
+     }
+    },
+    "summary": "Fetch a user"
+   }
+  }
+ },
+ "schemes": [
+  "https:"
+ ],
+ "servers": [
+  {
+   "url": "https://<my_ip>"
+  }
+ ],
+ "tags": [
+  {
+   "name": "DFIR"
+  },
+  {
+   "name": "case managment"
+  },
+  {
+   "name": "incident response"
+  }
+ ]
+}

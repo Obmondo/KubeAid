@@ -1,0 +1,1052 @@
+# security-operations: the central side of a multi-tenant SOC in one release and
+# one namespace: Velociraptor, DFIR-IRIS, MISP, Ollama and a central Wazuh search
+# (indexer + dashboard, no manager). Every tenant has its own Wazuh, a release of
+# the wazuh chart in the tenant's namespace (wazuh chart README section 11), which
+# this chart creates. See README.md.
+#
+# The top half is what an operator normally sets: domain, keycloak, operators and
+# tenants. The per-tenant configuration of the central components is rendered
+# from `tenants` by this chart's own templates, so onboarding a tenant is one list
+# entry here plus that tenant's Wazuh release. The bottom half passes values
+# through to the component charts; its defaults wire the components together.
+
+# Base domain. Component hostnames default to <component>.<domain>; override one
+# in `hosts` when it differs. They feed the OIDC client redirect URIs and the
+# dashboard links in IRIS alerts. The ingress hostnames themselves are set in the
+# component blocks below (a parent chart cannot compute a subchart's values), so
+# keep both in step.
+domain: example.com
+hosts:
+  # The central Wazuh search dashboard.
+  wazuh: ""
+  iris: ""
+  misp: ""
+  velociraptor: ""
+  # The landing portal (kubesoc-portal), when enabled.
+  portal: ""
+
+# Keycloak realm that all components log in through. Everything in this block
+# except `clients` goes to the reconciler as is (keycloak section of its
+# tenants.json); the component charts take their own Keycloak settings.
+keycloak:
+  # Root URL including any context path. This is the browser-facing one: it is
+  # the issuer in every token, so it must be the name the users' browsers use.
+  url: https://keycloak.example.com/auth
+  # The same Keycloak as the pods in the cluster reach it, e.g.
+  # http://keycloakx-http.keycloakx.svc/auth. Used for every back-channel call
+  # (the reconciler's admin API, the Velociraptor Keycloak sync, OIDC discovery
+  # where a component takes a separate discovery URL); `url` stays the issuer,
+  # which still matches because Keycloak's frontend URL decides what it puts in
+  # the discovery document, not the address it was fetched from. Empty: `url`
+  # is used for both, which needs it to resolve and be reachable from the pods.
+  #
+  # Components that cannot split the two (Velociraptor, IRIS, MISP: they fetch
+  # discovery from the issuer itself) need `url` to resolve inside the cluster.
+  # Add a CoreDNS rewrite for it rather than pinning an IP - see the README,
+  # "Reaching Keycloak", and the KubeAid coredns chart's `rewrites`.
+  internalURL: ""
+  realm: soc
+  # Master-realm admin the reconciler logs in as, and its password (read only).
+  # The reconciler's ServiceAccount may read exactly this Secret. The default is
+  # the KubeAid keycloakx chart's. With reconcilerClient enabled it is only the
+  # fallback while that client cannot log in yet; set adminSecretRef to null once
+  # it can, which also drops the reconciler's read access to the admin Secret.
+  adminUsername: admin
+  adminSecretRef:
+    namespace: keycloakx
+    name: keycloak-admin
+    key: KEYCLOAK_PASSWORD
+  # The reconciler's own identity in the realm: a confidential client whose service
+  # account holds only the realm-management roles below, so a run can no longer
+  # touch the master realm or other realms. The reconciler creates the client (and
+  # generates its secret in Secret secretName, key KEYCLOAK_CLIENT_SECRET, in the
+  # release namespace) on the first run, logged in as the admin, and logs in as
+  # the client from the next run on. Every role it grants to other clients must be
+  # in `roles` (Keycloak only lets an identity hand out roles it holds).
+  reconcilerClient:
+    enabled: false
+    clientId: siem-reconciler
+    secretName: siem-reconciler-keycloak
+    roles:
+      - view-realm
+      - manage-realm
+      - view-users
+      - manage-users
+      - query-users
+      - query-groups
+      - view-clients
+      - manage-clients
+      - query-clients
+      - view-identity-providers
+      - manage-identity-providers
+  # Realm policy the reconciler enforces. Remove a key to leave that setting alone.
+  bruteForceProtected: true
+  otpPolicy:
+    type: totp
+    algorithm: HmacSHA1
+    digits: 6
+    period: 30
+  # CONFIGURE_TOTP as default required action, and a browser flow with
+  # mandatory OTP bound to the realm.
+  requireTOTP: true
+  mfaFlow:
+    alias: browser-mfa
+    copyFrom: browser
+    bind: true
+  # OIDC clients the reconciler keeps in the realm. Empty: one per enabled
+  # component plus iris-sync, with redirect URIs from `hosts` and client secrets
+  # in the Secrets the component charts read by default (templates/_tenants.tpl).
+  clients: []
+
+# Central team: realm roles (and the group that grants the analyst role) that see
+# every tenant in every component.
+operators:
+  adminRole: administrator
+  analystRole: analyst
+  analystGroup: soc-analysts
+
+# What those roles, and a tenant's own group, become in each tool.
+toolRoles:
+  iris:
+    admin: [Administrators]
+    analyst: [Analysts]
+    tenant: [Analysts]
+  velociraptor:
+    admin: administrator
+    analyst: investigator
+    tenant: investigator
+
+# Tenants. One entry per tenant; adding one and syncing is the whole onboarding
+# on the chart side (the reconciler, when enabled, does the API-only rest).
+#   code          ^[a-z0-9]{1,32}$, unique. Suffix of the tenant's namespace
+#                 (<tenantWazuh.namespacePrefix><code>), Keycloak group/role
+#                 (<tenantGroupPrefix><code>), dashboard host and cross-cluster
+#                 search alias (<code>:wazuh-alerts-*).
+#   name          unique display name. IRIS customer and Velociraptor org name.
+#   agentPorts    optional {registration, events}: the public ports of the
+#                 tenant's Wazuh manager (Traefik entry points), for the
+#                 enrolment bundle. Needs tenantWazuh.agentHost.
+#   retentionDays optional, defaults to defaultRetentionDays: days the
+#                 tenant's events are kept. The reconciler keeps an ISM
+#                 policy deleting older indices on the tenant's indexer
+#                 (`retention` below). Size the tenant indexer's volume for
+#                 it (kubeaid-cli derives the size; README "Retention").
+#   idp           optional identity-provider broker for the tenant, passed to
+#                 the reconciler as is.
+tenants: []
+#  - code: "001"
+#    name: Tenant A
+#  - code: "002"
+#    name: Tenant B
+#    retentionDays: 90
+
+# Keycloak group and realm role of a tenant: <tenantGroupPrefix><code>.
+tenantGroupPrefix: tenant-
+defaultRetentionDays: 365
+
+# Index lifecycle (ISM) policies the reconciler keeps (README "Retention"). On
+# every tenant indexer: indices matching indexPatterns are deleted when older than
+# the tenant's retentionDays; the policy attaches to new indices through its
+# ism_template and to existing unmanaged ones. Indices under another policy are
+# left alone. Needs the reconciler, the tenant indexer's REST port open to it
+# (wazuh chart README section 11) and tenantWazuh.indexerCredSecret.
+retention:
+  enabled: true
+  policyId: kubesoc-retention
+  # Empty: wazuh-alerts-*, wazuh-archives-*, wazuh-monitoring-*, wazuh-statistics-*.
+  indexPatterns: []
+  # Read-only "warm" state after this many days (0: none). Hook for a later
+  # warm tier; it does not move data.
+  warmAfterDays: 0
+  # The central search indexer holds no events, only the Wazuh app's own
+  # monitoring and statistics indices; they are kept this long (0: no policy).
+  centralDays: 90
+  # Empty: wazuh-monitoring-*, wazuh-statistics-*.
+  centralIndexPatterns: []
+
+# The tenants' own Wazuh releases (wazuh chart README section 11). This chart
+# creates their namespaces and all central wiring to them; the releases take the
+# names below (wazuh chart defaults with fullnameOverride: wazuh).
+tenantWazuh:
+  # Namespace of a tenant's Wazuh: <namespacePrefix><code>. Created by this chart,
+  # labelled namespaceLabel=<code>, never pruned or deleted by Helm or Argo CD.
+  namespacePrefix: wazuh-
+  namespaceLabel: security-operations.kubeaid.io/tenant
+  # Tenant dashboard host: <hostPrefix><code>.<domain> (OIDC client redirect URIs).
+  hostPrefix: wazuh-
+  # Public host name the agents dial, for the enrolment bundle; with tenants[].agentPorts.
+  agentHost: ""
+  # Wazuh agent package version in the enrolment bundle's install commands. Keep it
+  # at or below the managers' version (an agent newer than its manager is refused).
+  agentVersion: "4.14.3-1"
+  # Secrets in each tenant namespace (sealed by the operator or kubeaid-cli).
+  apiCredSecret: wazuh-api-cred
+  authdSecret: wazuh-authd-pass
+  # Secret of the tenant manager's API and authd certificate (wazuh.managerTls in the
+  # tenant release). Its ca.crt goes into the enrolment bundle, so agents verify the
+  # manager when they enrol; a bundle is written without it while the Secret is missing.
+  # Empty: no CA in the bundles.
+  managerTlsSecret: wazuh-manager-tls
+  # Manager API and indexer Services inside the tenant namespace.
+  managerService: wazuh
+  indexerNodesService: wazuh-indexer-nodes
+  # Indexer REST Service (9200) and its admin credentials Secret (keys
+  # INDEXER_USERNAME/INDEXER_PASSWORD), for retention and health probes.
+  indexerService: wazuh-indexer
+  indexerCredSecret: wazuh-indexer-cred
+
+# Central search dashboard: index patterns the reconciler keeps in its saved
+# objects. The Wazuh app never creates them itself here, because no local index
+# matches a cross-cluster pattern. One may be the default index.
+centralSearch:
+  indexPatterns:
+    - title: "*:wazuh-alerts-*"
+      timeFieldName: timestamp
+      default: true
+
+# CA shared by the central and every tenant Wazuh (certificates.issuer in each), so
+# the indexers trust each other for cross-cluster search. cert-manager keeps the
+# CA key in `namespace` (its cluster resource namespace).
+socCA:
+  enabled: true
+  name: soc-ca
+  namespace: cert-manager
+  commonName: security-operations-ca
+  # cert-manager approver-policy CertificateRequestPolicies that restrict soc-ca
+  # to this namespace and the tenant namespaces, to the identities the Wazuh
+  # charts use and to each namespace's own organization (central O for the
+  # central search, <tenantGroupPrefix><code> for a tenant), plus RBAC for the
+  # cert-manager controller to use them (templates/soc-ca-policy.yaml). Off by
+  # default: it needs approver-policy installed and cert-manager's default
+  # approver disabled cluster-wide, after which every other issuer in the
+  # cluster needs a policy of its own too (README section 5).
+  approverPolicy:
+    enabled: false
+    clusterDomain: cluster.local
+    # Longest certificate soc-ca signs (the wazuh chart's certificates.duration).
+    maxDuration: 2160h
+    # The cert-manager controller, which creates the CertificateRequests.
+    certManagerServiceAccount:
+      name: cert-manager
+      namespace: cert-manager
+  # A Certificate from this CA in the release namespace, whose Secret's ca.crt is what
+  # clients here verify against (tls below, misp.wazuhCdbExport.caSecret). Empty: none.
+  trustSecret: soc-ca-trust
+
+# TLS from the reconciler to the tenants' Wazuh manager APIs and the central indexer.
+# Verified by default against caSecret (mounted at /etc/soc-ca/ca.crt): the indexers'
+# node certificates come from soc-ca, and so do the managers' API certificates when
+# the tenant releases set wazuh.managerTls.enabled (kubeaid-cli renders that). The
+# names dialled (wazuh.<tenant namespace>.svc, wazuh-indexer) are in the certificates.
+tls:
+  # Secret in this namespace with key ca.crt. Empty: socCA.trustSecret (with socCA).
+  caSecret: ""
+  # Explicit opt-out: no verification at all (e.g. tenant managers still presenting
+  # the image's self-signed certificate). Per component: reconciler.components.
+  insecureSkipVerify: false
+
+# Render-time consistency checks between `tenants` and component values that
+# cannot be derived from it (README, "What is not derived from tenants").
+checks:
+  # With misp.wazuhCdbExport.enabled, every tenant needs a target named after its code.
+  mispTargets: true
+  # With backup.enabled, every component that backs itself up in its own chart
+  # (the IRIS PostgreSQL, the MISP MariaDB) must have that switched on.
+  backupTargets: true
+
+# Backups of the SOC's own state (README "Backups"). Everything here is off, and
+# the object store below is a placeholder, until a bucket exists: fill it in, turn
+# on the pieces you have storage for, then set enabled: true. A release renders
+# exactly as it does today while enabled is false.
+#
+# What covers what:
+#   velero      the volumes: the tenants' Wazuh manager data (including
+#               client.keys) and indexer data, the Velociraptor datastore, the
+#               IRIS files and the MISP attachments. Kopia (file-system backup),
+#               so a StorageClass without CSI snapshots is enough.
+#   opensearch  the tenants' alert indices, as OpenSearch snapshots.
+#   The two databases back themselves up in their own charts, because a parent
+#   chart cannot compute a subchart's values: the IRIS PostgreSQL through
+#   dfir-iris.global.postgresql.backups (a CloudNativePG barman object store with
+#   WAL archiving) and the MISP database through misp.externalMariadb.backup.
+#   checks.backupTargets fails the render when this block is on and one of them
+#   is not. Keycloak is not deployed here; back its database up the same way
+#   (README "Backups", "Keycloak").
+#
+# Every object here carries kubesoc.io/backup=<component>, and `kubeaid-cli siem
+# backup` ties one run together with kubesoc.io/backup-set=<name>.
+backup:
+  enabled: false
+
+  # The S3 bucket every backend writes to. The credentials Secret holds the two
+  # keys below and must exist in the Velero namespace, in this namespace and in
+  # every tenant namespace (seal it yourself, or let kubeaid-cli seal it).
+  objectStore:
+    bucket: kubesoc-backups
+    # S3 endpoint, e.g. https://s3.example.com. Empty: AWS S3 itself.
+    endpoint: ""
+    region: us-east-1
+    # Prefix inside the bucket; each piece adds its own path under it.
+    basePath: kubesoc
+    credentialsSecret: kubesoc-backup-s3
+    accessKeyIdKey: ACCESS_KEY_ID
+    secretAccessKeyKey: ACCESS_SECRET_KEY
+    # MinIO and Ceph RGW need path-style addressing; AWS S3 does not.
+    pathStyleAccess: true
+
+  # Velero Schedules, in Velero's own namespace, of this namespace and every
+  # tenant's. 14 daily copies and 4 weekly ones. The CloudNativePG volumes carry
+  # velero.io/exclude-from-backup (kubeaid-addons) and are left to barman.
+  velero:
+    enabled: true
+    namespace: velero
+    # Back the volumes up with Kopia rather than CSI snapshots.
+    defaultVolumesToFsBackup: true
+    snapshotVolumes: false
+    # Empty: Velero's default BackupStorageLocation.
+    storageLocation: ""
+    # Empty: this namespace and every tenant's.
+    includedNamespaces: []
+    excludedResources:
+      - events
+      - events.events.k8s.io
+    daily:
+      enabled: true
+      schedule: "0 1 * * 1-6"
+      # 14 daily copies (the weekly one covers Sunday).
+      ttl: 336h0m0s
+    weekly:
+      enabled: true
+      schedule: "0 1 * * 0"
+      # 4 weekly copies.
+      ttl: 672h0m0s
+
+  # OpenSearch snapshots of the alert indices: one CronJob next to each indexer
+  # (the central search and every tenant). A run registers the repository, keeps
+  # the snapshot policy in step, takes a snapshot and drops the expired ones;
+  # `kubeaid-cli siem backup` runs the same Job once (label
+  # kubesoc.io/backup=opensearch-snapshot).
+  opensearch:
+    enabled: true
+    schedule: "0 2 * * *"
+    # fs: a shared ReadWriteMany volume, which needs indexer.snapshot.enabled on
+    # every Wazuh release (that mounts the volume and sets path.repo). s3: the
+    # repository-s3 plugin, which the stock wazuh-indexer image does NOT ship -
+    # build an image with it before choosing s3 (README "Backups").
+    type: fs
+    fs:
+      # Must equal the releases' wazuh indexer.snapshot.fs.path.
+      location: /mnt/snapshots
+    repository: kubesoc
+    # Snapshot names are <snapshotPrefix>-<UTC yyyymmdd-hhmmss>.
+    snapshotPrefix: kubesoc
+    # Empty: wazuh-alerts-*, wazuh-archives-*.
+    indices: []
+    # Snapshots of this repository older than this are deleted at the end of a run.
+    retentionDays: 30
+    # An OpenSearch Snapshot Management policy, for operators who want the indexer
+    # itself to take and expire the snapshots. The CronJob keeps the policy in
+    # step either way; with it on the CronJob no longer snapshots, so
+    # `kubeaid-cli siem backup` only re-registers unless snapshotOnRun is true.
+    policy:
+      enabled: false
+      name: kubesoc-snapshots
+      schedule: "0 2 * * *"
+      timezone: UTC
+      maxCount: 30
+    # null: true while policy.enabled is false.
+    snapshotOnRun: null
+    # Shard copies of the alert indices, applied to the existing indices on every
+    # run. null: left alone (the profile sets it; a value above 0 needs more than
+    # one indexer node). New indices get it on the next run.
+    numberOfReplicas: null
+    # Empty repository and tag: the central Wazuh indexer's image, which is on the
+    # nodes already and carries curl.
+    image:
+      repository: ""
+      tag: ""
+      pullPolicy: IfNotPresent
+    resources:
+      requests:
+        cpu: 20m
+        memory: 64Mi
+      limits:
+        memory: 256Mi
+
+  # Monthly proof that the IRIS database backups restore: a Job that recovers the
+  # newest CloudNativePG Backup into a scratch Cluster, runs a sanity query and
+  # deletes it again. It creates and deletes a Cluster, so it is off by default.
+  verifyRestore:
+    enabled: false
+    schedule: "0 4 1 * *"
+    # The CloudNativePG Cluster to verify and the scratch one it recovers into.
+    cluster: iris-pgsql
+    scratchCluster: iris-pgsql-restore-check
+    # Instances and volume of the scratch cluster (one instance is enough).
+    instances: 1
+    storageSize: 10Gi
+    storageClass: ""
+    # The query the recovered database must answer. The default counts the IRIS
+    # cases table, which exists as soon as IRIS has ever started.
+    database: iris_db
+    query: "SELECT count(*) FROM cases"
+    # Minutes to wait for the scratch cluster to come up.
+    timeoutMinutes: 30
+    # kubectl image; it also runs psql through `kubectl exec` on the scratch pod,
+    # so it needs no database client of its own.
+    image:
+      repository: docker.io/bitnamilegacy/kubectl
+      tag: "1.33.4"
+      pullPolicy: IfNotPresent
+    resources:
+      requests:
+        cpu: 20m
+        memory: 64Mi
+      limits:
+        memory: 256Mi
+
+# Local model for IRIS alert triage (dfir-iris aiTriage + ollama). The reconciler
+# creates the IRIS service account irisLogin, gives it irisGroups and every tenant
+# as customer, and keeps its API key in Secret irisKeySecret (key IRIS_API_KEY),
+# which dfir-iris.aiTriage.existingSecret reads. Analysts is a stock IRIS group
+# with alert read and write.
+ai:
+  irisLogin: svc_ai
+  irisGroups: [Analysts]
+  irisKeySecret: iris-ai-triage
+
+# IRIS identity of each tenant's Wazuh manager (custom-iris integration). The
+# reconciler creates one IRIS service account per tenant, <loginPrefix><code>, in
+# the group `group` (created with exactly `permissions`: add alerts, look up its
+# customer id), with the tenant's customer as its only customer, and keeps its API
+# key in Secret `secretName` (key API_KEY) in the tenant namespace, which the
+# manager mounts. A compromised manager can then only add alerts to its own
+# tenant. enabled: false goes back to copying the central iris-api-key Secret
+# into every tenant namespace.
+tenantIris:
+  enabled: true
+  loginPrefix: svc_wazuh_
+  group: Wazuh alert intake
+  permissions: [alerts_write, customers_read]
+  secretName: iris-api-key
+
+# Read-only MISP identity of the IOC export (misp.wazuhCdbExport). The reconciler
+# creates the MISP user `email` with role `role` in the admin key's organisation
+# and keeps its auth key in Secret `secretName` (key `key`), which the export job
+# prefers over the site admin key (misp.wazuhCdbExport.misp.readOnlyKeySecret).
+# While that Secret does not exist yet the job keeps using the admin key.
+mispReadOnly:
+  enabled: true
+  email: ioc-export@kubesoc.invalid
+  role: Read Only
+  secretName: misp-export-key
+
+# Public entry points. Everything else is meant for the internal ingress class.
+# The Wazuh agent entry is per tenant (tenantWazuh.agentHost, tenants[].agentPorts).
+publicIngress:
+  # Velociraptor frontend (8000), see velociraptor.frontendTcpRoute.
+  velociraptorHost: ""
+
+# NetworkPolicies of this namespace (templates/networkpolicies.yaml, README "Network
+# policies"): a default deny for every pod (DNS excepted) and one policy per workload
+# admitting exactly its flows, next to the component charts' own policies. The tenant
+# namespaces get theirs from the wazuh chart (networkPolicies there). false renders
+# none of them (the component charts' policies stay).
+networkPolicies:
+  enabled: true
+  defaultDeny: true
+  # DNS servers every pod may query (53/UDP and TCP).
+  dns:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+  # Ingress controller pods that publish the UIs (and the Velociraptor frontend route).
+  ingressController:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: traefik
+  # Where pods reach Keycloak (keycloak.url and the OIDC issuers): the ingress
+  # controller in front of it (a public host name pinned with hostAliases) or its own
+  # namespace. Used by the reconciler, IRIS, its Keycloak sync, MISP, Velociraptor and
+  # the central Wazuh dashboard and indexer.
+  keycloak:
+    to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: traefik
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: keycloakx
+    ports: [443, 8443, 8080]
+  # Prometheus, for the metrics ports (CNPG 9187, RabbitMQ 15692, Valkey 9121,
+  # Velociraptor 8003, the reconciler's).
+  prometheus:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: monitoring
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: prometheus
+  # Metrics ports of the reconciler; reconciler.metrics.port is added when set.
+  reconcilerMetricsPorts: []
+  # Operators that manage the databases here, in whatever namespace they run.
+  operators:
+    cnpg:
+      - namespaceSelector: {}
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: cloudnative-pg
+    rabbitmq:
+      - namespaceSelector: {}
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: rabbitmq-cluster-operator
+    mariadb:
+      - namespaceSelector: {}
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: mariadb-operator
+  # Names the database pods are selected by (dfir-iris and misp chart defaults).
+  names:
+    irisPostgresCluster: iris-pgsql
+    irisRabbitmq: iris-rabbitmq
+    mispMariadb: misp-mariadb
+  # The Kubernetes API, for the reconciler and the CNPG and RabbitMQ pods. With cilium
+  # it is the kube-apiserver entity; without, list the API server endpoints as
+  # ipBlocks in `to`.
+  kubeApiServer:
+    ports: [443, 6443]
+    to: []
+  # Where the backups are written (backup.objectStore): an in-cluster object store
+  # as selectors in `to`, or `internet: true` with an empty `to` for one outside
+  # the cluster. The CloudNativePG and MariaDB pods reach it through their own
+  # charts' policies; this one is for the restore check's scratch cluster.
+  objectStore:
+    to: []
+    ports: [443, 9000]
+    internet: true
+  # MISP feeds and misp-modules enrichment: HTTP(S) to the internet.
+  mispInternet:
+    enabled: true
+    ports: [80, 443]
+  # true: CiliumNetworkPolicies for the Kubernetes API and the internet (the
+  # kube-apiserver and world entities). false (other CNIs): NetworkPolicies to
+  # kubeApiServer.to and to 0.0.0.0/0 minus privateRanges.
+  cilium: true
+  privateRanges: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10]
+  # More NetworkPolicies here, name suffix -> spec (podSelector, policyTypes, ingress,
+  # egress), e.g. a MISP feed on a private address or an object store for backups.
+  extraPolicies: {}
+
+# API-only setup (Keycloak roles/groups/clients, IRIS customers, Velociraptor
+# orgs, Wazuh RBAC) from the siem-tenants ConfigMap. Off until the image is
+# published; the chart renders its input either way.
+reconciler:
+  enabled: false
+  # velociraptor.velociraptor.apiClient.publisherImage must name the same image
+  # (checked at render time while both are enabled).
+  image:
+    repository: ghcr.io/obmondo/siem-reconciler
+    tag: ""
+    pullPolicy: IfNotPresent
+  # Pull secrets for a private registry, e.g. [{name: registry-pull}]: Secrets of
+  # type kubernetes.io/dockerconfigjson in this namespace (seal them yourself).
+  imagePullSecrets: []
+  # Pin host names for the reconciler pod, e.g. a Keycloak that is only reachable
+  # through an internal ingress: [{ip: 10.0.0.10, hostnames: [keycloak.example.com]}].
+  hostAliases: []
+  # Print the plan only. Read the job log first, then set false.
+  dryRun: true
+  schedule: "*/10 * * * *"
+  # Run as an Argo CD Sync hook before the components (wave -1), so the Secrets
+  # and clients they need exist when they start; errors do not fail the sync.
+  syncHook: true
+  # Also run as an Argo CD PostSync hook, so a new tenant is set up right after
+  # the sync instead of on the next schedule tick.
+  postSync: true
+  activeDeadlineSeconds: 600
+  # cronjob: run on `schedule` and exit (default). deployment: one long-running
+  # pod that reconciles every `interval`, probes the platform health after each
+  # run and serves Prometheus metrics and a JSON /status summary on metricsPort
+  # (Service siem-reconciler-metrics, port "metrics"). The Sync/PostSync hooks run
+  # in both modes. Use deployment for the health metrics (`monitoring`).
+  mode: cronjob
+  interval: 5m
+  metricsPort: 9090
+  # Secrets created with random values when missing ({namespace, name, keys:
+  # [{key, generator}]}). Empty: one per client secretRef.
+  secrets: []
+  # Merged over the derived component settings in siem-tenants (lists replace), e.g.
+  #   velociraptor:
+  #     address: velociraptor-api:8001
+  # The Velociraptor server monitoring entries come from velociraptorArtifacts.monitoring.
+  components: {}
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+# Monitoring of the platform itself (README "Monitoring"). Prometheus picks up
+# ServiceMonitors and PrometheusRules only from the namespaces it is configured
+# for: in KubeAid, add this release's namespace to prometheus_scrape_namespaces
+# (or set prometheusRule.namespace to one it watches, e.g. monitoring).
+monitoring:
+  # Scrapes the reconciler's /metrics (reconciler.mode: deployment only).
+  serviceMonitor:
+    enabled: false
+    interval: 60s
+    scrapeTimeout: 30s
+    labels: {}
+  prometheusRule:
+    enabled: false
+    # Empty: the release namespace.
+    namespace: ""
+    additionalLabels: {}
+    # Indexer disk usage, percent, of the fullest data node / volume. The
+    # indexer stops allocating at 85 % and goes read-only at 95 % (drops alerts).
+    diskWarningPercent: 75
+    diskCriticalPercent: 85
+    # No successful reconcile run for this long.
+    reconcilerStaleSeconds: 1800
+    # A CronJob (MISP CDB export, AI triage) without a success for this long.
+    jobStaleSeconds: 3600
+    # A backup backend without a successful run for this many hours (backup.*).
+    # Longer than the daily schedules, so one missed run is not an alert.
+    backupStaleHours: 36
+    # Share of a tenant's once-connected agents that is disconnected.
+    agentsDisconnectedRatio: 0.2
+    # Keycloak workload the platform logs in through (kube-state-metrics).
+    keycloak:
+      namespace: keycloakx
+      statefulset: keycloakx
+
+# Velociraptor server artifacts. files/velociraptor/*.yaml ship with the chart
+# (Custom.Server.IrisCollector: IRIS case -> endpoint collection -> results on the
+# case, and automatic response to mapped alerts; Custom.Server.KeycloakSync: Keycloak
+# users -> Velociraptor users and org grants; the response and forensics artifacts
+# the IRIS collector runs: Custom.{MacOS,Windows,Linux}.Remediation.RemoveByHash,
+# Custom.{Linux,MacOS}.Remediation.Isolate, Custom.Generic.Remediation.KillProcess,
+# Custom.{Windows,Linux,MacOS}.Triage.Collect, Custom.Linux.Forensics.MemoryImage)
+# and are rendered into ConfigMap velociraptor-artifacts, which the Velociraptor pod
+# loads at start (velociraptor.velociraptor.customArtifacts). The server artifacts
+# read the tenant maps in /etc/siem (velociraptor-tenants), the IRIS API key in
+# /etc/iris and the iris-sync client secret in /etc/keycloak (extraVolumes below).
+velociraptorArtifacts:
+  # More artifact files, name -> YAML text; null drops a shipped one. Every change to
+  # the ConfigMap content needs the pod annotation checksum/server-artifacts in
+  # velociraptor.velociraptor.podAnnotations updated (the render fails with the new
+  # value otherwise), because Velociraptor reads artifacts only when it starts.
+  extraFiles: {}
+  # Server event artifacts the reconciler keeps in the server monitoring table, with
+  # the parameters it enforces; unlisted parameters keep their value in the table or
+  # the artifact default. enabled: false stops managing one (it is never removed).
+  monitoring:
+    # Needs dfir-iris.
+    Custom.Server.IrisCollector:
+      enabled: true
+      parameters:
+        IrisUrl: http://dfir-iris-app:8000
+        IrisKeyFile: /etc/iris/API_KEY
+        OrgMapFile: /etc/siem/org-map.json
+        # Automatic response is off: a JSON string {"<Wazuh rule id>": {"<os>":
+        # "<artifact>"}} turns it on, e.g.
+        #   '{"99901": {"darwin": "Custom.MacOS.Remediation.RemoveByHash"}}'
+        # It only acts on alerts that tenantIris' service account of the alert's
+        # customer created and nobody else touched (CreatorMapFile).
+        AutoRules: "{}"
+        CreatorMapFile: /etc/siem/alert-creators.json
+        # Response actions (isolate, kill, triage, memory, ...) run only after a
+        # member of one of these IRIS groups comments "approve" on the approval
+        # task the collector opens on the case. Create the group in IRIS and put
+        # the approvers in it; an empty list would make every action impossible.
+        ApproverGroups: '["velociraptor-approvers"]'
+        # "Y": the analyst who owns the asset cannot approve their own request.
+        FourEyes: "Y"
+        # Isolated endpoints keep reaching these (the Velociraptor frontend
+        # first of all, as IP or CIDR - the client cannot resolve names once it
+        # is isolated unless AllowDNS stays on). The isolation artifacts refuse
+        # to run while this is empty, so an endpoint is never cut off from the
+        # SOC. Set it to the frontend's public address.
+        IsolationAllowlist: ""
+        # Optional: copy of every finished collection's zip in an S3-compatible
+        # bucket with object lock. EvidenceS3Secret is the name of a Velociraptor
+        # server secret (Type: AWS S3 Creds) - credentials never go in here. The
+        # SHA-256 of each uploaded file is written onto the case either way.
+        EvidenceS3Bucket: ""
+        EvidenceS3Region: ""
+        EvidenceS3Endpoint: ""
+        EvidenceS3Secret: ""
+        EvidenceS3Prefix: ""
+    Custom.Server.KeycloakSync:
+      enabled: true
+      parameters:
+        # KcUrl and KcRealm default to keycloak.url and keycloak.realm; set them here
+        # when Velociraptor reaches Keycloak by another URL (its egress allows the
+        # ingress controller only). Protected defaults to the local accounts plus the
+        # reconciler's API user (velociraptor.velociraptor.apiClient.name).
+        KcClientId: iris-sync
+        KcSecretFile: /etc/keycloak/client_secret
+        RoleMapFile: /etc/siem/role-map.json
+        GroupMapFile: /etc/siem/group-map.json
+        # "Y" only logs the plan (Velociraptor server event log).
+        DryRun: "N"
+
+# ---------------------------------------------------------------------------
+# Component charts. Everything below is passed through unchanged. fullnameOverride
+# keeps the object names a standalone install would have (wazuh-*, velociraptor,
+# dfir-iris-*, misp, ollama) although the release is called security-operations.
+# Lists replace, they do not merge: when you override one of the lists below,
+# copy the entries you want to keep.
+# ---------------------------------------------------------------------------
+
+# Central Wazuh search: an indexer that holds no events and a dashboard, no
+# manager. The indexer searches every tenant's indexer with cross-cluster search
+# (the reconciler registers them as remote clusters, alias = tenant code), and
+# the dashboard's Wazuh app lists every tenant manager API (Secret
+# wazuh-app-config, written by the reconciler). Index patterns: *:wazuh-alerts-*,
+# *:wazuh-states-vulnerabilities-*, *:wazuh-states-inventory-*.
+wazuh:
+  enabled: true
+  wazuh:
+    fullnameOverride: wazuh
+    # The cluster's own nodes are not a tenant's endpoints.
+    agent:
+      enabled: false
+    certificates:
+      issuer:
+        name: soc-ca
+        type: ClusterIssuer
+      subject:
+        # Node DN CN=wazuh-indexer,O=central,...; every tenant indexer admits it in
+        # indexer.config.extraNodesDn.
+        organization: central
+    wazuh:
+      # No manager: agents only talk to their tenant's manager. The chart gates
+      # master and worker on their own flags too.
+      enabled: false
+      master:
+        enabled: false
+      worker:
+        enabled: false
+      # The dashboard reads API_USERNAME/API_PASSWORD from this Secret although the
+      # Wazuh app uses wazuh-app-config; the reconciler creates it (secops.secrets).
+      apiCred:
+        existingSecret: wazuh-api-cred
+    indexer:
+      replicas: 1
+      networkPolicy:
+        extraEgresses:
+          # Cross-cluster search to the tenant indexers.
+          - ports:
+              - protocol: TCP
+                port: 9300
+            to:
+              - namespaceSelector:
+                  matchExpressions:
+                    - key: security-operations.kubeaid.io/tenant
+                      operator: Exists
+                podSelector:
+                  matchLabels:
+                    app: wazuh-indexer
+        extraIngresses:
+          # The reconciler sets the remote clusters through the REST API.
+          - ports:
+              - protocol: TCP
+                port: 9200
+            from:
+              - podSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: siem-reconciler
+    dashboard:
+      wazuhAppConfigSecret: wazuh-app-config
+      # Verify the indexer's certificate (soc-ca, named wazuh-indexer).
+      opensearchVerificationMode: full
+      networkPolicy:
+        # Not open to any source: networkPolicies (secops-wazuh-dashboard) admits the
+        # ingress controller and the reconciler.
+        ingressFrom: []
+        extraEgresses:
+          # The Wazuh app calls every tenant's manager API.
+          - ports:
+              - protocol: TCP
+                port: 55000
+            to:
+              - namespaceSelector:
+                  matchExpressions:
+                    - key: security-operations.kubeaid.io/tenant
+                      operator: Exists
+
+velociraptor:
+  enabled: true
+  # Egress to the Kubernetes API for the api-client-publish init container
+  # (CiliumNetworkPolicy, rendered only while apiClient.enabled).
+  apiServerEgress:
+    enabled: true
+  velociraptor:
+    fullnameOverride: velociraptor
+    # The gRPC API for the reconciler (Service velociraptor-api, port 8001). The
+    # reconciler dials it by that name (components.velociraptor.address in
+    # siem-tenants) and checks the server certificate against its pinned name.
+    config:
+      overlayExtra:
+        API:
+          bind_address: 0.0.0.0
+          # With a 0.0.0.0 bind, Velociraptor derives the API address its own
+          # GUI dials from the public frontend host name, where 8001 is not
+          # open; keep the GUI on the loopback. The reconciler dials the
+          # velociraptor-api Service instead.
+          hostname: localhost
+    api:
+      service:
+        enabled: true
+    # Log users in under their Keycloak username, the name KeycloakSync creates
+    # and grants them under (the chart default "email" would not match it).
+    gui:
+      oidc:
+        claims:
+          username: preferred_username
+    # Mints the reconciler's API client (user siem-reconciler, administrator) before
+    # the server starts and stores it in Secret velociraptor-api-client, which the
+    # reconciler reads. This chart grants the velociraptor ServiceAccount access to
+    # that Secret (templates/velociraptor-api-client.yaml). publisherImage must be the
+    # reconciler image (reconciler.image; a parent chart cannot copy one value into a
+    # subchart's, so set both), and imagePullSecrets its pull secrets. Off by default
+    # like the reconciler, whose image has no default tag.
+    apiClient:
+      enabled: false
+      name: siem-reconciler
+      secretName: velociraptor-api-client
+      secretKey: api_client.yaml
+      publisherImage:
+        repository: ghcr.io/obmondo/siem-reconciler
+        tag: ""
+      imagePullSecrets: []
+    # Server artifacts from files/velociraptor (velociraptorArtifacts above).
+    customArtifacts:
+      enabled: true
+      existingConfigMap: velociraptor-artifacts
+    podAnnotations:
+      # sha256 of the velociraptor-artifacts data; templates/checks.yaml fails the
+      # render with the new value when the artifacts change.
+      checksum/server-artifacts: 86b076e1da60c2ca243f4dffaecad7612a03b95ba17c1619d2f5f7c0be79b70b
+    # /etc/siem: tenant maps for the server artifacts (group-map.json, role-map.json,
+    # org-map.json), from the velociraptor-tenants ConfigMap.
+    # /etc/iris/API_KEY: IRIS API key for Custom.Server.IrisCollector.
+    # /etc/keycloak/client_secret: iris-sync client secret for Custom.Server.KeycloakSync.
+    # Both Secrets are optional, so Velociraptor starts without IRIS; the artifact
+    # then reports the missing key.
+    extraVolumes:
+      - name: tenants
+        configMap:
+          name: velociraptor-tenants
+      - name: iris-api-key
+        secret:
+          secretName: iris-api-key
+          optional: true
+      - name: keycloak-sync
+        secret:
+          secretName: iris-keycloak-sync
+          optional: true
+          items:
+            - key: KEYCLOAK_CLIENT_SECRET
+              path: client_secret
+    extraVolumeMounts:
+      - name: tenants
+        mountPath: /etc/siem
+        readOnly: true
+      - name: iris-api-key
+        mountPath: /etc/iris
+        readOnly: true
+      - name: keycloak-sync
+        mountPath: /etc/keycloak
+        readOnly: true
+    networkPolicy:
+      # Keycloak is reached through networkPolicies.keycloak (secops-velociraptor), not
+      # HTTPS to any address.
+      oidcEgressCIDRs: []
+      # Prometheus only (with serviceMonitor), not every pod in the cluster.
+      metricsAllowedFrom:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      # The reconciler reaches the gRPC API.
+      apiAllowedFrom:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: siem-reconciler
+      # Server artifacts poll the IRIS API.
+      extraEgress:
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: dfir-iris
+                  app.kubernetes.io/component: app
+          ports:
+            - protocol: TCP
+              port: 8000
+
+dfir-iris:
+  enabled: true
+  fullnameOverride: dfir-iris
+  # With authentication.type oidc: no local password form next to SSO unless a
+  # cluster opts in (localFallback: true, break-glass for the local administrator),
+  # and SSO users matched on the immutable Keycloak user id (sub), so an IdP user
+  # named like a local login (administrator, svc_*) cannot sign in as it. The
+  # keycloakSync job creates and renames users to that id (dfir-iris README).
+  authentication:
+    localFallback: false
+    oidc:
+      mappingUsername: sub
+  # IRIS creates its second database (iris_tasks) itself on first start, which
+  # the CNPG app role may not do: publish the superuser Secret and use it.
+  global:
+    postgresql:
+      enableSuperuserAccess: true
+  postgres:
+    existingSecret: iris-pgsql-superuser
+  keycloakSync:
+    # Roles and one group per tenant, from the dfir-iris-tenants ConfigMap.
+    mappingConfigMap:
+      name: dfir-iris-tenants
+      key: mapping.json
+  aiTriage:
+    ollamaUrl: http://ollama:11434
+    # Created and kept by the reconciler (ai.irisKeySecret).
+    existingSecret: iris-ai-triage
+    # Case summaries (tag ai:summarize) and hunting suggestions (note
+    # "ai:hunt: <question>") are off by default: caseSummary.enabled,
+    # hunt.enabled. Prompt overrides: promptsConfigMap.name (dfir-iris README).
+  # IRIS -> MISP sightings for cases closed as true positive (off by default).
+  # The MISP key must be allowed to add sightings: create a MISP user for it and
+  # seal its auth key as misp-sightings-key (key "key"); the export key is
+  # read-only. The svc_ai IRIS key reads cases and sets the misp:sighted tag.
+  mispSightings:
+    misp:
+      url: http://misp
+      apiKeySecret: misp-sightings-key
+    existingSecret: iris-ai-triage
+
+misp:
+  enabled: true
+  # dfir-iris carries kubeaid-addons already; one copy per release.
+  kubeaid-addons:
+    enabled: false
+  misp:
+    fullnameOverride: misp
+    # Valkey keeps its data on a ReadWriteOnce volume: a rolling update would
+    # start the new pod while the old one still holds the volume (Multi-Attach).
+    valkey:
+      deploymentStrategy: Recreate
+  wazuhCdbExport:
+    misp:
+      # Created and kept by the reconciler (mispReadOnly); the admin key stays the
+      # fallback until it exists.
+      readOnlyKeySecret: misp-export-key
+    # One target per tenant manager; a parent chart cannot compute these from
+    # `tenants`, so list them (checks.mispTargets). The credentials Secrets are
+    # copied from the tenant namespaces by the reconciler (wazuh-api-cred-<code>).
+    #   - name: "001"
+    #     url: https://wazuh.wazuh-001.svc:55000
+    #     credentialsSecret: wazuh-api-cred-001
+    # The managers' API certificates are verified against the soc-ca (the tenant
+    # releases' wazuh.managerTls); verifyTls: false on a target turns that off.
+    targets: []
+    # Keep equal to socCA.trustSecret (or tls.caSecret).
+    caSecret: soc-ca-trust
+
+ollama:
+  enabled: true
+  ollama:
+    fullnameOverride: ollama
+  networkPolicy:
+    enabled: true
+    # Only the IRIS triage job may call the model.
+    allowedFrom:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: dfir-iris
+            app.kubernetes.io/component: ai-triage
+
+# Detection content as code: the kubesoc-content chart (README there) renders
+# ConfigMap kubesoc-content; the reconciler mounts it (plus velociraptor-artifacts)
+# and rolls it out to every tenant manager (canary first, validated, hot-reloaded,
+# rolled back on failure) and, with velociraptorArtifacts, to Velociraptor. Off by
+# default. With it on, turn velociraptor.velociraptor.customArtifacts off (the
+# checksum/server-artifacts annotation is then no longer checked) and let the wazuh
+# tenants' ruleset come from wazuh.ruleset.extraLists/extraRuleExcludes instead of
+# localRules plus a second <ruleset>.
+kubesoc-content:
+  enabled: false
+  canary: ""
+  velociraptorArtifacts: true
+# SSO landing portal (../kubesoc-portal): one page behind Keycloak (oauth2-proxy)
+# with a card per tenant linking to its Wazuh dashboard, IRIS, Velociraptor,
+# MISP and the central search. The links are rendered by this chart from
+# `tenants` into ConfigMap kubesoc-portal-links (templates/portal-links.yaml);
+# the reconciler keeps the Keycloak client kubesoc-portal and its Secret
+# kubesoc-portal-oidc (client and cookie secret). Keep host and issuer in step
+# with `domain`, `hosts.portal` and `keycloak`.
+kubesoc-portal:
+  enabled: false
+  fullnameOverride: kubesoc-portal
+  linksConfigMap:
+    name: kubesoc-portal-links
+  oauth2Proxy:
+    oidcIssuerUrl: https://keycloak.example.com/auth/realms/soc
+  ingress:
+    className: traefik
+    host: portal.example.com
+
+# What the portal links to. URL placeholders: {code} {name} {tenantHost}
+# {wazuhHost} {irisHost} {mispHost} {velociraptorHost} {domain}
+# {irisCustomerId} {velociraptorOrgId}. `component` hides a link while that
+# component is disabled. A URL with {irisCustomerId} or {velociraptorOrgId}
+# needs the tenant's id below (IRIS and Velociraptor assign them at creation);
+# without it `fallback` is used.
+portal:
+  central:
+    - name: Central search
+      component: wazuh
+      url: "https://{wazuhHost}/app/wz-home"
+      description: Wazuh alerts of every tenant you may see
+    - name: DFIR-IRIS
+      component: dfir-iris
+      url: "https://{irisHost}/"
+      description: Cases and alerts
+    - name: Velociraptor
+      component: velociraptor
+      url: "https://{velociraptorHost}/app/index.html"
+      description: Endpoint forensics and hunts
+    - name: MISP
+      component: misp
+      url: "https://{mispHost}/events/index"
+      description: Threat intelligence
+  tenantLinks:
+    - name: Wazuh dashboard
+      url: "https://{tenantHost}/app/wz-home"
+    - name: IRIS alerts
+      component: dfir-iris
+      url: "https://{irisHost}/alerts?alert_customer_id={irisCustomerId}"
+      fallback: "https://{irisHost}/alerts"
+    - name: Velociraptor
+      component: velociraptor
+      url: "https://{velociraptorHost}/app/index.html?org_id={velociraptorOrgId}#/dashboard"
+      fallback: "https://{velociraptorHost}/app/index.html"
+    - name: MISP
+      component: misp
+      url: "https://{mispHost}/events/index"
+    - name: Central search
+      component: wazuh
+      url: "https://{wazuhHost}/app/data-explorer/discover"
+  # Tenant code -> IRIS customer id / Velociraptor org id (e.g. O1A2B3), for
+  # the deep links above.
+  irisCustomerIds: {}
+  velociraptorOrgIds: {}

@@ -1,0 +1,71 @@
+{{- /*
+  Render-time checks between `tenants` and component values this chart cannot
+  derive (README, "What is not derived from tenants"). Renders nothing.
+*/}}
+{{- $tenants := include "secops.tenants" . | fromJsonArray }}
+{{- $x := .Values.misp.wazuhCdbExport | default dict }}
+{{- if and .Values.misp.enabled $x.enabled .Values.checks.mispTargets }}
+{{- $names := dict }}
+{{- range ($x.targets | default list) }}{{ $_ := set $names (toString .name) true }}{{ end }}
+{{- range $tenants }}
+{{- if not (hasKey $names .code) }}
+{{- fail (printf "tenant %s: add a misp.wazuhCdbExport.targets entry named %q (README, section \"What is not derived from tenants\"), or set checks.mispTargets: false" .code .code) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- $seen := dict }}
+{{- range $tenants }}
+{{- with .agentPorts }}
+{{- range $p := list .registration .events }}
+{{- if hasKey $seen (toString $p) }}{{ fail (printf "agent port %v is used twice (tenants[].agentPorts)" $p) }}{{ end }}
+{{- $_ := set $seen (toString $p) true }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if .Values.velociraptor.enabled }}
+{{- $v := .Values.velociraptor.velociraptor | default dict }}
+{{- $kc := index .Values "kubesoc-content" | default dict }}
+{{- if and $kc.enabled (ne (toString $kc.velociraptorArtifacts) "false") }}
+{{- /* The reconciler sets the artifacts with artifact_set, which cannot replace one the
+     server loaded from its definitions directory: the mount must be off. */}}
+{{- if ($v.customArtifacts | default dict).enabled }}
+{{- fail "kubesoc-content.velociraptorArtifacts: set velociraptor.velociraptor.customArtifacts.enabled to false (the reconciler sets the artifacts; artifacts loaded from the mount are built in and cannot be replaced)" }}
+{{- end }}
+{{- else }}
+{{- /* Velociraptor reads its artifacts only at start: the pod annotation must follow them. */}}
+{{- $want := include "secops.velociraptorArtifactsChecksum" . }}
+{{- $have := index ($v.podAnnotations | default dict) "checksum/server-artifacts" | default "" }}
+{{- if ne $want $have }}
+{{- fail (printf "the Velociraptor artifacts changed: set velociraptor.velociraptor.podAnnotations.checksum/server-artifacts to %s (it is %q), so the server restarts and loads them" $want $have) }}
+{{- end }}
+{{- end }}
+{{- $ac := $v.apiClient | default dict }}
+{{- if and .Values.reconciler.enabled $ac.enabled }}
+{{- /* The publisher runs `siem-reconciler publish-api-client`: same image as the reconciler. */}}
+{{- $pi := $ac.publisherImage | default dict }}
+{{- $ri := .Values.reconciler.image }}
+{{- if or (ne (toString $pi.repository) (toString $ri.repository)) (ne (toString $pi.tag) (toString $ri.tag)) }}
+{{- fail (printf "velociraptor.velociraptor.apiClient.publisherImage (%s:%s) must equal reconciler.image (%s:%s)" (toString $pi.repository) (toString $pi.tag) (toString $ri.repository) (toString $ri.tag)) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- /*
+  The databases back themselves up in their own charts, because a parent chart
+  cannot compute a subchart's values. Turning the backup block on without them
+  would leave the IRIS cases and the MISP events with no backup at all, which is
+  worse than an obvious gap: fail the render instead.
+*/}}
+{{- if and (include "secops.backup.enabled" .) .Values.checks.backupTargets }}
+{{- if (index .Values "dfir-iris").enabled }}
+{{- $pg := (((index .Values "dfir-iris").global | default dict).postgresql | default dict) }}
+{{- if not (($pg.backups | default dict).enabled) }}
+{{- fail "backup.enabled: set dfir-iris.global.postgresql.backups.enabled (the IRIS database backs itself up with CloudNativePG; README \"Backups\"), or set checks.backupTargets: false" }}
+{{- end }}
+{{- end }}
+{{- if .Values.misp.enabled }}
+{{- $mariadb := ((.Values.misp.externalMariadb) | default dict) }}
+{{- if and $mariadb.enabled (not (($mariadb.backup | default dict).enabled)) }}
+{{- fail "backup.enabled: set misp.externalMariadb.backup.enabled (the MISP database backs itself up with mariadb-operator; README \"Backups\"), or set checks.backupTargets: false" }}
+{{- end }}
+{{- end }}
+{{- end }}

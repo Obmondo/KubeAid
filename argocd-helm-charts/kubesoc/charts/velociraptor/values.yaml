@@ -1,0 +1,66 @@
+velociraptor:
+  # The chart does not template server.config.yaml. Generate it once with
+  # `velociraptor config generate` (fix the frontend hostname first, clients pin
+  # the certificate), seal it, and point existingSecret at it. Key: server.config.yaml
+  config:
+    existingSecret: velociraptor-server-config
+
+  persistence:
+    enabled: true
+    size: 50Gi
+
+  frontend:
+    # Clients speak TLS straight to the frontend on 8000 and verify the pinned
+    # server certificate, so the ingress cannot terminate it. Expose the
+    # frontend with a LoadBalancer Service (hcloud) or a TCP passthrough on the
+    # ingress controller from kubeaid-config.
+    service:
+      type: ClusterIP
+    minions:
+      enabled: false
+
+  gui:
+    service:
+      type: ClusterIP
+    ingress:
+      enabled: false
+    oidc:
+      enabled: false
+      name: keycloak
+      clientId: velociraptor
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      memory: 2Gi
+
+  serviceMonitor:
+    enabled: true
+
+# Raw-TLS route for agent traffic through traefik (templates/ingressroutetcp.yaml).
+# host must equal Frontend.hostname / Client.server_urls in the server config, and
+# entryPoint must exist in the traefik values with a hostPort (8000 by convention).
+frontendTcpRoute:
+  enabled: false
+  entryPoint: velociraptor
+  host: ""
+  # Defaults to <release>-frontend, the subchart's frontend Service.
+  serviceName: ""
+  port: 8000
+
+# Peers allowed to reach the frontend port (templates/networkpolicy-frontend.yaml).
+# Needed on Cilium because the upstream chart only gates that port by CIDR, which
+# does not match in-cluster pods. Each item is a standard NetworkPolicyPeer.
+frontendAllowedFrom: []
+
+# Egress to the Kubernetes API (templates/ciliumnetworkpolicy-apiserver.yaml, Cilium
+# only) for the api_client publisher init container; rendered only while
+# velociraptor.apiClient.enabled. Needed when velociraptor.networkPolicy.enabled.
+# The ports are the kubernetes Service port and the API server's own port.
+apiServerEgress:
+  enabled: false
+  ports:
+    - 443
+    - 6443

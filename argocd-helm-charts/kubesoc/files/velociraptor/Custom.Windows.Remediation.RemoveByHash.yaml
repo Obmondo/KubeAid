@@ -1,0 +1,50 @@
+name: Custom.Windows.Remediation.RemoveByHash
+description: |
+  Quarantine or remove every file under the given globs whose SHA-256 matches an
+  indicator, and report what happened. The Windows twin of
+  Custom.MacOS.Remediation.RemoveByHash: the case's sha256 IOCs arrive as
+  Hashes through the IRIS collector's IocMap.
+
+  Mode=quarantine (the default) copies the file into QuarantineDir under its own
+  hash and only then deletes the original; Mode=delete removes it outright. A
+  file whose copy fails is never deleted. Windows Defender's own quarantine is
+  not touched - use Windows.Remediation.Quarantine for network containment.
+type: CLIENT
+parameters:
+  - name: Hashes
+    default: ""
+    description: |
+      Comma-separated SHA-256 values. Filled by the IRIS collector from the
+      case's sha256 indicators; empty removes nothing.
+  - name: Globs
+    default: C:/Users/*/AppData/**,C:/Users/*/Downloads/**,C:/ProgramData/**,C:/Windows/Temp/**
+    description: Comma-separated globs to search; keep them narrow.
+  - name: Mode
+    default: quarantine
+    type: choices
+    choices:
+      - quarantine
+      - delete
+  - name: QuarantineDir
+    default: C:/ProgramData/Velociraptor/quarantine
+  - name: MaxSize
+    type: int
+    default: "104857600"
+sources:
+  - query: |
+      LET HashList = split(string=lowcase(string=Hashes), sep=',')
+      LET hits = SELECT OSPath, Size, hash(path=OSPath).SHA256 AS sha
+        FROM glob(globs=split(string=Globs, sep=','))
+        WHERE Hashes AND NOT IsDir AND Size < MaxSize AND hash(path=OSPath).SHA256 in HashList
+      -- copy() creates the parent directory, so no mkdir step is needed
+      LET copied = SELECT *, if(condition=(Mode = 'quarantine'),
+              then=copy(filename=OSPath, dest=QuarantineDir + '/' + sha),
+              else='') AS quarantined
+        FROM hits
+      SELECT OSPath, Size, sha, Mode, quarantined,
+             if(condition=(Mode = 'delete' OR quarantined),
+                then={ SELECT ReturnCode FROM execve(argv=['cmd.exe', '/c', 'del', '/f', '/q', OSPath.String]) },
+                else=dict(ReturnCode=-1)).ReturnCode AS del_rc,
+             if(condition={ SELECT Size FROM stat(filename=OSPath.String) }, then=false, else=true) AS removed
+      FROM copied
+

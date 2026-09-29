@@ -1,0 +1,56 @@
+{{- /*
+  KubeAid patch: the manager's API and authd certificate (wazuh.managerTls). Names
+  cover the manager Services (<fullname> for enrolment and API, the master, worker and
+  cluster Services) in every short and qualified form, plus the public agent address.
+*/}}
+{{- if and .Values.certificates.enabled .Values.wazuh.enabled .Values.wazuh.managerTls.enabled }}
+{{- $fn := include "wazuh.fullname" . }}
+{{- $ns := .Release.Namespace }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $fn }}-manager-tls
+  namespace: {{ $ns }}
+spec:
+  secretName: {{ .Values.wazuh.managerTls.secretName }}
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS8
+    size: 2048
+    rotationPolicy: Always
+  duration: {{ .Values.wazuh.managerTls.duration }}
+  renewBefore: {{ .Values.wazuh.managerTls.renewBefore }}
+  isCA: false
+  commonName: {{ $fn }}
+  subject:
+    organizations:
+      - {{ .Values.certificates.subject.organization }}
+    countries:
+      - {{ .Values.certificates.subject.country }}
+    localities:
+      - {{ .Values.certificates.subject.locality }}
+  usages:
+    - server auth
+    - digital signature
+    - key encipherment
+  dnsNames:
+    {{- range $svc := list $fn (printf "%s-manager-master" $fn) (printf "%s-manager-worker" $fn) }}
+    - {{ $svc }}
+    - {{ $svc }}.{{ $ns }}
+    - {{ $svc }}.{{ $ns }}.svc
+    - {{ $svc }}.{{ $ns }}.svc.cluster.local
+    {{- end }}
+    - "*.{{ $fn }}-manager-cluster.{{ $ns }}.svc.cluster.local"
+    {{- range .Values.wazuh.managerTls.extraDnsNames }}
+    - {{ . | quote }}
+    {{- end }}
+  {{- with .Values.wazuh.managerTls.ipAddresses }}
+  ipAddresses:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  issuerRef:
+    name: {{ .Values.certificates.issuer.name | default (printf "%s-ca-issuer" $fn) }}
+    {{- if and .Values.certificates.issuer.name (eq .Values.certificates.issuer.type "ClusterIssuer") }}
+    kind: ClusterIssuer
+    {{- end }}
+{{- end }}

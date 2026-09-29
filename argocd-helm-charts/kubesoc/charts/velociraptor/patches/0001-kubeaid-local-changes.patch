@@ -1,0 +1,555 @@
+diff --git a/templates/_helpers.tpl b/templates/_helpers.tpl
+index 06132d5..a5dd7df 100644
+--- a/templates/_helpers.tpl
++++ b/templates/_helpers.tpl
+@@ -72,7 +72,105 @@ app.kubernetes.io/instance: {{ .Release.Name }}
+ 
+ {{/* "true" when a config overlay (init-container merge) is needed. */}}
+ {{- define "velociraptor.overlayEnabled" -}}
+-{{- if or .Values.gui.oidc.enabled .Values.config.initializeServer .Values.customArtifacts.enabled -}}true{{- end -}}
++{{- if or .Values.gui.oidc.enabled .Values.config.initializeServer .Values.customArtifacts.enabled .Values.config.overlayExtra -}}true{{- end -}}
++{{- end }}
++
++{{/* KubeAid patch. "true" when the container exposes the gRPC API port and the API Service is rendered. */}}
++{{- define "velociraptor.apiExposed" -}}
++{{- if or .Values.frontend.minions.enabled .Values.api.service.enabled -}}true{{- end -}}
++{{- end }}
++
++{{/*
++  KubeAid patch. API client bootstrap (apiClient): mint an api_client config with the
++  server binary against the (merged) config and the datastore, then store it in a
++  Secret with the siem-reconciler image. Runs after config-merge, before the server.
++*/}}
++{{- define "velociraptor.apiClientInitContainers" -}}
++{{- if .Values.apiClient.enabled }}
++{{- $pi := .Values.apiClient.publisherImage }}
++- name: api-client
++  image: {{ include "velociraptor.image" . }}
++  imagePullPolicy: {{ .Values.image.pullPolicy }}
++  args:
++    - --config
++    - {{ .Values.config.mountPath }}
++    - config
++    - api_client
++    - --name
++    - {{ .Values.apiClient.name | quote }}
++    - --role
++    - {{ .Values.apiClient.role | quote }}
++    - /api-client/api_client.yaml
++  securityContext:
++    {{- toYaml .Values.securityContext | nindent 4 }}
++  resources:
++    {{- toYaml .Values.apiClient.resources | nindent 4 }}
++  volumeMounts:
++    {{- include "velociraptor.configVolumeMount" . | nindent 4 }}
++    - name: datastore
++      mountPath: {{ .Values.persistence.mountPath }}
++    - name: api-client
++      mountPath: /api-client
++    {{- if .Values.tmpDir.enabled }}
++    - name: tmp
++      mountPath: /tmp
++    {{- end }}
++- name: api-client-publish
++  image: "{{ required "apiClient.publisherImage.repository is required when apiClient.enabled" $pi.repository }}:{{ required "apiClient.publisherImage.tag is required when apiClient.enabled" $pi.tag }}"
++  imagePullPolicy: {{ $pi.pullPolicy | default "IfNotPresent" }}
++  command:
++    - /usr/local/bin/siem-reconciler
++  args:
++    - publish-api-client
++    - --file
++    - /api-client/api_client.yaml
++    - --name
++    - {{ .Values.apiClient.secretName | quote }}
++    - --key
++    - {{ .Values.apiClient.secretKey | quote }}
++  env:
++    - name: POD_NAMESPACE
++      valueFrom:
++        fieldRef:
++          fieldPath: metadata.namespace
++  securityContext:
++    {{- toYaml .Values.securityContext | nindent 4 }}
++  resources:
++    {{- toYaml .Values.apiClient.resources | nindent 4 }}
++  volumeMounts:
++    - name: api-client
++      mountPath: /api-client
++      readOnly: true
++    - name: api-client-token
++      mountPath: /var/run/secrets/kubernetes.io/serviceaccount
++      readOnly: true
++{{- end }}
++{{- end }}
++
++{{/* KubeAid patch. Volumes of the API client bootstrap: the api_client file and the publisher's token. */}}
++{{- define "velociraptor.apiClientVolumes" -}}
++{{- if .Values.apiClient.enabled }}
++- name: api-client
++  emptyDir:
++    medium: Memory
++    sizeLimit: 1Mi
++- name: api-client-token
++  projected:
++    sources:
++      - serviceAccountToken:
++          path: token
++          expirationSeconds: 3607
++      - configMap:
++          name: kube-root-ca.crt
++          items:
++            - key: ca.crt
++              path: ca.crt
++      - downwardAPI:
++          items:
++            - path: namespace
++              fieldRef:
++                fieldPath: metadata.namespace
++{{- end }}
+ {{- end }}
+ 
+ {{/* Secret + key holding the OIDC client secret. */}}
+@@ -177,3 +275,43 @@ oauth_client_secret
+   readOnly: true
+ {{- end }}
+ {{- end }}
++
++{{/*
++  Overlay keys the chart derives from its values (gui.oidc, config.initializeServer,
++  customArtifacts), unindented. KubeAid patch: split out of secret-config-overlay.yaml so
++  config.overlayExtra can be merged over it.
++*/}}
++{{- define "velociraptor.overlayGenerated" -}}
++{{- if .Values.gui.oidc.enabled }}
++GUI:
++  public_url: {{ required "gui.publicUrl is required when gui.oidc.enabled (OIDC redirects)" .Values.gui.publicUrl | quote }}
++  authenticator:
++    type: oidc
++    oidc_issuer: {{ required "gui.oidc.issuer is required when gui.oidc.enabled" .Values.gui.oidc.issuer | quote }}
++    oidc_name: {{ .Values.gui.oidc.name | quote }}
++    oauth_client_id: {{ .Values.gui.oidc.clientId | quote }}
++{{- with .Values.gui.oidc.avatar }}
++    avatar: {{ . | quote }}
++{{- end }}
++{{- if .Values.gui.oidc.debug }}
++    oidc_debug: true
++{{- end }}
++{{- with .Values.gui.oidc.sessionExpiryMin }}
++    default_session_expiry_min: {{ . | int }}
++{{- end }}
++{{- with .Values.gui.oidc.claims }}
++    claims:
++      {{- toYaml . | nindent 6 }}
++{{- end }}
++{{- end }}
++{{- if .Values.config.initializeServer }}
++Frontend:
++  initial_server_artifacts:
++    - Container.InitializeServer
++{{- end }}
++{{- if .Values.customArtifacts.enabled }}
++defaults:
++  artifact_definitions_directories:
++    - {{ .Values.customArtifacts.path | quote }}
++{{- end }}
++{{- end }}
+diff --git a/templates/networkpolicy.yaml b/templates/networkpolicy.yaml
+index 9907bc9..2129158 100644
+--- a/templates/networkpolicy.yaml
++++ b/templates/networkpolicy.yaml
+@@ -41,6 +41,15 @@ spec:
+         - protocol: TCP
+           port: {{ .Values.frontend.apiPort }}
+     {{- end }}
++    {{- /* KubeAid patch: API clients (api.service.enabled). */}}
++    {{- if and .Values.api.service.enabled .Values.networkPolicy.apiAllowedFrom }}
++    # API clients: the gRPC API (API.bind_address must be 0.0.0.0).
++    - from:
++        {{- toYaml .Values.networkPolicy.apiAllowedFrom | nindent 8 }}
++      ports:
++        - protocol: TCP
++          port: {{ .Values.frontend.apiPort }}
++    {{- end }}
+     {{- if .Values.serviceMonitor.enabled }}
+     # Metrics: allow Prometheus to scrape the monitoring port.
+     - from:
+@@ -61,7 +70,7 @@ spec:
+           port: 53
+         - protocol: TCP
+           port: 53
+-    {{- if .Values.gui.oidc.enabled }}
++    {{- if and .Values.gui.oidc.enabled .Values.networkPolicy.oidcEgressCIDRs }}
+     # OIDC: reach the IdP issuer (discovery fetched at server boot).
+     - to:
+         {{- range .Values.networkPolicy.oidcEgressCIDRs }}
+diff --git a/templates/secret-config-overlay.yaml b/templates/secret-config-overlay.yaml
+index 1fdc770..fdebf7d 100644
+--- a/templates/secret-config-overlay.yaml
++++ b/templates/secret-config-overlay.yaml
+@@ -2,6 +2,7 @@
+ # Config overlay deep-merged onto the base config by the config-merge init
+ # container. Holds only non-secret fields; oauth_client_secret (OIDC) is injected
+ # separately from a Secret. Sources: gui.oidc / config.initializeServer / customArtifacts.
++# The merge is a yq deep merge: maps merge key by key, lists replace.
+ apiVersion: v1
+ kind: Secret
+ metadata:
+@@ -11,27 +12,11 @@ metadata:
+ type: Opaque
+ stringData:
+   overlay.yaml: |
+-{{- if .Values.gui.oidc.enabled }}
+-    GUI:
+-      public_url: {{ required "gui.publicUrl is required when gui.oidc.enabled (OIDC redirects)" .Values.gui.publicUrl | quote }}
+-      authenticator:
+-        type: oidc
+-        oidc_issuer: {{ required "gui.oidc.issuer is required when gui.oidc.enabled" .Values.gui.oidc.issuer | quote }}
+-        oidc_name: {{ .Values.gui.oidc.name | quote }}
+-        oauth_client_id: {{ .Values.gui.oidc.clientId | quote }}
+-{{- with .Values.gui.oidc.avatar }}
+-        avatar: {{ . | quote }}
+-{{- end }}
+-{{- end }}
+-{{- if .Values.config.initializeServer }}
+-    Frontend:
+-      initial_server_artifacts:
+-        - Container.InitializeServer
+-{{- end }}
+-{{- if .Values.customArtifacts.enabled }}
+-    defaults:
+-      artifact_definitions_directories:
+-        - {{ .Values.customArtifacts.path | quote }}
++{{- /* KubeAid patch: config.overlayExtra merged over the chart's keys. */}}
++{{- if .Values.config.overlayExtra }}
++    {{- mergeOverwrite (include "velociraptor.overlayGenerated" . | fromYaml | default dict) (deepCopy .Values.config.overlayExtra) | toYaml | nindent 4 }}
++{{- else }}
++    {{- include "velociraptor.overlayGenerated" . | trim | nindent 4 }}
+ {{- end }}
+ {{- if and .Values.gui.oidc.enabled (not .Values.gui.oidc.existingSecret) }}
+ ---
+diff --git a/templates/service-api.yaml b/templates/service-api.yaml
+index e931faa..62d7959 100644
+--- a/templates/service-api.yaml
++++ b/templates/service-api.yaml
+@@ -1,6 +1,10 @@
++{{- /* KubeAid patch: also rendered for API clients (api.service.enabled). */}}
++{{- if eq (include "velociraptor.apiExposed" .) "true" }}
++# Master API (gRPC) Service — minions reach the master's RemoteFileDataStore here,
++# API clients (api.service.enabled) the API.
+ {{- if .Values.frontend.minions.enabled }}
+-# Master API (gRPC) Service — minions reach the master's RemoteFileDataStore here.
+ # Set API.hostname in the server config to: {{ include "velociraptor.fullname" . }}-api.{{ .Release.Namespace }}.svc
++{{- end }}
+ apiVersion: v1
+ kind: Service
+ metadata:
+diff --git a/templates/statefulset-minion.yaml b/templates/statefulset-minion.yaml
+index f021e7d..a1cef27 100644
+--- a/templates/statefulset-minion.yaml
++++ b/templates/statefulset-minion.yaml
+@@ -49,6 +49,10 @@ spec:
+     spec:
+       serviceAccountName: {{ include "velociraptor.serviceAccountName" . }}
+       automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
++      {{- with .Values.hostAliases }}
++      hostAliases:
++        {{- toYaml . | nindent 8 }}
++      {{- end }}
+       {{- with .Values.imagePullSecrets }}
+       imagePullSecrets:
+         {{- toYaml . | nindent 8 }}
+diff --git a/templates/statefulset.yaml b/templates/statefulset.yaml
+index 1283424..2f8e77f 100644
+--- a/templates/statefulset.yaml
++++ b/templates/statefulset.yaml
+@@ -15,6 +15,15 @@ spec:
+     metadata:
+       annotations:
+         checksum/config: {{ include "velociraptor.configSecretName" . }}-{{ .Values.config.secretKey }}
++        {{- /* Content checksums, so a changed artifact or overlay rolls the pod: the server
++             reads artifact_definitions_directories only at startup, and a ConfigMap-only
++             change would otherwise leave the old definitions running. */}}
++        {{- if and .Values.customArtifacts.enabled (not .Values.customArtifacts.existingConfigMap) }}
++        checksum/custom-artifacts: {{ include (print $.Template.BasePath "/configmap-custom-artifacts.yaml") . | sha256sum }}
++        {{- end }}
++        {{- if eq (include "velociraptor.overlayEnabled" .) "true" }}
++        checksum/config-overlay: {{ include (print $.Template.BasePath "/secret-config-overlay.yaml") . | sha256sum }}
++        {{- end }}
+         {{- with .Values.podAnnotations }}
+         {{- toYaml . | nindent 8 }}
+         {{- end }}
+@@ -27,7 +36,16 @@ spec:
+     spec:
+       serviceAccountName: {{ include "velociraptor.serviceAccountName" . }}
+       automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+-      {{- with .Values.imagePullSecrets }}
++      {{- with .Values.hostAliases }}
++      hostAliases:
++        {{- toYaml . | nindent 8 }}
++      {{- end }}
++      {{- /* KubeAid patch: apiClient.imagePullSecrets for the publisher image. */}}
++      {{- $pullSecrets := .Values.imagePullSecrets }}
++      {{- if .Values.apiClient.enabled }}
++      {{- $pullSecrets = concat (.Values.imagePullSecrets | default list) (.Values.apiClient.imagePullSecrets | default list) }}
++      {{- end }}
++      {{- with $pullSecrets }}
+       imagePullSecrets:
+         {{- toYaml . | nindent 8 }}
+       {{- end }}
+@@ -38,6 +56,8 @@ spec:
+       securityContext:
+         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+       {{- $init := include "velociraptor.overlayInitContainer" . }}
++      {{- /* KubeAid patch: API client bootstrap after the config merge. */}}
++      {{- $init = print $init (include "velociraptor.apiClientInitContainers" .) }}
+       {{- if trim $init }}
+       initContainers:
+         {{- $init | nindent 8 }}
+@@ -61,7 +81,7 @@ spec:
+             - name: gui
+               containerPort: {{ .Values.gui.containerPort }}
+               protocol: TCP
+-            {{- if .Values.frontend.minions.enabled }}
++            {{- if eq (include "velociraptor.apiExposed" .) "true" }}
+             - name: api
+               containerPort: {{ .Values.frontend.apiPort }}
+               protocol: TCP
+@@ -102,6 +122,9 @@ spec:
+       volumes:
+         {{- include "velociraptor.configVolumes" . | nindent 8 }}
+         {{- include "velociraptor.customArtifactsVolume" . | nindent 8 }}
++        {{- if .Values.apiClient.enabled }}
++        {{- include "velociraptor.apiClientVolumes" . | nindent 8 }}
++        {{- end }}
+         {{- if .Values.tmpDir.enabled }}
+         - name: tmp
+           emptyDir:
+diff --git a/values.schema.json b/values.schema.json
+index c31d8ee..5ab6fba 100644
+--- a/values.schema.json
++++ b/values.schema.json
+@@ -40,9 +40,39 @@
+               }
+             }
+           }
++        },
++        "overlayExtra": { "type": "object" }
++      }
++    },
++    "api": {
++      "type": "object",
++      "properties": {
++        "service": {
++          "type": "object",
++          "properties": { "enabled": { "type": "boolean" } }
+         }
+       }
+     },
++    "apiClient": {
++      "type": "object",
++      "properties": {
++        "enabled": { "type": "boolean" },
++        "name": { "type": "string", "minLength": 1 },
++        "role": { "type": "string", "minLength": 1 },
++        "secretName": { "type": "string", "minLength": 1 },
++        "secretKey": { "type": "string", "minLength": 1 },
++        "publisherImage": {
++          "type": "object",
++          "properties": {
++            "repository": { "type": "string" },
++            "tag": { "type": "string" },
++            "pullPolicy": { "type": "string", "enum": ["Always", "IfNotPresent", "Never"] }
++          }
++        },
++        "imagePullSecrets": { "type": "array" },
++        "resources": { "type": "object" }
++      }
++    },
+     "frontend": {
+       "type": "object",
+       "properties": {
+@@ -88,7 +118,28 @@
+             "avatar": { "type": "string" },
+             "existingSecret": { "type": "string" },
+             "existingSecretKey": { "type": "string" },
+-            "clientSecret": { "type": "string" }
++            "clientSecret": { "type": "string" },
++            "debug": { "type": "boolean" },
++            "sessionExpiryMin": { "type": "integer", "minimum": 0 },
++            "claims": {
++              "type": "object",
++              "additionalProperties": false,
++              "properties": {
++                "username": { "type": "string" },
++                "roles": { "type": "string" },
++                "role_map": {
++                  "type": "object",
++                  "additionalProperties": {
++                    "type": "object",
++                    "properties": {
++                      "roles": { "type": "array", "items": { "type": "string" } }
++                    }
++                  }
++                },
++                "override_acls": { "type": "boolean" },
++                "allow_unverified_email": { "type": "boolean" }
++              }
++            }
+           }
+         },
+         "service": { "type": "object" },
+@@ -140,11 +191,13 @@
+         "frontendAllowedCIDRs": { "type": "array", "items": { "type": "string" } },
+         "guiAllowedFrom": { "type": "array" },
+         "metricsAllowedFrom": { "type": "array" },
++        "apiAllowedFrom": { "type": "array" },
+         "oidcEgressCIDRs": { "type": "array", "items": { "type": "string" } },
+         "oidcEgressPort": { "type": "integer" },
+         "extraEgress": { "type": "array" }
+       }
+     },
++    "hostAliases": { "type": "array" },
+     "podDisruptionBudget": {
+       "type": "object",
+       "properties": {
+diff --git a/values.yaml b/values.yaml
+index f582713..1ad9d9d 100644
+--- a/values.yaml
++++ b/values.yaml
+@@ -57,6 +57,13 @@ config:
+       # Pin by digest in production.
+       digest: "sha256:b1d117c609ba990436ad1649299e2f6c378f62cb562caf30b6f2fb6144713422"
+       pullPolicy: IfNotPresent
++  # KubeAid patch. Arbitrary, non-secret config merged into the overlay (after the
++  # chart's own keys, so it wins on a conflict; maps merge, lists replace). A non-empty
++  # value turns the overlay on. Example, the gRPC API for in-cluster API clients:
++  #   overlayExtra:
++  #     API:
++  #       bind_address: 0.0.0.0
++  overlayExtra: {}
+ 
+ ## replicaCount controls the number of MASTER pods. Keep at 1: the master holds
+ ## the single-writer metadata datastore. Scale client capacity with frontend.minions
+@@ -129,6 +136,45 @@ frontend:
+     tolerations: []
+     affinity: {}
+ 
++## KubeAid patch. gRPC API (frontend.apiPort) for API clients such as the
++## siem-reconciler. The server binds it to 127.0.0.1 unless the config sets
++## API.bind_address: 0.0.0.0 (e.g. with config.overlayExtra). The Service is
++## <fullname>-api; with frontend.minions it is rendered anyway. Admit clients with
++## networkPolicy.apiAllowedFrom.
++api:
++  service:
++    enabled: false
++
++## KubeAid patch. API client bootstrap: before the server starts, an init container
++## runs `velociraptor config api_client` against the (merged) config and the datastore,
++## which registers the user with `role` and writes an api_client YAML into an emptyDir;
++## a second init container (publisherImage, the siem-reconciler image) stores that file
++## in Secret <secretName> key <secretKey> in the release namespace
++## (`siem-reconciler publish-api-client`). Every pod start mints a fresh certificate.
++## Only the publisher gets a ServiceAccount token (a projected volume; the server
++## container stays without one). The ServiceAccount needs get/update/patch on that
++## Secret and create on Secrets (create cannot be limited by resourceNames); the chart
++## grants nothing itself. With networkPolicy.enabled the pod also needs egress to the
++## Kubernetes API, which a NetworkPolicy ipBlock cannot express on Cilium.
++apiClient:
++  enabled: false
++  name: siem-reconciler
++  role: administrator
++  secretName: velociraptor-api-client
++  secretKey: api_client.yaml
++  publisherImage:
++    repository: ""
++    tag: ""
++    pullPolicy: IfNotPresent
++  # Appended to imagePullSecrets for the publisher image.
++  imagePullSecrets: []
++  resources:
++    requests:
++      cpu: 10m
++      memory: 32Mi
++    limits:
++      memory: 128Mi
++
+ ## GUI = admin web UI. Keep internal / behind VPN or authenticated Ingress.
+ gui:
+   containerPort: 8889
+@@ -141,11 +187,15 @@ gui:
+   ## OIDC authentication (e.g. Keycloak). When enabled, the chart renders an
+   ## overlay (GUI.public_url + GUI.authenticator) and merges it onto the base
+   ## config via the yq init container (see config.overlay).
+-  ## Keycloak "Valid redirect URIs" must include:
+-  ##   <publicUrl>auth/oidc/<name>/callback
++  ## Keycloak "Valid redirect URIs" must include (host of publicUrl, not its path):
++  ##   https://<host>/auth/oidc/<name>/callback
+   ## oidc_name must match (case-sensitive) the substring in that redirect URI.
+-  ## Authn is delegated to the IdP; authorization still needs a Velociraptor user:
+-  ##   velociraptor --config <cfg> user add <email> --role administrator
++  ## Authn is delegated to the IdP. Authorization needs a Velociraptor user with
++  ## roles: either map them from a token claim (claims.roles + claims.role_map
++  ## below; the user is created on first login) or add each user by hand:
++  ##   velociraptor --config <cfg> user add <email> --role investigator
++  ## OIDC and Basic cannot run side by side: the "multi" authenticator accepts
++  ## OAuth/OIDC children only, so password logins stop working once this is on.
+   ## NOTE: OIDC discovery is fetched EAGERLY at server start — the IdP must be
+   ## reachable from the pod or the server won't boot. With networkPolicy.enabled,
+   ## add an egress rule to the issuer (443) via networkPolicy.extraEgress.
+@@ -162,6 +212,28 @@ gui:
+     existingSecret: ""
+     existingSecretKey: "oauth_client_secret"
+     clientSecret: ""
++    # Log claims and token handling at debug level (GUI component). Off in prod.
++    debug: false
++    # GUI session lifetime in minutes; 0 = Velociraptor default (1440).
++    sessionExpiryMin: 0
++    # GUI.authenticator.claims, passed through verbatim. Keys (Velociraptor 0.77):
++    #   username: claim used as the Velociraptor username (default "email";
++    #     setting any value skips the email_verified check).
++    #   roles: claim holding a list of strings (e.g. a Keycloak "groups" mapper).
++    #     Unset = roles are never assigned from the IdP.
++    #   role_map: claim value -> {roles: [...]}. Values with no entry are ignored.
++    #   override_acls: true = IdP roles replace the user's roles on each login
++    #     (lets the IdP revoke access); false = merged, revocation is manual.
++    #   allow_unverified_email: skip the email_verified check.
++    # Roles granted this way apply to EVERY org; per-org access stays manual
++    # (velociraptor user grant --org <org id> ...).
++    # Example:
++    #   claims:
++    #     roles: groups
++    #     role_map:
++    #       dfir-analysts:
++    #         roles: [investigator]
++    claims: {}
+   service:
+     type: ClusterIP
+     port: 8889
+@@ -289,6 +361,9 @@ networkPolicy:
+   # is enabled). Empty = allow all in-cluster; set to the Prometheus namespace to
+   # tighten. Each item is a standard NetworkPolicyPeer.
+   metricsAllowedFrom: []
++  # KubeAid patch. Sources allowed to reach the gRPC API port (frontend.apiPort) when
++  # api.service.enabled. Each item is a standard NetworkPolicyPeer.
++  apiAllowedFrom: []
+   # Egress to the OIDC IdP, allowed only when gui.oidc.enabled (discovery is
+   # fetched at boot). NetworkPolicy is CIDR-based (no DNS), so list the IdP's
+   # CIDR(s). Default 0.0.0.0/0 = reach any HTTPS endpoint — TIGHTEN in production.
+@@ -296,9 +371,17 @@ networkPolicy:
+     - 0.0.0.0/0
+   # Port of the OIDC issuer (HTTPS).
+   oidcEgressPort: 443
++  # An empty list drops the CIDR rule; then reach the IdP through extraEgress
++  # (needed on Cilium when the issuer is served from inside the cluster, where
++  # ipBlock does not match pods).
+   # Extra egress rules appended (DNS is always allowed).
+   extraEgress: []
+ 
++# Pod /etc/hosts entries (standard PodSpec hostAliases). Useful when the OIDC
++# issuer's public name does not route from inside the cluster, e.g. an IdP that
++# is only published on an internal ingress: point the name at that ingress.
++hostAliases: []
++
+ podDisruptionBudget:
+   # Off by default: with replicaCount=1, a PDB would block node drains/upgrades.
+   enabled: false

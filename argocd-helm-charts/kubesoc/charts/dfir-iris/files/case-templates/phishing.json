@@ -1,0 +1,47 @@
+{
+  "name": "Phishing",
+  "display_name": "Phishing",
+  "description": "Reported or detected phishing mail: triage the mail, find who clicked, contain the endpoint if something ran.",
+  "author": "kubesoc",
+  "classification": "social-engineering:phishing",
+  "title_prefix": "[PHISH]",
+  "summary": "Reported by:\nMail subject / sender:\nRecipients:\nDelivered at:\nAttachment or link:\nUsers who clicked:",
+  "tags": ["phishing", "kubesoc"],
+  "tasks": [
+    {
+      "title": "Preserve the mail and extract indicators",
+      "description": "Get the original message with headers. Add sender, reply-to, URLs, attachment SHA-256 and delivery IPs as IOCs on the case - the Velociraptor collector fills artifact parameters from them (sha256 -> Hashes, domain/hostname -> Domains, ip-* -> IPs).",
+      "tags": ["triage"]
+    },
+    {
+      "title": "Find who received and who clicked",
+      "description": "Search the mail gateway and proxy logs for the sender, the subject and the URLs. Add every affected endpoint as an asset on this case, named exactly as the host is enrolled in Velociraptor.",
+      "tags": ["scoping"]
+    },
+    {
+      "title": "Triage collection on each endpoint that opened the mail",
+      "description": "Tag the asset velociraptor:contain:triage. Approve the task the collector opens (an approver group member, not the requester). The collection, its SHA-256 chain of custody and the results land on this timeline.",
+      "tags": ["velociraptor", "forensics"]
+    },
+    {
+      "title": "Remove or quarantine the attachment if it was saved",
+      "description": "With the attachment SHA-256 as an IOC on the case, tag the asset velociraptor:contain:quarantine-file (copy kept) or remove-file (deleted outright), then approve.",
+      "tags": ["velociraptor", "containment"]
+    },
+    {
+      "title": "Reset credentials of anyone who entered them",
+      "description": "Force a password reset and revoke active sessions and refresh tokens in Keycloak for every user who submitted credentials.",
+      "tags": ["containment"]
+    },
+    {
+      "title": "Block sender, URLs and hashes",
+      "description": "Push the IOCs to the mail gateway, the proxy and MISP so the next mail from this campaign is stopped.",
+      "tags": ["eradication"]
+    },
+    {
+      "title": "Close-out: what let it through",
+      "description": "Record which control missed it (filtering, awareness, macro policy) and what changes were made.",
+      "tags": ["lessons-learned"]
+    }
+  ]
+}

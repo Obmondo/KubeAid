@@ -1,0 +1,207 @@
+{{- if .Values.reconciler.enabled }}
+{{- $r := .Values.reconciler }}
+{{- $name := "siem-reconciler" }}
+{{- $kcRef := .Values.keycloak.adminSecretRef }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: reconciler
+  annotations:
+    # Before the components: the Sync hook below runs with these.
+    argocd.argoproj.io/sync-wave: "-2"
+---
+# Secrets it creates if missing and never overwrites (OIDC client secrets, API
+# keys), the ones it keeps in step (Wazuh app config, copies of tenant API
+# logins), and the API credentials it reads.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: reconciler
+  annotations:
+    # Before the components: the Sync hook below runs with these.
+    argocd.argoproj.io/sync-wave: "-2"
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: reconciler
+  annotations:
+    # Before the components: the Sync hook below runs with these.
+    argocd.argoproj.io/sync-wave: "-2"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}
+    namespace: {{ .Release.Namespace }}
+{{- if $kcRef }}
+---
+# Read access to the Keycloak admin Secret only, in Keycloak's namespace. Not
+# rendered once keycloak.adminSecretRef is null (reconcilerClient only).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ printf "%s-%s" .Release.Namespace $name }}
+  namespace: {{ $kcRef.namespace }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: reconciler
+  annotations:
+    # Before the components: the Sync hook below runs with these.
+    argocd.argoproj.io/sync-wave: "-2"
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: [{{ $kcRef.name | quote }}]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ printf "%s-%s" .Release.Namespace $name }}
+  namespace: {{ $kcRef.namespace }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: reconciler
+  annotations:
+    # Before the components: the Sync hook below runs with these.
+    argocd.argoproj.io/sync-wave: "-2"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ printf "%s-%s" .Release.Namespace $name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}
+{{- if eq ($r.mode | default "cronjob") "deployment" }}
+---
+# Long-running mode: reconciles every reconciler.interval, probes the platform
+# health after each run and serves /metrics, /status and /healthz on the
+# "metrics" port. A Deployment rather than a Pushgateway: KubeAid ships none,
+# and gauges such as indexer disk usage must stay current between runs.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: reconciler
+spec:
+  replicas: 1
+  # One reconciler at a time.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: siem-reconciler
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      security-operations.kubeaid.io/reconciler-mode: deployment
+  template:
+    {{- include "secops.reconciler.pod" (dict "root" . "hook" false "long" true) | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/name: siem-reconciler
+    app.kubernetes.io/component: reconciler
+spec:
+  selector:
+    app.kubernetes.io/name: siem-reconciler
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    security-operations.kubeaid.io/reconciler-mode: deployment
+  ports:
+    - name: metrics
+      port: {{ $r.metricsPort }}
+      targetPort: metrics
+      protocol: TCP
+{{- else }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: reconciler
+spec:
+  schedule: {{ $r.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: {{ $r.activeDeadlineSeconds }}
+      template:
+        {{- include "secops.reconciler.pod" (dict "root" . "hook" false) | nindent 8 }}
+{{- end }}
+{{- if $r.syncHook }}
+---
+# Runs during the sync, after the reconciler's RBAC and input (wave -2) and before
+# the components (wave 0), so the Secrets and Keycloak clients the components
+# need exist when they start. Objects that are not reachable yet are reported and
+# skipped (--exit-zero); the CronJob and the PostSync run finish them.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $name }}-sync
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: reconciler
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/sync-wave: "-1"
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: {{ $r.activeDeadlineSeconds }}
+  template:
+    {{- include "secops.reconciler.pod" (dict "root" . "hook" true) | nindent 4 }}
+{{- end }}
+{{- if $r.postSync }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $name }}-postsync
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+    app.kubernetes.io/component: reconciler
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: {{ $r.activeDeadlineSeconds }}
+  template:
+    {{- include "secops.reconciler.pod" (dict "root" . "hook" true) | nindent 4 }}
+{{- end }}
+{{- end }}

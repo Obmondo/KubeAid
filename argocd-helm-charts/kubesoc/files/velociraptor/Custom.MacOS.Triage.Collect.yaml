@@ -1,0 +1,52 @@
+name: Custom.MacOS.Triage.Collect
+description: |
+  Triage collection for macOS: launch agents and daemons, configuration, the
+  LaunchServices quarantine database, TCC and shell history, plus the live
+  process list and network connections. Everything is uploaded through the flow,
+  so the server records the sha256 of every file and the IRIS collector can
+  write the chain of custody onto the case.
+
+  Endpoints with SIP enabled deny some of these paths to any non-exempt
+  process; those globs return nothing rather than failing the collection.
+type: CLIENT
+parameters:
+  - name: Globs
+    type: csv
+    default: |
+      Glob
+      /Library/LaunchAgents/*
+      /Library/LaunchDaemons/*
+      /Library/StartupItems/**
+      /System/Library/LaunchAgents/*.plist
+      /Users/*/Library/LaunchAgents/*
+      /etc/**
+      /var/log/*.log
+      /var/db/SystemPolicyConfiguration/KextPolicy
+      /Library/Application Support/com.apple.TCC/TCC.db
+      /Users/*/Library/Application Support/com.apple.TCC/TCC.db
+      /Users/*/Library/Preferences/com.apple.LaunchServices.QuarantineEventsV2
+      /Users/*/Library/Preferences/*.plist
+      /Users/*/.*history
+      /Users/*/.ssh/*
+      /private/tmp/**
+    description: One glob per row.
+  - name: MaxFileSize
+    type: int
+    default: "104857600"
+sources:
+  - name: Uploads
+    query: |
+      LET specs = SELECT Glob FROM parse_csv(filename=Globs, accessor='data') WHERE Glob
+      SELECT OSPath, Size, Mtime,
+             upload(file=OSPath, name=OSPath.String) AS Upload
+      FROM glob(globs={ SELECT Glob FROM specs })
+      WHERE NOT IsDir AND Size < MaxFileSize
+  - name: Processes
+    query: |
+      SELECT Pid, Ppid, Name, Exe, CommandLine, Username, CreateTime FROM pslist()
+  - name: Connections
+    query: |
+      SELECT Pid, Family, Type, Status, Laddr.IP AS LocalAddress, Laddr.Port AS LocalPort,
+             Raddr.IP AS RemoteAddress, Raddr.Port AS RemotePort
+      FROM netstat()
+

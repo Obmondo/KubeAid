@@ -1,0 +1,15 @@
+apiVersion: v2
+name: kubesoc-content
+description: >-
+  kubesoc detection content as code: Wazuh rules, decoders, CDB lists and agent
+  group configs, Velociraptor artifacts and AI prompts, with test fixtures. Renders
+  them into one ConfigMap the siem-reconciler rolls out to every tenant (canary
+  first, validated, hot-reloaded, rolled back on failure).
+type: application
+# The chart. The content itself is versioned by the VERSION file.
+version: 0.1.0
+keywords:
+  - siem
+  - detection-as-code
+  - wazuh
+  - velociraptor

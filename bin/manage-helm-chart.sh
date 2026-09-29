@@ -62,6 +62,11 @@ OPTIONS:
   --chart-version VERSION      Specify Helm chart version to update to
                                Default: latest
 
+  --verify-patches [CHART]     Check that each vendored chart with patches/*.patch
+                               equals its pinned upstream plus those patches
+                               Default: every chart that has patches
+                               Exits non-zero on drift; makes no git changes
+
   -h, --help                   Display this help message
 
 EXAMPLES:
@@ -83,6 +88,17 @@ EXAMPLES:
   # Run in CI/CD mode
   ./manage-helm-chart.sh --update-all --actions
 
+  # Check the vendored wazuh chart against upstream + patches/*.patch
+  ./manage-helm-chart.sh --verify-patches wazuh
+
+VENDORED CHARTS:
+  A chart whose argocd-helm-charts/<chart>/patches/ holds *.patch files carries
+  local changes to its subchart charts/<chart>. The patches apply with
+  `patch -p1 -d argocd-helm-charts/<chart>/charts/<chart>` and are re-applied, in
+  lexical order, whenever --update-helm-chart replaces that subchart; the update
+  stops with an error if one no longer applies. A chart with a .helm-update-skip
+  file is left out of --update-all and must be updated with --update-helm-chart.
+
 EOF
 }
 
@@ -93,6 +109,8 @@ declare ARGOCD_CHART_PATH="argocd-helm-charts"
 declare HELM_VERSION_LAST_UPDATE_FILE="./.helm_version_last_update"
 declare CHART_VERSION=
 declare NEW_CHART=false
+declare VERIFY_PATCHES=false
+declare VERIFY_PATCHES_CHART=
 
 # Arrays to track updates
 declare -a MINOR_UPDATES
@@ -166,6 +184,14 @@ while [[ $# -gt 0 ]]; do
       CHART_VERSION=$1
 
       shift
+      ;;
+    --verify-patches)
+      VERIFY_PATCHES=true
+
+      if [[ $# -gt 0 && ! "$1" =~ ^-- ]]; then
+        VERIFY_PATCHES_CHART=$1
+        shift
+      fi
       ;;
     -h|--help)
       ARGFAIL
@@ -383,11 +409,166 @@ function prune_vendored_paths() {
   done < <(sed 's/#.*//' "$prune_file" | awk 'NF {print $1}')
 }
 
+# Vendored charts with local changes keep them as patch files under
+# <chart>/patches/*.patch, made against the upstream subchart charts/<chart>.
+function has_vendored_patches() {
+  local chart_path="$1"
+
+  compgen -G "$chart_path/patches/*.patch" >/dev/null
+}
+
+# Apply <chart>/patches/*.patch in lexical order onto a subchart directory.
+# Each patch is dry-run first, so a patch that no longer applies leaves the
+# directory as the previous patch left it and nothing is half-applied.
+# Fuzz is off: a patch whose context moved must be refreshed by hand.
+function apply_vendored_patches() {
+  local chart_path="$1"
+  local target_dir="$2"
+  local patch_file
+  local output
+
+  if ! command -v patch >/dev/null; then
+    echo "Error: Required program 'patch' is not installed or not in PATH"
+    return 1
+  fi
+
+  while read -r patch_file; do
+    if ! output=$(patch --dry-run --batch --forward --fuzz=0 -p1 -d "$target_dir" < "$patch_file" 2>&1); then
+      echo "Error: patch $patch_file no longer applies to chart $(basename "$chart_path")"
+      echo "$output"
+      echo "Refresh the patch by hand, see $chart_path/README.md"
+      return 1
+    fi
+
+    echo "Applying $patch_file"
+    patch --batch --forward --fuzz=0 --no-backup-if-mismatch -s -p1 -d "$target_dir" < "$patch_file" || return 1
+  done < <(find "$chart_path/patches" -maxdepth 1 -type f -name '*.patch' | LC_ALL=C sort)
+}
+
+# Fetch the pinned upstream of a vendored chart into a temp dir, apply its
+# patches and compare the result with charts/<chart>. Helm repository and OCI
+# charts are pulled at the version pinned in Chart.yaml; a chart that is not
+# published anywhere names its git source in patches/upstream.yaml.
+function verify_vendored_patches() {
+  local chart_path="$1"
+  local chart_name
+  local vendored_dir
+  local work_dir
+  local upstream_dir
+  local upstream_file
+  local repository
+  local version
+  local git_url
+  local git_ref
+  local git_path
+  local exclude
+  local tar_file
+  local rc=0
+
+  chart_name=$(basename "$chart_path")
+  vendored_dir="$chart_path/charts/$chart_name"
+  upstream_file="$chart_path/patches/upstream.yaml"
+
+  if ! has_vendored_patches "$chart_path"; then
+    echo "Error: $chart_path has no patches/*.patch"
+    return 1
+  fi
+
+  if ! test -d "$vendored_dir"; then
+    echo "Error: $vendored_dir does not exist"
+    return 1
+  fi
+
+  work_dir=$(mktemp -d)
+  upstream_dir="$work_dir/$chart_name"
+
+  if test -f "$upstream_file"; then
+    git_url=$(yq eval '.url' "$upstream_file")
+    git_ref=$(yq eval '.ref' "$upstream_file")
+    git_path=$(yq eval '.path // "."' "$upstream_file")
+
+    echo "Cloning $git_url at $git_ref"
+    if ! git clone --quiet "$git_url" "$work_dir/src" || ! git -C "$work_dir/src" -c advice.detachedHead=false checkout --quiet "$git_ref"; then
+      echo "Error: could not fetch $git_url at $git_ref"
+      rm -rf "$work_dir"
+      return 1
+    fi
+
+    cp -R "$work_dir/src/$git_path" "$upstream_dir"
+
+    while read -r exclude; do
+      if [[ "$exclude" = /* || "$exclude" == *..* ]]; then
+        echo "Refusing to exclude '$exclude', path must stay inside the chart"
+        continue
+      fi
+
+      rm -rf "${upstream_dir:?}/${exclude:?}"
+    done < <(yq eval '.exclude[]' "$upstream_file")
+  else
+    repository=$(yq eval ".dependencies[] | select(.name == \"$chart_name\") | .repository" "$chart_path/Chart.yaml")
+    version=$(yq eval ".dependencies[] | select(.name == \"$chart_name\") | .version" "$chart_path/Chart.yaml")
+
+    if [ -z "$repository" ] || [ -z "$version" ]; then
+      echo "Error: $chart_path/Chart.yaml has no dependency named $chart_name"
+      rm -rf "$work_dir"
+      return 1
+    fi
+
+    echo "Pulling $chart_name $version from $repository"
+    if [[ "$repository" =~ ^oci:// ]]; then
+      helm pull "$repository/$chart_name" --version "$version" --untar --destination "$work_dir" >/dev/null || rc=1
+    else
+      helm pull "$chart_name" --repo "$repository" --version "$version" --untar --destination "$work_dir" >/dev/null || rc=1
+    fi
+
+    if [ "$rc" -ne 0 ]; then
+      echo "Error: could not pull $chart_name $version from $repository"
+      rm -rf "$work_dir"
+      return 1
+    fi
+  fi
+
+  if ! apply_vendored_patches "$chart_path" "$upstream_dir"; then
+    rm -rf "$work_dir"
+    return 1
+  fi
+
+  # A chart copied from git carries no subcharts; rebuild them from the
+  # vendored Chart.lock, which also fails if the lock no longer matches the
+  # patched Chart.yaml.
+  if test -f "$upstream_file" && test -f "$vendored_dir/Chart.lock"; then
+    cp "$vendored_dir/Chart.lock" "$upstream_dir/Chart.lock"
+
+    if ! helm dependency build "$upstream_dir" >/dev/null; then
+      echo "Error: helm dependency build failed for $chart_name"
+      rm -rf "$work_dir"
+      return 1
+    fi
+
+    while read -r tar_file; do
+      tar -C "$upstream_dir/charts" -xf "$tar_file"
+      rm -f "$tar_file"
+    done < <(find "$upstream_dir/charts" -maxdepth 1 -type f -name '*.tgz')
+  fi
+
+  if diff -r "$upstream_dir" "$vendored_dir" >/dev/null; then
+    echo "$chart_name: vendored chart matches upstream plus patches"
+  else
+    echo "Error: $vendored_dir differs from upstream plus patches:"
+    diff -ruN "$upstream_dir" "$vendored_dir" || true
+    rc=1
+  fi
+
+  rm -rf "$work_dir"
+  return "$rc"
+}
+
 function update_helm_chart {
 
   HELM_CHART_PATH="$1"
   HELM_CHART_YAML="$HELM_CHART_PATH/Chart.yaml"
   HELM_CHART_NEW_VERSION="${2:-}"
+  HELM_CHART_REQUESTED_VERSION="${2:-}"
 
   # Exit if no chart.yaml is present
   if ! test -f "$HELM_CHART_YAML"; then
@@ -439,6 +620,13 @@ function update_helm_chart {
       fi
 
       get_helm_latest_version_from_cache
+
+      # --chart-version (or --add-helm-chart's version) pins the dependency
+      # named after the chart instead of the latest upstream version.
+      if [ -n "$HELM_CHART_REQUESTED_VERSION" ] && [ "$HELM_CHART_NAME" = "$(basename "$HELM_CHART_PATH")" ]; then
+        HELM_CHART_NEW_VERSION=$HELM_CHART_REQUESTED_VERSION
+      fi
+
       add_last_update_date
 
       # Compare the dates first, if date is not matching current date, update the cache file
@@ -471,12 +659,6 @@ function update_helm_chart {
           continue
         fi
 
-        # Deleting old helm before untar
-        rm -rf "${HELM_CHART_DEP_PATH:?}/${HELM_CHART_NAME}" || {
-          echo "Failed to remove the $HELM_CHART_NAME tar. Skipping."
-          continue
-        }
-
         # rename the downloaded tar file so that it matches what we want during untar.
         # For example for strimzi kafka operator downloaded tar file has name strimzi-kafka-operator-helm-3-chart-0.38.0.tgz
         # while we look for strimzi-kafka-operator-0.38.0.tgz
@@ -498,11 +680,39 @@ function update_helm_chart {
             mv "$tar_file" "$expected_tar_file"
         fi
 
-        # Untar the tgz file
-        tar -C "$HELM_CHART_DEP_PATH" -xvf "$expected_tar_file" >/dev/null || {
-          echo "Failed to extract $expected_tar_file. Skipping."
-          continue
-        }
+        if [ "$HELM_CHART_NAME" = "$(basename "$HELM_CHART_PATH")" ] && has_vendored_patches "$HELM_CHART_PATH"; then
+          # Vendored chart with local changes: untar and patch in a scratch
+          # dir, and only replace the vendored copy once every patch applied.
+          HELM_CHART_STAGE_DIR=$(mktemp -d)
+
+          if ! tar -C "$HELM_CHART_STAGE_DIR" -xf "$expected_tar_file" >/dev/null || \
+             ! apply_vendored_patches "$HELM_CHART_PATH" "$HELM_CHART_STAGE_DIR/$HELM_CHART_NAME"; then
+            echo "Error: could not update vendored chart $HELM_CHART_NAME to $HELM_CHART_NEW_VERSION, $HELM_CHART_DEP_PATH/$HELM_CHART_NAME is left as it was"
+
+            rm -rf "$HELM_CHART_STAGE_DIR"
+            rm -f "$expected_tar_file"
+            yq eval -i ".dependencies[$i].version = \"$HELM_CHART_CURRENT_VERSION\"" "$HELM_CHART_YAML"
+            git checkout --quiet -- "$HELM_CHART_PATH/Chart.lock" 2>/dev/null || true
+
+            exit 1
+          fi
+
+          rm -rf "${HELM_CHART_DEP_PATH:?}/${HELM_CHART_NAME}"
+          mv "$HELM_CHART_STAGE_DIR/$HELM_CHART_NAME" "$HELM_CHART_DEP_PATH/$HELM_CHART_NAME"
+          rm -rf "$HELM_CHART_STAGE_DIR"
+        else
+          # Deleting old helm before untar
+          rm -rf "${HELM_CHART_DEP_PATH:?}/${HELM_CHART_NAME}" || {
+            echo "Failed to remove the $HELM_CHART_NAME tar. Skipping."
+            continue
+          }
+
+          # Untar the tgz file
+          tar -C "$HELM_CHART_DEP_PATH" -xvf "$expected_tar_file" >/dev/null || {
+            echo "Failed to extract $expected_tar_file. Skipping."
+            continue
+          }
+        fi
       else
         echo "Helm chart $HELM_CHART_NAME is cached and on latest version $HELM_CHART_CURRENT_VERSION, locally on the filesystem"
       fi
@@ -583,8 +793,14 @@ function main (){
       BUMP_TYPE="patch"
     fi
 
+    # No version change against the last tag (e.g. patches re-applied on
+    # the same version) leaves UPDATE_LINE and BUMP_TYPE unset.
     {
-      echo "chore($BUMP_TYPE update): $UPDATE_LINE"
+      if [ -n "${UPDATE_LINE:-}" ]; then
+        echo "chore(${BUMP_TYPE:-patch} update): $UPDATE_LINE"
+      else
+        echo "chore(helm): refresh $UPDATE_HELM_CHART chart"
+      fi
     } > "$COMMIT_MSG_FILE"
   fi
 
@@ -612,9 +828,15 @@ function main (){
       for SKIP_HELM_CHART in "${SKIP_HELM_CHARTS[@]}"; do
         if [ "$HELM_CHART_NAME" == "$SKIP_HELM_CHART" ]; then
           echo "Skipping $SKIP_HELM_CHART"
-          break
+          continue 2
         fi
       done
+
+      # Vendored charts with local patches are pinned, see VENDORED CHARTS in --help
+      if test -f "$ARGOCD_CHART_PATH/$HELM_CHART_NAME/.helm-update-skip"; then
+        echo "skipping $HELM_CHART_NAME: vendored with local patches, update by hand (see README)"
+        continue
+      fi
 
       update_helm_chart "$ARGOCD_CHART_PATH/$HELM_CHART_NAME"
     done < <(find ./"$ARGOCD_CHART_PATH" -maxdepth 1 -mindepth 1 -type d -exec basename {} \; | sort)
@@ -653,8 +875,12 @@ function main (){
 
     # Update the version file
     # go release script can update with the correct tag
-    NEW_VERSION=$(bump_version "$CURRENT_VERSION" "$BUMP_TYPE")
-    echo "$NEW_VERSION" > VERSION
+    # BUMP_TYPE stays unset when no chart changed version (every chart
+    # current, skipped or vendored); keep VERSION as it is then.
+    if [ -n "${BUMP_TYPE:-}" ]; then
+      NEW_VERSION=$(bump_version "$CURRENT_VERSION" "$BUMP_TYPE")
+      echo "$NEW_VERSION" > VERSION
+    fi
     git add VERSION .helm_version_last_update
   fi
 
@@ -667,6 +893,32 @@ function main (){
 
   find . -name '*.tgz' -delete
 }
+
+if "$VERIFY_PATCHES"; then
+  VERIFY_FAILED=false
+
+  if [ -n "$VERIFY_PATCHES_CHART" ]; then
+    VERIFY_CHARTS=("$VERIFY_PATCHES_CHART")
+  else
+    VERIFY_CHARTS=()
+    while read -r VERIFY_CHART; do
+      if has_vendored_patches "$ARGOCD_CHART_PATH/$VERIFY_CHART"; then
+        VERIFY_CHARTS+=("$VERIFY_CHART")
+      fi
+    done < <(find "$ARGOCD_CHART_PATH" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort)
+  fi
+
+  for VERIFY_CHART in "${VERIFY_CHARTS[@]}"; do
+    verify_vendored_patches "$ARGOCD_CHART_PATH/$VERIFY_CHART" || VERIFY_FAILED=true
+  done
+
+  if "$VERIFY_FAILED"; then
+    echo "Error: vendored chart patches do not match, see above"
+    exit 1
+  fi
+
+  exit 0
+fi
 
 # Run main function
 main "$@"

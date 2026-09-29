@@ -1,0 +1,396 @@
+{{- /*
+  NetworkPolicies of the central namespace (networkPolicies in values.yaml, README
+  "Network policies"). A default deny for every pod (DNS excepted) and one policy per
+  workload admitting exactly its flows. The component charts' own policies
+  (Velociraptor, Ollama, the Wazuh indexer and dashboard) stay; policies are
+  additive, so a flow passes when any policy selecting the pod admits it. The
+  tenants' side is the wazuh chart's networkPolicies (enabled per tenant release).
+  Keycloak, the ingress controller, Prometheus and the operators are peers from
+  values; the Kubernetes API and the internet are Cilium entities (CiliumNetworkPolicy),
+  as a NetworkPolicy ipBlock never matches either on Cilium.
+*/}}
+{{- $np := .Values.networkPolicies }}
+{{- if $np.enabled }}
+{{- $ns := .Release.Namespace }}
+{{- $iris := (index .Values "dfir-iris").enabled }}
+{{- $n := $np.names }}
+{{- $tenantNs := dict "namespaceSelector" (dict "matchExpressions" (list (dict "key" .Values.tenantWazuh.namespaceLabel "operator" "Exists"))) }}
+{{- /* Pod selectors (matchLabels) of the workloads here. */}}
+{{- $sel := dict
+  "irisApp" (dict "app.kubernetes.io/name" "dfir-iris" "app.kubernetes.io/component" "app")
+  "irisWorker" (dict "app.kubernetes.io/name" "dfir-iris" "app.kubernetes.io/component" "worker")
+  "irisKeycloakSync" (dict "app.kubernetes.io/name" "dfir-iris" "app.kubernetes.io/component" "keycloak-sync")
+  "irisAiTriage" (dict "app.kubernetes.io/name" "dfir-iris" "app.kubernetes.io/component" "ai-triage")
+  "irisPostgres" (dict "cnpg.io/cluster" $n.irisPostgresCluster)
+  "irisRabbitmq" (dict "app.kubernetes.io/name" $n.irisRabbitmq)
+  "misp" (dict "app.kubernetes.io/name" "misp" "app" "misp")
+  "mispModules" (dict "app.kubernetes.io/name" "misp" "app" "misp-modules")
+  "mispMariadb" (dict "app.kubernetes.io/name" "mariadb" "app.kubernetes.io/instance" $n.mispMariadb)
+  "valkey" (dict "app.kubernetes.io/name" "valkey")
+  "mispExport" (dict "app.kubernetes.io/name" "misp-wazuh-cdb-export")
+  "reconciler" (dict "app.kubernetes.io/name" "siem-reconciler")
+  "velociraptor" (dict "app.kubernetes.io/name" "velociraptor")
+  "ollama" (dict "app.kubernetes.io/name" "ollama")
+  "wazuhDashboard" (dict "app" "wazuh-dashboard")
+  "wazuhIndexer" (dict "app" "wazuh-indexer")
+  "wazuhIndexerJob" (dict "job-name" "wazuh-indexer")
+  "backupSnapshot" (dict "app.kubernetes.io/name" "kubesoc-indexer-snapshot")
+  "restoreCheck" (dict "app.kubernetes.io/name" "kubesoc-restore-check")
+}}
+{{- $peer := dict }}
+{{- range $k, $v := $sel }}{{- $_ := set $peer $k (dict "podSelector" (dict "matchLabels" $v)) }}{{- end }}
+{{- $tenantManagers := dict "namespaceSelector" $tenantNs.namespaceSelector "podSelector" (dict "matchLabels" (dict "app" "wazuh-manager")) }}
+{{- $tenantIndexers := dict "namespaceSelector" $tenantNs.namespaceSelector "podSelector" (dict "matchLabels" (dict "app" "wazuh-indexer")) }}
+{{- $kc := $np.keycloak }}
+{{- $policies := list }}
+
+{{- if $iris }}
+{{- $policies = append $policies (dict "name" "iris-app" "sel" $sel.irisApp
+  "ingress" (list
+    (dict "ports" (list 8000) "from" (concat $np.ingressController (list $peer.velociraptor $peer.reconciler $peer.irisKeycloakSync $peer.irisAiTriage $tenantManagers)))
+  )
+  "egress" (list
+    (dict "ports" (list 5432) "to" (list $peer.irisPostgres))
+    (dict "ports" (list 5672) "to" (list $peer.irisRabbitmq))
+    (dict "ports" (list 80 443) "to" (list $peer.misp))
+    (dict "ports" $kc.ports "to" $kc.to)
+  )) }}
+{{- $policies = append $policies (dict "name" "iris-worker" "sel" $sel.irisWorker
+  "egress" (list
+    (dict "ports" (list 5432) "to" (list $peer.irisPostgres))
+    (dict "ports" (list 5672) "to" (list $peer.irisRabbitmq))
+    (dict "ports" (list 80 443) "to" (list $peer.misp))
+  )) }}
+{{- $policies = append $policies (dict "name" "iris-keycloak-sync" "sel" $sel.irisKeycloakSync
+  "egress" (list
+    (dict "ports" (list 8000) "to" (list $peer.irisApp))
+    (dict "ports" $kc.ports "to" $kc.to)
+  )) }}
+{{- $policies = append $policies (dict "name" "iris-ai-triage" "sel" $sel.irisAiTriage
+  "egress" (list
+    (dict "ports" (list 8000) "to" (list $peer.irisApp))
+    (dict "ports" (list 11434) "to" (list $peer.ollama))
+  )) }}
+{{- /* CNPG: clients, the operator (status 8000, 5432), replication between instances, metrics. */}}
+{{- $policies = append $policies (dict "name" "iris-postgres" "sel" $sel.irisPostgres "apiserver" true
+  "ingress" (list
+    (dict "ports" (list 5432) "from" (list $peer.irisApp $peer.irisWorker $peer.irisPostgres))
+    (dict "ports" (list 5432 8000) "from" $np.operators.cnpg)
+    (dict "ports" (list 9187) "from" $np.prometheus)
+  )
+  "egress" (list
+    (dict "ports" (list 5432 8000) "to" (list $peer.irisPostgres))
+  )) }}
+{{- /* RabbitMQ: AMQP clients, the operators' management API, clustering, metrics. */}}
+{{- $policies = append $policies (dict "name" "iris-rabbitmq" "sel" $sel.irisRabbitmq "apiserver" true
+  "ingress" (list
+    (dict "ports" (list 5672) "from" (list $peer.irisApp $peer.irisWorker))
+    (dict "ports" (list 15672) "from" $np.operators.rabbitmq)
+    (dict "ports" (list 4369 25672) "from" (list $peer.irisRabbitmq))
+    (dict "ports" (list 15692) "from" $np.prometheus)
+  )
+  "egress" (list
+    (dict "ports" (list 4369 25672) "to" (list $peer.irisRabbitmq))
+  )) }}
+{{- if .Values.ollama.enabled }}
+{{- $policies = append $policies (dict "name" "ollama" "sel" $sel.ollama
+  "ingress" (list
+    (dict "ports" (list 11434) "from" (list $peer.irisAiTriage))
+  )) }}
+{{- end }}
+{{- end }}
+
+{{- if .Values.misp.enabled }}
+{{- $mispClients := concat $np.ingressController (list $peer.mispExport $tenantManagers) }}
+{{- if $iris }}{{- $mispClients = concat $mispClients (list $peer.irisApp $peer.irisWorker) }}{{- end }}
+{{- $policies = append $policies (dict "name" "misp" "sel" $sel.misp "internet" $np.mispInternet.enabled
+  "ingress" (list
+    (dict "ports" (list 80 443 8080) "from" $mispClients)
+  )
+  "egress" (list
+    (dict "ports" (list 3306) "to" (list $peer.mispMariadb))
+    (dict "ports" (list 6379) "to" (list $peer.valkey))
+    (dict "ports" (list 6666) "to" (list $peer.mispModules))
+    (dict "ports" $kc.ports "to" $kc.to)
+  )) }}
+{{- $policies = append $policies (dict "name" "misp-modules" "sel" $sel.mispModules "internet" $np.mispInternet.enabled
+  "ingress" (list
+    (dict "ports" (list 6666) "from" (list $peer.misp))
+  )
+  "egress" (list
+    (dict "ports" (list 6379) "to" (list $peer.valkey))
+  )) }}
+{{- $policies = append $policies (dict "name" "misp-mariadb" "sel" $sel.mispMariadb
+  "ingress" (list
+    (dict "ports" (list 3306) "from" (concat (list $peer.misp) $np.operators.mariadb))
+  )) }}
+{{- $policies = append $policies (dict "name" "valkey" "sel" $sel.valkey
+  "ingress" (list
+    (dict "ports" (list 6379) "from" (list $peer.misp $peer.mispModules))
+    (dict "ports" (list 9121) "from" $np.prometheus)
+  )) }}
+{{- $policies = append $policies (dict "name" "misp-wazuh-cdb-export" "sel" $sel.mispExport
+  "egress" (list
+    (dict "ports" (list 80 443) "to" (list $peer.misp))
+    (dict "ports" (list 55000) "to" (list $tenantManagers))
+  )) }}
+{{- end }}
+
+{{- if .Values.reconciler.enabled }}
+{{- $recIngress := list }}
+{{- $metricsPorts := $np.reconcilerMetricsPorts | default list }}
+{{- with (dig "metrics" "port" nil (.Values.reconciler | toJson | fromJson)) }}{{- $metricsPorts = append $metricsPorts . }}{{- end }}
+{{- if $metricsPorts }}{{- $recIngress = append $recIngress (dict "ports" ($metricsPorts | uniq) "from" $np.prometheus) }}{{- end }}
+{{- $policies = append $policies (dict "name" "reconciler" "sel" $sel.reconciler "apiserver" true
+  "ingress" $recIngress
+  "egress" (list
+    (dict "ports" $kc.ports "to" $kc.to)
+    (dict "ports" (list 8000) "to" (list $peer.irisApp))
+    (dict "ports" (list 55000) "to" (list $tenantManagers))
+    (dict "ports" (list 9200) "to" (list $tenantIndexers $peer.wazuhIndexer))
+    (dict "ports" (list 5601) "to" (list $peer.wazuhDashboard))
+    (dict "ports" (list 8001) "to" (list $peer.velociraptor))
+  )) }}
+{{- end }}
+
+{{- if .Values.velociraptor.enabled }}
+{{- /* The chart's policy admits the frontend (agents), the API and IRIS; this adds the
+     GUI and frontend behind the ingress controller, metrics and Keycloak. */}}
+{{- $policies = append $policies (dict "name" "velociraptor" "sel" $sel.velociraptor
+  "ingress" (list
+    (dict "ports" (list 8889 8000) "from" $np.ingressController)
+    (dict "ports" (list 8003) "from" $np.prometheus)
+  )
+  "egress" (list
+    (dict "ports" $kc.ports "to" $kc.to)
+  )) }}
+{{- end }}
+
+{{- if .Values.wazuh.enabled }}
+{{- $policies = append $policies (dict "name" "wazuh-dashboard" "sel" $sel.wazuhDashboard
+  "ingress" (list
+    (dict "ports" (list 5601) "from" (concat $np.ingressController (list $peer.reconciler)))
+  )
+  "egress" (list
+    (dict "ports" $kc.ports "to" $kc.to)
+  )) }}
+{{- $policies = append $policies (dict "name" "wazuh-indexer" "sel" $sel.wazuhIndexer
+  "egress" (list
+    (dict "ports" $kc.ports "to" $kc.to)
+  )) }}
+{{- $policies = append $policies (dict "name" "wazuh-indexer-job" "sel" $sel.wazuhIndexerJob
+  "egress" (list
+    (dict "ports" (list 9200 9300) "to" (list $peer.wazuhIndexer))
+  )) }}
+{{- end }}
+
+{{- if include "secops.backup.enabled" . }}
+{{- /*
+     Backups (values.yaml `backup`). The snapshot Job only talks to the indexer in
+     its own namespace; the tenants' copies of it get a policy from this chart too
+     (templates/backup.yaml), since their namespace is the wazuh chart's. With an
+     s3 snapshot repository it is the indexer, not this Job, that reaches the
+     object store: add that egress in the releases' indexer.networkPolicy.extraEgresses.
+     The restore check drives the Kubernetes API only (it queries through
+     `kubectl exec`); the scratch cluster it creates reads the object store itself.
+*/}}
+{{- if .Values.backup.opensearch.enabled }}
+{{- $policies = append $policies (dict "name" "backup-snapshot" "sel" $sel.backupSnapshot
+  "egress" (list
+    (dict "ports" (list 9200) "to" (list $peer.wazuhIndexer))
+  )) }}
+{{- end }}
+{{- if .Values.backup.verifyRestore.enabled }}
+{{- $policies = append $policies (dict "name" "restore-check" "sel" $sel.restoreCheck "apiserver" true) }}
+{{- $scratch := dict "cnpg.io/cluster" .Values.backup.verifyRestore.scratchCluster }}
+{{- $policies = append $policies (dict "name" "restore-check-postgres" "sel" $scratch "apiserver" true
+  "internet" (and $np.objectStore.internet (not $np.objectStore.to))
+  "internetPorts" $np.objectStore.ports
+  "ingress" (list
+    (dict "ports" (list 5432 8000) "from" (concat $np.operators.cnpg (list (dict "podSelector" (dict "matchLabels" $scratch)))))
+  )
+  "egress" (list
+    (dict "ports" (list 5432 8000) "to" (list (dict "podSelector" (dict "matchLabels" $scratch))))
+    (dict "ports" $np.objectStore.ports "to" $np.objectStore.to)
+  )) }}
+{{- end }}
+{{- end }}
+
+{{- /* cert-manager HTTP-01 solver pods for the UIs' Ingress certificates. */}}
+{{- $policies = append $policies (dict "name" "acme-solver" "sel" (dict "acme.cert-manager.io/http01-solver" "true")
+  "ingress" (list
+    (dict "ports" (list 8089) "from" $np.ingressController)
+  )) }}
+
+{{- if $np.defaultDeny }}
+---
+# Everything in the namespace is denied both ways unless a policy admits it.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: secops-default-deny
+  namespace: {{ $ns }}
+  labels:
+    {{- include "secops.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+  egress:
+    - to:
+        {{- toYaml $np.dns | nindent 8 }}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+{{- end }}
+{{- range $p := $policies }}
+{{- $ing := list }}{{- range $p.ingress }}{{- if and .from .ports }}{{- $ing = append $ing . }}{{- end }}{{- end }}
+{{- $eg := list }}{{- range $p.egress }}{{- if and .to .ports }}{{- $eg = append $eg . }}{{- end }}{{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: secops-{{ $p.name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "secops.labels" $ | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml $p.sel | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    {{- range $ing }}
+    - from:
+        {{- toYaml .from | nindent 8 }}
+      ports:
+        {{- range .ports }}
+        - protocol: TCP
+          port: {{ . }}
+        {{- end }}
+    {{- else }} []
+    {{- end }}
+  egress:
+    {{- range $eg }}
+    - to:
+        {{- toYaml .to | nindent 8 }}
+      ports:
+        {{- range .ports }}
+        - protocol: TCP
+          port: {{ . }}
+        {{- end }}
+    {{- else }} []
+    {{- end }}
+{{- if $p.apiserver }}
+---
+# {{ $p.name }} talks to the Kubernetes API.
+{{- if $np.cilium }}
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: secops-{{ $p.name }}-apiserver
+  namespace: {{ $ns }}
+  labels:
+    {{- include "secops.labels" $ | nindent 4 }}
+spec:
+  endpointSelector:
+    matchLabels:
+      {{- toYaml $p.sel | nindent 6 }}
+  egress:
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            {{- range $np.kubeApiServer.ports }}
+            - port: {{ . | quote }}
+              protocol: TCP
+            {{- end }}
+{{- else }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: secops-{{ $p.name }}-apiserver
+  namespace: {{ $ns }}
+  labels:
+    {{- include "secops.labels" $ | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml $p.sel | nindent 6 }}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        {{- if not $np.kubeApiServer.to }}{{- fail "networkPolicies.kubeApiServer.to is required with networkPolicies.cilium false (ipBlocks of the API server endpoints)" }}{{- end }}
+        {{- toYaml $np.kubeApiServer.to | nindent 8 }}
+      ports:
+        {{- range $np.kubeApiServer.ports }}
+        - protocol: TCP
+          port: {{ . }}
+        {{- end }}
+{{- end }}
+{{- end }}
+{{- if $p.internet }}
+{{- $internetPorts := $p.internetPorts | default $np.mispInternet.ports }}
+---
+# {{ $p.name }} reaches addresses outside the cluster (feeds, enrichment, an object store).
+{{- if $np.cilium }}
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: secops-{{ $p.name }}-internet
+  namespace: {{ $ns }}
+  labels:
+    {{- include "secops.labels" $ | nindent 4 }}
+spec:
+  endpointSelector:
+    matchLabels:
+      {{- toYaml $p.sel | nindent 6 }}
+  egress:
+    - toEntities:
+        - world
+      toPorts:
+        - ports:
+            {{- range $internetPorts }}
+            - port: {{ . | quote }}
+              protocol: TCP
+            {{- end }}
+{{- else }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: secops-{{ $p.name }}-internet
+  namespace: {{ $ns }}
+  labels:
+    {{- include "secops.labels" $ | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml $p.sel | nindent 6 }}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: {{ toYaml $np.privateRanges | nindent 14 }}
+      ports:
+        {{- range $internetPorts }}
+        - protocol: TCP
+          port: {{ . }}
+        {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- range $name, $spec := $np.extraPolicies }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: secops-{{ $name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "secops.labels" $ | nindent 4 }}
+spec:
+  {{- toYaml $spec | nindent 2 }}
+{{- end }}
+{{- end }}

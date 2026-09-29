@@ -1,0 +1,39 @@
+{{- if .Values.frontend.ingress.enabled }}
+{{- $fullName := include "velociraptor.fullname" . }}
+{{- $svcPort := .Values.frontend.service.port }}
+# SSL passthrough for the agent frontend (L4 TLS, routed by SNI host).
+# The controller forwards raw TLS to the frontend Service; the frontend presents its
+# own cert (from the server config) and agents validate it against the pinned CA — no
+# TLS termination here. PREREQ: the nginx controller must run with --enable-ssl-passthrough.
+# Use a host DISTINCT from gui.ingress (the same host:443 can't be both L4 and L7).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}-frontend
+  labels:
+    {{- include "velociraptor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend-passthrough
+  {{- with .Values.frontend.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.frontend.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.frontend.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - host: {{ required "frontend.ingress.host is required when frontend.ingress.enabled" .Values.frontend.ingress.host | quote }}
+      http:
+        paths:
+          - path: {{ .Values.frontend.ingress.path }}
+            pathType: {{ .Values.frontend.ingress.pathType }}
+            backend:
+              service:
+                name: {{ $fullName }}-frontend
+                port:
+                  number: {{ $svcPort }}
+{{- end }}

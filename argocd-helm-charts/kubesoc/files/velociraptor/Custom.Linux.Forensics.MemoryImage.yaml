@@ -1,0 +1,49 @@
+name: Custom.Linux.Forensics.MemoryImage
+description: |
+  Acquire a full memory image from a Linux endpoint with AVML
+  (https://github.com/microsoft/avml) and upload it through the flow, so the
+  server records its sha256 and the IRIS collector can put it on the case as
+  evidence.
+
+  AVML is not shipped with Velociraptor and is not downloaded by this artifact:
+  put the static binary on the endpoint (configuration management, or a tools
+  share) and point AvmlPath at it. Without it the artifact reports
+  `avml-not-found` and collects nothing. Windows endpoints use the built-in
+  Windows.Memory.Acquisition instead; macOS has no supported full-memory
+  acquisition, so the IRIS collector refuses the memory action there.
+
+  The image is written to OutputPath first (needs free disk space of about the
+  size of RAM) and deleted again after the upload unless KeepLocalCopy is set.
+type: CLIENT
+parameters:
+  - name: AvmlPath
+    default: /usr/local/bin/avml
+  - name: OutputPath
+    default: /var/tmp/memory.lime
+  - name: Compress
+    type: bool
+    default: "Y"
+    description: Pass --compress to AVML (snappy, much smaller images).
+  - name: KeepLocalCopy
+    type: bool
+    default: ""
+sources:
+  - query: |
+      LET tool = SELECT OSPath, Size FROM stat(filename=AvmlPath)
+      LET acquired = SELECT OutputPath AS Image,
+             { SELECT ReturnCode, Stderr FROM execve(argv=filter(
+                   list=[AvmlPath, if(condition=Compress, then='--compress', else=''), OutputPath],
+                   regex='.')) } AS Result
+        FROM scope()
+      LET uploaded = SELECT Image, Result,
+             { SELECT Size FROM stat(filename=Image) } AS ImageSize,
+             upload(file=Image, name=basename(path=Image)) AS Upload
+        FROM acquired WHERE Result.ReturnCode = 0
+      SELECT * FROM if(condition=tool[0].OSPath,
+          then={ SELECT *, if(condition=KeepLocalCopy, then=dict(ReturnCode=0),
+                     else={ SELECT ReturnCode FROM execve(argv=['/bin/rm', '-f', Image]) }) AS Cleanup
+                 FROM uploaded },
+          else={ SELECT '' AS Image,
+                    dict(ReturnCode=1, Stderr='avml-not-found: ' + AvmlPath) AS Result,
+                    0 AS ImageSize, dict() AS Upload, dict() AS Cleanup FROM scope() })
+

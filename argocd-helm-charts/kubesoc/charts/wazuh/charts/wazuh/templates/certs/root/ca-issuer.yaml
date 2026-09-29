@@ -1,0 +1,14 @@
+{{- /* KubeAid patch: every certificate comes from certificates.issuer.name when it is
+       set, so this release needs no CA of its own. Rendering one anyway gave each
+       release a CA key signed by the shared issuer that could mint any identity the
+       other releases trust. */}}
+{{- if and .Values.certificates.enabled (not .Values.certificates.issuer.name) }}
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ include "wazuh.fullname" . }}-ca-issuer
+  namespace: {{ .Release.Namespace }}
+spec:
+  ca:
+    secretName: {{ include "wazuh.fullname" . }}-root-secret
+{{- end }}
