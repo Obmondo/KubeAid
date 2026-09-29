@@ -18,33 +18,33 @@ keywords:
 dependencies:
   - name: wazuh
     version: 1.0.0
-    repository: file://./wazuh
+    repository: file://charts/wazuh
     condition: wazuh.enabled
   - name: velociraptor
     version: 1.0.0
-    repository: file://./velociraptor
+    repository: file://charts/velociraptor
     condition: velociraptor.enabled
   - name: dfir-iris
     version: 0.4.0
-    repository: file://./dfir-iris
+    repository: file://charts/dfir-iris
     condition: dfir-iris.enabled
   - name: misp
     version: 1.1.0
-    repository: file://./misp
+    repository: file://charts/misp
     condition: misp.enabled
   - name: ollama
     version: 1.1.0
-    repository: file://./ollama
+    repository: file://charts/ollama
     condition: ollama.enabled
   # Detection content as code (Wazuh rules/decoders/lists/agent groups,
   # Velociraptor artifacts, AI prompts), rolled out by the reconciler. Off by
   # default: clusters render as before until it is switched on.
   - name: kubesoc-content
     version: 0.1.0
-    repository: file://./kubesoc-content
+    repository: file://charts/kubesoc-content
     condition: kubesoc-content.enabled
   # SSO landing page with per-tenant links (off by default).
   - name: kubesoc-portal
     version: 0.1.0
-    repository: file://./kubesoc-portal
+    repository: file://charts/kubesoc-portal
     condition: kubesoc-portal.enabled

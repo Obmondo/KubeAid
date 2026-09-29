@@ -18,9 +18,8 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CHART_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-# The component charts sit inside this chart now, beside templates/ and
-# charts/, not one directory up among the other KubeAid charts.
-COMPONENTS="$CHART_DIR"
+# The component charts are this chart's subcharts, under charts/.
+COMPONENTS="$CHART_DIR/charts"
 RELEASE=security-operations
 NS=security-operations
 TMP="$(mktemp -d)"
@@ -620,7 +619,7 @@ CT=(-f "$SCRIPT_DIR/values-2-tenants.yaml" --set reconciler.enabled=true --set r
     --set velociraptor.velociraptor.customArtifacts.enabled=false)
 if render "${CT[@]}" >"$TMP/ct.yaml"; then
   ok "renders with the content package"
-  [ "$(yq -N 'select(.kind == "ConfigMap" and .metadata.name == "kubesoc-content") | .data.VERSION' "$TMP/ct.yaml")" = "$(tr -d '[:space:]' <"$SCRIPT_DIR/../kubesoc-content/VERSION")" ] \
+  [ "$(yq -N 'select(.kind == "ConfigMap" and .metadata.name == "kubesoc-content") | .data.VERSION' "$TMP/ct.yaml")" = "$(tr -d '[:space:]' <"$SCRIPT_DIR/../charts/kubesoc-content/VERSION")" ] \
     && ok "content ConfigMap carries VERSION" || ko "content VERSION"
   [ "$(yq -N 'select(.metadata.name == "siem-tenants") | .data["tenants.json"]' "$TMP/ct.yaml" | jq -c '.components.content')" = '{"artifactDirs":["/etc/kubesoc-content-core/velociraptor"],"canary":"002","dir":"/etc/kubesoc-content","stateNamespace":"security-operations","velociraptor":true}' ] \
     && ok "reconciler input has the content component" || ko "content component: $(yq -N 'select(.metadata.name == "siem-tenants") | .data["tenants.json"]' "$TMP/ct.yaml" | jq -c '.components.content')"

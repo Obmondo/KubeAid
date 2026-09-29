@@ -38,13 +38,11 @@ jobs:
         env:
           BASE_REF: ${{ github.base_ref }}
         run: |
-          # Charts sit either directly under argocd-helm-charts/<chart>, or one
-          # level down beside a parent chart: argocd-helm-charts/kubesoc is itself
-          # a chart and its components sit next to it. Emit both prefixes of a
-          # changed path that have a Chart.yaml, so a component is linted on its
-          # own defaults as well as through its parent, and neither masks the
-          # other. A vendored subchart under <chart>/charts/ has no Chart.yaml at
-          # the two-component prefix, so it is never picked.
+          # A chart is argocd-helm-charts/<chart>, and may also be one level down
+          # in a group directory. Take the shortest prefix of a changed path that
+          # has a Chart.yaml: a group directory never masks the charts inside it,
+          # and a subchart under <chart>/charts/ is never picked instead of its
+          # parent (helm template on the parent already renders it).
           changed="$(git diff --name-only "origin/${BASE_REF}"...HEAD -- argocd-helm-charts/ \
             | while read -r path; do
                 rel="${path#argocd-helm-charts/}"
@@ -52,8 +50,7 @@ jobs:
                 two="$(echo "$rel" | cut -d/ -f1-2)"
                 if [ -f "argocd-helm-charts/${one}/Chart.yaml" ]; then
                   echo "$one"
-                fi
-                if [ "$two" != "$one" ] && [ -f "argocd-helm-charts/${two}/Chart.yaml" ]; then
+                elif [ -f "argocd-helm-charts/${two}/Chart.yaml" ]; then
                   echo "$two"
                 fi
               done | sort -u)" || true

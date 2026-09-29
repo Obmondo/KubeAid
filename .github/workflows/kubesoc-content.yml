@@ -15,7 +15,7 @@ name: kubesoc content
     branches:
       - master
     paths:
-      - 'argocd-helm-charts/kubesoc/kubesoc-content/**'
+      - 'argocd-helm-charts/kubesoc/charts/kubesoc-content/**'
       - '.github/workflows/kubesoc-content.yml'
 
 permissions:
@@ -26,7 +26,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CONTENT: argocd-helm-charts/kubesoc/kubesoc-content
+  CONTENT: argocd-helm-charts/kubesoc/charts/kubesoc-content
 
 jobs:
   lint:
@@ -75,9 +75,9 @@ jobs:
           PYTHONDONTWRITEBYTECODE: "1"
         run: >-
           python -m pytest -q -p no:cacheprovider
-          argocd-helm-charts/kubesoc/misp/tests
-          argocd-helm-charts/kubesoc/wazuh/tests
-          argocd-helm-charts/kubesoc/dfir-iris/tests
+          argocd-helm-charts/kubesoc/charts/misp/tests
+          argocd-helm-charts/kubesoc/charts/wazuh/tests
+          argocd-helm-charts/kubesoc/charts/dfir-iris/tests
 
   render:
     name: Chart render tests
@@ -94,6 +94,16 @@ jobs:
       - name: kubesoc-content
         run: ${CONTENT}/tests/render_test.sh
       - name: wazuh (tenant mode)
-        run: argocd-helm-charts/kubesoc/wazuh/tests/tenant_render_test.sh
-      - name: security-operations
+        run: argocd-helm-charts/kubesoc/charts/wazuh/tests/tenant_render_test.sh
+      - name: kubesoc umbrella
         run: argocd-helm-charts/kubesoc/tests/render_test.sh
+      - name: kubesoc-portal
+        run: argocd-helm-charts/kubesoc/charts/kubesoc-portal/tests/render_test.sh
+      - name: wazuh (hardening)
+        run: argocd-helm-charts/kubesoc/charts/wazuh/tests/hardening_render_test.sh
+      # The components moved under kubesoc/charts/, where bin/verify-helm-chart.sh
+      # skips them as subcharts of the umbrella. They are still deployed on their
+      # own (every tenant Wazuh is its own release), so keep templating each with
+      # its default values, which is what the repository-wide gate used to do.
+      - name: components render with their own defaults
+        run: ./bin/verify-helm-chart.sh ./argocd-helm-charts/kubesoc/charts/*

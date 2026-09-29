@@ -2,13 +2,14 @@
 # `velociraptor artifacts verify` over every artifact the reconciler sets: this
 # package's velociraptor/artifacts and the umbrella chart's files/velociraptor
 # (verified together, so artifacts may call each other). Needs docker.
-#   argocd-helm-charts/kubesoc/kubesoc-content/tests/velociraptor_verify.sh
+#   argocd-helm-charts/kubesoc/charts/kubesoc-content/tests/velociraptor_verify.sh
 set -euo pipefail
-cd "$(dirname "$0")/../.."
+# the umbrella chart root: its files/velociraptor and this package's artifacts
+cd "$(dirname "$0")/../../.."
 
 image=${VELOCIRAPTOR_IMAGE:-ghcr.io/maximewewer/velociraptor:0.77.1-distroless}
 files=()
-for f in kubesoc-content/velociraptor/artifacts/*.yaml files/velociraptor/*.yaml; do
+for f in charts/kubesoc-content/velociraptor/artifacts/*.yaml files/velociraptor/*.yaml; do
   [[ -f "$f" ]] && files+=("/src/$f")
 done
 # Finding nothing means the layout moved under this script, not that there is

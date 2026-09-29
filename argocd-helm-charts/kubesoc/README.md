@@ -10,18 +10,18 @@ be installed (shared CA, section 5). The components sit beside it and are wired 
 
 | Component | Chart | Role |
 |---|---|---|
-| Wazuh (central search) | [`wazuh`](wazuh/README.md) | Indexer without events + dashboard, no manager: searches every tenant's Wazuh with cross-cluster search |
-| Velociraptor | [`velociraptor`](velociraptor/README.md) | Endpoint forensics and response, one org per tenant |
-| DFIR-IRIS | [`dfir-iris`](dfir-iris/README.md) | Case management, one customer per tenant; PostgreSQL and RabbitMQ through kubeaid-addons |
-| MISP | [`misp`](misp/README.md) | Threat intelligence, fed into every tenant's Wazuh as CDB lists |
-| Ollama | [`ollama`](ollama/README.md) | Local model (default `mistral:7b`) for the advisory AI assistant in IRIS: alert triage, case summaries, hunting suggestions |
-| Detection content | [`kubesoc-content`](kubesoc-content/README.md) | Wazuh rules, decoders and lists, Velociraptor artifacts, AI prompts, rolled out by the reconciler (`kubesoc-content.enabled`) |
-| Landing portal | [`kubesoc-portal`](kubesoc-portal/README.md) | Optional SSO landing page with per-tenant links (`kubesoc-portal.enabled`) |
+| Wazuh (central search) | [`wazuh`](charts/wazuh/README.md) | Indexer without events + dashboard, no manager: searches every tenant's Wazuh with cross-cluster search |
+| Velociraptor | [`velociraptor`](charts/velociraptor/README.md) | Endpoint forensics and response, one org per tenant |
+| DFIR-IRIS | [`dfir-iris`](charts/dfir-iris/README.md) | Case management, one customer per tenant; PostgreSQL and RabbitMQ through kubeaid-addons |
+| MISP | [`misp`](charts/misp/README.md) | Threat intelligence, fed into every tenant's Wazuh as CDB lists |
+| Ollama | [`ollama`](charts/ollama/README.md) | Local model (default `mistral:7b`) for the advisory AI assistant in IRIS: alert triage, case summaries, hunting suggestions |
+| Detection content | [`kubesoc-content`](charts/kubesoc-content/README.md) | Wazuh rules, decoders and lists, Velociraptor artifacts, AI prompts, rolled out by the reconciler (`kubesoc-content.enabled`) |
+| Landing portal | [`kubesoc-portal`](charts/kubesoc-portal/README.md) | Optional SSO landing page with per-tenant links (`kubesoc-portal.enabled`) |
 
-Each component stays usable on its own at `argocd-helm-charts/kubesoc/<name>`, and each can be
-switched off with `<component>.enabled: false`. They are reached through the `charts/<name>`
-symlinks rather than living under `charts/`, so a per-tenant release can point straight at
-`argocd-helm-charts/kubesoc/wazuh` without a `charts/` segment in the path.
+The components are this chart's subcharts, under `charts/`, and each can be switched off with
+`<component>.enabled: false`. They remain deployable on their own: the per-tenant Wazuh
+releases are separate Argo CD Applications pointing at
+`argocd-helm-charts/kubesoc/charts/wazuh`.
 
 ## Tenancy model
 
@@ -786,7 +786,7 @@ rules` when promtool is on PATH), the AI assistant and MISP sightings jobs, the 
 demo users are rendered centrally, and the soc-ca approver policies.
 
 With every workload switched on (`tests/values-netpol.yaml`) it also runs
-`wazuh/tests/netpol_check.py`: a default deny, a policy of its own for every workload, and no
+`charts/wazuh/tests/netpol_check.py`: a default deny, a policy of its own for every workload, and no
 rule open to any address except the Velociraptor frontend (8000) and MISP's internet egress,
 plus the reconciler's and the MISP export's CA.
 
@@ -795,15 +795,15 @@ The tenant side and the components have their own suites:
 ```sh
 # from the repository root
 argocd-helm-charts/kubesoc/tests/render_test.sh                      # this chart
-argocd-helm-charts/kubesoc/wazuh/tests/tenant_render_test.sh         # per-tenant Wazuh
-argocd-helm-charts/kubesoc/wazuh/tests/hardening_render_test.sh      # Wazuh hardening
-argocd-helm-charts/kubesoc/kubesoc-content/tests/render_test.sh      # content chart
-argocd-helm-charts/kubesoc/kubesoc-content/tests/lint.sh             # XML, lists, fixture shape
+argocd-helm-charts/kubesoc/charts/wazuh/tests/tenant_render_test.sh         # per-tenant Wazuh
+argocd-helm-charts/kubesoc/charts/wazuh/tests/hardening_render_test.sh      # Wazuh hardening
+argocd-helm-charts/kubesoc/charts/kubesoc-content/tests/render_test.sh      # content chart
+argocd-helm-charts/kubesoc/charts/kubesoc-content/tests/lint.sh             # XML, lists, fixture shape
 
 # these two need docker
-argocd-helm-charts/kubesoc/kubesoc-content/tests/logtest.sh          # rules replayed through a real Wazuh manager
-argocd-helm-charts/kubesoc/kubesoc-content/tests/velociraptor_verify.sh  # artifacts parsed by a real Velociraptor
+argocd-helm-charts/kubesoc/charts/kubesoc-content/tests/logtest.sh          # rules replayed through a real Wazuh manager
+argocd-helm-charts/kubesoc/charts/kubesoc-content/tests/velociraptor_verify.sh  # artifacts parsed by a real Velociraptor
 
 # the Python helpers (fake IRIS/Ollama/MISP)
-pytest argocd-helm-charts/kubesoc/{misp,wazuh,dfir-iris}/tests
+pytest argocd-helm-charts/kubesoc/charts/{misp,wazuh,dfir-iris}/tests
 ```
