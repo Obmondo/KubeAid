@@ -34,8 +34,13 @@ cleanup() {
 trap cleanup EXIT
 
 wait_analysisd() {
+  local status
   for _ in $(seq 1 90); do
-    if docker exec "$name" "$ossec/bin/wazuh-control" status 2>/dev/null | grep -q 'wazuh-analysisd is running'; then
+    # Not a pipeline: grep -q closes the pipe on the first match, wazuh-control
+    # dies of SIGPIPE part-way through its 16 lines, and pipefail then reports
+    # the whole condition as false however healthy analysisd is.
+    status=$(docker exec "$name" "$ossec/bin/wazuh-control" status 2>/dev/null || true)
+    if grep -q 'wazuh-analysisd is running' <<<"$status"; then
       # The logtest socket comes up a moment after the process.
       docker exec "$name" test -S "$ossec/queue/sockets/logtest" && return 0
     fi
