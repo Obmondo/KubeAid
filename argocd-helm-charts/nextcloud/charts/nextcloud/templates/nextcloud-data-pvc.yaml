@@ -1,0 +1,31 @@
+{{- if and
+  .Values.persistence.enabled
+  .Values.persistence.nextcloudData.enabled
+  (not .Values.persistence.nextcloudData.hostPath)
+  (not .Values.persistence.nextcloudData.existingClaim)
+}}
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ template "nextcloud.fullname" . }}-nextcloud-data
+  labels:
+    {{- include "nextcloud.labels"  ( dict "component" "app"  "rootContext" $ ) | nindent 4 }}
+  {{- with .Values.persistence.nextcloudData.labels }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  annotations:
+    helm.sh/resource-policy: keep
+  {{- with .Values.persistence.nextcloudData.annotations }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  accessModes:
+    - {{ .Values.persistence.nextcloudData.accessMode | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.nextcloudData.size | quote }}
+  {{- with .Values.persistence.nextcloudData.storageClass }}
+  storageClassName: {{ ternary "" . (eq "-" .) }}
+  {{- end }}
+{{- end }}

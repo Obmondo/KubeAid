@@ -1,0 +1,14 @@
+{{- if .Values.nextcloud.phpConfigs -}}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "nextcloud.fullname" . }}-phpconfig
+  labels:
+    {{- include "nextcloud.labels"  ( dict "rootContext" $ ) | nindent 4 }}
+data:
+  {{- range $key, $value := .Values.nextcloud.phpConfigs }}
+  {{ $key }}: |-
+    {{- $value | nindent 4 }}
+  {{- end }}
+{{- end }}

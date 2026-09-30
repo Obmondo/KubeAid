@@ -119,3 +119,18 @@ global:
         # Whether to enable Kube2IAM integration, instead of providing static AWS credentials
         # from a Kubernetes Secret.
         enableKube2IAMIntegration: true
+
+# Realms for Keycloak to create at startup, as {name: realm JSON}. Rendered into
+# the ConfigMap <release>-realm-imports (templates/realm-imports.yaml); to use it,
+# mount that ConfigMap at /opt/keycloak/data/import with keycloakx.extraVolumes /
+# keycloakx.extraVolumeMounts and add "--import-realm" to keycloakx.args.
+#
+# The import is create-only: a realm that already exists is skipped, so editing a
+# file here after the first start changes nothing. Values in the JSON may be
+# ${ENV_VAR} placeholders, resolved from the Keycloak container's environment -
+# keep client secrets in a Secret and pass it in with keycloakx.extraEnvFrom.
+#
+# Do not list only a few `requiredActions` in a realm file: a non-empty list
+# replaces Keycloak's defaults instead of adding to them, which drops e.g.
+# UPDATE_PASSWORD and breaks temporary passwords. Leave the key out.
+realmImports: {}

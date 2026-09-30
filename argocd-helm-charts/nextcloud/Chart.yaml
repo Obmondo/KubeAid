@@ -1,0 +1,15 @@
+apiVersion: v2
+name: nextcloud
+description: Nextcloud - file sync and share, and the WOPI host for Collabora Online.
+type: application
+version: 1.0.0
+# see latest chart here: https://artifacthub.io/packages/helm/nextcloud/nextcloud
+# charts/nextcloud carries one local patch: hostAliases in templates/deployment.yaml
+# and values.yaml (upstream 9.3.0 has none). Re-apply it after re-vendoring.
+dependencies:
+  - name: nextcloud
+    version: 9.3.0
+    repository: https://nextcloud.github.io/helm/
+  - name: kubeaid-addons
+    version: 1.1.0
+    repository: file://../kubeaid-addons

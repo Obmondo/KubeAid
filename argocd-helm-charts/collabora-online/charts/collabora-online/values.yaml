@@ -1,0 +1,722 @@
+---
+# Default values for newchart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+image:
+  repository: docker.io/collabora/code
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+terminationGracePeriodSeconds: 60
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: false
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# Service Account for DaemonSet installing seccomp profile
+daemonSetServiceAccount:
+  create: false
+  annotations: {}
+  name: ""
+
+collabora:
+  # example to add aliasgroups
+  # - host: "<protocol>://<host-name>:<port>"
+  #   aliases: ["<protocol>://<its-first-alias>:<port>, <protocol>://<its-second-alias>:<port>"]
+  aliasgroups: []
+
+  extra_params: --o:ssl.enable=false
+
+  # External hostname:port of the server running coolwsd.
+  # If empty, it's derived from the request (please set it if this doesn't work).
+  # May be specified when behind a reverse-proxy or when the hostname is not reachable directly.
+  server_name: null
+
+  existingSecret:
+    enabled: false
+    secretName: ""
+    usernameKey: "username"
+    passwordKey: "password"
+  password: examplepass
+  username: admin
+  env: []
+
+  # Name of a pre-existing secret holding the WOPI proof key. Used only when
+  # proofKeyGeneration.enabled is false. The secret must contain the private
+  # key under "proof_key" (a PEM RSA key) and may also contain "proof_key.pub".
+  # coolwsd reads only the private "proof_key"; the public file is mounted for
+  # completeness but is not read by the server.
+  # To create it by hand:
+  #   openssl genrsa -out proof_key 4096
+  #   openssl rsa -in proof_key -pubout -out proof_key.pub
+  #   kubectl create secret generic <name> --from-file=proof_key --from-file=proof_key.pub
+  proofKeysSecretRef: ""
+
+  # Let the chart generate and manage the WOPI proof key. On first install a
+  # 4096-bit RSA private key is created and stored in a secret that Helm owns;
+  # on later upgrades the existing key is read back and kept unchanged, so it
+  # stays stable across all replicas. When enabled, proofKeysSecretRef is
+  # ignored.
+  #
+  # Because the secret belongs to the release, "helm uninstall" deletes it. A
+  # secret you create yourself and point to through proofKeysSecretRef is left
+  # in place instead.
+  #
+  # This is meant for installs driven by the helm command line. Keeping the key
+  # stable relies on reading the existing secret back from the live cluster.
+  # Tools that render the chart with "helm template" without live cluster
+  # access, such as Argo CD and Flux, do not perform that read, so every render
+  # generates a fresh key. That shows up as a permanent difference on the
+  # secret and can rotate the key on each sync, which breaks WOPI proof
+  # validation. In a GitOps setup, create the secret yourself and set
+  # proofKeysSecretRef instead of enabling generation here.
+  proofKeyGeneration:
+    enabled: false
+    # Name of the secret to create. Defaults to "<release>-wopi-proof".
+    secretName: ""
+
+  # Provide custom coolwsd configuration files here.
+  # Note: Content provided will override the default files (coolkitconfig.xcu, coolwsd.xml)
+  # in the container. Ensure you provide the complete file content, not just partial changes.
+  coolkitconfig_xcu_content: ""
+  coolwsd_xml_content: ""
+
+prometheus:
+  servicemonitor:
+    enabled: false
+    labels: {}
+  rules:
+    enabled: false
+    additionalLabels: {}
+    defaults:
+      enabled: true
+      docs:
+        duplicated: 0
+        pod:
+          critical: 10
+          warning: 8
+          info: 5
+        sum:
+          critical: 500
+          warning: 200
+          info: 50
+      errorServiceUnavailable:
+        critical: 50
+        warning: 2
+        info: 0
+      errorUnauthorizedRequest:
+        observationInterval: "60m"
+        eventCounter: 8
+      errorStorageConnections:
+        critical: 50
+        warning: 2
+        info: 0
+      viewers:
+        pod:
+          critical: 100
+          warning: 80
+          info: 60
+        doc:
+          critical: 50
+          warning: 40
+          info: 30
+        sum:
+          critical: 15000
+          warning: 12000
+          info: 5000
+    additionalRules: []
+
+grafana:
+  dashboards:
+    enabled: false
+    labels:
+      grafana_dashboard: "1"
+    annotations: {}
+
+# Logging
+# This HelmChart could also deploy Flow for the [Logging-Operator](https://kube-logging.github.io/docs/)
+# Configuration is optimzed for deliever to elasticsearch
+logging:
+  # -- Deploy Flow for logging-operator
+  enabled: false
+  # -- Enable record filter for record_modify to the [ElasticCommonSchema](https://www.elastic.co/guide/en/ecs/current/index.html)
+  ecs: false
+  # -- if an filter (here or global) for dedot is active - for disable set `null`
+  dedot:
+  # -- Add other filters to Flow
+  additionalFilters: []
+  # -- Flows localOutputRefs for use of Outputs
+  localOutputRefs: []
+  # -- Flows globalOutputRefs for use of ClusterOutputs
+  globalOutputRefs:
+    - "default"
+
+podAnnotations: {}
+
+podLabels: {}
+
+podSecurityContext: {}
+#  fsGroup: 2000
+
+# https://github.com/CollaboraOnline/online/blob/main/docker/cool-seccomp-profile.json
+# use DaemonSet to install seccomp profile to node's /var/lib/kubelet/seccomp directory
+# once this option is enabled you can set following securityContext to use cool-seccomp-profile
+# securityContext:
+#   privileged: false
+#   runAsNonRoot: true
+#   allowPrivilegeEscalation: false
+#   seccompProfile:
+#     type: "Localhost"
+#     localhostProfile: "cool-seccomp-profile.json"
+#   capabilities:
+#     drop: ["ALL"]
+installCOOLSeccompProfile: false
+
+securityContext: {}
+#  readOnlyRootFilesystem: false
+#  privileged: true
+#  capabilities:
+#    drop:
+#    - ALL
+#  readOnlyRootFilesystem: true
+#  runAsNonRoot: true
+#  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 9980
+  annotations: {}
+
+deployment:
+  # Use StatefulSet or Deployment
+  kind: Deployment
+  annotations: {}
+  labels: {}
+  containerPort: 9980
+  type: RollingUpdate
+  minReadySeconds: 0
+  maxUnavailable: 0
+  maxSurge: 1
+
+  # info on how to use hostAliases: https://kubernetes.io/docs/tasks/network/customize-hosts-file-for-pods/
+  # note: different from aliasgroups
+  hostAliases: null
+
+  customFonts:
+    enabled: false
+    pvc:
+      size: 1Gi
+      accessMode: "ReadWriteOnce"
+      # storageClassName: ""
+    image:
+      repository: alpine
+      tag: 3.22.0
+    securityContext: {}
+
+probes:
+  # Scheme the kubelet uses to reach the coolwsd probe endpoint.
+  # Leave blank to derive it automatically from collabora.extra_params:
+  # ssl.enable=false serves plain HTTP, anything else (ssl.enable=true, or the
+  # flag absent so coolwsd's built-in default of true applies) serves HTTPS.
+  # Set this to HTTP or HTTPS only to override the derived value.
+  scheme: ""
+  startup:
+    enabled: true
+    failureThreshold: 30
+    periodSeconds: 3
+    path: /
+
+  readiness:
+    enabled: true
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 30
+    successThreshold: 1
+    failureThreshold: 2
+    path: /
+  liveness:
+    enabled: true
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 30
+    successThreshold: 1
+    failureThreshold: 4
+    path: /
+
+route:
+  # -- enable an HTTPRoute resource for collabora.
+  enabled: false
+  # -- Set the route apiVersion
+  apiVersion: gateway.networking.k8s.io/v1
+  # -- Set the route kind
+  kind: HTTPRoute
+  # -- Route annotations
+  annotations: {}
+  # -- Route labels
+  labels: {}
+  # -- Route hostnames
+  hostnames: []
+  # -- Reference to parent gateways
+  parentRefs: []
+  # -- Route matches
+  matches:
+    - path:
+        type: PathPrefix
+        value: "/"
+  # -- Route filters
+  filters: []
+  # -- Additional rules  to deny some path like ingresses
+  additionalRules: []
+  # eg with traefik as controller all following path will be redirect to noop@internal
+  # - matches:
+  #     - path:
+  #         type: PathPrefix
+  #         value: /cool/getMetrics
+  #     - path:
+  #         type: PathPrefix
+  #         value: /cool/adminws/
+  #     - path:
+  #         type: PathPrefix
+  #         value: /browser/dist/admin/
+  #   backendRefs:
+  #     - group: traefik.io
+  #       kind: TraefikService
+  #       name: noop@internal
+
+ingress:
+  enabled: false
+  className: ""
+  # Additional labels to add to the Ingress resource. These are merged with the default labels.
+  labels: {}
+  annotations: {}
+  # # nginx
+  #  nginx.ingress.kubernetes.io/upstream-hash-by: "$arg_WOPISrc"
+  # # block admin urls from outside
+  #  nginx.ingress.kubernetes.io/server-snippet: |
+  #    location /cool/getMetrics { deny all; return 403; }
+  #    location /cool/adminws/ { deny all; return 403; }
+  #    location /browser/dist/admin/admin.html { deny all; return 403; }
+  #
+  # # HAProxy
+  #  haproxy.org/timeout-tunnel: "3600s"
+  #  haproxy.org/backend-config-snippet: |
+  #    mode http
+  #    balance leastconn
+  #    stick-table type string len 2048 size 1k store conn_cur
+  #    http-request set-var(txn.wopisrcconns) url_param(WOPISrc),table_conn_cur()
+  #    http-request track-sc1 url_param(WOPISrc)
+  #    stick match url_param(WOPISrc) if { var(txn.wopisrcconns) -m int gt 0 }
+  #    stick store-request url_param(WOPISrc)
+  #
+  # # HAProxy - Community: https://haproxy-ingress.github.io/
+  #  haproxy-ingress.github.io/timeout-tunnel: 3600s
+  #  haproxy-ingress.github.io/balance-algorithm: url_param WOPISrc check_post
+  #  haproxy-ingress.github.io/config-backend:
+  #    hash-type consistent
+  # # block admin urls from outside
+  #    acl admin_url path_beg /cool/getMetrics
+  #    acl admin_url path_beg /cool/adminws/
+  #    acl admin_url path_beg /browser/dist/admin/admin.html
+  #    http-request deny if admin_url
+  #
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+# We usually recommend not to specify default resources and to leave this as a conscious
+# choice for the user. This also increases chances charts run on environments with little
+# resources, such as Minikube. If you do want to specify resources, uncomment the following
+# lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+resources: {}
+#  limits:
+#    cpu: 100m
+#    memory: 128Mi
+#  requests:
+#    cpu: 100m
+#    memory: 128Mi
+
+replicaCount: 1
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 50
+  scaleDownDisabled: false
+
+# https://kubernetes.io/docs/concepts/services-networking/network-policies/
+# note: if enabled to need to allow ingress controller namespaceSelector so that CNIs can allow ingress to collabora traffic
+# - namespaceSelector:
+#   matchLabels:
+#     kubernetes.io/metadata.name: your-ingress-controller-namespace
+networkPolicy:
+  enabled: false
+  # ingress:
+  #   - ipBlock:
+  #       cidr: 172.17.0.0/16
+  #       except:
+  #       - 172.17.1.0/24
+  #   - namespaceSelector:
+  #       matchLabels:
+  #         project: myproject
+  #   - podSelector:
+  #       matchLabels:
+  #         role: mypodSelector
+  #   - ports:
+  #     - protocol: TCP
+  #       port: 8080
+  #     - protocol: TCP
+  #       port: 8000
+  #
+  # egress:
+  #   - ipBlock:
+  #       cidr: 10.0.0.0/24
+  #   - ports:
+  #     - protocol: TCP
+  #       port: 5978
+
+podDisruptionBudget:
+  enabled: false
+  # minAvailable: 1
+  # maxUnavailable: 1
+
+# Ingress-Nginx has changed their default security settings in release <https://github.com/kubernetes/ingress-nginx/blob/main/changelog/controller-1.12.0.md>. `annotations-risk-level` default settings has changed from `critical` -> `high`. So annotation like `nginx.ingress.kubernetes.io/server-snippet` is not allowed.
+#
+# so something like following is not allowed unless you change the annotation-risk-level to critical.
+#
+# ```yaml
+# nginx.ingress.kubernetes.io/server-snippet: |
+#   location /cool/getMetrics { deny all; return 403; }
+#   location /cool/adminws/ { deny all; return 403; }
+#   location /browser/dist/admin/admin.html { deny all; return 403; }
+# ```
+#
+# This a workaround in our helm chart where we will deploying a dummy deny-service which can enabled or disabled based on yaml value.
+# Then admins can configure ingress block such that specific requests which they want to be denied goes to this deny service
+# For example
+# nginxDeny:
+#   enabled: true
+#
+#   ingress:
+#     enabled: true
+#     className: "nginx"
+#     hosts:
+#       - host: test.collabora.online
+#         paths:
+#         - path: "/browser/dist/admin/admin.html"
+#           pathType: ImplementationSpecific
+#         - path: "/cool/getMetrics"
+#           pathType: Exact
+#         - path: "/cool/adminws/"
+#           pathType: Exact
+
+nginxDeny:
+  enabled: false
+
+  image:
+    repository: nginx
+    tag: stable-alpine
+    pullPolicy: IfNotPresent
+
+  replicaCount: 1
+  podAnnotations: []
+  podSecurityContext: {}
+  securityContext: {}
+
+  containerPort: 80
+
+  env: []
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  service:
+    port: 8080
+
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: chart-example.local
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+    tls: []
+    #  - secretName: chart-example-tls
+    #    hosts:
+    #      - chart-example.local
+
+# An in-namespace nginx reverse proxy that load-balances across the Collabora
+# Online replicas with per-document affinity. Use it where you cannot install a
+# cluster ingress controller (for example OpenShift, where you front this with
+# the default Router through an OpenShift Route). nginx hashes on a request
+# parameter so every request for one document reaches the same pod.
+reverseProxy:
+  enabled: false
+
+  # nginx-unprivileged listens on 8080 and runs as a non-root user, so it
+  # passes restrictive pod security such as OpenShift restricted-v2 unchanged.
+  image:
+    repository: nginxinc/nginx-unprivileged
+    tag: stable
+    pullPolicy: IfNotPresent
+
+  replicaCount: 1
+  containerPort: 8080
+
+  # The request parameter nginx hashes on to pin a document to one pod. Use
+  # "WOPISrc" for a standalone multi-replica setup (affinity with no extra
+  # components), or "RouteToken" when running with the COOL Controller.
+  hashParam: WOPISrc
+
+  # Port the Collabora pods listen on. Defaults to deployment.containerPort.
+  upstreamPort: 9980
+
+  # How long nginx keeps a proxied connection open. Editing sessions are
+  # long-lived WebSockets, so this is large.
+  proxyTimeout: "3600s"
+
+  # COOL Controller integration. When enabled, nginx also proxies /controller
+  # to the controller service. This is for the client-facing routeToken
+  # endpoint (indirection_endpoint.url), so it can live under the same external
+  # host as the documents. It is useful on OpenShift, where the controller has
+  # no ingress controller to expose it otherwise. Set hashParam to RouteToken
+  # alongside this.
+  # The controller's monitor WebSocket does NOT need this: point each COOL
+  # pod's monitors.monitor straight at the controller Service over cluster DNS
+  # (ws://<controller-service>:9000/controller/ws), which avoids an extra hop.
+  controller:
+    enabled: false
+    # host:port of the cool-controller service, for example
+    # cool-controller.collabora.svc.cluster.local:9000
+    upstream: ""
+
+  # Replace the whole generated nginx.conf. Leave empty to use the generated
+  # one. Only needed for cases the knobs above do not cover.
+  nginxConfigOverride: ""
+
+  # Open-source nginx resolves the upstream pod IPs only when it starts or
+  # reloads. This sidecar watches the Collabora EndpointSlices (a namespaced
+  # Role) and reloads nginx only when the pod set changes, so the upstream
+  # tracks live pods after a restart, scale or reinstall. It needs a shared
+  # process namespace so it can signal the nginx master. Disable it on clusters
+  # that forbid shareProcessNamespace, then reload nginx by hand after pod
+  # changes with kubectl rollout restart.
+  endpointReloader:
+    enabled: true
+    # Needs kubectl, a shell and kill. alpine/k8s has all three.
+    image:
+      repository: alpine/k8s
+      tag: "1.31.1"
+      pullPolicy: IfNotPresent
+
+  podAnnotations: []
+
+  # No runAsUser is pinned, so OpenShift assigns one from the namespace range.
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
+
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  service:
+    type: ClusterIP
+    port: 8080
+
+  # OpenShift entry point: a route.openshift.io/v1 Route to the proxy Service.
+  # The timeout annotation keeps long-lived WebSockets from being cut.
+  route:
+    enabled: false
+    host: ""
+    annotations:
+      haproxy.router.openshift.io/timeout: "3600s"
+    tls: {}
+    #  termination: edge
+    #  insecureEdgeTerminationPolicy: Redirect
+
+  # Standard Ingress to the proxy Service, for non-OpenShift clusters.
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: chart-example.local
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+    tls: []
+
+dynamicConfig:
+  enabled: false
+  logging:
+    enabled: false
+    ecs: false
+    dedot:
+    additionalFilters: []
+    localOutputRefs: []
+    globalOutputRefs:
+      - "default"
+
+  image:
+    repository: nginx
+    tag: 1.25
+    pullPolicy: IfNotPresent
+
+  replicaCount: 1
+  podAnnotations: []
+  podSecurityContext: {}
+  securityContext: {}
+
+  # configVolumeType: configMap # configMap or pvc
+
+  existingConfigMap:
+    enabled: false
+    name: ""
+
+  upload:
+    enabled: false
+    image:
+      repository: "twostoryrobot/simple-file-upload"
+      digest: 547fc4360b31d8604b7a26202914e87cd13609cc938fd83f412c77eb44aa1cc4
+    key: TESTKEY
+    pvc:
+      size: 1Gi
+      accessMode: "ReadWriteOnce"
+      # storageClassName: ""
+    service:
+      port: 8090
+    ingress:
+      enabled: false
+      className: ""
+      annotations: {}
+      hosts:
+        - host: chart-example.local
+          paths:
+            - path: /
+              pathType: ImplementationSpecific
+      tls: []
+      #  - secretName: chart-example-tls
+      #    hosts:
+      #      - chart-example.local
+
+    logging:
+      enabled: false
+      ecs: false
+      dedot:
+      additionalFilters: []
+      localOutputRefs: []
+      globalOutputRefs:
+        - "default"
+
+  containerPort: 80
+
+  probes:
+    # Scheme used by the kubelet to reach the dynamicConfig probe endpoint.
+    # Set to HTTPS when the dynamicConfig pod terminates SSL itself.
+    scheme: HTTP
+    startup:
+      enabled: true
+      failureThreshold: 30
+      periodSeconds: 2
+    readiness:
+      enabled: true
+      initialDelaySeconds: 0
+      periodSeconds: 10
+      timeoutSeconds: 30
+      successThreshold: 1
+      failureThreshold: 2
+    liveness:
+      enabled: true
+      initialDelaySeconds: 0
+      periodSeconds: 10
+      timeoutSeconds: 30
+      successThreshold: 1
+      failureThreshold: 4
+
+  env: []
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  service:
+    port: 8080
+
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: chart-example.local
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+    tls: []
+    #  - secretName: chart-example-tls
+    #    hosts:
+    #      - chart-example.local
+
+  configuration: |
+    {}
+
+trusted_certs_install:
+  enabled: false
+  trusted_certs: []
+
+priorityClassName: ""
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Optionally specify an extra list of additional volumes.
+extraVolumes: []
+
+# Optionally specify an extra list of additional volumeMounts.
+extraVolumeMounts: []
+
+# Optionally specify an extra list of additional environment variables for the
+# Collabora container. Each entry takes the Kubernetes form, a name with a plain
+# value or a name with a valueFrom reference to a secret or a config map.
+extraEnvVars: []
+
+# Optionally specify a list of extra Kubernetes manifests to deploy with the
+# release. Each entry is rendered through tpl, so values may reference release
+# data. Use this to add provider-specific routing objects (for example an
+# APISIX ApisixRoute) without the chart needing explicit support for that
+# provider.
+extraObjects: []

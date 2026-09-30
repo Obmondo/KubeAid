@@ -1,0 +1,18 @@
+{{- with .Values.realmImports }}
+# Realm files for Keycloak's import at startup (--import-realm). Mount this
+# ConfigMap at /opt/keycloak/data/import through keycloakx.extraVolumes and
+# keycloakx.extraVolumeMounts, and add "--import-realm" to keycloakx.args.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $.Release.Name }}-realm-imports
+  labels:
+    app.kubernetes.io/name: keycloakx
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/component: realm-imports
+data:
+  {{- range $name, $realm := . }}
+  {{ $name }}.json: |-
+    {{- $realm | nindent 4 }}
+  {{- end }}
+{{- end }}

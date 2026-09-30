@@ -1,0 +1,439 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "nextcloud.fullname" . }}
+  labels:
+    {{- include "nextcloud.labels"  ( dict "component" "app"  "rootContext" $ ) | nindent 4 }}
+    {{- with .Values.deploymentLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.deploymentAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not .Values.hpa.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  strategy:
+    {{- toYaml .Values.nextcloud.strategy | nindent 4 }}
+  selector:
+    matchLabels:
+      {{- include "nextcloud.selectorLabels"  ( dict "component" "app"  "rootContext" $ ) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "nextcloud.selectorLabels"  ( dict "component" "app"  "rootContext" $ ) | nindent 8 }}
+        {{- if .Values.redis.enabled }}
+        {{ template "nextcloud.redis.fullname" . }}-client: "true"
+        {{- end }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        nextcloud-config-hash: {{ print (toJson .Values.nextcloud.defaultConfigs) "-" (toJson .Values.nextcloud.configs) | sha256sum }}
+        php-config-hash: {{ toJson .Values.nextcloud.phpConfigs | sha256sum }}
+        {{- if .Values.nginx.enabled }}
+        nginx-config-hash: {{ print .Values.nginx.config.default "-" .Values.nginx.config.custom | sha256sum }}
+        {{- end }}
+        hooks-hash: {{ toYaml .Values.nextcloud.hooks | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- range . }}
+        - name: {{ . }}
+        {{- end}}
+      {{- end }}
+      {{- /* KubeAid local patch: hostAliases (not in upstream 9.3.0). Re-apply after re-vendoring. */}}
+      {{- with .Values.hostAliases }}
+      hostAliases:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: {{ include "nextcloud.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.lifecycle }}
+          lifecycle:
+            {{- with .postStartCommand }}
+            postStart:
+              exec:
+                command:
+                  {{- toYaml . | nindent 18 }}
+            {{- end }}
+            {{- with .preStopCommand }}
+            preStop:
+              exec:
+                command:
+                  {{- toYaml . | nindent 18 }}
+            {{- end }}
+          {{- end }}
+          env:
+            {{- include "nextcloud.env" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- with .Values.nextcloud.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            {{- include "nextcloud.volumeMounts" . | trim | nindent 12 }}
+            {{- range $hook, $shell := .Values.nextcloud.hooks }}
+            {{- if $shell }}
+            - name: nextcloud-hooks
+              mountPath: /docker-entrypoint-hooks.d/{{ $hook }}/helm.sh
+              subPath: {{ $hook }}.sh
+              readOnly: true
+            {{- end }}
+            {{- end }}
+          {{- if not .Values.nginx.enabled }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.nextcloud.containerPort }}
+              protocol: TCP
+          {{- with .Values.livenessProbe }}
+          {{- if .enabled }}
+          livenessProbe:
+            httpGet:
+              path: /status.php
+              port:  {{ $.Values.nextcloud.containerPort }}
+              httpHeaders:
+              - name: Host
+                value: {{ $.Values.nextcloud.host | quote }}
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            successThreshold: {{ .successThreshold }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          {{- if .enabled }}
+          readinessProbe:
+            httpGet:
+              path: /status.php
+              port:  {{ $.Values.nextcloud.containerPort }}
+              httpHeaders:
+              - name: Host
+                value: {{ $.Values.nextcloud.host | quote }}
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            successThreshold: {{ .successThreshold }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- end }}
+          {{- with .Values.startupProbe }}
+          {{- if .enabled }}
+          startupProbe:
+            httpGet:
+              path: /status.php
+              port:  {{ $.Values.nextcloud.containerPort }}
+              httpHeaders:
+              - name: Host
+                value: {{ $.Values.nextcloud.host | quote }}
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            successThreshold: {{ .successThreshold }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- end }}
+          {{- end }}{{/* end-if not nginx.enabled */}}
+        {{- if .Values.nginx.enabled }}
+        - name: {{ .Chart.Name }}-nginx
+          image: "{{ .Values.nginx.image.repository }}:{{ .Values.nginx.image.tag }}"
+          imagePullPolicy: {{ .Values.nginx.image.pullPolicy }}
+          {{- with .Values.nginx.extraEnv }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              protocol: TCP
+              containerPort: {{ .Values.nextcloud.containerPort }}
+          {{- with .Values.livenessProbe }}
+          {{- if .enabled }}
+          livenessProbe:
+            httpGet:
+              path: /status.php
+              port:  {{ $.Values.nextcloud.containerPort }}
+              httpHeaders:
+                - name: Host
+                  value: {{ $.Values.nextcloud.host | quote }}
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            successThreshold: {{ .successThreshold }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          {{- if .enabled }}
+          readinessProbe:
+            httpGet:
+              path: /status.php
+              port:  {{ $.Values.nextcloud.containerPort }}
+              httpHeaders:
+                - name: Host
+                  value: {{ $.Values.nextcloud.host | quote }}
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            successThreshold: {{ .successThreshold }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- end }}
+          {{- with .Values.startupProbe }}
+          {{- if .enabled }}
+          startupProbe:
+            httpGet:
+              path: /status.php
+              port:  {{ $.Values.nextcloud.containerPort }}
+              httpHeaders:
+                - name: Host
+                  value: {{ $.Values.nextcloud.host | quote }}
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            successThreshold: {{ .successThreshold }}
+            failureThreshold: {{ .failureThreshold }}
+           {{- end }}
+           {{- end }}
+
+          resources:
+            {{- toYaml .Values.nginx.resources | nindent 12 }}
+          {{- with .Values.nginx.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: nextcloud-main
+              mountPath: /var/www/
+              subPath: {{ ternary "root" (printf "%s/root" .Values.nextcloud.persistence.subPath) (empty .Values.nextcloud.persistence.subPath) }}
+            - name: nextcloud-main
+              mountPath: /var/www/html
+              subPath: {{ ternary "html" (printf "%s/html" .Values.nextcloud.persistence.subPath) (empty .Values.nextcloud.persistence.subPath) }}
+            {{- if and .Values.persistence.nextcloudData.enabled .Values.persistence.enabled }}
+            - name: nextcloud-data
+              mountPath: {{ .Values.nextcloud.datadir }}
+              subPath: {{ ternary "data" (printf "%s/data" .Values.persistence.nextcloudData.subPath) (empty .Values.persistence.nextcloudData.subPath) }}
+            {{- else }}
+            - name: nextcloud-main
+              mountPath: {{ .Values.nextcloud.datadir }}
+              subPath: {{ ternary "data" (printf "%s/data" .Values.persistence.subPath) (empty .Values.persistence.subPath) }}
+            {{- end }}
+            - name: nextcloud-main
+              mountPath: /var/www/html/config
+              subPath: {{ ternary "config" (printf "%s/config" .Values.nextcloud.persistence.subPath) (empty .Values.nextcloud.persistence.subPath) }}
+            - name: nextcloud-main
+              mountPath: /var/www/html/custom_apps
+              subPath: {{ ternary "custom_apps" (printf "%s/custom_apps" .Values.nextcloud.persistence.subPath) (empty .Values.nextcloud.persistence.subPath) }}
+            - name: nextcloud-main
+              mountPath: /var/www/tmp
+              subPath: {{ ternary "tmp" (printf "%s/tmp" .Values.nextcloud.persistence.subPath) (empty .Values.nextcloud.persistence.subPath) }}
+            - name: nextcloud-main
+              mountPath: /var/www/html/themes
+              subPath: {{ ternary "themes" (printf "%s/themes" .Values.nextcloud.persistence.subPath) (empty .Values.nextcloud.persistence.subPath) }}
+            - name: nextcloud-nginx-config
+              mountPath: /etc/nginx/conf.d/
+            {{- with .Values.nextcloud.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        {{- end }}{{/* end-if nginx.enabled */}}
+        {{- if and .Values.cronjob.enabled (eq .Values.cronjob.type "sidecar") }}
+        {{- with .Values.cronjob.sidecar }}
+        - name: {{ $.Chart.Name }}-cron
+          image: {{ include "nextcloud.image" $ }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          command:
+            {{- toYaml .command | nindent 12 }}
+          {{- with .lifecycle }}
+          lifecycle:
+            {{- with .postStartCommand }}
+            postStart:
+              exec:
+                command:
+                  {{- toYaml . | nindent 18 }}
+            {{- end }}
+            {{- with .preStopCommand }}
+            preStop:
+              exec:
+                command:
+                  {{- toYaml . | nindent 18 }}
+            {{- end }}
+          {{- end }}
+          env:
+            {{- include "nextcloud.env" $ | nindent 12 }}
+          resources:
+            {{- toYaml .resources | nindent 12 }}
+          {{- with .securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            {{- if $.Values.redis.enabled }}
+            - name: php-confd
+              mountPath: "/usr/local/etc/php/conf.d/redis-session.ini" # fix permission denied error
+              subPath: redis-session.ini
+            {{- end }}
+            {{- include "nextcloud.volumeMounts" $ | trim | nindent 12 }}
+        {{- end }}
+        {{- end }}{{/* end-if cronjob.enabled */}}
+        {{- with .Values.nextcloud.extraSidecarContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.nextcloud.priorityClassName | default $.Values.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      {{- if or .Values.nextcloud.extraInitContainers .Values.mariadb.enabled .Values.postgresql.enabled .Values.redis.enabled }}
+      initContainers:
+        {{- with .Values.nextcloud.extraInitContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- if .Values.mariadb.enabled }}
+        - name: mariadb-isalive
+          image: {{ coalesce .Values.global.image.registry .Values.mariadb.image.registry "docker.io" }}/{{ .Values.mariadb.image.repository }}:{{ .Values.mariadb.image.tag }}
+          {{- with .Values.nextcloud.mariaDbInitContainer }}
+          resources:
+            {{- toYaml .resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .securityContext | nindent 12 }}
+          {{- end }}
+          env:
+            {{- include "nextcloud.env.database" . | nindent 12 }}
+          command:
+            - "sh"
+            - "-c"
+            - {{ printf "until mysql --host=${MYSQL_HOST} --user=${MYSQL_USER} --password=${MYSQL_PASSWORD} --execute=\"SELECT 1;\"; do echo waiting for mysql; sleep 2; done;" }}
+        {{- else if .Values.postgresql.enabled }}
+        - name: postgresql-isready
+          image: {{ coalesce .Values.global.image.registry .Values.postgresql.image.registry "docker.io"  }}/{{ .Values.postgresql.image.repository }}:{{ .Values.postgresql.image.tag }}
+          {{- with .Values.nextcloud.postgreSqlInitContainer }}
+          resources:
+            {{- toYaml .resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .securityContext | nindent 12 }}
+          {{- end }}
+          env:
+            {{- include "nextcloud.env.database" . | nindent 12 }}
+          command:
+            - "sh"
+            - "-c"
+            - "until pg_isready -h ${POSTGRES_HOST} -U ${POSTGRES_USER} ; do sleep 2 ; done"
+        {{- end }}{{/* end-if any database-initContainer */}}
+        {{- if .Values.redis.enabled }}
+        # create empty redis file for nextcloud entrypoint to override it
+        - name: init-redis-session-ini
+          # Using the same image as nextcloud to get the same UID to write the configuration.
+          image: {{ include "nextcloud.image" . }}
+          command: ['touch', '/usr/local/etc/php/conf.d/redis-session.ini']
+          {{- with .Values.nextcloud.redisInitContainer }}
+          resources:
+            {{- toYaml .resources | nindent 12 }}
+          {{- end }}
+          # Reuse the SCC from nextcloud, no need to provide a dedicated SCC for Redis init container.
+          {{- with .Values.nextcloud.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: php-confd
+              mountPath: "/usr/local/etc/php/conf.d"
+        {{- end }}{{/* end-if redis init */}}
+      {{- end }}{{/* end-if any initContainer */}}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: nextcloud-main
+          {{- if .Values.persistence.enabled }}
+          {{- with .Values.persistence.hostPath }}
+          hostPath:
+            path: {{ . }}
+            type: Directory
+          {{- else }}
+          persistentVolumeClaim:
+            claimName: {{ with .Values.persistence.existingClaim }}{{ . }}{{- else }}{{ template "nextcloud.fullname" . }}-nextcloud{{- end }}
+          {{- end }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        {{- if and .Values.persistence.nextcloudData.enabled .Values.persistence.enabled }}
+        - name: nextcloud-data
+          {{- with .Values.persistence.nextcloudData.hostPath }}
+          hostPath:
+            path: {{ . }}
+            type: Directory
+          {{- else }}
+          persistentVolumeClaim:
+            claimName: {{ with .Values.persistence.nextcloudData.existingClaim }}{{ . }}{{- else }}{{ template "nextcloud.fullname" . }}-nextcloud-data{{- end }}
+          {{- end }}
+        {{- end }}
+        {{- if .Values.nextcloud.configs }}
+        - name: nextcloud-config
+          configMap:
+            name: {{ template "nextcloud.fullname" . }}-config
+        {{- end }}
+        {{- if .Values.nextcloud.phpConfigs }}
+        - name: nextcloud-phpconfig
+          configMap:
+            name: {{ template "nextcloud.fullname" . }}-phpconfig
+        {{- end }}
+        {{- if .Values.nginx.enabled }}
+        - name: nextcloud-nginx-config
+          configMap:
+            name: {{ template "nextcloud.fullname" . }}-nginxconfig
+        {{- end }}
+        {{- if not (values .Values.nextcloud.hooks | compact | empty) }}
+        - name: nextcloud-hooks
+          configMap:
+            name: {{ template "nextcloud.fullname" . }}-hooks
+            defaultMode: 0o755
+        {{- end }}
+        {{- if .Values.redis.enabled }}
+        - name: php-confd
+          emptyDir: {}
+        {{- end }}
+        {{- with .Values.nextcloud.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      securityContext:
+        {{- with .Values.securityContext }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.nextcloud.podSecurityContext }}
+        {{- toYaml . | nindent 8 }}
+        {{- else }}
+        {{- if .Values.nginx.enabled }}
+        # Will mount configuration files as www-data (id: 82) for nextcloud
+        fsGroup: 82
+        {{- else }}
+        # Will mount configuration files as www-data (id: 33) for nextcloud
+        fsGroup: 33
+        {{- end }}
+        {{- end }}{{/* end-with podSecurityContext */}}
+      {{- if .Values.rbac.enabled }}
+      serviceAccountName: {{ .Values.rbac.serviceaccount.name }}
+      {{- end }}
+      {{- with .Values.dnsConfig }}
+      dnsConfig:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

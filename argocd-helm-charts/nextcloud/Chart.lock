@@ -1,0 +1,9 @@
+dependencies:
+- name: nextcloud
+  repository: https://nextcloud.github.io/helm/
+  version: 9.3.0
+- name: kubeaid-addons
+  repository: file://../kubeaid-addons
+  version: 1.1.0
+digest: sha256:368e685882a2095d728da0582651670200f1db3e79a109780b1ef2132c0bfbe6
+generated: "2026-09-29T15:09:17.220574+05:30"

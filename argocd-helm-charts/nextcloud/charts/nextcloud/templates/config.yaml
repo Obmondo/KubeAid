@@ -1,0 +1,19 @@
+{{- if .Values.nextcloud.configs -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "nextcloud.fullname" . }}-config
+  labels:
+    {{- include "nextcloud.labels"  ( dict "rootContext" $ ) | nindent 4 }}
+data:
+  {{- range $filename, $content := .Values.nextcloud.configs }}
+  {{ $filename }}: |-
+    {{- $content | nindent 4 }}
+  {{- end }}
+  {{- range $filename, $enabled := .Values.nextcloud.defaultConfigs }}
+  {{- if $enabled }}
+  {{ $filename }}: |-
+    {{- tpl ($.Files.Get (printf "files/defaultConfigs/%s.tpl" $filename)) $ | nindent 4 }}
+  {{- end }}
+  {{- end }}
+{{- end }}{{/* end-if configs */}}

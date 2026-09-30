@@ -1,0 +1,50 @@
+{{- if .Values.externalRedis.enabled }}
+# Redis for Nextcloud's file locking and caching, created through the opstree
+# redis-operator (KubeAid's argocd-helm-charts/redis-operator) rather than the
+# upstream chart's bundled subchart, whose images now come from the frozen
+# `bitnamilegacy` registry. The operator app must already be on the cluster.
+#
+# The operator names the ClusterIP Service after the CR, so this name is what
+# `nextcloud.externalRedis.host` has to point at.
+apiVersion: redis.redis.opstreelabs.in/v1beta2
+kind: Redis
+metadata:
+  name: {{ .Values.externalRedis.name | default (printf "%s-redis" .Release.Name) }}
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  kubernetesConfig:
+    image: {{ .Values.externalRedis.image | default "quay.io/opstree/redis:v7.2.6" }}
+    imagePullPolicy: {{ .Values.externalRedis.imagePullPolicy | default "IfNotPresent" }}
+    resources:
+      requests:
+        cpu: {{ .Values.externalRedis.resources.requests.cpu | default "50m" }}
+        memory: {{ .Values.externalRedis.resources.requests.memory | default "64Mi" }}
+      limits:
+        memory: {{ .Values.externalRedis.resources.limits.memory | default "256Mi" }}
+    {{- with .Values.externalRedis.redisSecret }}
+    redisSecret:
+      name: {{ .name }}
+      key: {{ .key }}
+    {{- end }}
+  # The CRD requires redisExporter.image even with the exporter disabled; without
+  # it the API server rejects the whole CR (spec.redisExporter.image: Required value).
+  redisExporter:
+    enabled: false
+    image: quay.io/opstree/redis-exporter:v1.44.0
+  storage:
+    volumeClaimTemplate:
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.externalRedis.storageClass }}
+        storageClassName: {{ .Values.externalRedis.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.externalRedis.storage | default "2Gi" }}
+  podSecurityContext:
+    runAsUser: 1000
+    fsGroup: 1000
+{{- end }}

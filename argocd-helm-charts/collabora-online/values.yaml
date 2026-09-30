@@ -1,0 +1,71 @@
+# Upstream chart is vendored as the `collabora-online` dependency, so values nest
+# under `collabora-online`.
+collabora-online:
+  # Upstream ships an HPA (min 2, max 100). Keep it off and stay on one pod:
+  #
+  #  - Collaborative editing and clipboard only work if every request carrying the
+  #    same WOPISrc reaches the same pod. Upstream's own README says HPA "breaks
+  #    the collaborative editing and copy/paste". Their answer for more than one
+  #    pod is the chart's nginx `reverseProxy` sub-deployment, which hashes on
+  #    WOPISrc - an ingress controller alone cannot do it (nginx-ingress needs
+  #    `upstream-hash-by: $arg_WOPISrc`, and Traefik has no equivalent).
+  #  - An HPA on CPU/memory also needs the resource metrics API, which is not
+  #    installed on every KubeAid cluster.
+  #
+  # To scale out, enable `reverseProxy` and raise replicaCount together.
+  autoscaling:
+    enabled: false
+  replicaCount: 1
+
+  collabora:
+    # TLS terminates at the ingress controller, so coolwsd itself serves plain
+    # HTTP but must still emit https:// URLs - that is what ssl.termination does.
+    extra_params: --o:ssl.enable=false --o:ssl.termination=true
+
+    # Admin console credentials. Upstream defaults to the literal password
+    # "examplepass" in values, so take them from a Secret instead (a SealedSecret
+    # in the kubeaid-config repo) with keys `username` and `password`.
+    existingSecret:
+      enabled: true
+      secretName: collabora-online-admin
+      usernameKey: username
+      passwordKey: password
+
+    # WOPI host allow-list. Collabora stores nothing itself: a WOPI host (Nextcloud,
+    # ownCloud, Moodle, ...) owns the file and Collabora calls back to the WOPISrc URL
+    # to load and save it. It refuses any callback host that is not listed here, so
+    # set one group per integration in the cluster values file:
+    #
+    #   aliasgroups:
+    #     - host: "https://cloud.example.com:443"
+    #       # other names the SAME host answers to; grouping them keeps users who
+    #       # arrive via different URLs in one editing session instead of two.
+    #       aliases: ["https://cloud.internal.example.com:443"]
+    aliasgroups: []
+
+    # Set to the externally reachable name when Collabora sits behind a reverse
+    # proxy, otherwise it builds URLs from the pod hostname.
+    # server_name: collabora.example.com
+
+  # Turned on per cluster.
+  ingress:
+    enabled: false
+
+  # No CPU limit by policy; only memory is capped. Collabora forks a child process
+  # per document, so memory is the resource that actually needs the ceiling.
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      memory: 2Gi
+
+  # kube-prometheus is not on every cluster; opt in per cluster.
+  prometheus:
+    servicemonitor:
+      enabled: false
+    rules:
+      enabled: false
+  grafana:
+    dashboards:
+      enabled: false
