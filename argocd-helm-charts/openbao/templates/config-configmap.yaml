@@ -1,0 +1,254 @@
+{{- if .Values.config.enabled }}
+{{- range $name, $_ := .Values.config.policies }}
+{{- if eq $name "openbao-config" "root" "default" }}
+{{- fail (printf "config.policies: %q is reserved" $name) }}
+{{- end }}
+{{- /* OpenBao lowercases policy names; anything else would be pruned right after being written */}}
+{{- if not (regexMatch "^[a-z0-9][a-z0-9_.-]*$" $name) }}
+{{- fail (printf "config.policies: name %q must match ^[a-z0-9][a-z0-9_.-]*$" $name) }}
+{{- end }}
+{{- end }}
+{{- range $path, $type := .Values.config.mounts }}
+{{- if not (regexMatch "^[a-z0-9][a-z0-9_-]*$" $path) }}
+{{- fail (printf "config.mounts: path %q must match ^[a-z0-9][a-z0-9_-]*$" $path) }}
+{{- end }}
+{{- if not (regexMatch "^[a-z0-9][a-z0-9-]*$" (toString $type)) }}
+{{- fail (printf "config.mounts.%s: type %q must match ^[a-z0-9][a-z0-9-]*$" $path (toString $type)) }}
+{{- end }}
+{{- end }}
+{{- range $name, $r := .Values.config.roles }}
+{{- if eq $name "openbao-config" }}
+{{- fail "config.roles: \"openbao-config\" is reserved" }}
+{{- end }}
+{{- if not (regexMatch "^[a-z0-9][a-z0-9_-]*$" $name) }}
+{{- fail (printf "config.roles: name %q must match ^[a-z0-9][a-z0-9_-]*$" $name) }}
+{{- end }}
+{{- $_ := required (printf "config.roles.%s.audience is required" $name) $r.audience }}
+{{- end }}
+{{- range $name, $g := .Values.config.identityGroups }}
+{{- if not (regexMatch "^[a-z0-9][a-z0-9_.-]*$" $name) }}
+{{- fail (printf "config.identityGroups: name %q must match ^[a-z0-9][a-z0-9_.-]*$" $name) }}
+{{- end }}
+{{- with $g.alias }}
+{{- $_ := required (printf "config.identityGroups.%s.alias.mount is required" $name) .mount }}
+{{- $_ := required (printf "config.identityGroups.%s.alias.name is required" $name) .name }}
+{{- if regexMatch "\\s" .name }}
+{{- fail (printf "config.identityGroups.%s.alias.name must not contain whitespace" $name) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- range $path, $m := .Values.config.authMethods }}
+{{- if not (regexMatch "^[a-z0-9][a-z0-9-]*$" $path) }}
+{{- fail (printf "config.authMethods: mount path %q must match ^[a-z0-9][a-z0-9-]*$" $path) }}
+{{- end }}
+{{- if eq $path "kubernetes" }}
+{{- fail "config.authMethods: \"kubernetes\" is set up by self-initialization; use config.roles for its roles" }}
+{{- end }}
+{{- $_ := required (printf "config.authMethods.%s.type is required" $path) $m.type }}
+{{- range $name, $_ := $m.roles }}
+{{- if not (regexMatch "^[a-z0-9][a-z0-9_-]*$" $name) }}
+{{- fail (printf "config.authMethods.%s.roles: name %q must match ^[a-z0-9][a-z0-9_-]*$" $path $name) }}
+{{- end }}
+{{- end }}
+{{- range $key, $file := $m.configFiles }}
+{{- if not (regexMatch "^[a-z0-9_]+$" $key) }}
+{{- fail (printf "config.authMethods.%s.configFiles: key %q must match ^[a-z0-9_]+$" $path $key) }}
+{{- end }}
+{{- if not (regexMatch "^/[A-Za-z0-9_./-]+$" (toString $file)) }}
+{{- fail (printf "config.authMethods.%s.configFiles.%s: %q must be an absolute path without spaces" $path $key (toString $file)) }}
+{{- end }}
+{{- end }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "openbao.fullname" . }}-config-values
+  namespace: {{ .Release.Namespace }}
+  {{- include "openbao.config.labels" . | nindent 2 }}
+data:
+  mounts: |
+    {{- range $path, $type := .Values.config.mounts }}
+    {{ $path }} {{ $type }}
+    {{- end }}
+  {{- range $name, $r := .Values.config.roles }}
+  {{- $role := dict
+        "bound_service_account_names" (list)
+        "bound_service_account_namespaces" (list)
+        "audience" $r.audience
+        "token_policies" ($r.policies | default list)
+        "token_ttl" ($r.ttl | default "10m") }}
+  {{- range $r.serviceAccounts }}{{ $_ := set $role "bound_service_account_names" (append $role.bound_service_account_names (tpl . $)) }}{{ end }}
+  {{- range $r.namespaces }}{{ $_ := set $role "bound_service_account_namespaces" (append $role.bound_service_account_namespaces (tpl . $)) }}{{ end }}
+  k8s-role-{{ $name }}.json: {{ $role | toJson | quote }}
+  {{- end }}
+  {{- range $name, $policy := .Values.config.policies }}
+  policy-{{ $name }}: |
+    {{- $policy | nindent 4 }}
+  {{- end }}
+  identity-groups: |
+    {{- range $name, $g := .Values.config.identityGroups }}
+    {{ $name }} {{ join "," ($g.policies | default list) | default "-" }}{{ with $g.alias }} {{ .mount }} {{ .name }}{{ end }}
+    {{- end }}
+  auth-methods: |
+    {{- range $path, $m := .Values.config.authMethods }}
+    {{ $path }} {{ $m.type }}
+    {{- end }}
+  {{- range $path, $m := .Values.config.authMethods }}
+  auth-{{ $path }}-config.json: {{ $m.config | default dict | toJson | quote }}
+  auth-{{ $path }}-files: |
+    {{- range $key, $file := $m.configFiles }}
+    {{ $key }} {{ $file }}
+    {{- end }}
+  {{- range $name, $role := $m.roles }}
+  auth-{{ $path }}-role-{{ $name }}.json: {{ $role | toJson | quote }}
+  {{- end }}
+  {{- end }}
+  apply.sh: |
+    set -eu
+    # busybox ash supports pipefail
+    # shellcheck disable=SC3040
+    set -o pipefail
+    BAO_TOKEN=$(bao write -field=token auth/kubernetes/login role=openbao-config jwt=@/var/run/secrets/openbao/token)
+    export BAO_TOKEN
+
+    # Prints the entries of a LIST endpoint, one per line. An empty list (the
+    # CLI prints {} or "No value found") prints nothing; any other error fails.
+    list_names() {
+      if ! out=$(bao list -format=json "$1" 2>&1); then
+        case "$(printf '%s' "$out" | tr -d ' \n')" in
+          "{}"|*"Novaluefound"*) return 0 ;;
+        esac
+        echo "$out" >&2
+        return 1
+      fi
+      printf '%s\n' "$out" | sed -n 's/^[[:space:]]*"\(.*\)",\{0,1\}$/\1/p'
+    }
+
+    # Id of the alias inside an identity group's JSON, if it has one
+    alias_id() {
+      tr -d ' \n' | sed -n 's/.*"alias":{[^}]*"id":"\([^"]*\)".*/\1/p'
+    }
+
+    # Mounts are only created, never changed or removed
+    existing=$(bao secrets list -format=json)
+    while read -r path type; do
+      [ -n "$path" ] || continue
+      if printf '%s' "$existing" | grep -qF "\"$path/\""; then
+        echo "mount $path/ exists"
+      else
+        bao secrets enable -path="$path" "$type"
+      fi
+    done < /config/mounts
+
+    for f in /config/policies/*.hcl; do
+      [ -e "$f" ] || continue
+      bao policy write "$(basename "$f" .hcl)" "$f"
+    done
+
+    # Kubernetes auth roles always carry the same fields, so a write replaces them
+    for f in /config/k8s-roles/*.json; do
+      [ -e "$f" ] || continue
+      bao write "auth/kubernetes/role/$(basename "$f" .json)" "@$f"
+    done
+
+    # Other auth methods: only enabled, never disabled
+    auth_existing=$(bao auth list -format=json)
+    while read -r path type; do
+      [ -n "$path" ] || continue
+      if printf '%s' "$auth_existing" | grep -qF "\"$path/\""; then
+        echo "auth method $path/ exists"
+      else
+        bao auth enable -path="$path" "$type"
+      fi
+      # Config: the JSON plus single values read from files, with trailing
+      # newlines stripped (Secrets created from files or echo usually have one)
+      set -- "@/config/auth/$path/config.json"
+      while read -r key file; do
+        [ -n "$key" ] || continue
+        printf '%s' "$(cat "$file")" > "/tmp/config-file-$key"
+        set -- "$@" "$key=@/tmp/config-file-$key"
+      done < "/config/auth/$path/files"
+      bao write "auth/$path/config" "$@"
+      rm -f /tmp/config-file-*
+      # Roles: a write only updates the fields it contains, so a role is
+      # replaced (deleted, then written) to drop fields removed from values
+      for f in /config/auth/"$path"/roles/*.json; do
+        [ -e "$f" ] || continue
+        role=$(basename "$f" .json)
+        bao delete "auth/$path/role/$role" >/dev/null
+        bao write "auth/$path/role/$role" "@$f"
+      done
+      if [ "$PRUNE" = "true" ]; then
+        list_names "auth/$path/role" > /tmp/names
+        while IFS= read -r r; do
+          if [ ! -e "/config/auth/$path/roles/$r.json" ]; then
+            echo "pruning $path role $r"
+            bao delete "auth/$path/role/$r"
+          fi
+        done < /tmp/names
+      fi
+    done < /config/auth/methods
+
+    # Identity groups: external groups whose members get the group's policies,
+    # through an alias on an auth method (e.g. a Keycloak group in the OIDC
+    # groups claim)
+    while read -r group policies mount alias; do
+      [ -n "$group" ] || continue
+      [ "$policies" = "-" ] && policies=""
+      bao write "identity/group/name/$group" type=external policies="$policies" >/dev/null
+      echo "identity group $group: policies [$policies]"
+      gid=$(bao read -field=id "identity/group/name/$group")
+      own=$(bao read -format=json "identity/group/name/$group" | alias_id)
+      if [ -z "$mount" ]; then
+        # No alias in values: remove one left from earlier values
+        if [ -n "$own" ]; then
+          bao delete "identity/group-alias/id/$own" >/dev/null
+          echo "identity group $group: alias removed"
+        fi
+        continue
+      fi
+      acc=$(bao read -field=accessor "sys/auth/$mount")
+      # The alias may already belong to another group, e.g. after a rename:
+      # move it here instead of creating a duplicate
+      taken=$(bao write -format=json identity/lookup/group alias_name="$alias" alias_mount_accessor="$acc" | alias_id)
+      if [ -n "$taken" ]; then
+        if [ -n "$own" ] && [ "$own" != "$taken" ]; then
+          bao delete "identity/group-alias/id/$own" >/dev/null
+        fi
+        bao write "identity/group-alias/id/$taken" name="$alias" mount_accessor="$acc" canonical_id="$gid" >/dev/null
+      elif [ -n "$own" ]; then
+        bao write "identity/group-alias/id/$own" name="$alias" mount_accessor="$acc" canonical_id="$gid" >/dev/null
+      else
+        bao write identity/group-alias name="$alias" mount_accessor="$acc" canonical_id="$gid" >/dev/null
+      fi
+      echo "identity group $group: alias $alias on $mount/"
+    done < /config/identity-groups
+
+    if [ "$PRUNE" = "true" ]; then
+      policies=$(bao policy list)
+      printf '%s\n' "$policies" > /tmp/names
+      while IFS= read -r p; do
+        case "$p" in ""|root|default|openbao-config) continue ;; esac
+        if [ ! -e "/config/policies/$p.hcl" ]; then
+          echo "pruning policy $p"
+          bao policy delete "$p"
+        fi
+      done < /tmp/names
+      list_names identity/group/name > /tmp/names
+      while IFS= read -r g; do
+        if ! cut -d' ' -f1 /config/identity-groups | grep -qxF "$g"; then
+          echo "pruning identity group $g"
+          bao delete "identity/group/name/$g"
+        fi
+      done < /tmp/names
+      list_names auth/kubernetes/role > /tmp/names
+      while IFS= read -r r; do
+        [ "$r" = "openbao-config" ] && continue
+        if [ ! -e "/config/k8s-roles/$r.json" ]; then
+          echo "pruning role $r"
+          bao delete "auth/kubernetes/role/$r"
+        fi
+      done < /tmp/names
+    fi
+    echo "config applied"
+{{- end }}

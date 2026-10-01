@@ -1,0 +1,47 @@
+{{- if .Values.selfInit.enabled }}
+# Mounted on every server pod at /openbao/self-init. The server start command
+# runs select.sh, which adds init.hcl to the server config only on the
+# bootstrap replica; see selfInit in values.yaml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openbao-self-init
+  namespace: {{ .Release.Namespace }}
+data:
+  init.hcl: |
+    {{- tpl .Values.selfInit.config . | nindent 4 }}
+  select.sh: |
+    # Prints the -config flag for init.hcl only when this pod is replica 0 and
+    # every other replica answers that it is not initialized, i.e. there is
+    # positive evidence that no cluster exists. If any replica answers that it
+    # is initialized, prints nothing and the pod joins. While any replica does
+    # not answer, waits: it never guesses, so it cannot create a second cluster.
+    # Kubernetes sets HOSTNAME to the pod name
+    # shellcheck disable=SC3028
+    [ "${HOSTNAME##*-}" = "0" ] || exit 0
+    # shellcheck disable=SC3028
+    base="${HOSTNAME%-*}"
+    peers="{{ include "openbao.fullname" . }}-internal"
+    while :; do
+      uninitialized=0
+      i=1
+      while [ "$i" -lt {{ .Values.openbao.server.ha.replicas }} ]; do
+        status=$(wget -q -T 3 -O - "{{ include "openbao.wrapper.scheme" . }}://${base}-${i}.${peers}:{{ .Values.openbao.server.service.targetPort }}/v1/sys/seal-status" 2>/dev/null)
+        case "$status" in
+          *'"initialized":true'*)
+            echo "self-init: ${base}-${i} is initialized, joining instead" >&2
+            exit 0 ;;
+          *'"initialized":false'*)
+            uninitialized=$((uninitialized + 1)) ;;
+        esac
+        i=$((i + 1))
+      done
+      if [ "$uninitialized" -eq $(({{ .Values.openbao.server.ha.replicas }} - 1)) ]; then
+        echo "self-init: no other replica is initialized, adding the self-init config (ignored if this replica already has data)" >&2
+        echo "-config=/openbao/self-init/init.hcl"
+        exit 0
+      fi
+      echo "self-init: waiting for every replica to answer" >&2
+      sleep 5
+    done
+{{- end }}
