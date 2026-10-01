@@ -1,0 +1,38 @@
+{{- with .Values.openbao.snapshotAgent }}
+{{- if .enabled }}
+{{- $_ := required "openbao.snapshotAgent.s3CredentialsSecret is required when snapshots are enabled" .s3CredentialsSecret }}
+{{- $_ := required "openbao.snapshotAgent.config.s3Host is required when snapshots are enabled" .config.s3Host }}
+{{- $_ := required "openbao.snapshotAgent.config.s3Bucket is required when snapshots are enabled" .config.s3Bucket }}
+{{- $_ := required "openbao.snapshotAgent.config.s3Uri is required when snapshots are enabled" .config.s3Uri }}
+{{- end }}
+{{- end }}
+{{- if and .Values.selfInit.enabled (not (contains "/openbao/self-init/select.sh" (toString .Values.openbao.server.extraArgs))) }}
+{{- fail "openbao.server.extraArgs must keep $(sh /openbao/self-init/select.sh) while selfInit is enabled, or the cluster never initializes" }}
+{{- end }}
+{{- /* The wrapper names its resources (config Job address, service accounts, role bindings) with the chart's own fullname, which must match the server's */}}
+{{- if or .Values.fullnameOverride .Values.nameOverride .Values.openbao.fullnameOverride .Values.openbao.nameOverride }}
+{{- fail "fullnameOverride and nameOverride are not supported, for this chart or its openbao subchart; name the release instead" }}
+{{- end }}
+{{- /* Helm replaces lists instead of merging them, so an override of server.volumes or volumeMounts can drop the ones the chart needs */}}
+{{- $volumes := list }}
+{{- range .Values.openbao.server.volumes }}{{ $volumes = append $volumes .name }}{{ end }}
+{{- $mounts := list }}
+{{- range .Values.openbao.server.volumeMounts }}{{ $mounts = append $mounts .name }}{{ end }}
+{{- $needed := list "openbao-unseal" }}
+{{- if .Values.selfInit.enabled }}{{ $needed = append $needed "openbao-self-init" }}{{ end }}
+{{- range $needed }}
+{{- if not (and (has . $volumes) (has . $mounts)) }}
+{{- fail (printf "openbao.server.volumes and volumeMounts must keep %q; when overriding them, copy the chart's entries" .) }}
+{{- end }}
+{{- end }}
+{{- with .Values.openbao.snapshotAgent }}
+{{- if .enabled }}
+{{- $snapVolumes := list }}
+{{- range .extraVolumes }}{{ $snapVolumes = append $snapVolumes .name }}{{ end }}
+{{- range .extraVolumeMounts }}
+{{- if not (has .name $snapVolumes) }}
+{{- fail (printf "openbao.snapshotAgent.extraVolumeMounts uses volume %q, which is not in extraVolumes; when overriding extraVolumes, copy the chart's openbao-token entry" .name) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

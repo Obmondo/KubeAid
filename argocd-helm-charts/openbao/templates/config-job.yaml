@@ -1,0 +1,22 @@
+{{- if .Values.config.enabled }}
+# Runs after every sync. The ArgoCD annotations make it a PostSync hook; the
+# Helm ones do the same for a plain helm install/upgrade.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "openbao.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  {{- include "openbao.config.labels" . | nindent 2 }}
+  annotations:
+    {{- with .Values.config.job.hookAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.config.job.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    checksum/config: {{ include (print $.Template.BasePath "/config-configmap.yaml") . | sha256sum }}
+spec:
+  {{- include "openbao.config.jobSpec" .Values.config.job | nindent 2 }}
+  template:
+    {{- include "openbao.config.podTemplate" . | nindent 4 }}
+{{- end }}

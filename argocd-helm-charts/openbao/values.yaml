@@ -1,0 +1,330 @@
+openbao:
+  injector:
+    enabled: false
+
+  # Web UI Service. It targets only the leader, so the UI never reads stale data
+  # from a standby or reaches a sealed pod. Expose it per cluster, e.g. with an
+  # Ingress, or reach it with kubectl port-forward.
+  ui:
+    enabled: true
+    activeOpenbaoPodOnly: true
+    publishNotReadyAddresses: false
+
+  # Static auto-unseal. The key files come from the Secret "openbao-unseal"
+  # (deliver it as a sealed-secret), one file per key: unseal-<key id>.key,
+  # 32 random bytes each. To rotate, add the new key file, set currentKeyId to
+  # it and previousKeyId to the old one, then delete the pods one at a time,
+  # leader last. Clear previousKeyId only once no retained snapshot needs it.
+  staticSeal:
+    currentKeyId: "1"
+    previousKeyId: ""
+
+  server:
+    volumes:
+      - name: openbao-unseal
+        secret:
+          secretName: openbao-unseal
+      - name: openbao-self-init
+        configMap:
+          name: openbao-self-init
+          optional: true
+    volumeMounts:
+      - name: openbao-unseal
+        mountPath: /openbao/secrets
+        readOnly: true
+      - name: openbao-self-init
+        mountPath: /openbao/self-init
+        readOnly: true
+    # Adds the self-initialization config on the bootstrap replica only; see
+    # selfInit below. Keep this when overriding extraArgs.
+    extraArgs: "$(sh /openbao/self-init/select.sh)"
+
+    # Start all replicas together. Replica 0 decides whether to self-initialize
+    # by asking the others (see selfInit), so they must be running alongside it.
+    podManagementPolicy: Parallel
+
+    # Keep the raft data volumes when the StatefulSet is deleted or scaled down
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Retain
+
+    ha:
+      enabled: true
+      replicas: 3
+      raft:
+        enabled: true
+        setNodeId: true
+        config: |
+          ui = true
+
+          listener "tcp" {
+            tls_disable = 1
+            address = "[::]:{{ .Values.server.service.targetPort }}"
+            cluster_address = "[::]:8201"
+          }
+
+          storage "raft" {
+            path = "/openbao/data"
+
+            {{- range $i := until (int .Values.server.ha.replicas) }}
+            retry_join {
+              leader_api_addr = "{{ include "openbao.scheme" $ }}://{{ include "openbao.fullname" $ }}-{{ $i }}.{{ include "openbao.fullname" $ }}-internal.{{ $.Release.Namespace }}.svc:{{ $.Values.server.service.targetPort }}"
+            }
+            {{- end }}
+          }
+
+          seal "static" {
+            current_key_id = "{{ .Values.staticSeal.currentKeyId }}"
+            current_key    = "file:///openbao/secrets/unseal-{{ .Values.staticSeal.currentKeyId }}.key"
+            {{- with .Values.staticSeal.previousKeyId }}
+            previous_key_id = "{{ . }}"
+            previous_key    = "file:///openbao/secrets/unseal-{{ . }}.key"
+            {{- end }}
+          }
+
+          service_registration "kubernetes" {}
+
+  # Raft snapshots to S3, as a CronJob. Per cluster, set enabled, the S3
+  # endpoint, bucket and credentials Secret; schedule and retention can be
+  # overridden too. The bucket must live outside the cluster.
+  snapshotAgent:
+    enabled: false
+    schedule: "0 * * * *"
+    # Secret with AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY; required when enabled
+    s3CredentialsSecret: ""
+    config:
+      # S3 endpoint host; required when enabled
+      s3Host: ""
+      # Only passed to s3cmd as --host-bucket, not the bucket name. Set it to the
+      # same value as s3Host so s3cmd uses path-style URLs; required when enabled
+      s3Bucket: ""
+      # s3://<bucket>[/<prefix>]; required when enabled
+      s3Uri: ""
+      s3ExpireDays: "14"
+      baoAuthPath: kubernetes
+      baoRole: snapshot
+      # Log in with a projected token scoped to OpenBao instead of the
+      # service account's default Kubernetes API token
+      tokenPath: /var/run/secrets/openbao/token
+    extraVolumes:
+      - name: openbao-token
+        projected:
+          sources:
+            - serviceAccountToken:
+                audience: openbao-snapshot
+                expirationSeconds: 600
+                path: token
+    extraVolumeMounts:
+      - name: openbao-token
+        mountPath: /var/run/secrets/openbao
+        readOnly: true
+
+# OpenBao configuration applied from git: secret mounts, ACL policies and
+# Kubernetes auth roles. A Job applies it after every sync (ArgoCD PostSync
+# hook) and a CronJob re-applies it to undo drift. Override or extend these
+# maps per cluster; a change to them makes ArgoCD sync and re-run the Job.
+config:
+  enabled: true
+  # Delete policies and roles that are no longer listed here. Mounts are never
+  # deleted. "root", "default" and "openbao-config" are never touched.
+  prune: true
+  # OpenBao address the Job and CronJob talk to. Defaults to the active Service:
+  # <scheme>://<fullname>-active.<namespace>.svc:<openbao.server.service.port>
+  address: ""
+  # Labels added to every resource of the config Job and CronJob
+  labels: {}
+  serviceAccount:
+    annotations: {}
+    automountServiceAccountToken: false
+  # The Job that runs after every sync
+  job:
+    annotations: {}
+    # Makes the Job an ArgoCD PostSync hook and a Helm post-install/upgrade
+    # hook. Set a key to null to drop it.
+    hookAnnotations:
+      argocd.argoproj.io/hook: PostSync
+      argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+      helm.sh/hook: post-install,post-upgrade
+      helm.sh/hook-delete-policy: before-hook-creation
+    backoffLimit: 6
+    activeDeadlineSeconds: null
+    ttlSecondsAfterFinished: null
+  # The CronJob that re-applies the config to undo drift
+  driftCorrection:
+    enabled: true
+    annotations: {}
+    schedule: "15 * * * *"
+    timeZone: null
+    concurrencyPolicy: Forbid
+    suspend: false
+    startingDeadlineSeconds: null
+    successfulJobsHistoryLimit: 3
+    failedJobsHistoryLimit: 1
+    backoffLimit: 2
+    activeDeadlineSeconds: null
+    ttlSecondsAfterFinished: null
+  # Pod settings shared by the Job and the CronJob
+  pod:
+    # Defaults to the OpenBao server image
+    image:
+      registry: ""
+      repository: ""
+      tag: ""
+      pullPolicy: IfNotPresent
+    imagePullSecrets: []
+    annotations: {}
+    labels: {}
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 100
+      runAsGroup: 1000
+      seccompProfile:
+        type: RuntimeDefault
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop: ["ALL"]
+    resources: {}
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+    priorityClassName: ""
+    restartPolicy: Never
+    extraEnv: []
+    extraVolumes: []
+    extraVolumeMounts: []
+    # Lifetime of the projected token the pod logs in with
+    tokenExpirationSeconds: 600
+  # Mount path -> secrets engine type, e.g. kv: kv-v2. Only created, never
+  # removed or changed.
+  mounts: {}
+  # Policy name -> HCL
+  policies:
+    snapshot: |
+      path "sys/storage/raft/snapshot" {
+        capabilities = ["read"]
+      }
+    restore: |
+      path "sys/storage/raft/snapshot" {
+        capabilities = ["update"]
+      }
+      path "sys/storage/raft/snapshot-force" {
+        capabilities = ["update"]
+      }
+  # Kubernetes auth role name -> binding. Values are templated, so they can
+  # use {{ .Release.Namespace }}. Each client logs in with a projected token
+  # whose audience matches the role's.
+  roles:
+    snapshot:
+      serviceAccounts: ["{{ include \"openbao.fullname\" . }}-snapshot"]
+      namespaces: ["{{ .Release.Namespace }}"]
+      audience: openbao-snapshot
+      policies: [snapshot]
+      ttl: 10m
+    restore:
+      serviceAccounts: ["{{ include \"openbao.fullname\" . }}-restore"]
+      namespaces: ["{{ .Release.Namespace }}"]
+      audience: openbao-restore
+      policies: [restore]
+      ttl: 10m
+  # Auth methods besides the built-in "kubernetes" one, by mount path. Each is
+  # enabled if missing (never disabled), then its config and roles are written.
+  # With prune, roles no longer listed are deleted. Values are written as JSON,
+  # so lists and maps work as-is. configFiles reads single config values from
+  # files, e.g. a client secret from a Secret mounted with config.pod.extraVolumes
+  # and extraVolumeMounts, so it never appears in values.
+  authMethods: {}
+  #  oidc:
+  #    type: oidc
+  #    config:
+  #      oidc_discovery_url: https://keycloak.example.com/realms/example
+  #      oidc_client_id: openbao
+  #      default_role: reader
+  #    configFiles:
+  #      oidc_client_secret: /openbao/oidc/client-secret
+  #    roles:
+  #      reader:
+  #        user_claim: preferred_username
+  #        groups_claim: groups
+  #        bound_claims: {groups: [openbao-readers]}
+  #        allowed_redirect_uris:
+  #          - http://localhost:8200/ui/vault/auth/oidc/oidc/callback
+  #          - http://localhost:8250/oidc/callback
+  #        token_policies: [reader]
+  #        token_ttl: 1h
+  # Identity groups by name. Each is an external group: whoever logs in through
+  # alias.mount with alias.name among their groups (e.g. a Keycloak group in the
+  # OIDC groups claim) gets the group's policies. This lets one login role serve
+  # everyone, with policies decided by group. Written on every run; with prune,
+  # groups no longer listed are deleted.
+  identityGroups: {}
+  #  openbao-admins:
+  #    policies: [admin]
+  #    alias:
+  #      mount: oidc
+  #      name: openbao-admins
+
+# Self-initialization: requests OpenBao runs once, with a root token that is
+# revoked afterwards, when it creates a new cluster. They create the recovery
+# key (static key rotation needs one), enable Kubernetes auth and create the
+# openbao-config role the config Job logs in with.
+#
+# Only replica 0 gets these blocks, and only when every other replica answers
+# that it is not initialized. If any answers that it is, replica 0 joins; while
+# any does not answer, replica 0 waits. Every other replica starts without the
+# blocks and can only join. A replica that had them while its join was still in
+# flight would initialize a separate cluster of its own.
+selfInit:
+  enabled: true
+  # initialize blocks, templated
+  config: |
+    initialize "recovery-key" {
+      request "create-recovery-key" {
+        operation = "update"
+        path      = "sys/rotate/recovery/init"
+        data = {
+          secret_shares    = 1
+          secret_threshold = 1
+        }
+      }
+    }
+
+    initialize "config-access" {
+      request "enable-kubernetes-auth" {
+        operation = "update"
+        path      = "sys/auth/kubernetes"
+        data = {
+          type = "kubernetes"
+        }
+      }
+      request "configure-kubernetes-auth" {
+        operation = "update"
+        path      = "auth/kubernetes/config"
+        data = {
+          kubernetes_host = "https://kubernetes.default.svc"
+        }
+      }
+      request "openbao-config-policy" {
+        operation = "update"
+        path      = "sys/policies/acl/openbao-config"
+        data = {
+          policy = <<EOT
+    path "*" {
+      capabilities = ["create", "read", "update", "delete", "list", "sudo"]
+    }
+    EOT
+        }
+      }
+      request "openbao-config-role" {
+        operation = "update"
+        path      = "auth/kubernetes/role/openbao-config"
+        data = {
+          bound_service_account_names      = ["{{ template "openbao.fullname" . }}-config"]
+          bound_service_account_namespaces = ["{{ .Release.Namespace }}"]
+          audience                         = "openbao-config"
+          token_policies                   = ["openbao-config"]
+          token_ttl                        = "10m"
+        }
+      }
+    }
