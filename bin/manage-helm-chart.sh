@@ -322,11 +322,24 @@ function get_helm_latest_version_from_cache() {
   # in the cache file
   HELM_CHART_NEW_VERSION_FROM_CACHE=$(grep "$_NEW_VERSION" "$HELM_VERSION_LAST_UPDATE_FILE" | uniq | cut -d ' ' -f2 || true )
   if [ -z "$HELM_CHART_NEW_VERSION_FROM_CACHE" ]; then
-    if [ "$HELM_REPOSITORY_URL" = "null" ] || [[ "$HELM_REPOSITORY_URL" =~ ^oci:// ]]; then
-      # helm4 with OCI support does not support search in helm repo
-      # so lets stick to current version, one has to manually change the chart.yaml
-      # to get it updated.
+    if [ "$HELM_REPOSITORY_URL" = "null" ]; then
       HELM_CHART_NEW_VERSION=$HELM_CHART_CURRENT_VERSION
+    elif [[ "$HELM_REPOSITORY_URL" =~ ^oci:// ]]; then
+      # helm search does not work against OCI registries (not even on helm 4),
+      # but helm show chart without --version resolves the highest semver tag,
+      # skipping pre-releases and v-prefixed tags.
+      HELM_CHART_NEW_VERSION=$(helm show chart "$HELM_REPOSITORY_URL/$HELM_CHART_NAME" 2>/dev/null | yq eval '.version' - || true)
+      if [ -z "$HELM_CHART_NEW_VERSION" ] || [ "$HELM_CHART_NEW_VERSION" = "null" ]; then
+        echo "Could not look up the latest $HELM_CHART_NAME version in $HELM_REPOSITORY_URL, keeping $HELM_CHART_CURRENT_VERSION"
+        HELM_CHART_NEW_VERSION=$HELM_CHART_CURRENT_VERSION
+      elif [ "$(get_update_type "$HELM_CHART_CURRENT_VERSION" "$HELM_CHART_NEW_VERSION")" = "none" ]; then
+        # Only move forward: the pinned version can be a v-prefixed tag helm
+        # ignores, or a release upstream has since deleted.
+        if [ "${HELM_CHART_NEW_VERSION#v}" != "${HELM_CHART_CURRENT_VERSION#v}" ]; then
+          echo "Latest $HELM_CHART_NAME in $HELM_REPOSITORY_URL is $HELM_CHART_NEW_VERSION, older than $HELM_CHART_CURRENT_VERSION, not downgrading"
+        fi
+        HELM_CHART_NEW_VERSION=$HELM_CHART_CURRENT_VERSION
+      fi
     else
       if [ -n "$HELM_REPOSITORY_URL" ]; then
         # FIX: Use standard search and filter strictly with yq for exact name match
