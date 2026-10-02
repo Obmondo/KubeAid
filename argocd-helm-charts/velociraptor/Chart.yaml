@@ -1,0 +1,10 @@
+apiVersion: v2
+name: velociraptor
+version: 1.0.0
+# Upstream: https://github.com/MaximeWewer/velociraptor-helm (Apache-2.0).
+# OCI charts cannot be searched by manage-helm-chart.sh; bump the version by hand
+# from https://github.com/MaximeWewer/velociraptor-helm/pkgs/container/charts%2Fvelociraptor
+dependencies:
+  - name: velociraptor
+    version: 0.77.1-24-06-2026
+    repository: oci://ghcr.io/maximewewer/charts

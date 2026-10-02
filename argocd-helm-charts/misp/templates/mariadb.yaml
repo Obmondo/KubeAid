@@ -1,0 +1,34 @@
+{{- if .Values.externalMariadb.enabled }}
+# MariaDB for MISP through mariadb-operator (k8s.mariadb.com). The operator creates
+# a Service named after this resource, which misp.env.mysqlHost points at.
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: MariaDB
+metadata:
+  name: {{ .Values.externalMariadb.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  rootPasswordSecretKeyRef:
+    name: {{ .Values.externalMariadb.name }}-root
+    key: password
+    generate: true
+  database: {{ .Values.externalMariadb.database }}
+  username: {{ .Values.externalMariadb.username }}
+  passwordSecretKeyRef:
+    name: {{ .Values.externalMariadb.credentialsSecret }}
+    key: password
+  storage:
+    size: {{ .Values.externalMariadb.storage }}
+    {{- with .Values.externalMariadb.storageClass }}
+    storageClassName: {{ . }}
+    {{- end }}
+  # MISP requires utf8mb4 and a large packet size for attachments.
+  myCnf: |
+    [mariadb]
+    character_set_server = utf8mb4
+    collation_server = utf8mb4_unicode_ci
+    max_allowed_packet = 256M
+    innodb_buffer_pool_size = 512M
+  resources:
+    {{- toYaml .Values.externalMariadb.resources | nindent 4 }}
+{{- end }}

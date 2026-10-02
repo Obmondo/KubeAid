@@ -1,0 +1,8 @@
+apiVersion: v2
+name: ollama
+version: 1.1.0
+# see latest chart here: https://artifacthub.io/packages/helm/ollama-helm/ollama
+dependencies:
+  - name: ollama
+    version: 1.83.0
+    repository: https://helm.otwld.com

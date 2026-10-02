@@ -1,0 +1,43 @@
+Velociraptor deployed: {{ include "velociraptor.fullname" . }}
+
+{{- if and (not .Values.config.existingSecret) (not .Values.config.inline) }}
+
+WARNING: NO CONFIG PROVIDED.
+    The pod will not start without a server config.
+    Generate it (see https://github.com/MaximeWewer/velociraptor-docker) then:
+      kubectl create secret generic <name> --from-file=server.config.yaml=./server.config.yaml -n {{ .Release.Namespace }}
+    and set config.existingSecret=<name>.
+{{- end }}
+
+Frontend (endpoint clients, gRPC/mTLS):
+  Service {{ include "velociraptor.fullname" . }}-frontend ({{ .Values.frontend.service.type }}), port {{ .Values.frontend.service.port }}
+{{- if eq .Values.frontend.service.type "LoadBalancer" }}
+  External IP:
+    kubectl get svc {{ include "velociraptor.fullname" . }}-frontend -n {{ .Release.Namespace }} -w
+  => must match Client.server_urls in the config.
+{{- end }}
+
+Admin GUI (internal):
+{{- if .Values.gui.ingress.enabled }}
+  Ingress:
+  {{- range .Values.gui.ingress.hosts }}
+    https://{{ .host }}
+  {{- end }}
+{{- else }}
+  Port-forward (no Ingress):
+    kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "velociraptor.fullname" . }}-gui {{ .Values.gui.service.port }}:{{ .Values.gui.service.port }}
+    then https://localhost:{{ .Values.gui.service.port }}
+{{- end }}
+
+{{- if .Values.frontend.minions.enabled }}
+
+Multi-frontend: {{ .Values.frontend.minions.replicas }} minion(s) ({{ include "velociraptor.fullname" . }}-minion-0..{{ sub .Values.frontend.minions.replicas 1 }}).
+  Master API (gRPC): svc/{{ include "velociraptor.fullname" . }}-api:{{ .Values.frontend.apiPort }}
+  The config must declare master/minion_implementation, API.pinned_gw_name and ExtraFrontends (see values.yaml).
+{{- end }}
+
+Reminders:
+  - replicaCount=1: the master owns the metadata datastore (single-writer).
+    To scale the number of clients: frontend.minions (master/minion + shared RWX store),
+    not by raising replicaCount.
+  - Keep the GUI internal/VPN. Frontend = the only external surface.

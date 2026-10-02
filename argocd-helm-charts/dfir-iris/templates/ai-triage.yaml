@@ -1,0 +1,86 @@
+{{- if .Values.aiTriage.enabled }}
+{{- $t := .Values.aiTriage }}
+{{- $fullname := include "dfir-iris.fullname" . }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fullname }}-ai-triage
+  labels:
+    {{- include "dfir-iris.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ai-triage
+data:
+  ai-triage.py: |
+{{ .Files.Get "files/ai-triage.py" | indent 4 }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ $fullname }}-ai-triage
+  labels:
+    {{- include "dfir-iris.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ai-triage
+spec:
+  schedule: {{ $t.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: {{ $t.activeDeadlineSeconds }}
+      template:
+        metadata:
+          labels:
+            {{- include "dfir-iris.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: ai-triage
+          annotations:
+            checksum/ai-triage: {{ printf "%s%s" (.Files.Get "files/ai-triage.py") (toJson $t) | sha256sum }}
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+          containers:
+            - name: triage
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command: ["python3", "/triage/ai-triage.py"]
+              env:
+                - name: IRIS_URL
+                  value: {{ $t.irisUrl | default (printf "http://%s-app:%v" $fullname .Values.service.port) | quote }}
+                - name: IRIS_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ required "aiTriage.existingSecret is required" $t.existingSecret }}
+                      key: {{ $t.irisApiKeySecretKey }}
+                - name: OLLAMA_URL
+                  value: {{ required "aiTriage.ollamaUrl is required" $t.ollamaUrl | quote }}
+                - name: MODEL
+                  value: {{ $t.model | quote }}
+                - name: MAX_PER_RUN
+                  value: {{ $t.maxPerRun | quote }}
+                - name: TIMEOUT_SECONDS
+                  value: {{ $t.timeoutSeconds | quote }}
+                - name: MIN_LEVEL
+                  value: {{ $t.minLevel | quote }}
+                - name: DRY_RUN
+                  value: {{ $t.dryRun | quote }}
+                - name: PYTHONDONTWRITEBYTECODE
+                  value: "1"
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              resources:
+                {{- toYaml $t.resources | nindent 16 }}
+              volumeMounts:
+                - name: triage
+                  mountPath: /triage
+                  readOnly: true
+          volumes:
+            - name: triage
+              configMap:
+                name: {{ $fullname }}-ai-triage
+{{- end }}

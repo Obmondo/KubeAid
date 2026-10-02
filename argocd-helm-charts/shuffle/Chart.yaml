@@ -1,0 +1,10 @@
+apiVersion: v2
+name: shuffle
+version: 1.0.0
+# Upstream: https://github.com/Shuffle/Shuffle/tree/main/functions/kubernetes/charts/shuffle
+# OCI charts cannot be searched by manage-helm-chart.sh; bump the version by hand from
+# https://github.com/Shuffle/Shuffle/pkgs/container/charts%2Fshuffle (skip -rc and -nightly tags)
+dependencies:
+  - name: shuffle
+    version: 2.2.1
+    repository: oci://ghcr.io/shuffle/charts

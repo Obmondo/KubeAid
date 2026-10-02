@@ -1,0 +1,21 @@
+{{- if .Values.frontend.minions.enabled }}
+# Master API (gRPC) Service — minions reach the master's RemoteFileDataStore here.
+# Set API.hostname in the server config to: {{ include "velociraptor.fullname" . }}-api.{{ .Release.Namespace }}.svc
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "velociraptor.fullname" . }}-api
+  labels:
+    {{- include "velociraptor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  type: ClusterIP
+  ports:
+    - name: api
+      port: {{ .Values.frontend.apiPort }}
+      targetPort: api
+      protocol: TCP
+  selector:
+    {{- include "velociraptor.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: master
+{{- end }}

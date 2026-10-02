@@ -1,0 +1,15 @@
+apiVersion: v2
+name: dfir-iris
+description: DFIR-IRIS collaborative incident response platform. App and worker from the official images, PostgreSQL from CNPG and RabbitMQ from the cluster operator, both through kubeaid-addons.
+type: application
+version: 0.4.0
+appVersion: "v2.4.20"
+icon: https://raw.githubusercontent.com/dfir-iris/iris-web/master/source/app/static/assets/img/logo.svg
+keywords:
+  - dfir
+  - incident-response
+  - case-management
+dependencies:
+  - name: kubeaid-addons
+    version: 1.1.0
+    repository: file://../kubeaid-addons

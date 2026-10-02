@@ -1,0 +1,9 @@
+dependencies:
+- name: common
+  repository: oci://registry-1.docker.io/bitnamicharts
+  version: 2.39.0
+- name: opensearch
+  repository: https://charts.bitnami.com/bitnami
+  version: 2.0.10
+digest: sha256:a4138d78c09b3c9d7f6c88f1b6646298be9447fb35e6e3e69ee6ba0b80efad6e
+generated: "2026-05-12T11:23:06.202606506Z"

@@ -1,0 +1,67 @@
+annotations:
+  artifacthub.io/category: security
+  artifacthub.io/changes: |
+    - kind: changed
+      description: "Update all components to Wazuh 4.14.3"
+    - kind: changed
+      description: "Update agent image to 4.14.3"
+    - kind: added
+      description: "Add ARM architecture support via nodeSelector"
+    - kind: added
+      description: "Add support for cert-manager"
+    - kind: changed
+      description: "Refactor whole chart"
+  artifacthub.io/links: |
+    - name: application source
+      url: https://github.com/wazuh/wazuh
+    - name: kustomize source
+      url: https://github.com/wazuh/wazuh-kubernetes
+  artifacthub.io/prerelease: "false"
+  artifacthub.io/screenshots: |
+    - title: Home Page
+      url: https://morgoved.github.io/wazuh-helm/images/dashboard.png
+    - title: Agent Deployment
+      url: https://morgoved.github.io/wazuh-helm/images/agent-deploy.png
+    - title: Threat Hunting
+      url: https://morgoved.github.io/wazuh-helm/images/threat-hunting.png
+apiVersion: v2
+appVersion: 4.14.3
+dependencies:
+- condition: cert-manager.enabled
+  name: cert-manager
+  repository: https://charts.jetstack.io
+  version: 1.19.3
+description: Wazuh is a free and open source security platform that unifies XDR and
+  SIEM protection for endpoints and cloud workloads.
+home: https://wazuh.com/
+icon: https://morgoved.github.io/wazuh-helm/images/icon.png
+keywords:
+- security
+- information
+- threat
+- management
+- kubernetes
+- wazuh
+- opendistro
+- elasticsearch
+maintainers:
+- email: morgyes@gmail.com
+  name: Morgoved
+  url: https://github.com/morgoved
+- email: jinyi_lie@yahoo.com
+  name: Kaslie
+  url: https://github.com/Kaslie
+- email: andre.gomes@promptlyhealth.com
+  name: Dani
+  url: https://github.com/Ca-moes
+- name: TrueDru
+  url: https://github.com/TrueDru
+- name: 71g3pf4c3
+  url: https://github.com/71g3pf4c3
+- name: ShorMario
+  url: https://github.com/ShorMario
+name: wazuh
+sources:
+- https://github.com/morgoved/wazuh-helm
+type: application
+version: 2.0.7

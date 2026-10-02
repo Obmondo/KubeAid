@@ -1,0 +1,31 @@
+{{- if .Values.wazuh.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "wazuh.fullname" . }}-manager-cluster
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ include "wazuh.fullname" . }}-manager
+  annotations:
+    {{- toYaml .Values.wazuh.service.annotations | nindent 4 }}
+spec:
+  clusterIP: None
+  {{- if .Values.global.dualStack.enabled }}
+  {{- if .Values.global.dualStack.ipFamilyPolicy }}
+  ipFamilyPolicy: {{ .Values.global.dualStack.ipFamilyPolicy }}
+  {{- end }}
+  {{- if .Values.global.dualStack.ipFamilies }}
+  ipFamilies:
+    {{- toYaml .Values.global.dualStack.ipFamilies | nindent 4 }}
+  {{- end }}
+  {{- end }}
+  ports:
+    - name: cluster
+      port: {{ .Values.wazuh.service.port }}
+      targetPort: {{ .Values.wazuh.service.port }}
+      {{- if and (eq (.Values.wazuh.service.type | default "ClusterIP") "NodePort") .Values.wazuh.service.nodePort }}
+      nodePort: {{ .Values.wazuh.service.nodePort }}
+      {{- end }}
+  selector:
+    app: {{ include "wazuh.fullname" . }}-manager
+{{- end }}

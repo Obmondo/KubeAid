@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "velociraptor.fullname" . }}-gui
+  labels:
+    {{- include "velociraptor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gui
+  {{- with .Values.gui.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.gui.service.type }}
+  ports:
+    - name: gui
+      port: {{ .Values.gui.service.port }}
+      targetPort: gui
+      protocol: TCP
+    {{- if .Values.serviceMonitor.enabled }}
+    - name: metrics
+      port: {{ .Values.monitoring.containerPort }}
+      targetPort: metrics
+      protocol: TCP
+    {{- end }}
+  selector:
+    {{- include "velociraptor.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: master

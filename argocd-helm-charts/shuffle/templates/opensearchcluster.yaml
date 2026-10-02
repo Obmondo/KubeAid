@@ -1,0 +1,91 @@
+{{- if .Values.externalOpensearch.enabled }}
+# OpenSearch for Shuffle through the opensearch-operator chart, instead of the
+# Bitnami subchart pruned from the vendored chart. The operator exposes it as a
+# Service named after .general.serviceName on port 9200 with the demo security
+# configuration (admin user) unless security.config is set.
+apiVersion: opensearch.org/v1
+kind: OpenSearchCluster
+metadata:
+  name: {{ .Values.externalOpensearch.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  general:
+    serviceName: {{ .Values.externalOpensearch.name }}
+    version: {{ .Values.externalOpensearch.version | quote }}
+    httpPort: 9200
+    setVMMaxMapCount: true
+    {{- if or .Values.externalOpensearch.securityDisabled .Values.externalOpensearch.additionalConfig }}
+    additionalConfig:
+      {{- if .Values.externalOpensearch.securityDisabled }}
+      plugins.security.disabled: "true"
+      {{- end }}
+      {{- range $k, $v := .Values.externalOpensearch.additionalConfig }}
+      {{ $k }}: {{ $v | quote }}
+      {{- end }}
+    {{- end }}
+  dashboards:
+    enable: false
+  {{- if .Values.externalOpensearch.securityDisabled }}
+  # PoC mode: no security plugin, plain HTTP on 9200, no admin password. The
+  # operator's probes already assume HTTP when no TLS is configured, and the
+  # OpenSearch image's demo-security installer (which insists on a
+  # policy-compliant OPENSEARCH_INITIAL_ADMIN_PASSWORD) is skipped. Only use
+  # with a ClusterIP Service inside a trusted namespace.
+  bootstrap:
+    env:
+      - name: DISABLE_SECURITY_PLUGIN
+        value: "true"
+      - name: DISABLE_INSTALL_DEMO_CONFIG
+        value: "true"
+  {{- else if .Values.externalOpensearch.adminCredentialsSecret }}
+  security:
+    config:
+      adminCredentialsSecret:
+        name: {{ .Values.externalOpensearch.adminCredentialsSecret }}
+  bootstrap:
+    env:
+      - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: {{ .Values.externalOpensearch.adminCredentialsSecret }}
+            key: password
+  {{- end }}
+  nodePools:
+    - component: nodes
+      replicas: {{ .Values.externalOpensearch.replicas }}
+      diskSize: {{ .Values.externalOpensearch.diskSize | quote }}
+      {{- if .Values.externalOpensearch.securityDisabled }}
+      env:
+        - name: DISABLE_SECURITY_PLUGIN
+          value: "true"
+        - name: DISABLE_INSTALL_DEMO_CONFIG
+          value: "true"
+        {{- if .Values.externalOpensearch.selfBootstrap }}
+        # The operator points the node at its bootstrap pod for the initial
+        # election and removes that pod as soon as the node looks ready, which
+        # with the security plugin off is before the node has joined. A later
+        # env entry with the same name wins, so let the single node elect itself.
+        - name: cluster.initial_master_nodes
+          value: {{ printf "%s-nodes-0" .Values.externalOpensearch.name | quote }}
+        {{- end }}
+      {{- else if .Values.externalOpensearch.adminCredentialsSecret }}
+      env:
+        - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.externalOpensearch.adminCredentialsSecret }}
+              key: password
+      {{- end }}
+      roles:
+        - cluster_manager
+        - data
+      {{- with .Values.externalOpensearch.storageClass }}
+      persistence:
+        pvc:
+          storageClass: {{ . }}
+          accessModes:
+            - ReadWriteOnce
+      {{- end }}
+      resources:
+        {{- toYaml .Values.externalOpensearch.resources | nindent 8 }}
+{{- end }}

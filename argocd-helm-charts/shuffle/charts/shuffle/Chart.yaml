@@ -1,0 +1,14 @@
+apiVersion: v2
+appVersion: 2.2.1
+dependencies:
+- name: common
+  repository: oci://registry-1.docker.io/bitnamicharts
+  version: ^2.23.0
+- condition: opensearch.enabled
+  name: opensearch
+  repository: https://charts.bitnami.com/bitnami
+  version: 2.0.10
+description: A Helm chart for deploying Shuffle on Kubernetes
+name: shuffle
+type: application
+version: 2.2.1

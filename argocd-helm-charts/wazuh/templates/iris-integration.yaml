@@ -1,0 +1,43 @@
+{{/*
+  Wazuh -> DFIR-IRIS integration.
+
+  wazuh-integratord runs /var/ossec/integrations/custom-iris for every alert at
+  or above the <level> in the <integration> block, and the script turns it into
+  an IRIS alert carrying the whole original alert. That is the SIEM-context-to-
+  case hop; nothing else in the stack does it.
+
+  The two files are mounted from this ConfigMap with subPath, one file each, so
+  they land next to the integrations the image already ships instead of
+  shadowing the directory. Mounting the directory itself would hide slack,
+  virustotal and the rest.
+
+  Modes: the volume is 0755 rather than 0750 because a ConfigMap volume is owned
+  by root and the manager runs as wazuh, which would otherwise be unable to
+  execute it. The API key is NOT here - it comes from a Secret through
+  irisIntegration.apiKeySecret, mounted 0640 and readable through the pod's
+  fsGroup, so it never passes through values or git.
+
+  Deliberately not the bundled "shuffle" integration: that one filters a
+  hardcoded SKIP_RULE_IDS list to work around Shuffle starting containers, and
+  silently drops rule 80710 (auditd promiscuous mode, level 10) along with the
+  docker noise it is aimed at.
+
+  Enabling this only places the files. The <integration> block itself goes in
+  wazuh.master.extraConf / wazuh.worker.extraConf - see the chart README.
+
+  The managers' checksum/config annotation cannot cover this ConfigMap (a
+  subchart cannot hash a parent template), and subPath mounts never update, so
+  after a change to files/custom-iris* restart both managers once by hand.
+*/}}
+{{- if .Values.irisIntegration.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-iris-integration
+  namespace: {{ .Release.Namespace }}
+data:
+  custom-iris: |
+{{ .Files.Get "files/custom-iris" | indent 4 }}
+  custom-iris.py: |
+{{ .Files.Get "files/custom-iris.py" | indent 4 }}
+{{- end }}

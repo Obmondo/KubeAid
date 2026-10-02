@@ -1,0 +1,86 @@
+# Copyright 2025 Carnegie Mellon University.
+# NO WARRANTY. THIS CARNEGIE MELLON UNIVERSITY AND SOFTWARE ENGINEERING INSTITUTE MATERIAL IS FURNISHED ON AN "AS-IS" BASIS. 
+# CARNEGIE MELLON UNIVERSITY MAKES NO WARRANTIES OF ANY KIND, EITHER EXPRESSED OR IMPLIED, AS TO ANY MATTER INCLUDING, 
+# BUT NOT LIMITED TO, WARRANTY OF FITNESS FOR PURPOSE OR MERCHANTABILITY, EXCLUSIVITY, OR RESULTS OBTAINED FROM USE OF THE 
+# MATERIAL. CARNEGIE MELLON #UNIVERSITY DOES NOT MAKE ANY WARRANTY OF ANY KIND WITH RESPECT TO FREEDOM FROM PATENT, TRADEMARK, OR 
+# COPYRIGHT INFRINGEMENT.
+# Licensed under an Apache License v2.0-style license, please see license.txt or contact permission@sei.cmu.edu for full terms.
+# [DISTRIBUTION STATEMENT A] This material has been approved for public release and unlimited distribution.  
+# Please see Copyright #notice for non-US Government use and distribution.
+# This Software includes and/or makes use of Third-Party Software each subject to its own license.
+# DM25-1432
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: misp-modules
+  labels:
+    app: misp-modules
+  {{- include "misp-charts.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.modules.replicas }}
+  selector:
+    matchLabels:
+      app: misp-modules
+    {{- include "misp-charts.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: misp-modules
+      {{- include "misp-charts.selectorLabels" . | nindent 8 }}
+      {{- with .Values.commonLabels }}
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+      annotations:
+        {{- with .Values.commonAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- (include "misp-charts.modules.mispModules.image.imagePullSecrets" .) | indent 6 }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automount }}
+      serviceAccountName: {{ include "misp-charts.serviceAccountName" . }}
+      containers:
+      - env:
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.clusterDomain }}
+        envFrom:
+        - configMapRef:
+            name: {{ include "misp-charts.fullname" . }}-modules-env
+        image: {{ include "misp-charts.modules.mispModules.image" . }}
+        name: misp-modules
+        resources: {{- toYaml .Values.modules.mispModules.resources | nindent 10 }}
+        imagePullPolicy: {{ .Values.modules.mispModules.image.pullPolicy }}
+        securityContext: {{- toYaml .Values.modules.mispModules.containerSecurityContext
+          | nindent 10 }}
+        livenessProbe: {{- toYaml .Values.modules.mispModules.containerLivenessProbe | nindent 10 }}
+        readinessProbe: {{- toYaml .Values.modules.mispModules.containerReadinessProbe | nindent 10 }}
+        {{- if .Values.extraVolumeMounts}}
+        volumeMounts:
+          {{- with .Values.extraVolumeMounts }}
+          {{- toYaml . | nindent 8 }}
+          {{- end }}
+        {{- end }}
+      {{- if .Values.extraVolumes }}
+      volumes:
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 6 }}
+        {{- end }}
+      {{- end }}
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: misp-modules
+  labels:
+  {{- include "misp-charts.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.modules.type }}
+  selector:
+    app: misp-modules
+  {{- include "misp-charts.selectorLabels" . | nindent 4 }}
+  ports:
+	{{- .Values.modules.ports | toYaml | nindent 2 }}

@@ -1,0 +1,160 @@
+{{- if .Values.dashboard.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "wazuh.fullname" . }}-dashboard
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ include "wazuh.fullname" . }}-dashboard
+  annotations:
+    {{- toYaml .Values.dashboard.annotations | nindent 4 }}
+spec:
+  {{- with .Values.dashboard.extraSpec.deployment }}
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
+  replicas: {{ .Values.dashboard.replicas }}
+  selector:
+    matchLabels:
+      app: {{ include "wazuh.fullname" . }}-dashboard
+  template:
+    metadata:
+      labels:
+        app: {{ include "wazuh.fullname" . }}-dashboard
+        {{- with .Values.dashboard.extraPodLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- if .Values.autoreload.enabled }}
+        checksum/configmap: {{ include (print $.Template.BasePath "/dashboard/configmap.yaml") . | sha256sum }}
+        checksum/dashboard-certificate: {{ include (print $.Template.BasePath "/certs/dashboard/certificate.yaml") . | sha256sum }}
+        checksum/admin-certificate: {{ include (print $.Template.BasePath "/certs/admin/certificate.yaml") . | sha256sum }}
+        checksum/dashboard-secret: {{ include (print $.Template.BasePath "/dashboard/secret.yaml") . | sha256sum }}
+        checksum/indexer-secret: {{ include (print $.Template.BasePath "/indexer/secret.yaml") . | sha256sum }}
+        checksum/api-secret: {{ include (print $.Template.BasePath "/manager/secret-api-cred.yaml") . | sha256sum }}
+        {{- end }}
+        {{- with .Values.dashboard.annotations }}
+            {{- toYaml . | nindent 8 }}
+        {{- end }}
+      name: {{ include "wazuh.fullname" . }}-dashboard
+    spec:
+      serviceAccountName: {{ include "wazuh.dashboard.serviceAccountName" . }}
+      {{- with .Values.dashboard.extraSpec.pod }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+      {{- with .Values.dashboard.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.dashboard.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.dashboard.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.dashboard.dnsPolicy }}
+      dnsPolicy: {{ .Values.dashboard.dnsPolicy }}
+      {{- end }}
+      {{- if .Values.dashboard.dnsConfig }}
+      dnsConfig:
+        {{- toYaml .Values.dashboard.dnsConfig | nindent 8 }}
+      {{- end }}
+      volumes:
+        - configMap:
+            name: {{ include "wazuh.fullname" . }}-dashboard-config
+          name: config
+        - name: dashboard-certs
+          secret:
+            secretName: dashboard-tls
+      {{- if .Values.wazuh.images.imagePullSecrets.enabled }}
+      imagePullSecrets:
+      {{- range .Values.wazuh.images.imagePullSecrets.secret }}
+        - name: {{ . }}
+      {{- end }}
+      {{- end }}
+      containers:
+        - name: wazuh-dashboard
+          imagePullPolicy: {{ .Values.dashboard.images.pullPolicy }}
+          image: "{{ .Values.dashboard.images.repository }}:{{ .Values.dashboard.images.tag }}"
+          {{- with .Values.dashboard.extraSpec.container }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+          {{- with .Values.dashboard.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.dashboard.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.dashboard.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.dashboard.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            # Config
+            - mountPath: /usr/share/wazuh-dashboard/config/opensearch_dashboards.yml
+              name: config
+              readOnly: false
+              subPath: opensearch_dashboards.yml
+            # Certs
+            - mountPath: /usr/share/wazuh-dashboard/certs/cert.pem
+              name: dashboard-certs
+              readOnly: true
+              subPath: tls.crt
+            - mountPath: /usr/share/wazuh-dashboard/certs/key.pem
+              name: dashboard-certs
+              readOnly: true
+              subPath: tls.key
+            - mountPath: /usr/share/wazuh-dashboard/certs/root-ca.pem
+              name: dashboard-certs
+              readOnly: true
+              subPath: ca.crt
+          ports:
+            - containerPort: {{ .Values.dashboard.service.httpPort }}
+              name: dashboard
+          envFrom:
+            - secretRef:
+                name: {{ .Values.indexer.cred.existingSecret | default "indexer-cred" }}
+            - secretRef:
+                name: {{ .Values.wazuh.apiCred.existingSecret | default "wazuh-api-cred" }}
+            - secretRef:
+                name: {{ .Values.dashboard.cred.existingSecret | default "dashboard-cred" }}
+          env:
+            - name: INDEXER_URL
+              value: {{- if .Values.indexer.enabled }}
+                       "https://{{ include "wazuh.indexer.fullname" . }}-indexer:{{ .Values.indexer.service.httpPort }}"
+                     {{- else }}
+                       "{{ .Values.externalIndexer.host }}:{{ .Values.externalIndexer.port }}"
+                     {{- end }}
+            - name: SERVER_SSL_ENABLED
+              value: {{ .Values.dashboard.enable_ssl | quote }}
+            - name: SERVER_SSL_CERTIFICATE
+              value: /usr/share/wazuh-dashboard/certs/cert.pem
+            - name: SERVER_SSL_KEY
+              value: /usr/share/wazuh-dashboard/certs/key.pem
+            - name: WAZUH_API_URL
+              value: "https://{{ include "wazuh.fullname" . }}"
+            - name: WAZUH_API_PORT
+              value: "55000"
+            {{- if .Values.dashboard.sso.oidc.enabled }}
+            - name: OPENSEARCH_OIDC_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "dashboard.sso.oidc.existingSecret is required" .Values.dashboard.sso.oidc.existingSecret }}
+                  key: {{ .Values.dashboard.sso.oidc.clientIdKey }}
+            - name: OPENSEARCH_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "dashboard.sso.oidc.existingSecret is required" .Values.dashboard.sso.oidc.existingSecret }}
+                  key: {{ .Values.dashboard.sso.oidc.clientSecretKey }}
+            {{- end }}
+          {{- with .Values.dashboard.additionalEnv }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

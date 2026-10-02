@@ -1,0 +1,41 @@
+{{- if and .Values.certificates.enabled  .Values.wazuh.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "wazuh.fullname" . }}-filebeat
+  namespace: {{ .Release.Namespace }}
+spec:
+  # Secret names are always required.
+  secretName: filebeat-tls
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS8
+    size: 2048
+  duration: {{ .Values.certificates.duration }}
+  renewBefore: {{ .Values.certificates.renewBefore }}
+  isCA: false
+  commonName: {{ include "wazuh.fullname" . }}-manager
+  subject:
+    organizations:
+      - {{ .Values.certificates.subject.organization }}
+    countries:
+      - {{ .Values.certificates.subject.country }}
+    localities:
+      - {{ .Values.certificates.subject.locality }}
+  dnsNames:
+    - {{ include "wazuh.fullname" . }}-manager-master
+    - {{ include "wazuh.fullname" . }}-manager-master.{{ .Release.Namespace }}
+    - {{ include "wazuh.fullname" . }}-manager-master.{{ .Release.Namespace }}.svc
+    - {{ include "wazuh.fullname" . }}-manager-master.{{ .Release.Namespace }}.svc.cluster.local
+    - {{ include "wazuh.fullname" . }}-manager-worker
+    - {{ include "wazuh.fullname" . }}-manager-worker.{{ .Release.Namespace }}
+    - {{ include "wazuh.fullname" . }}-manager-worker.{{ .Release.Namespace }}.svc
+    - {{ include "wazuh.fullname" . }}-manager-worker.{{ .Release.Namespace }}.svc.cluster.local
+    - "*.{{ include "wazuh.fullname" . }}-manager-cluster.{{ .Release.Namespace }}.svc.cluster.local"
+  # Issuer references are always required.
+  issuerRef:
+    name: {{ .Values.certificates.issuer.name | default (printf "%s-ca-issuer" (include "wazuh.fullname" .)) }}
+    {{- if eq .Values.certificates.issuer.type "ClusterIssuer" }}
+    kind: ClusterIssuer
+    {{- end }}
+{{- end }}

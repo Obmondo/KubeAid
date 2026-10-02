@@ -1,0 +1,80 @@
+# Copyright 2025 Carnegie Mellon University.
+# NO WARRANTY. THIS CARNEGIE MELLON UNIVERSITY AND SOFTWARE ENGINEERING INSTITUTE MATERIAL IS FURNISHED ON AN "AS-IS" BASIS. 
+# CARNEGIE MELLON UNIVERSITY MAKES NO WARRANTIES OF ANY KIND, EITHER EXPRESSED OR IMPLIED, AS TO ANY MATTER INCLUDING, 
+# BUT NOT LIMITED TO, WARRANTY OF FITNESS FOR PURPOSE OR MERCHANTABILITY, EXCLUSIVITY, OR RESULTS OBTAINED FROM USE OF THE 
+# MATERIAL. CARNEGIE MELLON #UNIVERSITY DOES NOT MAKE ANY WARRANTY OF ANY KIND WITH RESPECT TO FREEDOM FROM PATENT, TRADEMARK, OR 
+# COPYRIGHT INFRINGEMENT.
+# Licensed under an Apache License v2.0-style license, please see license.txt or contact permission@sei.cmu.edu for full terms.
+# [DISTRIBUTION STATEMENT A] This material has been approved for public release and unlimited distribution.  
+# Please see Copyright #notice for non-US Government use and distribution.
+# This Software includes and/or makes use of Third-Party Software each subject to its own license.
+# DM25-1432
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "misp-charts.fullname" . }}-env
+  labels:
+  {{- include "misp-charts.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  DISABLE_SSL_REDIRECT: {{ .Values.env.disableSSLRedirect | quote }}
+  BASE_URL: {{ .Values.instanceEnv.mispBaseurl | quote }}
+  MISP_EMAIL: {{ .Values.env.mispEmail | quote }}
+  MISP_MODULE_URL: {{ .Values.env.mispModuleUrl | quote }}
+  MISP_UUID: {{ .Values.instanceEnv.mispUuid | quote }}
+  MISP_DEBUG: {{ .Values.env.mispDebug | quote }}
+  MYSQL_DATABASE: {{ .Values.env.mysqlDatabase | quote }}
+  MYSQL_HOST: {{ .Values.env.mysqlHost | quote }}
+  OIDC_AUTHENTICATION_METHOD: {{ .Values.env.oidcAuthenticationMethod | quote }}
+  OIDC_CHECK_USER_VALIDITY: {{ .Values.env.oidcCheckUserValidity | quote }}
+  OIDC_CLIENT_CRYPTO_PASS: {{ .Values.env.oidcClientCryptoPass | quote }}
+  OIDC_CODE_CHALLENGE_METHOD: {{ .Values.env.oidcCodeChallengeMethod | quote }}
+  OIDC_ENABLE: {{ .Values.env.oidcEnable | quote }}
+  OIDC_OFFLINE_ACCESS: {{ .Values.env.oidcOfflineAccess | quote }}
+  OIDC_PASSWORD_RESET: {{ .Values.env.oidcPasswordReset | quote }}
+  OIDC_PROVIDER_URL: {{ .Values.env.oidcProviderUrl | quote }}
+  OIDC_ROLES_PROPERTY: {{ .Values.env.oidcRolesProperty | quote }}
+  OIDC_ROLES_MAPPING: {{ .Values.env.oidcRolesMapping | quote }}
+  OIDC_DEFAULT_ORG: {{ .Values.env.oidcDefaultOrg | quote }}
+  OIDC_LOGOUT_URL: {{ .Values.env.oidcLogoutUrl | quote }}
+  OIDC_SCOPES: {{ .Values.env.oidcScopes | quote }}
+  REDIS_HOST: {{ .Values.env.redisHost | quote }}
+  REDIS_PASSWORD: {{ .Values.env.redisPassword | quote }}
+  REDIS_PORT: {{ .Values.env.redisPort | quote }}
+  SECURITY_SALT: {{ .Values.env.securitySalt | quote }}
+  ZEROMQ_ENABLED: {{ .Values.env.zeromqEnabled | quote }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "misp-charts.fullname" . }}-modules-env
+  labels:
+  {{- include "misp-charts.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  REDIS_BACKEND: {{ .Values.modulesEnv.redisBackend | quote }}
+  REDIS_PORT: {{ .Values.modulesEnv.redisPort | quote }}
+  REDIS_PW: {{ .Values.env.redisPassword | quote }}
+{{- if .Values.setAPIKey }}  
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "misp-charts.fullname" . }}-customize-misp
+  labels:
+  {{- include "misp-charts.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  customize_misp.sh: |
+   #!/bin/bash
+   sudo -u www-data /var/www/MISP/app/Console/cake user change_authkey admin@admin.test "$MISP_API_KEY"
+{{- end }}

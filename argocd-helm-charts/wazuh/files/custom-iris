@@ -1,0 +1,10 @@
+#!/bin/sh
+# Wazuh integration wrapper for DFIR-IRIS. wazuh-integratord executes this file;
+# it runs custom-iris.py with Wazuh's bundled python, exactly as the shipped
+# integrations (slack, shuffle, pagerduty) do.
+WPYTHON_BIN="framework/python/bin/python3"
+SCRIPT_PATH_NAME="$0"
+DIR_NAME="$(cd $(dirname ${SCRIPT_PATH_NAME}); pwd -P)"
+SCRIPT_NAME="$(basename ${SCRIPT_PATH_NAME})"
+WAZUH_PATH="$(cd ${DIR_NAME}/..; pwd)"
+${WAZUH_PATH}/${WPYTHON_BIN} ${DIR_NAME}/${SCRIPT_NAME}.py "$@"

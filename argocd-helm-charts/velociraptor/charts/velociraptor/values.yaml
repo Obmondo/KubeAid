@@ -1,0 +1,380 @@
+# Default values for velociraptor.
+# Quality baseline: MaximeWewer/intelowl-helm. Security baseline: distroless, rootless.
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  registry: "ghcr.io"
+  # Hardened distroless/rootless rebuild — built & published from
+  # https://github.com/MaximeWewer/velociraptor-docker
+  repository: maximewewer/velociraptor
+  tag: "0.77.1-distroless"
+  # Pin by digest in production (overrides tag): sha256:...
+  digest: ""
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+## Server config.
+## The Velociraptor server config embeds the CA, private keys and secrets.
+## Generate it out-of-band (see https://github.com/MaximeWewer/velociraptor-docker).
+##
+## Two supported ways to provide it:
+##   1. existingSecret — point at a Secret you manage (ESO/Vault/SealedSecrets).
+##      Preferred when you have a secret manager.
+##   2. inline — let the chart render it into a Secret. Supported when you have
+##      NO secret manager; keep the secret material OUT of git (see `inline`).
+## existingSecret wins if both are set.
+config:
+  # Name of an existing Secret holding the server config.
+  existingSecret: ""
+  # Key within the Secret that holds the YAML config.
+  secretKey: "server.config.yaml"
+  # Mount path of the config file inside the container.
+  mountPath: "/etc/velociraptor/server.config.yaml"
+  # Inline server config — rendered into a chart-managed Secret. Use this when you
+  # have no external secret manager. The value holds the CA/private keys, so DO NOT
+  # commit it to git: keep it in a separate, gitignored overrides file and pass it at
+  # install time, e.g.
+  #   helm upgrade --install velo ./chart -f secrets.yaml         # secrets.yaml gitignored
+  #   helm upgrade --install velo ./chart --set-file config.inline=server.config.yaml
+  inline: ""
+  # Build downloadable client installers (MSI/DEB/RPM) — the upstream image's
+  # first-boot behaviour. Injects (via the overlay merge)
+  # `Frontend.initial_server_artifacts: [Container.InitializeServer]` so the
+  # server packages clients on startup (visible in the GUI). Needs a writable
+  # datastore (default) + tmpDir.enabled (default). Triggers the overlay merge.
+  initializeServer: false
+  # Config overlay: a yq init container deep-merges a chart-rendered overlay onto
+  # the base config at startup (the base, with CA/keys, stays untouched in its
+  # Secret). Auto-enabled when gui.oidc.enabled. Used to inject OIDC without the
+  # chart owning the whole config. The merged file is written to a writable
+  # emptyDir and read by the main container at config.mountPath.
+  overlay:
+    image:
+      repository: mikefarah/yq
+      tag: "4.44.6"
+      # Pin by digest in production.
+      digest: "sha256:b1d117c609ba990436ad1649299e2f6c378f62cb562caf30b6f2fb6144713422"
+      pullPolicy: IfNotPresent
+
+## replicaCount controls the number of MASTER pods. Keep at 1: the master holds
+## the single-writer metadata datastore. Scale client capacity with frontend.minions
+## (master/minion), NOT by raising this.
+replicaCount: 1
+
+## Frontend = client comms (gRPC/mTLS). Must be reachable by endpoints (often external).
+frontend:
+  containerPort: 8000
+  # Master API (gRPC) port. Minions connect here for RemoteFileDataStore RPCs.
+  apiPort: 8001
+  service:
+    type: LoadBalancer
+    port: 8000
+    annotations: {}
+    loadBalancerIP: ""
+    loadBalancerSourceRanges: []
+    externalTrafficPolicy: Local
+
+  ## SSL-passthrough Ingress for agent comms (alternative to a LoadBalancer Service).
+  ## The frontend speaks mTLS and presents its OWN cert (from the server config), so the
+  ## ingress controller must forward raw TLS (L4) WITHOUT terminating it — agents validate
+  ## the cert against the pinned CA. With service.type ClusterIP, this is how endpoints reach
+  ## the frontend through an nginx ingress instead of an LB.
+  ## PREREQUISITES:
+  ##  - the nginx ingress controller runs with `--enable-ssl-passthrough`.
+  ##  - `host` is DISTINCT from gui.ingress hosts (one host:443 can't be both L4 and L7).
+  ##  - Client.server_urls in the server config points at https://<host>/.
+  ingress:
+    enabled: false
+    className: ""
+    # Agent SNI host — must match Client.server_urls / Frontend.hostname in the config.
+    host: ""
+    path: /
+    # ImplementationSpecific lets nginx route by SNI for passthrough.
+    pathType: ImplementationSpecific
+    annotations:
+      nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    # Usually empty: TLS is terminated by the frontend itself, not the controller.
+    tls: []
+
+  ## Multi-frontend (master/minion) horizontal scaling.
+  ## Docs: https://docs.velociraptor.app/docs/deployment/server/multifrontend/
+  ## PREREQUISITES (all enforced/asserted by the chart or required in your config):
+  ##  - persistence.existingClaim set to a ReadWriteMany volume (NFS/EFS) — master
+  ##    and all minions share one filestore. (chart fails the render otherwise.)
+  ##  - The server config in your Secret MUST contain:
+  ##      Datastore.master_implementation: MemcacheFileDataStore
+  ##      Datastore.minion_implementation:  RemoteFileDataStore
+  ##      API.bind_address: 0.0.0.0
+  ##      API.hostname: <release>-api.<namespace>.svc   (the master API Service)
+  ##      API.pinned_gw_name: GRPC_GW   (minions pin the master gRPC cert by name,
+  ##        not DNS; without it the minion-master TLS handshake fails)
+  ##      ExtraFrontends: one entry per minion, hostname "<release>-minion-0" .. "-N",
+  ##        each with bind_address 0.0.0.0 / bind_port 8000. The chart starts each
+  ##        minion with `--node <hostname>-<bind_port>` (hyphen, e.g. ...-minion-0-8000).
+  ##  - Client.server_urls should point at the frontend Service (LB fronts all frontends).
+  ## NOTE: Velociraptor 0.76.6 has an upstream nil-pointer panic in the minion's
+  ## RemoteFileDataStore (datastore/remote.go ListChildren), tracked around
+  ## Velocidex/velociraptor#4816. The chart topology is correct (minion connects and
+  ## the ReplicationService links to the master), but minion bring-up may crash until
+  ## that upstream fix lands. Single-frontend (master only) is unaffected.
+  minions:
+    enabled: false
+    replicas: 2
+    resources: {}
+    podAnnotations: {}
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+## GUI = admin web UI. Keep internal / behind VPN or authenticated Ingress.
+gui:
+  containerPort: 8889
+  # GUI.public_url — the externally-reachable GUI URL. Velociraptor REQUIRES it to
+  # end with "/app/index.html". REQUIRED for OIDC (OAuth redirects). Match the host
+  # to your Ingress, e.g. https://velociraptor.example.com/app/index.html
+  # The OAuth callback Velociraptor derives (register it in the IdP) is:
+  #   <scheme>://<host>/auth/oidc/<gui.oidc.name>/callback
+  publicUrl: ""
+  ## OIDC authentication (e.g. Keycloak). When enabled, the chart renders an
+  ## overlay (GUI.public_url + GUI.authenticator) and merges it onto the base
+  ## config via the yq init container (see config.overlay).
+  ## Keycloak "Valid redirect URIs" must include (host of publicUrl, not its path):
+  ##   https://<host>/auth/oidc/<name>/callback
+  ## oidc_name must match (case-sensitive) the substring in that redirect URI.
+  ## Authn is delegated to the IdP. Authorization needs a Velociraptor user with
+  ## roles: either map them from a token claim (claims.roles + claims.role_map
+  ## below; the user is created on first login) or add each user by hand:
+  ##   velociraptor --config <cfg> user add <email> --role investigator
+  ## OIDC and Basic cannot run side by side: the "multi" authenticator accepts
+  ## OAuth/OIDC children only, so password logins stop working once this is on.
+  ## NOTE: OIDC discovery is fetched EAGERLY at server start — the IdP must be
+  ## reachable from the pod or the server won't boot. With networkPolicy.enabled,
+  ## add an egress rule to the issuer (443) via networkPolicy.extraEgress.
+  ## Docs: https://docs.velociraptor.app/knowledge_base/tips/setup_keycloak/
+  oidc:
+    enabled: false
+    name: "keycloak"
+    issuer: ""          # e.g. https://keycloak.example.com/realms/dfir
+    clientId: "velociraptor"
+    avatar: ""          # optional icon URL shown on the login button
+    # Client secret source. Prefer existingSecret (ESO/Vault) when available;
+    # otherwise set clientSecret inline (chart-managed Secret) — keep it out of git
+    # in a gitignored overrides file. existingSecret wins if both are set.
+    existingSecret: ""
+    existingSecretKey: "oauth_client_secret"
+    clientSecret: ""
+    # Log claims and token handling at debug level (GUI component). Off in prod.
+    debug: false
+    # GUI session lifetime in minutes; 0 = Velociraptor default (1440).
+    sessionExpiryMin: 0
+    # GUI.authenticator.claims, passed through verbatim. Keys (Velociraptor 0.77):
+    #   username: claim used as the Velociraptor username (default "email";
+    #     setting any value skips the email_verified check).
+    #   roles: claim holding a list of strings (e.g. a Keycloak "groups" mapper).
+    #     Unset = roles are never assigned from the IdP.
+    #   role_map: claim value -> {roles: [...]}. Values with no entry are ignored.
+    #   override_acls: true = IdP roles replace the user's roles on each login
+    #     (lets the IdP revoke access); false = merged, revocation is manual.
+    #   allow_unverified_email: skip the email_verified check.
+    # Roles granted this way apply to EVERY org; per-org access stays manual
+    # (velociraptor user grant --org <org id> ...).
+    # Example:
+    #   claims:
+    #     roles: groups
+    #     role_map:
+    #       dfir-analysts:
+    #         roles: [investigator]
+    claims: {}
+  service:
+    type: ClusterIP
+    port: 8889
+    annotations: {}
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: velociraptor.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+
+## Prometheus metrics endpoint (Velociraptor Monitoring service).
+## NOTE: the server config defaults to `Monitoring.bind_address: 127.0.0.1`,
+## which is NOT reachable from outside the pod. To scrape, the config in your
+## Secret MUST set `Monitoring.bind_address: 0.0.0.0` (and bind_port below).
+monitoring:
+  containerPort: 8003
+
+## Datastore volume.
+## Single-frontend: a chart-managed RWO PVC (volumeClaimTemplate) is enough.
+## External / scalable store: Velociraptor scales storage over a DISTRIBUTED
+## FILESYSTEM (NFS, AWS EFS, GCP Filestore) mounted at Datastore.location — there
+## is no native S3/object server datastore (S3 is only a VQL accessor).
+## To use one, provision a ReadWriteMany PVC out-of-band (NFS/EFS CSI) and set
+## persistence.existingClaim to it. This is also the prerequisite for a
+## multi-frontend (master/minion) deployment.
+## Docs: https://docs.velociraptor.app/docs/deployment/server/multifrontend/
+persistence:
+  enabled: true
+  # Use an existing, externally-provisioned PVC (e.g. NFS/EFS RWX) instead of a
+  # chart-managed volumeClaimTemplate. When set, storageClass/accessModes/size
+  # below are ignored (the bound PV governs them).
+  existingClaim: ""
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 20Gi
+  annotations: {}
+  # Mount point for the datastore + filestore (must match config Datastore paths).
+  mountPath: "/datastore"
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+  automountServiceAccountToken: false
+
+podAnnotations: {}
+podLabels: {}
+
+## Pod-level security context (rootless, fsGroup for the datastore PVC).
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  fsGroupChangePolicy: OnRootMismatch
+  seccompProfile:
+    type: RuntimeDefault
+
+## Container-level security context (hardened).
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  privileged: false
+  capabilities:
+    drop:
+      - ALL
+
+resources:
+  limits:
+    cpu: "2"
+    memory: 2Gi
+  requests:
+    cpu: 250m
+    memory: 512Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+topologySpreadConstraints: []
+
+priorityClassName: ""
+terminationGracePeriodSeconds: 60
+
+# Probes hit the frontend's unauthenticated /healthz over HTTPS (returns 200).
+# A full TLS handshake is completed, so the server does not log
+# "TLS handshake error ... EOF" the way a bare tcpSocket probe does.
+# kubelet does not verify the server certificate for httpGet probes.
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: frontend
+    scheme: HTTPS
+  initialDelaySeconds: 15
+  periodSeconds: 20
+  timeoutSeconds: 5
+  failureThreshold: 6
+readinessProbe:
+  httpGet:
+    path: /healthz
+    port: frontend
+    scheme: HTTPS
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+
+networkPolicy:
+  enabled: true
+  # CIDRs allowed to reach the frontend (endpoint clients). Tighten in production.
+  frontendAllowedCIDRs:
+    - 0.0.0.0/0
+  # Sources allowed to reach the GUI (e.g. the ingress controller namespace).
+  # Each item is a standard NetworkPolicyPeer (namespaceSelector/podSelector/ipBlock).
+  guiAllowedFrom: []
+  # Sources allowed to scrape the metrics port (only applied when serviceMonitor
+  # is enabled). Empty = allow all in-cluster; set to the Prometheus namespace to
+  # tighten. Each item is a standard NetworkPolicyPeer.
+  metricsAllowedFrom: []
+  # Egress to the OIDC IdP, allowed only when gui.oidc.enabled (discovery is
+  # fetched at boot). NetworkPolicy is CIDR-based (no DNS), so list the IdP's
+  # CIDR(s). Default 0.0.0.0/0 = reach any HTTPS endpoint — TIGHTEN in production.
+  oidcEgressCIDRs:
+    - 0.0.0.0/0
+  # Port of the OIDC issuer (HTTPS).
+  oidcEgressPort: 443
+  # An empty list drops the CIDR rule; then reach the IdP through extraEgress
+  # (needed on Cilium when the issuer is served from inside the cluster, where
+  # ipBlock does not match pods).
+  # Extra egress rules appended (DNS is always allowed).
+  extraEgress: []
+
+# Pod /etc/hosts entries (standard PodSpec hostAliases). Useful when the OIDC
+# issuer's public name does not route from inside the cluster, e.g. an IdP that
+# is only published on an internal ingress: point the name at that ingress.
+hostAliases: []
+
+podDisruptionBudget:
+  # Off by default: with replicaCount=1, a PDB would block node drains/upgrades.
+  enabled: false
+  minAvailable: ""
+  maxUnavailable: ""
+
+serviceMonitor:
+  enabled: false
+  namespace: ""
+  interval: 30s
+  scrapeTimeout: 10s
+  labels: {}
+  # Scrapes the monitoring port (8003). Requires Monitoring.bind_address: 0.0.0.0
+  # in the server config (see monitoring: above).
+  port: metrics
+  path: /metrics
+  scheme: http
+
+# Custom VQL artifact definitions, mounted read-only and loaded by the server.
+# When enabled, the chart injects `defaults.artifact_definitions_directories`
+# into the config (via the overlay merge) so Velociraptor reads `path`.
+# The image ships an empty /custom_artifacts as the default mountpoint.
+customArtifacts:
+  enabled: false
+  path: /custom_artifacts
+  # Use an existing ConfigMap (keys = *.yaml artifact files). Takes precedence
+  # over `files`.
+  existingConfigMap: ""
+  # Inline artifacts: map of filename -> YAML content (chart-managed ConfigMap).
+  files: {}
+  #   My.Custom.Artifact.yaml: |
+  #     name: My.Custom.Artifact
+  #     type: CLIENT
+  #     sources:
+  #       - query: SELECT * FROM info()
+
+# Writable scratch space (root fs is read-only).
+tmpDir:
+  enabled: true
+  sizeLimit: 1Gi
+
+extraEnv: []
+extraVolumes: []
+extraVolumeMounts: []
+extraArgs: []

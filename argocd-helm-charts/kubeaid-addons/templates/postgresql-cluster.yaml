@@ -12,6 +12,12 @@ metadata:
 
 spec:
   instances: {{ $postgresql.instances }}
+  {{- if $postgresql.enableSuperuserAccess }}
+  # Exposes the postgres superuser in <instanceName>-pgsql-superuser, for apps
+  # that must create databases or extensions themselves (DFIR-IRIS creates
+  # iris_tasks on first start).
+  enableSuperuserAccess: true
+  {{- end }}
 
   affinity:
     podAntiAffinityType: {{ $postgresql.podAntiAffinityType }}

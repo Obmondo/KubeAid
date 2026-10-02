@@ -1,0 +1,360 @@
+{{- if .Values.wazuh.worker.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "wazuh.fullname" . }}-manager-worker
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ include "wazuh.fullname" . }}-manager
+    node-type: worker
+  annotations:
+    {{- toYaml .Values.wazuh.worker.annotations | nindent 4 }}
+spec:
+  {{- with .Values.wazuh.worker.extraSpec.statefulSet }}
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
+  replicas: {{ .Values.wazuh.worker.replicas }}
+  selector:
+    matchLabels:
+      app: {{ include "wazuh.fullname" . }}-manager
+      node-type: worker
+  serviceName: {{ include "wazuh.fullname" . }}-manager-cluster
+  podManagementPolicy: Parallel
+  template:
+    metadata:
+      labels:
+        app: {{ include "wazuh.fullname" . }}-manager
+        node-type: worker
+        {{- with .Values.wazuh.worker.extraPodLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      name: wazuh-manager-worker
+      annotations:
+        {{- /* KubeAid: roll the manager whenever the rendered ConfigMap changes. ossec.conf,
+             local_rules.xml, local_decoder.xml and the agent group confs are copied out of
+             it into /var/ossec/etc only at container start, so a synced change would
+             otherwise stay inactive until someone restarts the pod. Unlike the upstream
+             autoreload block below this hashes nothing random: the Secrets it also hashes
+             carry randAlphaNum defaults and would roll the pod on every render. */}}
+        checksum/config: {{ include (print $.Template.BasePath "/manager/configmap.yaml") . | sha256sum }}
+        {{- if .Values.autoreload.enabled }}
+        checksum/configmap: {{ include (print $.Template.BasePath "/manager/configmap.yaml") . | sha256sum }}
+        checksum/filebeat-certificate: {{ include (print $.Template.BasePath "/certs/filebeat/certificate.yaml") . | sha256sum }}
+        checksum/indexer-secret: {{ include (print $.Template.BasePath "/indexer/secret.yaml") . | sha256sum }}
+        {{- end }}
+        {{- with .Values.wazuh.worker.annotations }}
+            {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "wazuh.manager.serviceAccountName" . }}
+      {{- with .Values.wazuh.worker.extraSpec.pod }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+      {{- with .Values.wazuh.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.wazuh.worker.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if or .Values.wazuh.worker.podAntiAffinity .Values.wazuh.worker.affinity }}
+      affinity:
+      {{- end }}
+        {{- with .Values.wazuh.worker.affinity }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- if eq .Values.wazuh.worker.podAntiAffinity "hard" }}
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: {{ .Values.wazuh.worker.podAntiAffinityTopologyKey }}
+              labelSelector:
+                matchExpressions:
+                  - {key: app, operator: In, values: [{{ include "wazuh.fullname" . }}-manager-worker]}
+        {{- else if eq .Values.wazuh.worker.podAntiAffinity "soft" }}
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: {{ .Values.wazuh.worker.podAntiAffinityTopologyKey }}
+                labelSelector:
+                  matchExpressions:
+                    - {key: app, operator: In, values: [{{ include "wazuh.fullname" . }}-manager-worker]}
+        {{- end }}
+      {{- if .Values.wazuh.worker.dnsPolicy }}
+      dnsPolicy: {{ .Values.wazuh.worker.dnsPolicy }}
+      {{- end }}
+      {{- if .Values.wazuh.worker.dnsConfig }}
+      dnsConfig:
+        {{- toYaml .Values.wazuh.worker.dnsConfig | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "wazuh.fullname" . }}-manager-config
+            defaultMode: {{ default "0500" .Values.wazuh.worker.configVolume.defaultMode }}
+        - name: filebeat-certs
+          secret:
+            secretName: filebeat-tls
+        - name: result-config
+          emptyDir: {}
+      {{- with .Values.wazuh.worker.additionalVolumes }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        fsGroup: 101
+      initContainers:
+        - name: update-index
+          image: {{ .Values.wazuh.initContainer.image }}
+          imagePullPolicy: {{ .Values.wazuh.images.pullPolicy }}
+          command: 
+            - 'sh'
+            - '-c'
+            - '/script.sh'
+          resources:
+            {{- toYaml .Values.wazuh.initContainer.resources | nindent 12 }}
+          volumeMounts:
+            - mountPath: /ossec.conf
+              name: config
+              readOnly: true
+              subPath: worker.conf
+            - mountPath: /wazuh-config-mount/etc/
+              name: result-config
+            - mountPath: /script.sh
+              name: config
+              readOnly: true
+              subPath: script.sh
+        {{- with .Values.wazuh.extraInitContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- if .Values.wazuh.images.imagePullSecrets.enabled }}
+      imagePullSecrets:
+      {{- range .Values.wazuh.images.imagePullSecrets.secret }}
+        - name: {{ . }}
+      {{- end }}
+      {{- end }}
+      containers:
+        - name: wazuh-manager
+          {{- with .Values.wazuh.worker.extraSpec.container }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+          image: "{{ .Values.wazuh.images.repository }}:{{ .Values.wazuh.images.tag }}"
+          imagePullPolicy: {{ .Values.wazuh.images.pullPolicy }}
+          {{- with .Values.wazuh.worker.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.wazuh.worker.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.wazuh.worker.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.wazuh.worker.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                - /bin/sh
+                - -c
+                - |
+                  # postStart fires as the container starts, before the image's
+                  # entrypoint has copied /wazuh-config-mount into /var/ossec, so a
+                  # new group's directory does not exist yet. Wait for it (the
+                  # entrypoint keeps running while the hook waits), then hand it to the
+                  # wazuh user: wazuh-remoted builds merged.mg in there and fails
+                  # with "Permission denied" on a root-owned directory, leaving
+                  # agents that are only in that group without their shared config.
+                  # remoted rebuilds merged.mg on its own, no restart needed.
+                  {{- range .Values.wazuh.agentGroupConf }}
+                  for i in $(seq 1 90); do
+                    if [ -f "/var/ossec/etc/shared/{{ .name }}/agent.conf" ]; then
+                      sleep 3
+                      chown -R wazuh:wazuh /var/ossec/etc/shared/{{ .name }}
+                      chmod 2770 /var/ossec/etc/shared/{{ .name }}
+                      chmod 660 /var/ossec/etc/shared/{{ .name }}/* 2>/dev/null || true
+                      break
+                    fi
+                    sleep 2
+                  done
+                  {{- end }}
+                  true
+          volumeMounts:
+            # Wazuh config
+            - mountPath: /wazuh-config-mount/etc/
+              name: result-config
+            - mountPath: /wazuh-config-mount/etc/internal_options.conf
+              name: config
+              readOnly: true
+              subPath: internal_options.conf
+            # Certs
+            - mountPath: /etc/ssl/root-ca.pem
+              name: filebeat-certs
+              readOnly: true
+              subPath: ca.crt
+            - mountPath: /etc/ssl/filebeat.pem
+              name: filebeat-certs
+              readOnly: true
+              subPath: tls.crt
+            - mountPath: /etc/ssl/filebeat.key
+              name: filebeat-certs
+              readOnly: true
+              subPath: tls.key
+            {{- if include "wazuh.filebeat.overridden" . }}
+            - mountPath: /var/ossec/data_tmp/exclusion/etc/filebeat/filebeat.yml
+              name: config
+              readOnly: true
+              subPath: filebeat.yml
+            {{- end }}
+            {{- if include "wazuh.indexRouting.enabled" . }}
+            # Tenant index routing: replaces the wazuh module's alerts pipeline.
+            - mountPath: /usr/share/filebeat/module/wazuh/alerts/ingest/pipeline.json
+              name: config
+              readOnly: true
+              subPath: alerts-pipeline.json
+            {{- end }}
+            # PVC
+            - name: {{ include "wazuh.fullname" . }}-manager-worker
+              mountPath: /var/ossec/api/configuration
+              subPath: wazuh/var/ossec/api/configuration
+            - name: {{ include "wazuh.fullname" . }}-manager-worker
+              mountPath: /var/ossec/etc
+              subPath: wazuh/var/ossec/etc
+            - name: {{ include "wazuh.fullname" . }}-manager-worker
+              mountPath: /var/ossec/logs
+              subPath: wazuh/var/ossec/logs
+            - name: {{ include "wazuh.fullname" . }}-manager-worker
+              mountPath: /var/ossec/queue
+              subPath: wazuh/var/ossec/queue
+            - name: {{ include "wazuh.fullname" . }}-manager-worker
+              mountPath: /var/ossec/var/multigroups
+              subPath: wazuh/var/ossec/var/multigroups
+            - name: {{ include "wazuh.fullname" . }}-manager-worker
+              mountPath: /var/ossec/integrations
+              subPath: wazuh/var/ossec/integrations
+            - name: {{ include "wazuh.fullname" . }}-manager-worker
+              mountPath: /var/ossec/active-response/bin
+              subPath: wazuh/var/ossec/active-response/bin
+            - name: {{ include "wazuh.fullname" . }}-manager-worker
+              mountPath: /var/ossec/agentless
+              subPath: wazuh/var/ossec/agentless
+            - name: {{ include "wazuh.fullname" . }}-manager-worker
+              mountPath: /var/ossec/wodles
+              subPath: wazuh/var/ossec/wodles
+            - name: {{ include "wazuh.fullname" . }}-manager-worker
+              mountPath: /etc/filebeat
+              subPath: filebeat/etc/filebeat
+            - name: {{ include "wazuh.fullname" . }}-manager-worker
+              mountPath: /var/lib/filebeat
+              subPath: filebeat/var/lib/filebeat
+            {{- with .Values.wazuh.worker.additionalVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+            # Agent groups configuration
+            {{- range .Values.wazuh.agentGroupConf }}
+            - name: config
+              mountPath: /wazuh-config-mount/etc/shared/{{ .name }}/agent.conf
+              subPath: {{ .name }}-agent.conf
+            {{- end }}
+          ports:
+            {{- range .Values.wazuh.worker.service.ports }}
+            - containerPort: {{ .port }}
+              name: {{ .name }}
+            {{- end }}
+            {{- if .Values.wazuh.syslog_enable }}
+            - containerPort: 514
+              name: syslog
+            {{- end }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.indexer.cred.existingSecret | default "indexer-cred" }}
+          env:
+            - name: INDEXER_URL
+              value: {{- if .Values.indexer.enabled }}
+                       "https://{{ include "wazuh.indexer.fullname" . }}-indexer:{{ .Values.indexer.service.httpPort }}"
+                     {{- else }}
+                       "{{ .Values.externalIndexer.host }}:{{ .Values.externalIndexer.port }}"
+                     {{- end }}
+            - name: FILEBEAT_SSL_VERIFICATION_MODE
+              value: {{ .Values.wazuh.env.FILEBEAT_SSL_VERIFICATION_MODE | quote }}
+            - name: WAZUH_CLUSTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: key
+                  name: "wazuh-cluster-key"
+            # Certs
+            - name: SSL_CERTIFICATE_AUTHORITIES
+              value: /etc/ssl/root-ca.pem
+            - name: SSL_CERTIFICATE
+              value: /etc/ssl/filebeat.pem
+            - name: SSL_KEY
+              value: /etc/ssl/filebeat.key
+          {{- with .Values.wazuh.worker.additionalEnv }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- with .Values.wazuh.worker.rulesetReloader }}
+        {{- if .enabled }}
+        # KubeAid: reloads this worker's analysisd once the master's ruleset has synced
+        # to it, after every start and after later syncs. See files/ruleset-reloader.sh.
+        - name: ruleset-reloader
+          image: "{{ $.Values.wazuh.images.repository }}:{{ $.Values.wazuh.images.tag }}"
+          imagePullPolicy: {{ $.Values.wazuh.images.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+{{ $.Files.Get "files/ruleset-reloader.sh" | indent 14 }}
+          env:
+            - name: RELOAD_SETTLE_SECONDS
+              value: {{ .settleSeconds | quote }}
+            - name: RELOAD_POLL_SECONDS
+              value: {{ .pollSeconds | quote }}
+          envFrom:
+            - secretRef:
+                name: {{ $.Values.wazuh.apiCred.existingSecret | default "wazuh-api-cred" }}
+          {{- with .resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: {{ include "wazuh.fullname" $ }}-manager-worker
+              mountPath: /var/ossec/etc
+              subPath: wazuh/var/ossec/etc
+              readOnly: true
+        {{- end }}
+        {{- end }}
+  volumeClaimTemplates:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: {{ include "wazuh.fullname" . }}-manager-worker
+        {{- if .Values.wazuh.worker.pvc.extraLabels }}
+        labels:
+          {{- with .Values.wazuh.worker.pvc.extraLabels }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+        {{- end }}
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.wazuh.worker.storageSize }}
+        {{- $storageClass := .Values.wazuh.worker.storageClass }}
+        {{- if $storageClass }}
+        {{- if (eq "-" $storageClass) }}
+        storageClassName: ""
+        {{- else }}
+        storageClassName: {{ $storageClass }}
+        {{- end }}
+        {{- end }}
+{{- end }}
