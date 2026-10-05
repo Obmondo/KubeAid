@@ -63,7 +63,6 @@ kubeaid_apps:
   - sftpgo
   - k8s-event-logger
   - redis-operator
-  - mail
   - postgres-operator
   - step-ca
   - garage
