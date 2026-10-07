@@ -66,9 +66,25 @@ spec:
         # Mirrors upstream CAPH — only `cloud-provider: external` (needed
         # for external HCloud CCM). profiling and terminated-pod-gc-threshold
         # customizations dropped along with the apiServer trim.
+        #
+        # bind-address is explicit because kube-controller-manager's own
+        # default is loopback-only. Without this, a node that (re)joins
+        # after a reboot or rebuild gets a static manifest bound to
+        # 127.0.0.1, and Prometheus can't scrape it even though the pod
+        # reports Ready (kubelet's probe runs inside the pod's own network
+        # namespace, so it reaches loopback fine).
         extraArgs:
           - name: cloud-provider
             value: external
+          - name: bind-address
+            value: 0.0.0.0
+      scheduler:
+        # Same reasoning as controllerManager above: pin bind-address so a
+        # (re)joining node doesn't fall back to kube-scheduler's own
+        # loopback-only default.
+        extraArgs:
+          - name: bind-address
+            value: 0.0.0.0
       etcd:
         local:
           dataDir: /var/lib/etcd
