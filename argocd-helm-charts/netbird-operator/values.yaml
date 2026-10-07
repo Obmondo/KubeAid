@@ -97,3 +97,20 @@ clusterProxy:
   # - group: Developers
   #   clusterRole: edit
   #   namespaces: [team-a, team-b]          # edit in specific namespaces only
+
+# A namespace-wide default memory limit for any pod here that doesn't set
+# its own - in particular the operator-managed ClusterProxy Deployment,
+# whose pod spec we don't control: the ClusterProxy CRD has no `resources`
+# field at all, so there's no values key that reaches it directly.
+#
+# Added after a kcm incident (2026-10-07): one ClusterProxy pod leaked from
+# ~300Mi to 28.7Gi in about 10 minutes, taking the node's CPU from 37% to
+# 98% and knocking netbird-operator's own leader election offline as a
+# side effect. The underlying leak is still open upstream
+# (netbirdio/netbird-kubeapi-proxy) - this is a safety net, not a fix for
+# that bug. Off by default: a default limit that's too low will OOM-loop
+# every unlimited pod in the namespace, including ones that were fine.
+namespaceLimitRange:
+  enabled: false
+  defaultMemoryRequest: 128Mi
+  defaultMemoryLimit: 2Gi

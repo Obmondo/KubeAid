@@ -1,0 +1,18 @@
+{{- /* See the comment on namespaceLimitRange in values.yaml for why this
+     exists. It's a backstop for pods we don't control the spec of (e.g.
+     the operator-managed ClusterProxy Deployment), not a substitute for
+     fixing a leak at its source. */}}
+{{- if .Values.namespaceLimitRange.enabled }}
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-memory-limit
+  namespace: {{ .Release.Namespace }}
+spec:
+  limits:
+    - type: Container
+      defaultRequest:
+        memory: {{ .Values.namespaceLimitRange.defaultMemoryRequest }}
+      default:
+        memory: {{ .Values.namespaceLimitRange.defaultMemoryLimit }}
+{{- end }}
