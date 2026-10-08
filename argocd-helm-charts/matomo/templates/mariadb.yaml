@@ -1,3 +1,4 @@
+{{- if .Values.mariadb.enabled }}
 apiVersion: k8s.mariadb.com/v1alpha1
 kind: MariaDB
 metadata:
@@ -10,7 +11,9 @@ spec:
 
   storage:
     size: {{ .Values.mariadb.storage.size }}
-    storageClassName: {{ .Values.mariadb.storage.storageClassName }}
+    {{- with .Values.mariadb.storage.storageClassName }}
+    storageClassName: {{ . }}
+    {{- end }}
     resizeInUseVolumes: {{ .Values.mariadb.storage.resizeInUseVolumes }}
     waitForVolumeResize: {{ .Values.mariadb.storage.waitForVolumeResize }}
 
@@ -38,5 +41,8 @@ spec:
 
   image: {{ .Values.mariadb.image }}
   imagePullPolicy: {{ .Values.mariadb.imagePullPolicy }}
+  {{- with .Values.mariadb.imagePullSecrets }}
   imagePullSecrets:
-    - name: registry
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}
