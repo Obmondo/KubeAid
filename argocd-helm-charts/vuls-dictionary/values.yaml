@@ -39,6 +39,16 @@ ingress:
         paths:
           - path: /vuls
             pathType: Prefix
+    # Traefik only. Caps concurrent scan requests with an InFlightReq
+    # middleware and attaches it to the Ingress. Vuls server mode has no cap
+    # of its own: every request runs at once, each holds about 2.5 GB while
+    # detecting, and a request keeps running after its client timed out, so a
+    # few overlapping scans push the pod past its memory limit and none
+    # finish. Size amount as vulsServer memory limit / 2.5 GB. Clients over
+    # the cap get 429 straight away instead of hanging.
+    inFlightReq:
+      enabled: false
+      amount: 2
   tls: []
 
 nodeSelector: {}

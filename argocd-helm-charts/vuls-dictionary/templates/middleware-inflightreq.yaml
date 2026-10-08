@@ -1,0 +1,20 @@
+{{- if and .Values.ingress.enabled .Values.vulsServer.enabled .Values.ingress.vulsServer.enabled .Values.ingress.vulsServer.inFlightReq.enabled -}}
+# Caps how many scan requests Traefik lets through to the Vuls server at once.
+# Vuls server mode runs every request concurrently, each one holds a few GB
+# while it detects, and it keeps working on a request after the client gave
+# up, so without a cap a few overlapping scans push the pod past its memory
+# limit and nothing finishes. Clients over the cap get 429 immediately and the
+# security exporters retry after their random delay.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "vuls-dictionary.inFlightReqMiddlewareName" . }}
+  labels:
+    {{- include "vuls-dictionary.labels" . | nindent 4 }}
+spec:
+  inFlightReq:
+    amount: {{ .Values.ingress.vulsServer.inFlightReq.amount }}
+    sourceCriterion:
+      # One shared counter for the whole vuls host, not one per client IP.
+      requestHost: true
+{{- end }}

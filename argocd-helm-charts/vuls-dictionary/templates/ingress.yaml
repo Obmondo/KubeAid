@@ -5,7 +5,15 @@ metadata:
   name: {{ include "vuls-dictionary.fullname" . }}
   labels:
     {{- include "vuls-dictionary.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
+  {{- $annotations := deepCopy (.Values.ingress.annotations | default dict) }}
+  {{- if and .Values.vulsServer.enabled .Values.ingress.vulsServer.enabled .Values.ingress.vulsServer.inFlightReq.enabled }}
+  {{- /* Attach the InFlightReq middleware; append to any middlewares the values already list. */}}
+  {{- $key := "traefik.ingress.kubernetes.io/router.middlewares" }}
+  {{- $mw := printf "%s-%s@kubernetescrd" .Release.Namespace (include "vuls-dictionary.inFlightReqMiddlewareName" .) }}
+  {{- $existing := index $annotations $key }}
+  {{- $_ := set $annotations $key (empty $existing | ternary $mw (printf "%s,%s" $existing $mw)) }}
+  {{- end }}
+  {{- with $annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}

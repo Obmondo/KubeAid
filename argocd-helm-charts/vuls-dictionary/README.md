@@ -88,6 +88,21 @@ Optional sidecar that reads scan result JSON files from the results PVC and push
 
 The TLS secret should contain `tls.crt`, `tls.key`, and optionally `ca.crt` keys. When `tls.secretName` is empty, TLS is not configured.
 
+### Ingress
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `ingress.enabled` | Create an Ingress | `false` |
+| `ingress.className` | Ingress class | `""` |
+| `ingress.annotations` | Extra Ingress annotations | `{}` |
+| `ingress.vulsServer.enabled` | Route the listed hosts and paths to the Vuls server | `false` |
+| `ingress.vulsServer.hosts` | Hosts and paths for the Vuls server | one host, `/vuls` |
+| `ingress.vulsServer.inFlightReq.enabled` | Traefik only: cap concurrent scan requests with an InFlightReq middleware, attached to the Ingress automatically | `false` |
+| `ingress.vulsServer.inFlightReq.amount` | Scan requests allowed in flight at once; clients over it get 429 | `2` |
+| `ingress.tls` | TLS secrets and hosts | `[]` |
+
+Vuls server mode runs every request at once, each one holds a few GB while it detects, and it keeps working on a request after the client timed out. Without a cap, a handful of overlapping scans push the server past its memory limit and none of them finish, and every client retries. Size `inFlightReq.amount` as the server memory limit divided by about 2.5 GB. The security exporters treat 429 as an upstream failure and retry after their random delay.
+
 ## Client
 
 Linux hosts run [obmondo-security-exporter](https://github.com/Obmondo/linuxaid-security-exporter), a daemon that collects installed packages, sends them to the Vuls server for scanning, and exposes CVE metrics via Prometheus.

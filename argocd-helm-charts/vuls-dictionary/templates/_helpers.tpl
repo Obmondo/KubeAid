@@ -67,3 +67,10 @@ Create the name of the service account to use
 {{- $name := $input | replace "." "-" -}}
 {{- $name | replace " " "-" -}}  {{/* Optional: Replace spaces with dashes as well */}}
 {{- end -}}
+
+{{/*
+Name of the Traefik InFlightReq middleware in front of the Vuls server.
+*/}}
+{{- define "vuls-dictionary.inFlightReqMiddlewareName" -}}
+{{- printf "%s-vuls-inflight" (include "vuls-dictionary.fullname" .) | trunc 63 | trimSuffix "-" }}
+{{- end }}

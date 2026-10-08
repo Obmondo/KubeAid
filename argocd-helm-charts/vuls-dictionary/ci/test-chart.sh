@@ -131,6 +131,43 @@ assert_present "ingress with vulsServer: port 5515 in ingress" "number: 5515" \
   --set ingress.enabled=true \
   --set ingress.vulsServer.enabled=true
 
+# --- InFlightReq middleware ---
+assert_absent "inFlightReq disabled (default): no Middleware" "kind: Middleware" \
+  --set vulsServer.enabled=true \
+  --set ingress.enabled=true \
+  --set ingress.vulsServer.enabled=true
+
+assert_present "inFlightReq enabled: Middleware rendered" "kind: Middleware" \
+  --set vulsServer.enabled=true \
+  --set ingress.enabled=true \
+  --set ingress.vulsServer.enabled=true \
+  --set ingress.vulsServer.inFlightReq.enabled=true
+
+assert_present "inFlightReq enabled: amount set" "amount: 3" \
+  --set vulsServer.enabled=true \
+  --set ingress.enabled=true \
+  --set ingress.vulsServer.enabled=true \
+  --set ingress.vulsServer.inFlightReq.enabled=true \
+  --set ingress.vulsServer.inFlightReq.amount=3
+
+assert_present "inFlightReq enabled: ingress carries the middleware annotation" "router.middlewares: default-test-vuls-dictionary-vuls-inflight@kubernetescrd" \
+  --set vulsServer.enabled=true \
+  --set ingress.enabled=true \
+  --set ingress.vulsServer.enabled=true \
+  --set ingress.vulsServer.inFlightReq.enabled=true
+
+assert_present "inFlightReq enabled: existing middlewares annotation kept" "router.middlewares: traefik-jwt@kubernetescrd,default-test-vuls-dictionary-vuls-inflight@kubernetescrd" \
+  --set vulsServer.enabled=true \
+  --set ingress.enabled=true \
+  --set ingress.vulsServer.enabled=true \
+  --set ingress.vulsServer.inFlightReq.enabled=true \
+  --set 'ingress.annotations.traefik\.ingress\.kubernetes\.io/router\.middlewares=traefik-jwt@kubernetescrd'
+
+assert_absent "inFlightReq enabled but ingress disabled: no Middleware" "kind: Middleware" \
+  --set vulsServer.enabled=true \
+  --set ingress.enabled=false \
+  --set ingress.vulsServer.inFlightReq.enabled=true
+
 # --- vulsExporter sidecar ---
 run_test "vulsExporter disabled by default" \
   --set vulsServer.enabled=true
