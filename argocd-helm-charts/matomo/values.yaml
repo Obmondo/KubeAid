@@ -4,7 +4,7 @@ image:
   pullPolicy: IfNotPresent
 
 host: matomo.example.com
-extraHosts: []
+extraHosts: [] # @schema item: string
 
 ingress:
   className: ""
@@ -21,7 +21,7 @@ resources:
 persistence:
   size: 1Gi
   storageClassName: ""
-  accessMode: ReadWriteMany
+  accessMode: ReadWriteMany # @schema enum: [ReadWriteOnce, ReadWriteMany]
 
 archive:
   schedule: "*/5 * * * *"
@@ -32,7 +32,7 @@ archive:
     limits:
       memory: 512Mi
 
-plugins: []
+plugins: [] # @schema item: object; itemRequired: [name, version]
 
 oidc:
   enabled: false
@@ -54,7 +54,7 @@ mariadb:
     waitForVolumeResize: true
   image: "mariadb:latest"
   imagePullPolicy: IfNotPresent
-  imagePullSecrets: []
+  imagePullSecrets: [] # @schema item: object
   username: matomo
   passwordSecretKeyRef:
     name: matomo-user
