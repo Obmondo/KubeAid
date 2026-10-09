@@ -1,2 +1,8 @@
 azure:
   enable: false
+
+scaleway:
+  enable: false
+  provider:
+    package: xpkg.upbound.io/scaleway/provider-scaleway
+    version: v0.6.0

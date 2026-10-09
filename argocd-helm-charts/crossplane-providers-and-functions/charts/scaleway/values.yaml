@@ -1,0 +1,5 @@
+provider:
+  # Upbound marketplace package for the Scaleway provider. Bumping `version` is the only thing
+  # needed to upgrade the provider.
+  package: xpkg.upbound.io/scaleway/provider-scaleway
+  version: v0.6.0

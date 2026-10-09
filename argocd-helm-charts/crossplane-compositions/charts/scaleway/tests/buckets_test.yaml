@@ -1,0 +1,216 @@
+suite: scaleway object storage buckets
+templates:
+  - buckets.yaml
+release:
+  name: crossplane-compositions
+  namespace: crossplane
+set:
+  projectId: 11111111-2222-3333-4444-555555555555
+  region: fr-par
+  bucketNameSuffix: demo-cluster
+  tags:
+    environment: demo
+tests:
+  - it: renders nothing when no buckets are configured
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders a plain bucket with the name suffix and the shared tags
+    set:
+      objectStorage.buckets:
+        - name: openobserve-streams
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Bucket
+      - isAPIVersion:
+          of: object.scaleway.m.upbound.io/v1alpha1
+      - equal:
+          path: metadata.name
+          value: openobserve-streams
+      - equal:
+          path: metadata.namespace
+          value: crossplane
+      - notExists:
+          path: metadata.annotations
+      - equal:
+          path: spec.managementPolicies
+          value: [Observe, Create, Update, LateInitialize]
+      - equal:
+          path: spec.providerConfigRef.kind
+          value: ClusterProviderConfig
+      - equal:
+          path: spec.providerConfigRef.name
+          value: default
+      - equal:
+          path: spec.forProvider.name
+          value: openobserve-streams.demo-cluster
+      - equal:
+          path: spec.forProvider.region
+          value: fr-par
+      - equal:
+          path: spec.forProvider.projectId
+          value: 11111111-2222-3333-4444-555555555555
+      - equal:
+          path: spec.forProvider.tags
+          value:
+            environment: demo
+      - notExists:
+          path: spec.forProvider.versioning
+      - notExists:
+          path: spec.forProvider.objectLockEnabled
+      - notExists:
+          path: spec.forProvider.lifecycleRule
+
+  - it: renders versioning, object lock, lifecycle rules and a LockConfiguration
+    set:
+      objectStorage.buckets:
+        - name: backups
+          versioning: true
+          objectLock:
+            enabled: true
+            retention:
+              mode: GOVERNANCE
+              days: 30
+          lifecycleRules:
+            - id: default
+              enabled: true
+              expiration:
+                - days: 30
+              abortIncompleteMultipartUploadDays: 1
+          tags:
+            purpose: velero
+    asserts:
+      - hasDocuments:
+          count: 2
+      - isKind:
+          of: Bucket
+        documentIndex: 0
+      - equal:
+          path: spec.forProvider.versioning
+          value:
+            - enabled: true
+        documentIndex: 0
+      - equal:
+          path: spec.forProvider.objectLockEnabled
+          value: true
+        documentIndex: 0
+      - equal:
+          path: spec.forProvider.lifecycleRule
+          value:
+            - id: default
+              enabled: true
+              expiration:
+                - days: 30
+              abortIncompleteMultipartUploadDays: 1
+        documentIndex: 0
+      - equal:
+          path: spec.forProvider.tags
+          value:
+            environment: demo
+            purpose: velero
+        documentIndex: 0
+      - isKind:
+          of: LockConfiguration
+        documentIndex: 1
+      - isAPIVersion:
+          of: object.scaleway.m.upbound.io/v1alpha1
+        documentIndex: 1
+      - equal:
+          path: metadata.name
+          value: backups
+        documentIndex: 1
+      - equal:
+          path: metadata.namespace
+          value: crossplane
+        documentIndex: 1
+      - equal:
+          path: spec.providerConfigRef
+          value:
+            kind: ClusterProviderConfig
+            name: default
+        documentIndex: 1
+      - equal:
+          path: spec.forProvider.bucket
+          value: backups.demo-cluster
+        documentIndex: 1
+      - equal:
+          path: spec.forProvider.region
+          value: fr-par
+        documentIndex: 1
+      - equal:
+          path: spec.forProvider.projectId
+          value: 11111111-2222-3333-4444-555555555555
+        documentIndex: 1
+      - equal:
+          path: spec.forProvider.rule
+          value:
+            - defaultRetention:
+                - mode: GOVERNANCE
+                  days: 30
+        documentIndex: 1
+
+  - it: does not render a LockConfiguration when object lock is disabled
+    set:
+      objectStorage.buckets:
+        - name: backups
+          objectLock:
+            enabled: false
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Bucket
+
+  - it: honours an explicit bucketName and sets the external-name annotation when asked
+    set:
+      objectStorage.buckets:
+        - name: legacy
+          bucketName: some-legacy-bucket
+          externalName: fr-par/some-legacy-bucket
+    asserts:
+      - equal:
+          path: spec.forProvider.name
+          value: some-legacy-bucket
+      - equal:
+          path: metadata.annotations["crossplane.io/external-name"]
+          value: fr-par/some-legacy-bucket
+
+  - it: uses the bucket name as is when no suffix is configured
+    set:
+      bucketNameSuffix: ""
+      objectStorage.buckets:
+        - name: plain
+    asserts:
+      - equal:
+          path: spec.forProvider.name
+          value: plain
+
+  - it: lets a bucket override the chart-wide management policies
+    set:
+      objectStorage.buckets:
+        - name: disposable
+          managementPolicies: ["*"]
+    asserts:
+      - equal:
+          path: spec.managementPolicies
+          value: ["*"]
+
+  - it: fails when projectId is missing
+    set:
+      projectId: ""
+      objectStorage.buckets:
+        - name: backups
+    asserts:
+      - failedTemplate:
+          errorPattern: projectId
+
+  - it: fails when a bucket has no name
+    set:
+      objectStorage.buckets:
+        - versioning: true
+    asserts:
+      - failedTemplate:
+          errorPattern: name

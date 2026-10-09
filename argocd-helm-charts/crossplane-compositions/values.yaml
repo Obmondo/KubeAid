@@ -5,3 +5,8 @@ azure:
       enable: true
     disasterRecoveryInfrastructure:
       enable: false
+
+# Scaleway managed resources (ClusterProviderConfig + Object Storage buckets). The full value
+# shape lives in charts/scaleway/values.yaml; set at least `projectId` and `bucketNameSuffix`.
+scaleway:
+  enable: false

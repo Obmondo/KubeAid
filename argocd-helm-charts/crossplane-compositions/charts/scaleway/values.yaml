@@ -1,0 +1,40 @@
+# Secret holding the Scaleway API credentials, in the release namespace. It is created out of
+# band (for example by the cluster's sealed-secrets app); this chart only references it.
+credentials:
+  secretName: scaleway-credentials
+  secretKey: credentials
+
+# Scaleway project every managed resource below is created in. Required.
+projectId: ""
+
+region: fr-par
+
+# When set, a bucket's Scaleway name becomes "<name>.<bucketNameSuffix>" unless the bucket sets
+# `bucketName` explicitly. Typically the cluster name, since bucket names are global per region.
+bucketNameSuffix: ""
+
+# Tags applied to every bucket. Per-bucket `tags` are merged on top.
+tags: {}
+
+# Crossplane management policies for every bucket. Delete is intentionally left out so that
+# removing a bucket from this list (or deleting the Bucket resource) never deletes data in
+# Scaleway. A bucket may override this with its own `managementPolicies`.
+managementPolicies:
+  - Observe
+  - Create
+  - Update
+  - LateInitialize
+
+objectStorage:
+  buckets: []
+  # - name: backups                      # Bucket resource name (namespace = release namespace)
+  #   bucketName: ""                     # Scaleway bucket name; defaults to the suffix rule above
+  #   externalName: ""                   # crossplane.io/external-name, to adopt an existing bucket
+  #   versioning: false
+  #   objectLock:
+  #     enabled: false                   # also renders a LockConfiguration for the bucket
+  #     retention:
+  #       mode: GOVERNANCE
+  #       days: 30
+  #   lifecycleRules: []                 # passed through verbatim as forProvider.lifecycleRule
+  #   tags: {}

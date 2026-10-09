@@ -1,0 +1,67 @@
+# One Scaleway Object Storage Bucket per `objectStorage.buckets[]` entry, plus a LockConfiguration
+# for buckets that enable object lock. Every resource authenticates through the `default`
+# ClusterProviderConfig rendered by cluster-provider-config.yaml.
+{{- range .Values.objectStorage.buckets }}
+{{- $name := required "every scaleway.objectStorage.buckets[] entry needs a name" .name }}
+{{- $projectId := required "scaleway.projectId is required when buckets are configured" $.Values.projectId }}
+{{- $suffix := $.Values.bucketNameSuffix | default "" }}
+{{- $bucketName := .bucketName | default (empty $suffix | ternary $name (printf "%s.%s" $name $suffix)) }}
+{{- $policies := .managementPolicies | default $.Values.managementPolicies }}
+{{- $tags := merge (dict) (.tags | default dict) ($.Values.tags | default dict) }}
+{{- $objectLock := .objectLock | default dict }}
+{{- $retention := $objectLock.retention | default dict }}
+---
+apiVersion: object.scaleway.m.upbound.io/v1alpha1
+kind: Bucket
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Release.Namespace }}
+  {{- with .externalName }}
+  annotations:
+    crossplane.io/external-name: {{ . | quote }}
+  {{- end }}
+spec:
+  managementPolicies: {{ toJson $policies }}
+  providerConfigRef:
+    kind: ClusterProviderConfig
+    name: default
+  forProvider:
+    name: {{ $bucketName }}
+    region: {{ $.Values.region }}
+    projectId: {{ $projectId }}
+    {{- if .versioning }}
+    versioning:
+      - enabled: true
+    {{- end }}
+    {{- if $objectLock.enabled }}
+    objectLockEnabled: true
+    {{- end }}
+    {{- with .lifecycleRules }}
+    lifecycleRule:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with $tags }}
+    tags:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+{{- if $objectLock.enabled }}
+---
+apiVersion: object.scaleway.m.upbound.io/v1alpha1
+kind: LockConfiguration
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  providerConfigRef:
+    kind: ClusterProviderConfig
+    name: default
+  forProvider:
+    bucket: {{ $bucketName }}
+    region: {{ $.Values.region }}
+    projectId: {{ $projectId }}
+    rule:
+      - defaultRetention:
+          - mode: {{ $retention.mode | default "GOVERNANCE" }}
+            days: {{ $retention.days | default 30 }}
+{{- end }}
+{{- end }}

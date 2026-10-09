@@ -1,0 +1,40 @@
+suite: scaleway ClusterProviderConfig
+templates:
+  - cluster-provider-config.yaml
+release:
+  name: crossplane-compositions
+  namespace: crossplane
+tests:
+  - it: renders the default ClusterProviderConfig reading the credentials Secret from the release namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: ClusterProviderConfig
+      - isAPIVersion:
+          of: scaleway.m.upbound.io/v1beta1
+      - equal:
+          path: metadata.name
+          value: default
+      - equal:
+          path: spec.credentials.source
+          value: Secret
+      - equal:
+          path: spec.credentials.secretRef
+          value:
+            namespace: crossplane
+            name: scaleway-credentials
+            key: credentials
+
+  - it: honours a custom Secret name and key
+    set:
+      credentials:
+        secretName: scw-prod
+        secretKey: creds.json
+    asserts:
+      - equal:
+          path: spec.credentials.secretRef.name
+          value: scw-prod
+      - equal:
+          path: spec.credentials.secretRef.key
+          value: creds.json

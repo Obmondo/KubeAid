@@ -1,0 +1,63 @@
+suite: scaleway provider
+templates:
+  - provider.yaml
+release:
+  name: crossplane-providers-and-functions
+  namespace: crossplane
+tests:
+  - it: renders the Provider pinned to the configured package version with its runtime config
+    asserts:
+      - hasDocuments:
+          count: 2
+      - isKind:
+          of: Provider
+        documentIndex: 0
+      - isAPIVersion:
+          of: pkg.crossplane.io/v1
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: provider-scaleway
+        documentIndex: 0
+      - equal:
+          path: spec.package
+          value: xpkg.upbound.io/scaleway/provider-scaleway:v0.6.0
+        documentIndex: 0
+      - equal:
+          path: spec.runtimeConfigRef.name
+          value: provider-scaleway
+        documentIndex: 0
+
+  - it: renders a DeploymentRuntimeConfig that turns on management policies
+    asserts:
+      - isKind:
+          of: DeploymentRuntimeConfig
+        documentIndex: 1
+      - isAPIVersion:
+          of: pkg.crossplane.io/v1beta1
+        documentIndex: 1
+      - equal:
+          path: metadata.name
+          value: provider-scaleway
+        documentIndex: 1
+      - equal:
+          path: spec.deploymentTemplate.spec.selector
+          value: {}
+        documentIndex: 1
+      - equal:
+          path: spec.deploymentTemplate.spec.template.spec.containers[0].name
+          value: package-runtime
+        documentIndex: 1
+      - contains:
+          path: spec.deploymentTemplate.spec.template.spec.containers[0].args
+          content: --enable-management-policies
+        documentIndex: 1
+
+  - it: follows a provider version override
+    set:
+      provider.version: v0.7.0
+    asserts:
+      - equal:
+          path: spec.package
+          value: xpkg.upbound.io/scaleway/provider-scaleway:v0.7.0
+        documentIndex: 0

@@ -1,0 +1,13 @@
+# Cluster-wide Scaleway credentials for every Scaleway managed resource. Lives in this chart (and
+# not next to the Provider) because its CRD only exists once provider-scaleway is installed.
+apiVersion: scaleway.m.upbound.io/v1beta1
+kind: ClusterProviderConfig
+metadata:
+  name: default
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: {{ .Release.Namespace }}
+      name: {{ .Values.credentials.secretName }}
+      key: {{ .Values.credentials.secretKey }}

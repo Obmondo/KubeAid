@@ -6,3 +6,7 @@ dependencies:
     version: ""
     repository: "file://charts/azure"
     condition: azure.enable
+  - name: scaleway
+    version: 1.0.0
+    repository: "file://charts/scaleway"
+    condition: scaleway.enable

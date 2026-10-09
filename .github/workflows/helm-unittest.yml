@@ -8,6 +8,8 @@ name: Helm Unittest
       - reopened
     paths:
       - 'argocd-helm-charts/capi-cluster/**'
+      - 'argocd-helm-charts/crossplane-providers-and-functions/**'
+      - 'argocd-helm-charts/crossplane-compositions/**'
       - '.github/workflows/helm-unittest.yml'
 
 permissions:
@@ -37,3 +39,13 @@ jobs:
             -v "$PWD/argocd-helm-charts/capi-cluster:/apps" \
             helmunittest/helm-unittest:latest \
             charts/aws charts/azure charts/hetzner
+
+      - name: Run helm-unittest on the crossplane scaleway subcharts
+        run: |
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            -e HOME=/tmp \
+            -v "$PWD/argocd-helm-charts:/apps" \
+            helmunittest/helm-unittest:latest \
+            crossplane-providers-and-functions/charts/scaleway \
+            crossplane-compositions/charts/scaleway

@@ -1,0 +1,30 @@
+# Scaleway provider (Object Storage, Instances, Databases, ...). The ClusterProviderConfig that
+# gives it credentials is shipped by the crossplane-compositions chart, because its CRD only
+# exists after this Provider is installed and healthy.
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-scaleway
+spec:
+  package: {{ .Values.provider.package }}:{{ .Values.provider.version }}
+  runtimeConfigRef:
+    name: provider-scaleway
+
+---
+# Management policies let a managed resource opt out of Delete (and friends), so a Bucket that
+# is removed from git never deletes data in Scaleway. They are a beta feature that has to be
+# switched on per provider.
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
+metadata:
+  name: provider-scaleway
+spec:
+  deploymentTemplate:
+    spec:
+      selector: {}
+      template:
+        spec:
+          containers:
+            - name: package-runtime
+              args:
+                - --enable-management-policies
