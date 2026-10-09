@@ -25,11 +25,11 @@ global:
                   - key: node-role.kubernetes.io/control-plane
                     operator: DoesNotExist
   capz:
-    # v1.26.0 (latest, Jun 2026) for AKS clusters : the classic managed API
+    # v1.26.1 (latest, Sep 2026) for AKS clusters : the classic managed API
     # (AzureManagedControlPlane), networkPlugin "none" (BYO CNI) and
     # asoManagedClusterPatches (the kube-proxy disable) are all verified
     # present at this release.
-    version: v1.26.0
+    version: v1.26.1
   kubeaid:
     repo: https://github.com/Obmondo/KubeAid.git
     # KubeAid git ref the postKubeadmCommands `git clone` checks out
