@@ -1,4 +1,7 @@
-{{- if (.Values.mariadb.logicalbackup).enabled }}
+{{- if and .Values.mariadb.enabled (.Values.mariadb.logicalbackup).enabled }}
+{{- if not (has .Values.mariadb.logicalbackup.provider (list "s3" "az")) }}
+{{- fail "mariadb.logicalbackup.provider must be s3 or az" }}
+{{- end }}
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -40,8 +43,8 @@ spec:
                 - name: MARIADB_PASSWORD
                   valueFrom:
                     secretKeyRef:
-                      name: mariadb-secret
-                      key: db-password
+                      name: {{ .Values.mariadb.passwordSecretKeyRef.name }}
+                      key: {{ .Values.mariadb.passwordSecretKeyRef.key }}
                 - name: CLUSTER_NAME_LABEL
                   value: {{ (.Values.mariadb.logicalbackup).pgOperatorClusterName | default "matomo-mariadb" | quote }}
             {{- if eq (.Values.mariadb.logicalbackup).provider "s3" }}

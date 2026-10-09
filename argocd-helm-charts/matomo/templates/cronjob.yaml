@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: matomo-archive
+spec:
+  schedule: {{ .Values.archive.schedule | quote }}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: archive
+              image: {{ include "matomo.image" . }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              # copy the code but not config/ and misc/, those are on the PVC the web pod is reading
+              command: ["sh", "-c"]
+              args:
+                - >-
+                  tar -C /usr/src/matomo --exclude=./config --exclude=./misc --owner=www-data --group=www-data -cf - . | tar -xf -
+                  && exec runuser -u www-data -- php console core:archive --url={{ ternary "https" "http" .Values.ingress.tls }}://{{ .Values.host }}
+              env:
+                {{- include "matomo.env" . | nindent 16 }}
+              resources:
+                {{- toYaml .Values.archive.resources | nindent 16 }}
+              volumeMounts:
+                {{- include "matomo.volumeMounts" . | nindent 16 }}
+          volumes:
+            {{- include "matomo.volumes" . | nindent 12 }}

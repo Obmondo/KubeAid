@@ -1,47 +1,66 @@
-matomo:
-  image:
-    registry: docker.io
-    repository: bitnamilegacy/matomo
-    tag: 5.1.1
-  mariadb:
-    enabled: false
-  externalDatabase:
-    host: matomo-mariadb
-    port: 3306
-    user: matomo
-    database: matomo
-    existingSecret: matomo-user
-  persistence:
-    size: 1Gi
-  cronjobs:
-    archive:
-      persistence:
-        enabled: false
-    taskScheduler:
-      persistence:
-        enabled: false
-  service:
-    type: ClusterIP
+image:
+  repository: docker.io/library/matomo
+  tag: 5.14.0-apache
+  pullPolicy: IfNotPresent
+
+host: matomo.example.com
+extraHosts: [] # @schema item: string
+
+ingress:
+  className: ""
+  annotations: {}
+  tls: true
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 1Gi
+
+persistence:
+  size: 1Gi
+  storageClassName: ""
+  accessMode: ReadWriteMany # @schema enum: [ReadWriteOnce, ReadWriteMany]
+
+archive:
+  schedule: "*/5 * * * *"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+
+plugins: [] # @schema item: object; itemRequired: [name, version]
+
+oidc:
+  enabled: false
+  existingSecret: matomo-oidc
+  keycloakUrl: ""
+  realm: ""
 
 #  This are configs for external mariadb deployment
 mariadb:
+  enabled: true
   rootPasswordSecretKeyRef: #cannot remove this when using zfs-localpv, the pod remains in pending state due to pvc issue
     name: matomo-secrets
     key: MARIADB_ROOT_PASSWORD
     generate: true
   storage:
     size: 1Gi
-    storageClassName: zfs-localpv # using zfs instead of rook-ceph because with rook ceph liveness and readiness probes fail as root password doesnt get set properly
+    storageClassName: ""
     resizeInUseVolumes: true
     waitForVolumeResize: true
   image: "mariadb:latest"
   imagePullPolicy: IfNotPresent
+  imagePullSecrets: [] # @schema item: object
   username: matomo
   passwordSecretKeyRef:
     name: matomo-user
-    key: db-password # this should be set to db-password as when we pass externalDatabase.existingSecret in values file, it checks for this key
+    key: db-password
     generate: true
   database: matomo-mariadb
   logicalbackup:
-    enabled: true
+    enabled: false
     failedJobsHistoryLimit: 3

@@ -1,7 +1,9 @@
 apiVersion: v2
 name: matomo
-version: 2.2.0
-dependencies:
-  - name: matomo
-    version: "11.0.0"
-    repository: https://charts.bitnami.com/bitnami
+description: Matomo web analytics on the official Matomo image.
+type: application
+version: 3.0.0
+appVersion: "5.14.0"
+home: https://matomo.org
+sources:
+  - https://github.com/matomo-org/docker
