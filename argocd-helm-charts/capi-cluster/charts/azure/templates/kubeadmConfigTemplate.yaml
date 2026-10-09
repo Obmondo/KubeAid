@@ -110,8 +110,8 @@ spec:
 
         - set -x
         - grep VERSION= /etc/os-release; uname -a
-        - export CONTAINERD=1.7.25
-        - export RUNC=1.2.3
+        - export CONTAINERD=1.7.36
+        - export RUNC=1.2.9
         - export KUBERNETES_VERSION=$(echo {{ $.Values.global.kubernetes.version }} | sed 's/^v//')
         - export TRIMMED_KUBERNETES_VERSION=$(echo {{ $.Values.global.kubernetes.version }} | sed 's/^v//'
           | awk -F . '{print $1 "." $2}')
