@@ -4,7 +4,7 @@ cluster-api-operator:
   # control-plane tolerations) when no worker is schedulable.
   core:
     cluster-api:
-      version: v1.11.10
+      version: v1.11.11
       createNamespace: false
       deployment:
         affinity: &preferWorkers
@@ -17,13 +17,13 @@ cluster-api-operator:
                       operator: DoesNotExist
   bootstrap:
     kubeadm:
-      version: v1.11.10
+      version: v1.11.11
       createNamespace: false
       deployment:
         affinity: *preferWorkers
   controlPlane:
     kubeadm:
-      version: v1.11.10
+      version: v1.11.11
       createNamespace: false
       deployment:
         affinity: *preferWorkers

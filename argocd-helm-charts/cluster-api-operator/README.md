@@ -24,13 +24,13 @@ Upstream values go under the `cluster-api-operator:` key. The wrapper pins:
 cluster-api-operator:
   core:
     cluster-api:
-      version: v1.11.10
+      version: v1.11.11
   bootstrap:
     kubeadm:
-      version: v1.11.10
+      version: v1.11.11
   controlPlane:
     kubeadm:
-      version: v1.11.10
+      version: v1.11.11
 ```
 
 All three set `createNamespace: false` — the namespace is created by the Argo CD Application

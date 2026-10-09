@@ -2,7 +2,7 @@ global:
   kubernetes:
     version: v1.33.0
   clusterAPI:
-    version: v1.11.3
+    version: v1.11.11
   enableClusterAutoscaler: true
   capa:
     # v2.11+ is required for EKS clusters : NodeadmConfig (the AL2023 worker
