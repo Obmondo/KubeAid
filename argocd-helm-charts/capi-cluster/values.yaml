@@ -6,9 +6,8 @@ global:
   enableClusterAutoscaler: true
   capa:
     # v2.11+ is required for EKS clusters : NodeadmConfig (the AL2023 worker
-    # bootstrap) isn't shipped in earlier releases. v2.11.1 also matches the
-    # clusterawsadm library embedded in kubeaid-cli.
-    version: v2.11.1
+    # bootstrap) isn't shipped in earlier releases.
+    version: v2.11.3
     enableMachinePools: false
   caph:
     version: v1.1.8
