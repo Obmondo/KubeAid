@@ -20,6 +20,10 @@ spec:
   securityContext:
     allowPrivilegeEscalation: false
 
+  # the first start creates the system tables, which takes minutes on network storage
+  startupProbe:
+    failureThreshold: 30
+
   podDisruptionBudget:
     maxUnavailable: 50%
 
