@@ -80,11 +80,19 @@ name, user and password in the web installer. Backups of that database are up to
 
 ## Fresh install
 
-Sync the app and open `https://<host>`. There is no `config.ini.php` yet, so Matomo shows its web installer.
-With `mariadb.enabled` the database host, name and user are filled in, and the password is filled in from
-the secret but masked. With your own database, enter its details there.
-Anyone who can reach the host can use the installer until it is finished, so finish it right away. Then
-restart the deployment so the setup container activates the plugins and writes the settings.
+There is no `config.ini.php` on a new install, so Matomo starts with its web installer. Anyone who can reach
+the host can run it, so do it right after the first sync.
+
+1. Open `https://<host>` and go through the steps. Click Next once and wait; the database and table steps
+   take a few seconds, and a second click can leave the install half done.
+2. On the database step keep the values that are filled in. With `mariadb.enabled` the password comes from
+   the secret and shows masked. With your own database, enter its details.
+3. Create the superuser and the first website. Keep IP anonymisation ticked on the last page.
+4. Restart the deployment so the setup container activates the plugins and writes the settings:
+   `kubectl -n matomo rollout restart deploy/matomo`
+
+Until the installer is done, the archive job fails because there is no config to read. If the installer page
+shows without styling, hard-refresh the browser.
 
 ## Keycloak login (OIDC)
 
