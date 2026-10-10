@@ -1,0 +1,20 @@
+# Example for an initialized gitea-pgsql Cluster with at least one Gitea user and repository.
+# Confirm these names and the application assertion against your deployment.
+cnpg-drill:
+  enabled: true
+  cluster: gitea-pgsql
+  recoveryObjectStore: gitea-pgsql-recovery-readonly
+  suspended: true
+  retainOnFailure: false
+  timeoutSeconds: 1800
+  # Match the required backup freshness; this example allows a daily backup.
+  maxBackupAgeSeconds: 90000
+  checks:
+    - name: gitea-users-present
+      database: giteadb
+      query: SELECT count(*) > 0 FROM public."user"
+      expected: "t"
+    - name: gitea-repositories-present
+      database: giteadb
+      query: SELECT count(*) > 0 FROM public.repository
+      expected: "t"

@@ -313,6 +313,12 @@ DB_PORT=5432 \
 ---
 
 
+#### Verify a plugin backup restore
+
+For initialized Clusters using the Barman Cloud plugin, the optional
+[cnpg-drill chart](../cnpg-drill/README.md) restores a backup into a disposable Cluster, runs application-data
+assertions, and reports cleanup. It requires a separate read-only recovery ObjectStore and starts suspended.
+
 #### Monitoring and Alerting
 
 CloudNativePG provides metrics that can be used to monitor backup health. This chart includes PrometheusRule resources for alerting on backup failures.
