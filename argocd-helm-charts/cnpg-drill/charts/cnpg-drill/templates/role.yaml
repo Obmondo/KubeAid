@@ -1,0 +1,51 @@
+{{- $drill := include "cnpg-drill.clusterName" . -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "cnpg-drill.name" . }}
+rules:
+  - apiGroups: ["postgresql.cnpg.io"]
+    resources: ["clusters"]
+    verbs: ["get"]
+    resourceNames: [{{ .Values.cluster | quote }}, {{ $drill | quote }}]
+  - apiGroups: ["postgresql.cnpg.io"]
+    resources: ["clusters"]
+    verbs: ["delete", "list", "watch"]
+    resourceNames: [{{ $drill | quote }}]
+  # Kubernetes cannot restrict top-level create requests by resourceNames.
+  - apiGroups: ["postgresql.cnpg.io"]
+    resources: ["clusters"]
+    verbs: ["create"]
+  - apiGroups: ["postgresql.cnpg.io"]
+    resources: ["backups"]
+    verbs: ["list"]
+  - apiGroups: ["barmancloud.cnpg.io"]
+    resources: ["objectstores"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get"]
+    resourceNames:
+      - {{ printf "%s-1" $drill | quote }}
+      {{- if .Values.rbac.sourcePrimaryPodName }}
+      - {{ .Values.rbac.sourcePrimaryPodName | quote }}
+      {{- end }}
+  {{- if .Values.rbac.recoveryLogs }}
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  {{- end }}
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+    resourceNames:
+      - {{ printf "%s-1" $drill | quote }}
+      {{- if .Values.rbac.sourcePrimaryPodName }}
+      - {{ .Values.rbac.sourcePrimaryPodName | quote }}
+      {{- end }}
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["list"]
