@@ -563,11 +563,14 @@ spec:
         {{- if $cpPublic }}
         # Public interface: Hetzner delivers Floating IPs to it, while the
         # default route stays on the private network (NAT gateway).
-        NETWORK_INTERFACE="$(ip -4 route show default via 172.31.1.1 | awk '{print $5; exit}')"
-        # Fail loudly rather than write a netplan file with an empty interface
-        # key: these commands run after cloud-init has configured networking, so
-        # an empty result is a misconfiguration, not a race.
-        if [ -z "$NETWORK_INTERFACE" ]; then
+        # Filtering by `via` makes ip leave the gateway out of its output
+        # ("default dev eth0 proto dhcp ..."), so take the word after "dev"
+        # rather than a fixed field.
+        NETWORK_INTERFACE="$(ip -4 route show default via 172.31.1.1 | awk '{for (i = 1; i < NF; i++) if ($i == "dev") { print $(i+1); exit }}')"
+        # Fail loudly rather than write a netplan file with an empty or bogus
+        # interface key: these commands run after cloud-init has configured
+        # networking, so a missing interface is a misconfiguration, not a race.
+        if [ -z "$NETWORK_INTERFACE" ] || [ ! -e "/sys/class/net/$NETWORK_INTERFACE" ]; then
           echo "no public interface found (no default route via 172.31.1.1) but controlPlane.hcloud.publicNetwork.enabled is set, so this node should have a public IPv4" >&2
           exit 1
         fi
@@ -602,8 +605,8 @@ spec:
            them. Source-based policy routing via the Hetzner public gateway
            (172.31.1.1) does that. */}}
       - |
-        PUB_IFACE="$(ip -4 route show default via 172.31.1.1 | awk '{print $5; exit}')"
-        if [ -z "$PUB_IFACE" ]; then
+        PUB_IFACE="$(ip -4 route show default via 172.31.1.1 | awk '{for (i = 1; i < NF; i++) if ($i == "dev") { print $(i+1); exit }}')"
+        if [ -z "$PUB_IFACE" ] || [ ! -e "/sys/class/net/$PUB_IFACE" ]; then
           echo "no public interface found (no default route via 172.31.1.1) but controlPlane.hcloud.publicNetwork.enabled is set, so this node should have a public IPv4" >&2
           exit 1
         fi
