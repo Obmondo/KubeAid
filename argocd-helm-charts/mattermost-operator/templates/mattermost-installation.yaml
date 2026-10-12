@@ -19,6 +19,18 @@ spec:
   scheduling:
     resources:
 {{ toYaml .Values.mattermost.resources | indent 6 }}
+    {{- if .Values.mattermost.tolerations }}
+    tolerations:
+{{ toYaml .Values.mattermost.tolerations | indent 6 }}
+    {{- end }}
+    {{- if .Values.mattermost.nodeSelector }}
+    nodeSelector:
+{{ toYaml .Values.mattermost.nodeSelector | indent 6 }}
+    {{- end }}
+    {{- if .Values.mattermost.affinity }}
+    affinity:
+{{ toYaml .Values.mattermost.affinity | indent 6 }}
+    {{- end }}
   useServiceLoadBalancer: {{ .Values.mattermost.useServiceLoadBalancer | default false }}
   serviceAnnotations:
     {{- if .Values.mattermost.serviceAnnotations }}
