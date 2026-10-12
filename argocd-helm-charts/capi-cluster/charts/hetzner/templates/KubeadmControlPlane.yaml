@@ -411,6 +411,21 @@ spec:
     preKubeadmCommands:
       - set -x
 
+      {{- if and (.Values.controlPlane.endpoint).host (.Values.controlPlane.loadBalancer).privateIP }}
+      {{/* Resolve the control-plane endpoint to the load balancer's private
+           address, before kubeadm runs. kubelet and the Cilium agent both
+           resolve this name through the node's resolver and never through
+           CoreDNS - a hostNetwork pod with the default dnsPolicy falls back
+           to the node's /etc/resolv.conf, and CoreDNS is in any case started
+           by the very apiserver connection being resolved. So /etc/hosts is
+           the only layer that exists early enough, and without it the node
+           path depends on a public DNS record resolving to the load
+           balancer's public interface. */}}
+      - |
+        sed -i '/[[:space:]]{{ (.Values.controlPlane.endpoint).host }}$/d' /etc/hosts
+        echo '{{ (.Values.controlPlane.loadBalancer).privateIP }} {{ (.Values.controlPlane.endpoint).host }}' >> /etc/hosts
+      {{- end }}
+
       {{- if $cpPublic }}
       {{/* Substitute the __KUBEAID_NODE_IP__ placeholders (kubelet's nodeIP
            and kubeadm's localAPIEndpoint.advertiseAddress) with this host's
