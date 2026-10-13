@@ -1,0 +1,9 @@
+apiVersion: v2
+name: matomo
+description: Matomo web analytics on the official Matomo image.
+type: application
+version: 3.0.0
+appVersion: "5.14.0"
+home: https://matomo.org
+sources:
+  - https://github.com/matomo-org/docker

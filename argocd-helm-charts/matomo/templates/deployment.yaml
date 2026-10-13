@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: matomo
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: matomo
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: matomo
+      annotations:
+        checksum/setup: {{ include (print $.Template.BasePath "/setup-configmap.yaml") . | sha256sum }}
+    spec:
+      initContainers:
+        - name: setup
+          image: {{ include "matomo.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["bash", "/setup/setup.sh"]
+          env:
+            {{- include "matomo.env" . | nindent 12 }}
+            {{- if .Values.oidc.enabled }}
+            - name: MATOMO_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.oidc.existingSecret }}
+                  key: MATOMO_OIDC_CLIENT_SECRET
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            {{- include "matomo.volumeMounts" . | nindent 12 }}
+            - name: setup
+              mountPath: /setup
+              readOnly: true
+      containers:
+        - name: matomo
+          image: {{ include "matomo.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            {{- include "matomo.env" . | nindent 12 }}
+            {{- if .Values.mariadb.enabled }}
+            - name: MATOMO_DATABASE_HOST
+              value: matomo-mariadb
+            - name: MATOMO_DATABASE_DBNAME
+              value: {{ .Values.mariadb.database }}
+            - name: MATOMO_DATABASE_USERNAME
+              value: {{ .Values.mariadb.username }}
+            - name: MATOMO_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.mariadb.passwordSecretKeyRef.name }}
+                  key: {{ .Values.mariadb.passwordSecretKeyRef.key }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /matomo.php
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /matomo.php
+              port: http
+            periodSeconds: 30
+            failureThreshold: 5
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            {{- include "matomo.volumeMounts" . | nindent 12 }}
+      volumes:
+        {{- include "matomo.volumes" . | nindent 8 }}
+        - name: setup
+          configMap:
+            name: matomo-setup

@@ -1,0 +1,32 @@
+{{- $hosts := prepend .Values.extraHosts .Values.host }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: matomo
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    - secretName: matomo-tls
+      hosts:
+        {{- toYaml $hosts | nindent 8 }}
+  {{- end }}
+  rules:
+    {{- range $hosts }}
+    - host: {{ . }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: matomo
+                port:
+                  name: http
+    {{- end }}

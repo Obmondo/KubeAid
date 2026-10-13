@@ -1,0 +1,52 @@
+{{- if .Values.mariadb.enabled }}
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: MariaDB
+metadata:
+  name: matomo-mariadb
+spec:
+  rootPasswordSecretKeyRef:
+    name: {{ .Values.mariadb.rootPasswordSecretKeyRef.name }}
+    key: {{ .Values.mariadb.rootPasswordSecretKeyRef.key }}
+    generate: {{ .Values.mariadb.rootPasswordSecretKeyRef.generate }}
+
+  storage:
+    size: {{ .Values.mariadb.storage.size }}
+    {{- with .Values.mariadb.storage.storageClassName }}
+    storageClassName: {{ . }}
+    {{- end }}
+    resizeInUseVolumes: {{ .Values.mariadb.storage.resizeInUseVolumes }}
+    waitForVolumeResize: {{ .Values.mariadb.storage.waitForVolumeResize }}
+
+  securityContext:
+    allowPrivilegeEscalation: false
+
+  # the first start creates the system tables, which takes minutes on network storage
+  startupProbe:
+    failureThreshold: 30
+
+  podDisruptionBudget:
+    maxUnavailable: 50%
+
+  myCnf: |
+    [mariadb]
+    bind-address=*
+    default_storage_engine=InnoDB
+    binlog_format=row
+    innodb_autoinc_lock_mode=2
+    innodb_buffer_pool_size=1024M
+    max_allowed_packet=256M
+
+  username: {{ .Values.mariadb.username }}
+  passwordSecretKeyRef:
+    name: {{ .Values.mariadb.passwordSecretKeyRef.name }}
+    key: {{ .Values.mariadb.passwordSecretKeyRef.key }}
+    generate: {{ .Values.mariadb.passwordSecretKeyRef.generate }}
+  database: {{ .Values.mariadb.database }}
+
+  image: {{ .Values.mariadb.image }}
+  imagePullPolicy: {{ .Values.mariadb.imagePullPolicy }}
+  {{- with .Values.mariadb.imagePullSecrets }}
+  imagePullSecrets:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}
