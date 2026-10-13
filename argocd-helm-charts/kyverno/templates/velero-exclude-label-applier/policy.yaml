@@ -1,0 +1,27 @@
+{{- if .Values.veleroExcludeLabelApplier.enabled }}
+
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: velero-exclude-label-applier
+spec:
+  failurePolicy: Ignore
+  rules:
+    - name: label-secrets-owned-by-sealedsecret
+      match:
+        any:
+          - resources:
+              kinds: [Secret]
+              operations: [CREATE, UPDATE]
+      preconditions:
+        all:
+          - key: "{{`{{ request.object.metadata.ownerReferences[?kind == 'SealedSecret'] | length(@) }}`}}"
+            operator: GreaterThan
+            value: 0
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              velero.io/exclude-from-backup: "true"
+
+{{- end }}
