@@ -93,12 +93,6 @@ clusterRoleRules:
   - watch
   - update
 - apiGroups:
-  - ""
-  resources:
-  - serviceaccounts/token
-  verbs:
-  - create
-- apiGroups:
     - authentication.k8s.io
   resources:
     - tokenreviews
@@ -148,6 +142,9 @@ clusterRoleName: system:cloud-controller-manager
 roleBindingName: cloud-controller-manager:apiserver-authentication-reader
 
 serviceAccountName: cloud-controller-manager
+
+serviceAccount:
+  annotations: {}
 
 roleName: extension-apiserver-authentication-reader
 
