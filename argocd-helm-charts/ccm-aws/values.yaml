@@ -49,13 +49,6 @@ aws-cloud-controller-manager:
     - apiGroups:
         - ""
       resources:
-        - serviceaccounts
-      verbs:
-        - create
-        - get
-    - apiGroups:
-        - ""
-      resources:
         - persistentvolumes
       verbs:
         - get

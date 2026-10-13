@@ -5,4 +5,4 @@ maintainers:
 - email: nic@amazon.com
   name: Nick Turner
 name: aws-cloud-controller-manager
-version: 0.0.11
+version: 0.0.12

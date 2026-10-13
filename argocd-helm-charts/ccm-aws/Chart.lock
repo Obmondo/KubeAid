@@ -1,6 +1,6 @@
 dependencies:
 - name: aws-cloud-controller-manager
   repository: https://kubernetes.github.io/cloud-provider-aws
-  version: 0.0.11
-digest: sha256:502807e8d136cba036a763dd25f2ce151cb0326703766106c5d6e8bd44945ca5
-generated: "2026-04-09T10:56:29.17597543+05:30"
+  version: 0.0.12
+digest: sha256:6ed725df26d0de02d2b6da0997ba980f661711ad688801a341ba9133365fb194
+generated: "2026-10-13T21:46:24.695018083+05:30"
