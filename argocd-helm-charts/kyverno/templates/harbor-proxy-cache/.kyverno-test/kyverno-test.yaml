@@ -19,6 +19,8 @@ resources:
   - mixed-pod.yaml
   - digest-pod.yaml
   - already-harbor-pod.yaml
+  - already-harbor-with-secret-pod.yaml
+  - already-harbor-job.yaml
   - excluded-ns-pod.yaml
 results:
   # explicit docker.io / index.docker.io hosts are stripped and "library/" added for official images
@@ -67,8 +69,20 @@ results:
     resources: [default/digest-pod]
     patchedResources: digest-pod.patched.yaml
     result: pass
-  # already on Harbor, or in an excluded namespace: no patch at all
+  # already on Harbor but without the pull secret: only the secret is added
   - policy: harbor-proxy-cache-mutate
     kind: Pod
-    resources: [default/already-harbor-pod, harbor/excluded-ns-pod]
+    resources: [default/already-harbor-pod]
+    patchedResources: already-harbor-pod.patched.yaml
+    result: pass
+  # same for a Job an operator creates with its own, already rewritten image
+  - policy: harbor-proxy-cache-mutate
+    kind: Job
+    resources: [default/already-harbor-job]
+    patchedResources: already-harbor-job.patched.yaml
+    result: pass
+  # already on Harbor with the pull secret, or in an excluded namespace: no patch at all
+  - policy: harbor-proxy-cache-mutate
+    kind: Pod
+    resources: [default/already-harbor-with-secret-pod, harbor/excluded-ns-pod]
     result: skip

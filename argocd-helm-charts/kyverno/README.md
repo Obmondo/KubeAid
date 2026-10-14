@@ -17,7 +17,9 @@ Rewrites container and initContainer images that point at Docker Hub (explicit
 `name` forms), and optionally `ghcr.io` and `registry.k8s.io`, to the proxy-cache projects
 on your Harbor, and appends the matching imagePullSecret. Applies on CREATE to Pods,
 Deployments, StatefulSets, DaemonSets, Jobs and CronJobs. Official images get `library/`
-inserted so Harbor can resolve them. Images already on the Harbor host are left alone.
+inserted so Harbor can resolve them. Images already on a proxy-cache project keep their
+image, but still get the pull secret when it is missing: operators such as rook-ceph start
+pods with their own image, which this policy already rewrote, and do not copy the secret.
 
 ```yaml
 harborProxyCache:

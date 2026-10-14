@@ -13,7 +13,8 @@ metadata:
       Rewrites container and initContainer images that point at Docker Hub, ghcr.io or
       registry.k8s.io (each only when a Harbor project is configured for it) to the
       proxy-cache projects on harbor.example.com and adds the matching imagePullSecret,
-      so pulls bypass upstream rate limits. Mutates at admission time on CREATE.
+      so pulls bypass upstream rate limits. Images that already point at a proxy-cache project get
+      the pull secret too. Mutates at admission time on CREATE.
     kyverno.io/kubernetes-version: "1.27"
     policies.kyverno.io/minversion: 1.19.0
 spec:
@@ -46,8 +47,13 @@ spec:
           values:
             - "harbor"
   matchConditions:
-    - name: needs-rewrite
-      expression: "variables.rewritten.exists(c, c.new != c.image)"
+    # Also when an image already points at a proxy-cache project but the pull
+    # secret is missing: operators (rook-ceph, ...) start pods with their own
+    # image, which this policy already rewrote, and do not copy the pull secret.
+    - name: needs-rewrite-or-pull-secret
+      expression: >-
+        variables.rewritten.exists(c, c.new != c.image)
+        || variables.pullSecrets.exists(s, !(s in variables.existingPullSecrets))
   variables:
     # 1. Find the pod spec: its location depends on the kind.
     - name: podSpec

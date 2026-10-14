@@ -1,0 +1,17 @@
+# An operator-created Job that reuses the operator's image, already rewritten to
+# Harbor (rook-ceph detect-version), without a pull secret.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: already-harbor-job
+  namespace: default
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      initContainers:
+      - name: init-copy-binaries
+        image: harbor.example.com/docker-hub-proxy-cache/rook/ceph:v1.20.7
+      containers:
+      - name: cmd-reporter
+        image: quay.io/ceph/ceph:v20.2.4
