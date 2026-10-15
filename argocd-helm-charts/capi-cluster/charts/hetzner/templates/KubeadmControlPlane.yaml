@@ -778,6 +778,18 @@ spec:
       - kubectl label nodes --all node.kubernetes.io/exclude-from-external-load-balancers- || true
       {{- end }}
 
+      # Every block below that installs a chart with `helm template |
+      # kubectl apply` first checks whether the component already runs.
+      # postKubeadmCommands run on EVERY control-plane node, not only on the
+      # first one. On a node that joins a running cluster (a scale-up, or a
+      # MachineHealthCheck / rollout replacement) the component is already
+      # there and managed by ArgoCD with the cluster's own values; applying
+      # the chart defaults over it again breaks the cluster (cilium agents
+      # without their memory settings, CCMs without their network and
+      # LoadBalancer config, so every LoadBalancer loses its targets). So a
+      # joining node leaves installed components alone, and only a new
+      # cluster gets them from here.
+      #
       # Install Cilium.
       #
       # Pattern: `helm template ... | kubectl apply -f -` rather than
@@ -817,14 +829,18 @@ spec:
       - API_SERVER_PORT=$(echo "$API_SERVER_URL" | awk -F[/:] '{print $5}')
 
       - |
-        helm template cilium kubeaid/argocd-helm-charts/cilium \
-          --namespace cilium \
-          --values kubeaid/argocd-helm-charts/cilium/values.yaml \
-          --set cilium.kubeProxyReplacement=true \
-          --set cilium.k8sServiceHost=${API_SERVER_HOST} \
-          --set cilium.k8sServicePort=${API_SERVER_PORT} \
-          --set-string cilium.extraArgs[0]="--devices=vswitch+\,eth0\,enp+\,eno+" \
-          | kubectl apply -f -
+        if [ -n "$(kubectl -n cilium get daemonset cilium --ignore-not-found -o name)" ]; then
+          echo "cilium is already installed, leaving it to ArgoCD"
+        else
+          helm template cilium kubeaid/argocd-helm-charts/cilium \
+            --namespace cilium \
+            --values kubeaid/argocd-helm-charts/cilium/values.yaml \
+            --set cilium.kubeProxyReplacement=true \
+            --set cilium.k8sServiceHost=${API_SERVER_HOST} \
+            --set cilium.k8sServicePort=${API_SERVER_PORT} \
+            --set-string cilium.extraArgs[0]="--devices=vswitch+\,eth0\,enp+\,eno+" \
+            | kubectl apply -f -
+        fi
 
       - kubectl -n cilium rollout status daemonset/cilium --timeout=5m
 
@@ -849,30 +865,38 @@ spec:
 
       {{- if or (eq .Values.mode "hcloud") (eq .Values.mode "hybrid") }}
       - |
-        helm template ccm-hcloud kubeaid/argocd-helm-charts/ccm-hetzner \
-          --namespace kube-system \
-          --values kubeaid/argocd-helm-charts/ccm-hetzner/values.yaml \
-          --set ccm-hetzner.nameOverride=ccm-hcloud \
-          --set ccm-hetzner.networking.enabled=true \
-          --set ccm-hetzner.robot.enabled=false \
-          --set ccm-hetzner.additionalTolerations[0].key=node.kubernetes.io/not-ready \
-          --set ccm-hetzner.additionalTolerations[0].operator=Exists \
-          --set ccm-hetzner.additionalTolerations[0].effect=NoSchedule \
-          | kubectl apply -f -
+        if [ -n "$(kubectl -n kube-system get deployment ccm-hcloud --ignore-not-found -o name)" ]; then
+          echo "ccm-hcloud is already installed, leaving it to ArgoCD"
+        else
+          helm template ccm-hcloud kubeaid/argocd-helm-charts/ccm-hetzner \
+            --namespace kube-system \
+            --values kubeaid/argocd-helm-charts/ccm-hetzner/values.yaml \
+            --set ccm-hetzner.nameOverride=ccm-hcloud \
+            --set ccm-hetzner.networking.enabled=true \
+            --set ccm-hetzner.robot.enabled=false \
+            --set ccm-hetzner.additionalTolerations[0].key=node.kubernetes.io/not-ready \
+            --set ccm-hetzner.additionalTolerations[0].operator=Exists \
+            --set ccm-hetzner.additionalTolerations[0].effect=NoSchedule \
+            | kubectl apply -f -
+        fi
       {{- end }}
 
       {{- if or (eq .Values.mode "bare-metal") (eq .Values.mode "hybrid") }}
       - |
-        helm template ccm-hetzner kubeaid/argocd-helm-charts/ccm-hetzner \
-          --namespace kube-system \
-          --values kubeaid/argocd-helm-charts/ccm-hetzner/values.yaml \
-          --set ccm-hetzner.additionalTolerations[0].key=node.kubernetes.io/not-ready \
-          --set ccm-hetzner.additionalTolerations[0].operator=Exists \
-          --set ccm-hetzner.additionalTolerations[0].effect=NoSchedule \
-          {{- if eq .Values.mode "hybrid" }}
-          --set-string 'ccm-hetzner.args.controllers=cloud-node\,cloud-node-lifecycle' \
-          {{- end }}
-          | kubectl apply -f -
+        if [ -n "$(kubectl -n kube-system get deployment ccm-hetzner --ignore-not-found -o name)" ]; then
+          echo "ccm-hetzner is already installed, leaving it to ArgoCD"
+        else
+          helm template ccm-hetzner kubeaid/argocd-helm-charts/ccm-hetzner \
+            --namespace kube-system \
+            --values kubeaid/argocd-helm-charts/ccm-hetzner/values.yaml \
+            --set ccm-hetzner.additionalTolerations[0].key=node.kubernetes.io/not-ready \
+            --set ccm-hetzner.additionalTolerations[0].operator=Exists \
+            --set ccm-hetzner.additionalTolerations[0].effect=NoSchedule \
+            {{- if eq .Values.mode "hybrid" }}
+            --set-string 'ccm-hetzner.args.controllers=cloud-node\,cloud-node-lifecycle' \
+            {{- end }}
+            | kubectl apply -f -
+        fi
       {{- end }}
 
       {{- if or (eq .Values.mode "bare-metal") (eq .Values.mode "hybrid") }}
@@ -902,10 +926,14 @@ spec:
       # replace it because of the structural vSwitch blind spot. Also
       # remove the matching opt-out / TODO in kubeaid-cli at that point.
       - |
-        helm template kubelet-csr-approver kubeaid/argocd-helm-charts/kubelet-csr-approver \
-          --namespace kube-system \
-          --values kubeaid/argocd-helm-charts/kubelet-csr-approver/values.yaml \
-          | kubectl apply -f -
+        if [ -n "$(kubectl -n kube-system get deployment kubelet-csr-approver --ignore-not-found -o name)" ]; then
+          echo "kubelet-csr-approver is already installed, leaving it to ArgoCD"
+        else
+          helm template kubelet-csr-approver kubeaid/argocd-helm-charts/kubelet-csr-approver \
+            --namespace kube-system \
+            --values kubeaid/argocd-helm-charts/kubelet-csr-approver/values.yaml \
+            | kubectl apply -f -
+        fi
       {{- end }}
 
       {{- if and (eq .Values.mode "bare-metal") .Values.controlPlane.bareMetal.endpoint.isFailoverIP }}
@@ -926,11 +954,15 @@ spec:
       # logic is active from the first kubeadm-init onward, including
       # the window before ArgoCD itself is fully reconciled.
       - |
-        helm template hetzner-robot kubeaid/argocd-helm-charts/hetzner-robot \
-          --namespace kube-system \
-          --values kubeaid/argocd-helm-charts/hetzner-robot/values.yaml \
-          --set failoverIP={{ .Values.controlPlane.bareMetal.endpoint.host }} \
-          | kubectl apply -f -
+        if [ -n "$(kubectl -n kube-system get deployment hetzner-robot-failover --ignore-not-found -o name)" ]; then
+          echo "hetzner-robot is already installed, leaving it to ArgoCD"
+        else
+          helm template hetzner-robot kubeaid/argocd-helm-charts/hetzner-robot \
+            --namespace kube-system \
+            --values kubeaid/argocd-helm-charts/hetzner-robot/values.yaml \
+            --set failoverIP={{ .Values.controlPlane.bareMetal.endpoint.host }} \
+            | kubectl apply -f -
+        fi
       {{- end }}
 
       - apt-get -y install socat mtr
