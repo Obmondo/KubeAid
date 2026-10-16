@@ -4,7 +4,7 @@
 # rely on cloud-provider security groups instead.
 hostNetworkPolicy:
   enabled: false
-  allowSshFrom: []          # CIDRs or bare IPs (treated as /32); empty = SSH open to world
+  allowSshFrom: [] # CIDRs or bare IPs (treated as /32); empty = SSH open to world
   # publicPorts are the service ports allowed from the world (HTTP + HTTPS).
   publicPorts: [80, 443]
   # apiserverSourceCIDRs lists the CIDRs/IPs allowed to reach 6443/TCP.
@@ -22,6 +22,8 @@ cilium:
     rollOutPods: true
     priorityClassName: "system-node-critical"
   kubeProxyReplacement: "true"
+  hostFirewall:
+    enabled: true
   # With kube-proxy replacement, full-coverage socket LB translates
   # ClusterIPs only at connect() time. Packets a pod FORWARDS (the
   # netbird-operator's NetworkRouter routing mesh traffic to a Service
