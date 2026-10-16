@@ -1,0 +1,8 @@
+Try the first restore in a separate test cluster with its own source CNPG Cluster,
+completed Barman Cloud plugin backup, and read-only recovery ObjectStore.
+Review the SQL results and cleanup before using the chart with production data.
+
+The drill runs in the same cluster as its source; it cannot look up a source
+Cluster or Backup in a different Kubernetes cluster.
+
+First-run guide: argocd-helm-charts/cnpg-drill/README.md#start-in-a-test-cluster

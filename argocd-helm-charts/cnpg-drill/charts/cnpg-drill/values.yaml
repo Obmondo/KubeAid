@@ -1,0 +1,43 @@
+cluster: ""
+recoveryObjectStore: ""
+# Empty selects <release>-cnpg-drill-restore, shortened to fit the first Pod name.
+drillClusterName: ""
+rbac:
+  # Required only for a source originally restored from an external source.
+  # Preflight runs a read-only recovery-state query in this named source Pod.
+  sourcePrimaryPodName: ""
+  # Opt in to namespace-wide Pod log access for recovery failure diagnostics.
+  recoveryLogs: false
+recoveryServiceAccountAnnotations: {}
+schedule: "0 3 * * 0"
+suspended: true
+timeoutSeconds: 1800
+pollSeconds: 5
+maxBackupAgeSeconds: 691200
+targetTime: ""
+retainOnFailure: false
+reports:
+  enabled: false
+  existingClaim: ""
+  size: 1Gi
+  storageClassName: ""
+alerts:
+  enabled: false
+  maxSecondsSinceSuccess: 691200
+  labels: {}
+checks:
+  - name: connection
+    query: SELECT 1
+    expected: "1"
+image:
+  repository: ghcr.io/danielgaskins/cnpg-drill
+  tag: "sha-091ee1d9c379b737ee8c1279f40365a74fcd24cb"
+  digest: sha256:139c1e5cd6a1188838aab7396945381b9d015bde56bff0ff360613aa210d286c
+  pullPolicy: IfNotPresent
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi

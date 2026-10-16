@@ -1,0 +1,53 @@
+{{- if .Values.alerts.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "cnpg-drill.name" . }}
+  {{- with .Values.alerts.labels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  groups:
+    - name: {{ .Release.Namespace }}.{{ include "cnpg-drill.name" . }}
+      rules:
+        - alert: CnpgDrillRunFailed
+          expr: |-
+            (kube_job_failed{namespace={{ .Release.Namespace | quote }},condition="true"} == 1)
+            and on(namespace,job_name)
+            (kube_job_owner{namespace={{ .Release.Namespace | quote }},owner_kind="CronJob",owner_name={{ include "cnpg-drill.name" . | quote }}} == 1)
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: CloudNativePG recovery drill Job failed
+            description: A cnpg-drill Job in {{ .Release.Namespace }} failed. Inspect its JSON report and Pod logs.
+        - alert: CnpgDrillNoRecentSuccess
+          expr: |-
+            (
+              (time() - kube_cronjob_status_last_successful_time{namespace={{ .Release.Namespace | quote }},cronjob={{ include "cnpg-drill.name" . | quote }}} > {{ .Values.alerts.maxSecondsSinceSuccess }})
+              or
+              (
+                (time() - kube_cronjob_created{namespace={{ .Release.Namespace | quote }},cronjob={{ include "cnpg-drill.name" . | quote }}} > {{ .Values.alerts.maxSecondsSinceSuccess }})
+                unless on(namespace,cronjob)
+                kube_cronjob_status_last_successful_time{namespace={{ .Release.Namespace | quote }},cronjob={{ include "cnpg-drill.name" . | quote }}}
+              )
+            )
+            and on(namespace,cronjob)
+            (kube_cronjob_spec_suspend{namespace={{ .Release.Namespace | quote }},cronjob={{ include "cnpg-drill.name" . | quote }}} == 0)
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: CloudNativePG recovery drill has no recent success
+            description: The {{ include "cnpg-drill.name" . }} CronJob in {{ .Release.Namespace }} has not succeeded within {{ .Values.alerts.maxSecondsSinceSuccess }} seconds.
+        - alert: CnpgDrillMetricsMissing
+          expr: |-
+            absent(kube_cronjob_created{namespace={{ .Release.Namespace | quote }},cronjob={{ include "cnpg-drill.name" . | quote }}})
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: CloudNativePG recovery drill metrics are missing
+            description: kube-state-metrics is not reporting the {{ include "cnpg-drill.name" . }} CronJob in {{ .Release.Namespace }}.
+{{- end }}

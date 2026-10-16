@@ -1,0 +1,6 @@
+dependencies:
+- name: cnpg-drill
+  repository: oci://ghcr.io/danielgaskins/charts
+  version: 0.1.8
+digest: sha256:13ea9b7340d0fea85fe57c6641d105230b7b9213d63a58d0477a23910347e7b9
+generated: "2026-10-10T12:57:02.722719329-07:00"

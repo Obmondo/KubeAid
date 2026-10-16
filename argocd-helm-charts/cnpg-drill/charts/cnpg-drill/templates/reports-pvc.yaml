@@ -1,0 +1,16 @@
+{{- if and .Values.reports.enabled (not .Values.reports.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "cnpg-drill.name" . }}-reports
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: {{ .Values.reports.size }}
+  {{- if .Values.reports.storageClassName }}
+  storageClassName: {{ .Values.reports.storageClassName | quote }}
+  {{- end }}
+{{- end }}

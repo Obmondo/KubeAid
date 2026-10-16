@@ -1,0 +1,9 @@
+apiVersion: v2
+name: cnpg-drill
+version: 1.0.0
+description: Optional CloudNativePG backup restore verification
+dependencies:
+  - name: cnpg-drill
+    version: 0.1.8
+    repository: oci://ghcr.io/danielgaskins/charts
+    condition: cnpg-drill.enabled

@@ -1,0 +1,8 @@
+{{- if index .Values "cnpg-drill" "enabled" -}}
+{{- $drill := index .Values "cnpg-drill" -}}
+{{- $_ := required "cnpg-drill.cluster is required when enabled" $drill.cluster -}}
+{{- $_ := required "cnpg-drill.recoveryObjectStore must name a separate read-only ObjectStore" $drill.recoveryObjectStore -}}
+{{- if not $drill.checks -}}
+{{- fail "cnpg-drill.checks must contain an application-data assertion" -}}
+{{- end -}}
+{{- end -}}
