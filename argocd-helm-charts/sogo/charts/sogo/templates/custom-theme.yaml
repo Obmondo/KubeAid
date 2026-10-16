@@ -1,0 +1,20 @@
+{{- if or .Values.sogo.theme.js .Values.sogo.theme.css -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "sogo.fullname" . }}-theme
+  labels:
+    app.kubernetes.io/name: {{ include "sogo.name" . }}
+    helm.sh/chart: {{ include "sogo.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+data:
+{{- if .Values.sogo.theme.js }}
+  theme.js: |
+{{- .Values.sogo.theme.js | nindent 4 }}
+{{- end }}
+{{- if .Values.sogo.theme.css }}
+  theme.css: |
+{{- .Values.sogo.theme.css | nindent 4 }}
+{{- end }}
+{{- end }}

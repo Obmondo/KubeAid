@@ -1,0 +1,15 @@
+{{- if .Values.sogo.sessionCleanup -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "sogo.fullname" . }}-session-cron
+  labels:
+    app.kubernetes.io/name: {{ include "sogo.name" . }}
+    helm.sh/chart: {{ include "sogo.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+data:
+  cron: |
+    {{ (printf "* * * * * sogo  /usr/sbin/sogo-tool expire-sessions %d" (.Values.sogo.sessionCleanup.maxInactivity | int)) }}
+    {{ (printf "* * * * * sogo  /usr/sbin/sogo-tool-plus -mode cli -action expire-sessions-creation -duration %d" (.Values.sogo.sessionCleanup.durationLimit | int)) }}
+{{- end }}

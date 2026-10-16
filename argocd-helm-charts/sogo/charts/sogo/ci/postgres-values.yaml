@@ -1,0 +1,25 @@
+sogo:
+  configs:
+    SOGoPageTitle: SOGo
+    SOGoVacationEnabled: true
+    SOGoForwardEnabled: true
+    SOGoSieveScriptsEnabled: true
+    SOGoMailAuxiliaryUserAccountsEnabled: true
+    SOGoTrustProxyAuthentication: false
+    SOGoXSRFValidationEnabled: false
+    SOGoLanguage: English
+    SOGoTimeZone: America/Montreal
+    WOWorkersCount: 5
+postgresql:
+  enabled: true
+  global:
+    postgresql:
+      auth:
+        username: sogo
+        password: changeme
+        database: sogo
+  primary:
+    persistence:
+      enabled: false
+memcached:
+  enabled: true

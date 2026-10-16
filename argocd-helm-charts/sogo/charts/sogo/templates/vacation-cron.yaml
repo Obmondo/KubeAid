@@ -1,0 +1,14 @@
+{{- if .Values.sogo.vacationExpiration -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "sogo.fullname" . }}-vacation-cron
+  labels:
+    app.kubernetes.io/name: {{ include "sogo.name" . }}
+    helm.sh/chart: {{ include "sogo.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+data:
+  cron: |
+    {{ printf "%s sogo  /usr/sbin/sogo-tool update-autoreply -p /etc/sogo/sieve.creds" (.Values.sogo.vacationExpiration.schedule | trim | default "*/5 * * * *") }}
+{{- end }}

@@ -1,0 +1,14 @@
+{{- if .Values.sogo.backup -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "sogo.fullname" . }}-backup-cron
+  labels:
+    app.kubernetes.io/name: {{ include "sogo.name" . }}
+    helm.sh/chart: {{ include "sogo.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+data:
+  cron: |
+    {{ printf "%s sogo /usr/share/doc/sogo/sogo-backup.sh" (.Values.sogo.backup.schedule | trim | default "30 0 * * *") }}
+{{- end }}

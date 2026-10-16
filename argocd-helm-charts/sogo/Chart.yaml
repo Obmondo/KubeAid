@@ -1,0 +1,7 @@
+apiVersion: v2
+name: sogo
+version: 1.0.0
+dependencies:
+  - name: sogo
+    version: 0.3.5
+    repository: https://helm.snry.xyz/docker-sogo/
