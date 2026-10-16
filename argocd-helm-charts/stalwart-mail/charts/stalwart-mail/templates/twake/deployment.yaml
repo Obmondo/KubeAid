@@ -1,0 +1,103 @@
+{{- if .Values.webclients.twake.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "stalwart-mail.fullname" . }}-twake
+  labels:
+    {{- include "stalwart-mail.labels" . | nindent 4 }}
+    app.kubernetes.io/component: twake
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.webclients.twake.replicaCount }}
+  {{- end }}
+  {{- with .Values.webclients.twake.updateStrategy }}
+  updateStrategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "stalwart-mail.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: twake
+  template:
+    metadata:
+      annotations:
+        config-hash: {{ include (print $.Template.BasePath "/twake/configmap.yaml") . | sha256sum }}
+        {{- with .Values.webclients.twake.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "stalwart-mail.labels" . | nindent 8 }}
+        app.kubernetes.io/component: twake
+        {{- with .Values.webclients.twake.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "stalwart-mail.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.webclients.twake.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}-twake
+          securityContext:
+            {{- toYaml .Values.webclients.twake.securityContext | nindent 12 }}
+          {{- with .Values.webclients.twake.image }}
+          image: "{{ coalesce $.Values.global.image.registry .registry }}/{{ .repository }}:{{ .tag }}"
+          imagePullPolicy: {{ coalesce $.Values.global.image.pullPolicy .pullPolicy }}
+          {{- end }}
+          envFrom:
+            - secretRef:
+                name: {{ include "stalwart-mail.fullname" . }}-env
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          {{- with .Values.webclients.twake.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.webclients.twake.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.webclients.twake.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.webclients.twake.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: "/usr/share/nginx/html/assets/env.file"
+              subPath: "env.file"
+              readOnly: true
+            - name: config
+              mountPath: "/usr/share/nginx/html/assets/configurations/app_dashboard.json"
+              subPath: "app_dashboard.json"
+              readOnly: true
+            {{- with .Values.webclients.twake.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: "config"
+          configMap:
+            name: {{ include "stalwart-mail.fullname" . }}-twake
+        {{- with .Values.webclients.twake.volumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.webclients.twake.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.webclients.twake.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.webclients.twake.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
