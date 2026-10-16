@@ -1,0 +1,64 @@
+suite: control-plane endpoint resolution on the nodes
+templates:
+  - "*.yaml"
+release:
+  name: demo
+chart:
+  version: 1.0.0
+  appVersion: 1.0.0
+values:
+  - ../values.example.hcloud.yaml
+set:
+  mode: hcloud
+  global.clusterName: demo
+  global.kubernetes.version: v1.33.0
+  global.pods.cidrBlock: 10.244.0.0/16
+  global.additionalUsers: []
+  controlPlane.endpoint.host: api.demo.example.com
+  controlPlane.loadBalancer.privateIP: 10.0.0.3
+tests:
+  - it: maps the endpoint to the private load balancer on control-plane nodes
+    template: KubeadmControlPlane.yaml
+    asserts:
+      - matchRegex:
+          path: spec.kubeadmConfigSpec.preKubeadmCommands[1]
+          pattern: "echo '10\\.0\\.0\\.3 api\\.demo\\.example\\.com' >> /etc/hosts"
+
+  - it: removes any stale entry for the endpoint before writing its own
+    template: KubeadmControlPlane.yaml
+    asserts:
+      - matchRegex:
+          path: spec.kubeadmConfigSpec.preKubeadmCommands[1]
+          pattern: "sed -i '/\\[\\[:space:\\]\\]api\\.demo\\.example\\.com\\$/d' /etc/hosts"
+
+  - it: writes the mapping before anything that needs the apiserver
+    template: KubeadmControlPlane.yaml
+    asserts:
+      - equal:
+          path: spec.kubeadmConfigSpec.preKubeadmCommands[0]
+          value: set -x
+
+  - it: maps the endpoint on worker nodes too
+    template: KubeadmConfigTemplate.yaml
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.preKubeadmCommands[1]
+          pattern: "echo '10\\.0\\.0\\.3 api\\.demo\\.example\\.com' >> /etc/hosts"
+
+  - it: omits the mapping when the load balancer has no private IP
+    template: KubeadmControlPlane.yaml
+    set:
+      controlPlane.loadBalancer.privateIP: ""
+    asserts:
+      - notMatchRegex:
+          path: spec.kubeadmConfigSpec.preKubeadmCommands[1]
+          pattern: /etc/hosts
+
+  - it: omits the mapping when no endpoint host is configured
+    template: KubeadmControlPlane.yaml
+    set:
+      controlPlane.endpoint.host: ""
+    asserts:
+      - notMatchRegex:
+          path: spec.kubeadmConfigSpec.preKubeadmCommands[1]
+          pattern: /etc/hosts
