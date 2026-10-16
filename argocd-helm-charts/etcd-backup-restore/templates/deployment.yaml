@@ -1,0 +1,168 @@
+{{- $tls := .Values.etcd.tls }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: etcd-backup-restore
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  # Not configurable. Two replicas writing one store-prefix would interleave
+  # full/delta sequences and confuse garbage collection.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: etcd-backup-restore
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+{{- if .Values.podAnnotations }}
+      annotations:
+{{ toYaml .Values.podAnnotations | indent 8 }}
+{{- end }}
+      labels:
+        app.kubernetes.io/name: etcd-backup-restore
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+{{- if .Values.hostNetwork }}
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+{{- end }}
+{{- if .Values.priorityClassName }}
+      priorityClassName: {{ .Values.priorityClassName }}
+{{- end }}
+{{- if .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.nodeSelector | indent 8 }}
+{{- end }}
+{{- if .Values.tolerations }}
+      tolerations:
+{{ toYaml .Values.tolerations | indent 8 }}
+{{- end }}
+{{- if .Values.affinity }}
+      affinity:
+{{ toYaml .Values.affinity | indent 8 }}
+{{- end }}
+{{- if $tls.enabled }}
+      initContainers:
+      # The node's etcd certs are root-owned and mode 0600, so something
+      # privileged has to read them once. Doing it here keeps the long-running
+      # backup-restore container non-root. The hostPath is mounted read-only.
+      - name: copy-etcd-certs
+        image: {{ .Values.images.certCopy.repository }}:{{ .Values.images.certCopy.tag }}
+        imagePullPolicy: {{ .Values.images.certCopy.pullPolicy }}
+        command:
+        - sh
+        - -c
+        - |
+          set -eu
+          cp /host-etcd-pki/{{ $tls.caFile }}   /etcd-certs/ca.crt
+          cp /host-etcd-pki/{{ $tls.certFile }} /etcd-certs/tls.crt
+          cp /host-etcd-pki/{{ $tls.keyFile }}  /etcd-certs/tls.key
+          chown 65532:65532 /etcd-certs/ca.crt /etcd-certs/tls.crt /etcd-certs/tls.key
+          chmod 0400        /etcd-certs/ca.crt /etcd-certs/tls.crt /etcd-certs/tls.key
+        securityContext:
+          runAsUser: 0
+          runAsGroup: 0
+          runAsNonRoot: false
+        volumeMounts:
+        - name: host-etcd-pki
+          mountPath: /host-etcd-pki
+          readOnly: true
+        - name: etcd-certs
+          mountPath: /etcd-certs
+{{- end }}
+      containers:
+      - name: backup-restore
+        image: {{ .Values.images.etcdBackupRestore.repository }}:{{ .Values.images.etcdBackupRestore.tag }}
+        imagePullPolicy: {{ .Values.images.etcdBackupRestore.pullPolicy }}
+        args:
+        # "snapshot", not "server": server also initializes an etcd whose data
+        # directory it owns, which is meaningless for an etcd managed by
+        # kubeadm. snapshot has no --data-dir and uses the client API only.
+        - snapshot
+        - --endpoints={{ join "," .Values.etcd.endpoints }}
+{{- if $tls.enabled }}
+        - --cacert=/var/etcd/ssl/client/ca.crt
+        - --cert=/var/etcd/ssl/client/tls.crt
+        - --key=/var/etcd/ssl/client/tls.key
+        - --insecure-transport=false
+        - --insecure-skip-tls-verify=false
+{{- else }}
+        - --insecure-transport=true
+        - --insecure-skip-tls-verify=true
+{{- end }}
+        - --storage-provider={{ .Values.backup.storageProvider }}
+        - --store-prefix={{ .Values.backup.storePrefix }}
+{{- if .Values.backup.endpointOverride }}
+        - --store-endpoint-override={{ .Values.backup.endpointOverride }}
+{{- end }}
+        - --schedule={{ .Values.backup.schedule }}
+        - --delta-snapshot-period={{ .Values.backup.deltaSnapshotPeriod }}
+        - --delta-snapshot-memory-limit={{ int $.Values.backup.deltaSnapshotMemoryLimit }}
+        - --garbage-collection-policy={{ .Values.backup.garbageCollectionPolicy }}
+{{- if eq .Values.backup.garbageCollectionPolicy "LimitBased" }}
+        - --max-backups={{ .Values.backup.maxBackups }}
+{{- end }}
+        - --garbage-collection-period={{ .Values.backup.garbageCollectionPeriod }}
+        - --compress-snapshots={{ .Values.backup.compression.enabled }}
+        - --compression-policy={{ .Values.backup.compression.policy }}
+        - --etcd-connection-timeout={{ .Values.backup.etcdConnectionTimeout }}
+        - --etcd-snapshot-timeout={{ .Values.backup.etcdSnapshotTimeout }}
+        # Always passed: etcdbrctl rejects an empty spec, and omitting the flag
+        # makes it default to "0 0 */3 * *". See values.yaml.
+        - {{ printf "--defragmentation-schedule=%s" .Values.backup.defragmentationSchedule | quote }}
+        - --etcd-defrag-timeout={{ .Values.backup.etcdDefragTimeout }}
+        - --snapstore-temp-directory=/var/etcd/tmp
+{{- if and .Values.etcdAuth.username .Values.etcdAuth.password }}
+        - --etcd-username={{ .Values.etcdAuth.username }}
+        - --etcd-password={{ .Values.etcdAuth.password }}
+{{- end }}
+        env:
+{{ include "etcd-backup-restore.snapstoreEnv" . | indent 8 }}
+        resources:
+{{ toYaml .Values.resources.backup | indent 10 }}
+        securityContext:
+          runAsUser: 65532
+          runAsGroup: 65532
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: temp
+          mountPath: /var/etcd/tmp
+        # readOnlyRootFilesystem is on, and the cloud SDKs and compression path
+        # both fall back to /tmp regardless of --snapstore-temp-directory.
+        - name: tmp
+          mountPath: /tmp
+{{- if $tls.enabled }}
+        - name: etcd-certs
+          mountPath: /var/etcd/ssl/client
+          readOnly: true
+{{- end }}
+{{ include "etcd-backup-restore.snapstoreVolumeMount" . | indent 8 }}
+      securityContext:
+        fsGroup: 65532
+      volumes:
+      - name: temp
+        emptyDir:
+          sizeLimit: {{ .Values.tempDirSizeLimit }}
+      - name: tmp
+        emptyDir:
+          sizeLimit: {{ .Values.tempDirSizeLimit }}
+{{- if $tls.enabled }}
+      - name: host-etcd-pki
+        hostPath:
+          path: {{ $tls.hostPath }}
+          type: Directory
+      - name: etcd-certs
+        emptyDir: {}
+{{- end }}
+{{ include "etcd-backup-restore.snapstoreVolume" . | indent 6 }}
