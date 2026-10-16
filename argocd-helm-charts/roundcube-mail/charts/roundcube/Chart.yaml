@@ -1,0 +1,28 @@
+annotations:
+  artifacthub.io/license: GPL-3.0
+  artifacthub.io/signKey: |
+    fingerprint: F4A091E1F243C3748FFF661A8FC3060F80C31A0A
+    url: https://keys.openpgp.org/vks/v1/by-fingerprint/F4A091E1F243C3748FFF661A8FC3060F80C31A0A
+apiVersion: v2
+appVersion: 1.6.9
+dependencies:
+- name: common
+  repository: https://charts.bitnami.com/bitnami
+  version: 2.*
+description: Community Helm Chart for Roundcube
+icon: https://gitlab.com/MatthiasLohr/roundcube-helm-chart/-/raw/main/roundcube-logo.png
+keywords:
+- roundcube
+- roundcubemail
+- webmail
+maintainers:
+- email: mail@mlohr.com
+  name: Matthias Lohr
+  url: https://mlohr.com/
+name: roundcube
+sources:
+- https://gitlab.com/MatthiasLohr/roundcube-helm-chart
+- https://github.com/roundcube/roundcubemail-docker
+- https://github.com/roundcube/roundcubemail
+type: application
+version: 1.16.0

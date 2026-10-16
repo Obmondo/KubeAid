@@ -21,3 +21,4 @@ twenty                           # requires user-supplied values to render
 funkwhale                        # requires user-supplied values to render
 mastodon                         # requires user-supplied values to render
 redmine                          # templates/postgresql.yaml dereferences postgresql.logicalBackup with no default
+roundcube-mail                   # requires user-supplied values to render (imap/smtp host)
