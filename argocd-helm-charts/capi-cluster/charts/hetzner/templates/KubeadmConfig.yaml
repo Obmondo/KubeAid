@@ -181,8 +181,6 @@ spec:
     - |
       {{- include "hetzner.efiBootOrderScript" . | nindent 6 }}
 
-    - export NETWORK_INTERFACE=$(ip route get 8.8.8.8 | awk '{print $5; exit}')
-
     {{- if or (eq $.Values.mode "hybrid") (and (eq $.Values.mode "bare-metal") $.Values.bareMetal.vSwitch) }}
     {{/* Bring up the VLAN sub-interface for the Hetzner vSwitch.
          Required for both hybrid (vSwitch bridges bare-metal nodes onto
@@ -202,6 +200,10 @@ spec:
          10.0.1.1) belong only to hybrid — pure bare-metal nodes
          keep their default route on the public NIC. */}}
     - |
+      {{/* Assigned here, not as its own preKubeadmCommands entry: each entry
+           runs in a separate shell, so an exported variable does not survive
+           into the entry that writes the netplan file. */}}
+      NETWORK_INTERFACE="$(ip route get 8.8.8.8 | awk '{print $5; exit}')"
       cat <<EOF > /etc/netplan/60-vlan.yaml
       network:
         version: 2
