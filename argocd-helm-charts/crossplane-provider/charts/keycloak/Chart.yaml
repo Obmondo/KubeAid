@@ -1,4 +1,0 @@
-apiVersion: v2
-name: keycloak
-description: Crossplane keycloak provider, provider config and managed resources
-version: 1.0.0
