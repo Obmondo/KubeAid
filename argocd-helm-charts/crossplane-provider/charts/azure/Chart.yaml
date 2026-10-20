@@ -1,4 +1,0 @@
-apiVersion: v2
-name: azure
-description: Crossplane azure provider, provider config and managed resources
-version: 1.0.0
