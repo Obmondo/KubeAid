@@ -1,0 +1,17 @@
+{{- if .Values.providers.scaleway.enabled }}
+# Cluster-wide Scaleway credentials for every Scaleway managed resource. Sync wave 1: its CRD only
+# exists once provider-scaleway is Installed and Healthy.
+apiVersion: scaleway.m.upbound.io/v1beta1
+kind: ClusterProviderConfig
+metadata:
+  name: default
+  annotations:
+    {{- include "crossplane-provider.wave1" . | nindent 4 }}
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: {{ .Release.Namespace }}
+      name: {{ .Values.providers.scaleway.credentials.secretName }}
+      key: {{ .Values.providers.scaleway.credentials.secretKey }}
+{{- end }}

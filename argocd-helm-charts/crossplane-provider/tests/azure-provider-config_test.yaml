@@ -1,0 +1,44 @@
+suite: azure ProviderConfig
+templates:
+  - azure/provider-config.yaml
+release:
+  name: crossplane-provider
+  namespace: crossplane
+set:
+  providers.azure.enabled: true
+tests:
+  - it: renders the default ProviderConfig reading the credentials Secret from the release namespace in sync wave 1
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: ProviderConfig
+      - isAPIVersion:
+          of: azure.upbound.io/v1beta1
+      - equal:
+          path: metadata.name
+          value: default
+      - equal:
+          path: metadata.annotations
+          value:
+            argocd.argoproj.io/sync-wave: "1"
+            argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+      - equal:
+          path: spec.credentials.secretRef
+          value:
+            namespace: crossplane
+            name: azure-credentials
+            key: credentials
+
+  - it: honours a custom Secret name and key
+    set:
+      providers.azure.credentials:
+        secretName: azure-sp
+        secretKey: creds.json
+    asserts:
+      - equal:
+          path: spec.credentials.secretRef.name
+          value: azure-sp
+      - equal:
+          path: spec.credentials.secretRef.key
+          value: creds.json

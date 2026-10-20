@@ -1,0 +1,241 @@
+suite: netbird keycloak integration
+templates:
+  - netbird/keycloak-integration/composite-resource-definition.yaml
+  - netbird/keycloak-integration/composition.yaml
+release:
+  name: crossplane-provider
+  namespace: crossplane
+set:
+  providers.keycloak.enabled: true
+  providers.netbird.enabled: true
+  providers.netbird.keycloakIntegration.enabled: true
+tests:
+  - it: renders nothing when the integration is switched off
+    set:
+      providers.netbird.keycloakIntegration.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+        template: netbird/keycloak-integration/composite-resource-definition.yaml
+      - hasDocuments:
+          count: 0
+        template: netbird/keycloak-integration/composition.yaml
+
+  - it: refuses to render without the keycloak provider
+    set:
+      providers.keycloak.enabled: false
+    template: netbird/keycloak-integration/composition.yaml
+    asserts:
+      - failedTemplate:
+          errorPattern: providers.netbird.keycloakIntegration needs providers.keycloak.enabled
+
+  - it: renders a namespaced Crossplane v2 XRD in sync wave 1
+    template: netbird/keycloak-integration/composite-resource-definition.yaml
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: CompositeResourceDefinition
+      - isAPIVersion:
+          of: apiextensions.crossplane.io/v2
+      - equal:
+          path: metadata.name
+          value: keycloakintegrations.netbird.kubeaid.org
+      - equal:
+          path: metadata.annotations
+          value:
+            argocd.argoproj.io/sync-wave: "1"
+            argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+      - equal:
+          path: spec.scope
+          value: Namespaced
+      - equal:
+          path: spec.group
+          value: netbird.kubeaid.org
+      - equal:
+          path: spec.names.kind
+          value: KeycloakIntegration
+      - equal:
+          path: spec.enforcedCompositionRef.name
+          value: netbird-keycloak-integration
+      - equal:
+          path: spec.versions[0].schema.openAPIV3Schema.properties.spec.required
+          value:
+            - realm
+            - dashboardURL
+            - idpServiceAccount
+            - backendClient
+            - dashboardClient
+      # The client IDs are fixed in the Composition, so they are not part of the API.
+      - notExists:
+          path: spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.backendClient.properties.clientId
+      - notExists:
+          path: spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.dashboardClient.properties.clientId
+      - equal:
+          path: spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.dashboardClient.properties.propagatedGroupScopes.type
+          value: array
+
+  - it: renders the Composition in sync wave 2, patching static base manifests
+    template: netbird/keycloak-integration/composition.yaml
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Composition
+      - equal:
+          path: metadata.name
+          value: netbird-keycloak-integration
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/sync-wave"]
+          value: "2"
+      - equal:
+          path: spec.compositeTypeRef
+          value:
+            apiVersion: netbird.kubeaid.org/v1alpha1
+            kind: KeycloakIntegration
+      - equal:
+          path: spec.mode
+          value: Pipeline
+      - equal:
+          path: spec.pipeline[0].functionRef.name
+          value: patch-and-transform
+      - equal:
+          path: spec.pipeline[0].input.kind
+          value: Resources
+      - equal:
+          path: spec.pipeline[1].functionRef.name
+          value: auto-ready
+      - lengthEqual:
+          path: spec.pipeline[0].input.resources
+          count: 9
+      - equal:
+          path: spec.pipeline[0].input.resources[0].name
+          value: idp-service-account
+      - equal:
+          path: spec.pipeline[0].input.resources[1].name
+          value: backend-client
+      - equal:
+          path: spec.pipeline[0].input.resources[2].name
+          value: backend-client-default-scopes
+      - equal:
+          path: spec.pipeline[0].input.resources[3].name
+          value: realm-management-client
+      - equal:
+          path: spec.pipeline[0].input.resources[4].name
+          value: backend-client-service-account-role
+      - equal:
+          path: spec.pipeline[0].input.resources[5].name
+          value: dashboard-client
+      - equal:
+          path: spec.pipeline[0].input.resources[6].name
+          value: api-client-scope
+      - equal:
+          path: spec.pipeline[0].input.resources[7].name
+          value: api-client-scope-audience-mapper
+      - equal:
+          path: spec.pipeline[0].input.resources[8].name
+          value: dashboard-client-default-scopes
+
+  - it: fixes the client IDs, the flows and the audience in the bases
+    template: netbird/keycloak-integration/composition.yaml
+    asserts:
+      - equal:
+          path: spec.pipeline[0].input.resources[1].base.metadata.name
+          value: netbird-backend
+      - equal:
+          path: spec.pipeline[0].input.resources[1].base.spec.forProvider.clientId
+          value: netbird-backend
+      - equal:
+          path: spec.pipeline[0].input.resources[1].base.spec.forProvider.accessType
+          value: CONFIDENTIAL
+      - equal:
+          path: spec.pipeline[0].input.resources[1].base.spec.forProvider.serviceAccountsEnabled
+          value: true
+      - equal:
+          path: spec.pipeline[0].input.resources[2].base.spec.forProvider.clientIdRef.name
+          value: netbird-backend
+      - equal:
+          path: spec.pipeline[0].input.resources[3].base.metadata.name
+          value: realm-management
+      - equal:
+          path: spec.pipeline[0].input.resources[3].base.spec.managementPolicies
+          value:
+            - Observe
+      - equal:
+          path: spec.pipeline[0].input.resources[4].base.spec.forProvider.clientIdRef.name
+          value: realm-management
+      - equal:
+          path: spec.pipeline[0].input.resources[4].base.spec.forProvider.serviceAccountUserClientIdRef.name
+          value: netbird-backend
+      - equal:
+          path: spec.pipeline[0].input.resources[4].base.spec.forProvider.role
+          value: view-users
+      - equal:
+          path: spec.pipeline[0].input.resources[5].base.metadata.name
+          value: netbird-client
+      - equal:
+          path: spec.pipeline[0].input.resources[5].base.spec.forProvider.clientId
+          value: netbird-client
+      - equal:
+          path: spec.pipeline[0].input.resources[5].base.spec.forProvider.accessType
+          value: PUBLIC
+      - equal:
+          path: spec.pipeline[0].input.resources[6].base.metadata.name
+          value: netbird-client-api
+      - equal:
+          path: spec.pipeline[0].input.resources[6].base.spec.forProvider.name
+          value: api
+      - equal:
+          path: spec.pipeline[0].input.resources[7].base.metadata.name
+          value: netbird-client-api-audience
+      - equal:
+          path: spec.pipeline[0].input.resources[7].base.spec.forProvider.clientScopeIdRef.name
+          value: netbird-client-api
+      - equal:
+          path: spec.pipeline[0].input.resources[7].base.spec.forProvider.protocolMapper
+          value: oidc-audience-mapper
+      - equal:
+          path: spec.pipeline[0].input.resources[7].base.spec.forProvider.config["included.client.audience"]
+          value: netbird-client
+      - equal:
+          path: spec.pipeline[0].input.resources[8].base.spec.forProvider.clientIdRef.name
+          value: netbird-client
+
+  - it: lists the default scopes in the bases, unpatched
+    template: netbird/keycloak-integration/composition.yaml
+    asserts:
+      - equal:
+          path: spec.pipeline[0].input.resources[2].base.spec.forProvider.defaultScopes
+          value:
+            - email
+            - profile
+            - acr
+            - basic
+            - web-origins
+            - roles
+      # The realm's own `groups` scope is part of the base; scopes brokered from another IdP are
+      # appended through spec.dashboardClient.propagatedGroupScopes.
+      - equal:
+          path: spec.pipeline[0].input.resources[8].base.spec.forProvider.defaultScopes
+          value:
+            - api
+            - email
+            - groups
+            - profile
+            - acr
+            - basic
+            - web-origins
+            - roles
+
+  - it: appends the propagated group scopes rather than replacing the list
+    template: netbird/keycloak-integration/composition.yaml
+    asserts:
+      - equal:
+          path: spec.pipeline[0].input.resources[8].patches[3]
+          value:
+            type: FromCompositeFieldPath
+            fromFieldPath: spec.dashboardClient.propagatedGroupScopes
+            toFieldPath: spec.forProvider.defaultScopes
+            policy:
+              mergeOptions:
+                appendSlice: true

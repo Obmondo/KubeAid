@@ -1,0 +1,35 @@
+{{- if .Values.providers.scaleway.enabled }}
+# Scaleway provider (Object Storage, Instances, Databases, ...). Sync wave 0: everything else in
+# the Scaleway resources in this chart need the CRDs this package installs.
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-scaleway
+  annotations:
+    {{- include "crossplane-provider.wave0" . | nindent 4 }}
+spec:
+  package: {{ .Values.providers.scaleway.provider.package }}:{{ .Values.providers.scaleway.provider.version }}
+  runtimeConfigRef:
+    name: provider-scaleway
+
+---
+# Management policies let a managed resource opt out of Delete (and friends), so a Bucket that
+# is removed from git never deletes data in Scaleway. They are a beta feature that has to be
+# switched on per provider.
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
+metadata:
+  name: provider-scaleway
+  annotations:
+    {{- include "crossplane-provider.wave0" . | nindent 4 }}
+spec:
+  deploymentTemplate:
+    spec:
+      selector: {}
+      template:
+        spec:
+          containers:
+            - name: package-runtime
+              args:
+                - --enable-management-policies
+{{- end }}

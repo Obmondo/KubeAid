@@ -1,0 +1,58 @@
+suite: composition pipeline functions
+templates:
+  - functions.yaml
+release:
+  name: crossplane-provider
+  namespace: crossplane
+tests:
+  - it: renders nothing when no composition is enabled
+    set:
+      providers.azure.enabled: true
+      providers.azure.compositions.workloadIdentityInfrastructure.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: installs the three functions once an Azure composition is enabled
+    set:
+      providers.azure.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 3
+      - isKind:
+          of: Function
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/sync-wave"]
+          value: "0"
+      - equal:
+          path: metadata.name
+          value: patch-and-transform
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: go-templating
+        documentIndex: 1
+      - equal:
+          path: metadata.name
+          value: auto-ready
+        documentIndex: 2
+
+  - it: installs them for the NetBird Keycloak integration too, without any Azure composition
+    set:
+      providers.keycloak.enabled: true
+      providers.netbird.enabled: true
+      providers.netbird.keycloakIntegration.enabled: true
+      providers.netbird.keycloakIntegration.realm: Kilroy
+      providers.netbird.keycloakIntegration.dashboardURL: https://netbird.vpn.kilroy.eu
+    asserts:
+      - hasDocuments:
+          count: 3
+
+  - it: installs them for the Obmondo group propagation too
+    set:
+      providers.keycloak.enabled: true
+      providers.keycloak.realm: Kilroy
+      providers.keycloak.obmondoKeycloakGroupsPropagation.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 3

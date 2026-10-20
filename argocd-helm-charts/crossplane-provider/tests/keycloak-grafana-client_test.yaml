@@ -1,0 +1,127 @@
+suite: keycloak grafana client
+templates:
+  - keycloak/grafana-client/composite-resource-definition.yaml
+  - keycloak/grafana-client/composition.yaml
+release:
+  name: crossplane-provider
+  namespace: crossplane
+set:
+  providers.keycloak.enabled: true
+  providers.keycloak.realm: Kilroy
+  providers.keycloak.grafanaClient.enabled: true
+tests:
+  - it: renders nothing when the client is switched off
+    set:
+      providers.keycloak.grafanaClient.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+        template: keycloak/grafana-client/composite-resource-definition.yaml
+      - hasDocuments:
+          count: 0
+        template: keycloak/grafana-client/composition.yaml
+
+  - it: renders a namespaced Crossplane v2 XRD in sync wave 1
+    template: keycloak/grafana-client/composite-resource-definition.yaml
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isAPIVersion:
+          of: apiextensions.crossplane.io/v2
+      - equal:
+          path: metadata.name
+          value: grafanaclients.keycloak.kubeaid.org
+      - equal:
+          path: spec.scope
+          value: Namespaced
+      - equal:
+          path: spec.names.kind
+          value: GrafanaClient
+      - equal:
+          path: spec.enforcedCompositionRef.name
+          value: grafana-keycloak-client
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/sync-wave"]
+          value: "1"
+
+  - it: renders the Composition with the client, its scopes, the role mapper and the three roles
+    template: keycloak/grafana-client/composition.yaml
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Composition
+      - equal:
+          path: metadata.name
+          value: grafana-keycloak-client
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/sync-wave"]
+          value: "2"
+      - equal:
+          path: spec.compositeTypeRef.kind
+          value: GrafanaClient
+      - lengthEqual:
+          path: spec.pipeline[0].input.resources
+          count: 6
+      - equal:
+          path: spec.pipeline[0].input.resources[0].name
+          value: client
+      - equal:
+          path: spec.pipeline[0].input.resources[1].name
+          value: client-default-scopes
+      - equal:
+          path: spec.pipeline[0].input.resources[2].name
+          value: client-roles-mapper
+      - equal:
+          path: spec.pipeline[0].input.resources[3].name
+          value: admin-role
+      - equal:
+          path: spec.pipeline[0].input.resources[4].name
+          value: editor-role
+      - equal:
+          path: spec.pipeline[0].input.resources[5].name
+          value: viewer-role
+
+  - it: fixes the client ID, the scopes and the role names in the bases
+    template: keycloak/grafana-client/composition.yaml
+    asserts:
+      - equal:
+          path: spec.pipeline[0].input.resources[0].base.metadata.name
+          value: grafana
+      - equal:
+          path: spec.pipeline[0].input.resources[0].base.spec.forProvider.clientId
+          value: grafana
+      - equal:
+          path: spec.pipeline[0].input.resources[0].base.spec.forProvider.accessType
+          value: CONFIDENTIAL
+      # Grafana authorizes on client roles, not groups, so no group scope here.
+      - equal:
+          path: spec.pipeline[0].input.resources[1].base.spec.forProvider.defaultScopes
+          value:
+            - email
+            - profile
+            - acr
+            - basic
+            - web-origins
+            - roles
+      - equal:
+          path: spec.pipeline[0].input.resources[2].base.spec.forProvider.protocolMapper
+          value: oidc-usermodel-client-role-mapper
+      - equal:
+          path: spec.pipeline[0].input.resources[2].base.spec.forProvider.config["claim.name"]
+          value: resource_access.${client_id}.roles
+      - equal:
+          path: spec.pipeline[0].input.resources[2].base.spec.forProvider.config["usermodel.clientRoleMapping.clientId"]
+          value: grafana
+      - equal:
+          path: spec.pipeline[0].input.resources[3].base.spec.forProvider.name
+          value: Admin
+      - equal:
+          path: spec.pipeline[0].input.resources[4].base.spec.forProvider.name
+          value: Editor
+      - equal:
+          path: spec.pipeline[0].input.resources[5].base.spec.forProvider.name
+          value: Viewer
+      - equal:
+          path: spec.pipeline[0].input.resources[5].base.spec.forProvider.clientIdRef.name
+          value: grafana

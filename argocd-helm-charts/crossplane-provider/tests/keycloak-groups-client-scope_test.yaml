@@ -1,0 +1,110 @@
+suite: keycloak groups client scope
+templates:
+  - keycloak/groups-client-scope.yaml
+release:
+  name: crossplane-provider
+  namespace: crossplane
+set:
+  providers.keycloak.enabled: true
+  providers.keycloak.realm: Kilroy
+  providers.keycloak.namespace: keycloakx
+tests:
+  - it: renders nothing by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders the client scope and its group membership mapper in sync wave 2
+    set:
+      providers.keycloak.groupsClientScope.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 2
+      - isKind:
+          of: ClientScope
+        documentIndex: 0
+      - isAPIVersion:
+          of: openidclient.keycloak.m.crossplane.io/v1alpha1
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: groups
+        documentIndex: 0
+      - equal:
+          path: metadata.namespace
+          value: keycloakx
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations
+          value:
+            argocd.argoproj.io/sync-wave: "2"
+            argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+        documentIndex: 0
+      - equal:
+          path: spec.providerConfigRef
+          value:
+            kind: ClusterProviderConfig
+            name: default
+        documentIndex: 0
+      - equal:
+          path: spec.forProvider.realmId
+          value: Kilroy
+        documentIndex: 0
+      - equal:
+          path: spec.forProvider.includeInTokenScope
+          value: true
+        documentIndex: 0
+      - isKind:
+          of: ProtocolMapper
+        documentIndex: 1
+      - equal:
+          path: spec.forProvider.clientScopeIdRef
+          value:
+            name: groups
+            namespace: keycloakx
+        documentIndex: 1
+      - equal:
+          path: spec.forProvider.protocolMapper
+          value: oidc-group-membership-mapper
+        documentIndex: 1
+      - equal:
+          path: spec.forProvider.config["claim.name"]
+          value: groups
+        documentIndex: 1
+      - equal:
+          path: spec.forProvider.config["full.path"]
+          value: "false"
+        documentIndex: 1
+
+  - it: can be renamed and emit full group paths
+    set:
+      providers.keycloak.groupsClientScope.enabled: true
+      providers.keycloak.groupsClientScope.name: keycloak-groups
+      providers.keycloak.groupsClientScope.fullGroupPath: true
+    asserts:
+      - equal:
+          path: metadata.name
+          value: keycloak-groups
+        documentIndex: 0
+      - equal:
+          path: spec.forProvider.config["full.path"]
+          value: "true"
+        documentIndex: 1
+
+  - it: falls back to the release namespace
+    set:
+      providers.keycloak.groupsClientScope.enabled: true
+      providers.keycloak.namespace: ""
+    asserts:
+      - equal:
+          path: metadata.namespace
+          value: crossplane
+        documentIndex: 0
+
+  - it: requires the realm
+    set:
+      providers.keycloak.groupsClientScope.enabled: true
+      providers.keycloak.realm: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: providers.keycloak.realm is required
