@@ -87,6 +87,8 @@ nodeSelector: {}
 ## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
 ##
 tolerations: []
+## @param hostAliases Pod host aliases
+hostAliases: []
 
 ## @section Traffic Exposure Parameters
 
