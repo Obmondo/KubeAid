@@ -906,6 +906,31 @@ local kp =
       },
     } else {}
   ) +
+  {
+    // Upstream relabels the node name into `instance` only, so the node-exporter alerts
+    // (NodeDiskIOSaturation, NodeCPUHighUsage, ...) name the node in no other label. opsmondo
+    // does not hash `instance`, on most alerts it is a pod IP, so two nodes with the same alert
+    // would share one ticket. Carry the node name as `node` as well, the label the kubelet
+    // alerts already use.
+    nodeExporter+: {
+      serviceMonitor+: {
+        spec+: {
+          endpoints: std.map(
+            function(endpoint) endpoint {
+              relabelings+: [{
+                action: 'replace',
+                regex: '(.*)',
+                replacement: '$1',
+                sourceLabels: ['__meta_kubernetes_pod_node_name'],
+                targetLabel: 'node',
+              }],
+            },
+            super.endpoints
+          ),
+        },
+      },
+    },
+  } +
   // *_probe_target ({ url, port }) points a probe at the in-cluster service
   // instead of the ingress. Blackbox-exporter then reaches the pod directly,
   // not through Traefik, so it needs a NetworkPolicy rule for that pod port.
