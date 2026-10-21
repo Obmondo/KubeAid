@@ -24,5 +24,13 @@ spec:
         {{- range $probe.urls }}
         - {{ . }}
         {{- end }}
+      # The probed URL is carried as `url`; the blackbox alerts and opsmondo identify a probe by it.
+      relabelingConfigs:
+        - sourceLabels: [__param_target]
+          targetLabel: url
+  # prometheus-operator also puts the probed URL into `instance` label, which we want to put in `url` label
+  metricRelabelings:
+    - action: labeldrop
+      regex: instance
 {{- end }}
 {{- end }}

@@ -8,18 +8,18 @@ tests:
   # =========================
   - interval: 1m
     input_series:
-      - series: 'probe_success{instance="obmondo.com"}'
+      - series: 'probe_success{url="obmondo.com"}'
         values: '0 0 0 0 0 0 0'
     alert_rule_test:
       - eval_time: 6m
         alertname: BlackboxHttpEndpointDown
         exp_alerts:
           - exp_labels:
-              instance: obmondo.com
+              url: obmondo.com
               severity: critical
               alert_id: blackbox_http_endpoint_down
             exp_annotations:
-              summary: HTTP endpoint is down
+              summary: HTTP endpoint is down.
               description: Probe to **obmondo.com** is failing.
 
   # =========================
@@ -27,18 +27,18 @@ tests:
   # =========================
   - interval: 1m
     input_series:
-      - series: 'probe_http_status_code{instance="obmondo.com"}'
+      - series: 'probe_http_status_code{url="obmondo.com"}'
         values: '500 500 500 500 500 500 500 500 500 500 500'
     alert_rule_test:
       - eval_time: 10m
         alertname: BlackboxHttp5xxErrors
         exp_alerts:
           - exp_labels:
-              instance: obmondo.com
+              url: obmondo.com
               severity: critical
               alert_id: blackbox_http_5xx
             exp_annotations:
-              summary: HTTP 5xx responses detected
+              summary: HTTP 5xx responses detected.
               description: '**obmondo.com** is returning server errors with HTTP status code: 500'
 
   # =========================
@@ -46,18 +46,18 @@ tests:
   # =========================
   - interval: 1m
     input_series:
-      - series: 'probe_ssl_earliest_cert_expiry{instance="obmondo.com"}'
+      - series: 'probe_ssl_earliest_cert_expiry{url="obmondo.com"}'
         values: '1000 1000 1000 1000 1000 1000 1000 1000 1000 1000'
     alert_rule_test:
       - eval_time: 10m
         alertname: BlackboxTlsCertificateExpiring
         exp_alerts:
           - exp_labels:
-              instance: obmondo.com
+              url: obmondo.com
               severity: warning
               alert_id: blackbox_tls_expiring
             exp_annotations:
-              summary: TLS certificate nearing expiry
+              summary: TLS certificate nearing expiry.
               description: TLS cert for **obmondo.com** expires in less than 15 days.
 
   # =========================
@@ -65,18 +65,18 @@ tests:
   # =========================
   - interval: 1m
     input_series:
-      - series: 'probe_ssl_earliest_cert_expiry{instance="obmondo.com"}'
+      - series: 'probe_ssl_earliest_cert_expiry{url="obmondo.com"}'
         values: '1000 1000 1000 1000 1000 1000 1000 1000 1000 1000'
     alert_rule_test:
       - eval_time: 10m
         alertname: BlackboxTlsCertificateExpiringSoon
         exp_alerts:
           - exp_labels:
-              instance: obmondo.com
+              url: obmondo.com
               severity: critical
               alert_id: blackbox_tls_expiring_soon
             exp_annotations:
-              summary: TLS certificate expiring soon
+              summary: TLS certificate expiring soon.
               description: TLS cert for **obmondo.com** expires in less than 7 days.
 
   # =========================
@@ -84,18 +84,18 @@ tests:
   # =========================
   - interval: 1m
     input_series:
-      - series: 'probe_duration_seconds{instance="obmondo.com"}'
+      - series: 'probe_duration_seconds{url="obmondo.com"}'
         values: '3 3 3 3 3 3 3 3 3 3 3'
     alert_rule_test:
       - eval_time: 10m
         alertname: BlackboxHighLatency
         exp_alerts:
           - exp_labels:
-              instance: obmondo.com
+              url: obmondo.com
               severity: warning
               alert_id: blackbox_high_latency
             exp_annotations:
-              summary: High response latency detected
+              summary: High response latency detected.
               description: '**obmondo.com** is responding slowly (~3 seconds).'
 
   # =========================
@@ -103,18 +103,18 @@ tests:
   # =========================
   - interval: 1m
     input_series:
-      - series: 'probe_duration_seconds{instance="obmondo.com"}'
+      - series: 'probe_duration_seconds{url="obmondo.com"}'
         values: '6 6 6 6 6 6 6'
     alert_rule_test:
       - eval_time: 6m
         alertname: BlackboxVeryHighLatency
         exp_alerts:
           - exp_labels:
-              instance: obmondo.com
+              url: obmondo.com
               severity: critical
               alert_id: blackbox_very_high_latency
             exp_annotations:
-              summary: Very high latency detected
+              summary: Very high latency detected.
               description: '**obmondo.com** latency is critically high (~6 seconds).'
 
   # =========================
@@ -122,18 +122,18 @@ tests:
   # =========================
   - interval: 1m
     input_series:
-      - series: 'probe_http_redirects{instance="obmondo.com"}'
+      - series: 'probe_http_redirects{url="obmondo.com"}'
         values: '6 6 6 6 6 6 6 6 6 6 6'
     alert_rule_test:
       - eval_time: 10m
         alertname: BlackboxTooManyRedirects
         exp_alerts:
           - exp_labels:
-              instance: obmondo.com
+              url: obmondo.com
               severity: warning
               alert_id: blackbox_redirect_loop
             exp_annotations:
-              summary: Too many HTTP redirects
+              summary: Too many HTTP redirects.
               description: '**obmondo.com** may have a redirect loop.'
 
   # =========================
@@ -141,20 +141,20 @@ tests:
   # =========================
   - interval: 1m
     input_series:
-      - series: 'probe_success{instance="obmondo.com"}'
+      - series: 'probe_success{url="obmondo.com"}'
         values: '0 0 0 0 0 0'
-      - series: 'probe_dns_lookup_time_seconds{instance="obmondo.com"}'
+      - series: 'probe_dns_lookup_time_seconds{url="obmondo.com"}'
         values: '0 0 0 0 0 0'
     alert_rule_test:
       - eval_time: 5m
         alertname: BlackboxDnsResolutionFailure
         exp_alerts:
           - exp_labels:
-              instance: obmondo.com
+              url: obmondo.com
               severity: critical
               alert_id: blackbox_dns_failure
             exp_annotations:
-              summary: DNS resolution failed
+              summary: DNS resolution failed.
               description: DNS lookup failed for **obmondo.com**.
 
   # =========================
@@ -162,16 +162,16 @@ tests:
   # =========================
   - interval: 1m
     input_series:
-      - series: 'probe_dns_lookup_time_seconds{instance="obmondo.com"}'
+      - series: 'probe_dns_lookup_time_seconds{url="obmondo.com"}'
         values: '2 2 2 2 2 2 2 2 2 2 2'
     alert_rule_test:
       - eval_time: 10m
         alertname: BlackboxSlowDnsResolution
         exp_alerts:
           - exp_labels:
-              instance: obmondo.com
+              url: obmondo.com
               severity: warning
               alert_id: blackbox_dns_slow
             exp_annotations:
-              summary: Slow DNS resolution
+              summary: Slow DNS resolution.
               description: '**obmondo.com** DNS lookup is slow (~2 seconds).'

@@ -21,7 +21,7 @@
             },
             annotations: {
               summary: 'HTTP endpoint is down.',
-              description: 'Probe to **{{ .Labels.instance }}** is failing.',
+              description: 'Probe to **{{ .Labels.url }}** is failing.',
             },
           },
           {
@@ -34,7 +34,7 @@
             },
             annotations: {
               summary: 'HTTP 5xx responses detected.',
-              description: '**{{ .Labels.instance }}** is returning server errors with HTTP status code: {{ .Value }}',
+              description: '**{{ .Labels.url }}** is returning server errors with HTTP status code: {{ .Value }}',
             },
           },
           // =========================
@@ -50,7 +50,7 @@
             },
             annotations: {
               summary: 'TLS certificate nearing expiry.',
-              description: 'TLS cert for **{{ .Labels.instance }}** expires in less than 15 days.',
+              description: 'TLS cert for **{{ .Labels.url }}** expires in less than 15 days.',
             },
           },
 
@@ -64,7 +64,7 @@
             },
             annotations: {
               summary: 'TLS certificate expiring soon.',
-              description: 'TLS cert for **{{ .Labels.instance }}** expires in less than 7 days.',
+              description: 'TLS cert for **{{ .Labels.url }}** expires in less than 7 days.',
             },
           },
 
@@ -81,7 +81,7 @@
             },
             annotations: {
               summary: 'High response latency detected.',
-              description: '**{{ .Labels.instance }}** is responding slowly (~{{ .Value }} seconds).',
+              description: '**{{ .Labels.url }}** is responding slowly (~{{ .Value }} seconds).',
             },
           },
 
@@ -95,7 +95,7 @@
             },
             annotations: {
               summary: 'Very high latency detected.',
-              description: '**{{ .Labels.instance }}** latency is critically high (~{{ .Value}} seconds).',
+              description: '**{{ .Labels.url }}** latency is critically high (~{{ .Value}} seconds).',
             },
           },
 
@@ -112,7 +112,7 @@
             },
             annotations: {
               summary: 'Too many HTTP redirects.',
-              description: '**{{ .Labels.instance }}** may have a redirect loop.',
+              description: '**{{ .Labels.url }}** may have a redirect loop.',
             },
           },
 
@@ -129,7 +129,7 @@
             },
             annotations: {
               summary: 'DNS resolution failed.',
-              description: 'DNS lookup failed for **{{ .Labels.instance }}**.',
+              description: 'DNS lookup failed for **{{ .Labels.url }}**.',
             },
           },
 
@@ -143,7 +143,7 @@
             },
             annotations: {
               summary: 'Slow DNS resolution.',
-              description: '**{{ .Labels.instance }}** DNS lookup is slow (~{{ .Value }} seconds).',
+              description: '**{{ .Labels.url }}** DNS lookup is slow (~{{ .Value }} seconds).',
             },
           },
         ],

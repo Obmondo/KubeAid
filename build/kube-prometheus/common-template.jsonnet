@@ -28,8 +28,15 @@ local blackboxProbe = function(probe) {
         [if std.objectHas(probe, 'labels') then 'labels']: probe.labels,
         // An explicit url (e.g. the in-cluster service) wins over the ingress host.
         static: [std.get(probe, 'url', 'https://' + std.get(probe, 'host', ''))],
+        // The probed URL is carried as `url`; the blackbox alerts and opsmondo identify a
+        // probe by it.
+        relabelingConfigs: [{ sourceLabels: ['__param_target'], targetLabel: 'url' }],
       },
     },
+    // prometheus-operator also puts the probed URL into `instance`, which on every other alert
+    // means the scraped endpoint or the server. Drop it from the probe metrics so the URL only
+    // ever appears as `url`.
+    metricRelabelings: [{ action: 'labeldrop', regex: 'instance' }],
   },
 };
 

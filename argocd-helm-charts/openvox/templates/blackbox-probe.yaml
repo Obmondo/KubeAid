@@ -12,4 +12,12 @@ spec:
     staticConfig:
       static:
         - https://{{ (((((.Values).puppetserver).puppetserver).masters).fqdns).alternateServerNames }}/status/v1/services
+      # `url` is the probed URL, the label the blackbox alerts and opsmondo identify a probe by.
+      relabelingConfigs:
+        - sourceLabels: [__param_target]
+          targetLabel: url
+  # Drop `instance` (prometheus-operator sets it to the probed URL too) so the URL only appears as `url`.
+  metricRelabelings:
+    - action: labeldrop
+      regex: instance
 {{- end}}

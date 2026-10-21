@@ -14,4 +14,12 @@ spec:
         {{- range (((.Values).sonarqube).ingress).hosts }}
         - https://{{ .name }}{{ .path }}
         {{- end }}
+      # `url` is the probed URL, the label the blackbox alerts and opsmondo identify a probe by.
+      relabelingConfigs:
+        - sourceLabels: [__param_target]
+          targetLabel: url
+  # Drop `instance` (prometheus-operator sets it to the probed URL too) so the URL only appears as `url`.
+  metricRelabelings:
+    - action: labeldrop
+      regex: instance
 {{- end}}
