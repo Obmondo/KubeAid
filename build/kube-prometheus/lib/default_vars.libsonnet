@@ -24,6 +24,13 @@
   alert_namespace_selector: null,
   // Alert names dropped from every rule the build renders on this cluster.
   excluded_alerts: [],
+  // Render alertmanager.yaml from vars into the unsealed Secret
+  // alertmanager-kubeaid-config instead of using the sealed alertmanager-main.
+  // Needs connect_obmondo; the client certificate stays in obmondo-clientcert.
+  alertmanager_render_config: false,
+  // Routes in alertmanager.yaml syntax, checked after the built-in routes,
+  // e.g. { receiver: 'null', matchers: ['namespace =~ "dev-.*"'] }.
+  alertmanager_extra_routes: [],
   prometheus_resources: {
     limits: { memory: '3Gi' },
     requests: { cpu: '200m', memory: '2500Mi' },

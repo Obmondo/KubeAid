@@ -112,6 +112,27 @@ function(vars)
           'loki.settings must be an object',
         ),
 
+      // ── Alertmanager config rendered from vars ────────────────────────
+
+      if std.get(vars, 'alertmanager_render_config', false) then
+        check(
+          std.get(vars, 'connect_obmondo', false),
+          'alertmanager_render_config needs connect_obmondo: true',
+        ),
+
+      if std.objectHas(vars, 'alertmanager_extra_routes') then
+        check(
+          std.type(vars.alertmanager_extra_routes) == 'array',
+          'alertmanager_extra_routes must be an array of routes',
+        ),
+
+      if std.type(std.get(vars, 'alertmanager_extra_routes', [])) == 'array' &&
+         std.length(std.get(vars, 'alertmanager_extra_routes', [])) > 0 then
+        check(
+          std.get(vars, 'alertmanager_render_config', false),
+          'alertmanager_extra_routes needs alertmanager_render_config: true',
+        ),
+
     ]
   );
 

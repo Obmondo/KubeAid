@@ -1,4 +1,5 @@
 local addMixin = import 'lib/addmixin.libsonnet';
+local alertmanagerConfig = import 'lib/alertmanager-config.libsonnet';
 local utils = import 'lib/utils.libsonnet';
 local validate = import 'lib/validate.libsonnet';
 
@@ -36,6 +37,11 @@ local blackboxProbe = function(probe) {
 local default_vars = import 'lib/default_vars.libsonnet';
 
 local vars = default_vars + ext_vars;
+
+// Obmondo-connected clusters use the sealed alertmanager-main Secret unless
+// alertmanager_render_config renders alertmanager.yaml from vars.
+local renderAlertmanagerConfig = std.get(vars, 'connect_obmondo', false) && vars.alertmanager_render_config;
+local alertmanagerConfigSecret = 'alertmanager-kubeaid-config';
 
 local etcdMetrics = vars.etcd_metrics;
 local etcdMetricsResources = (import 'lib/etcd-metrics.libsonnet')(etcdMetrics);
@@ -538,7 +544,11 @@ local kpBase =
       // single replica can never satisfy, making the node undrainable.
       alertmanager+: {
         replicas: vars.alertmanager_replicas,
-      },
+      } + (
+        if renderAlertmanagerConfig then {
+          config: alertmanagerConfig(vars.alertmanager_extra_routes),
+        } else {}
+      ),
 
       prometheus+: {
         // [ i for i in scrape_namespaces if std.get(defaults.mixins, i) == true ],
@@ -694,11 +704,11 @@ local kpBase =
         spec+: {
           resources: vars.alertmanager_resources,
           secrets: (
-            if std.objectHas(vars, 'connect_obmondo') && vars.connect_obmondo then [
-              'obmondo-clientcert',
-              'alertmanager-main',
-            ] else []
+            if std.objectHas(vars, 'connect_obmondo') && vars.connect_obmondo then
+              ['obmondo-clientcert'] + (if renderAlertmanagerConfig then [] else ['alertmanager-main'])
+            else []
           ),
+          [if renderAlertmanagerConfig then 'configSecret']: alertmanagerConfigSecret,
           storage+: {
             volumeClaimTemplate: {
               metadata: {
@@ -765,7 +775,9 @@ local kpBase =
         },
       },
     } + (
-      if std.objectHas(vars, 'connect_obmondo') && vars.connect_obmondo then {
+      if renderAlertmanagerConfig then {
+        secret+: { metadata+: { name: alertmanagerConfigSecret } },
+      } else if std.objectHas(vars, 'connect_obmondo') && vars.connect_obmondo then {
         secret:: {},
       } else {}
     ),

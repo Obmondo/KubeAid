@@ -169,6 +169,35 @@ test.suite({
     expect: true,
   },
 
+  // ── Alertmanager config rendered from vars ──────────────────────────────
+
+  testAlertmanagerRender_valid: {
+    local vars = cfgKubeadmFull {
+      alertmanager_render_config: true,
+      alertmanager_extra_routes: [{ receiver: 'null', matchers: ['namespace =~ "dev-.*"'] }],
+    },
+    actual: noErrors(vars),
+    expect: true,
+  },
+
+  testAlertmanagerRender_needsObmondo: {
+    local vars = cfgKubeadmFull { connect_obmondo: false, alertmanager_render_config: true },
+    actual: hasError(vars, 'alertmanager_render_config needs connect_obmondo'),
+    expect: true,
+  },
+
+  testAlertmanagerExtraRoutes_mustBeArray: {
+    local vars = cfgKubeadmFull { alertmanager_render_config: true, alertmanager_extra_routes: { receiver: 'null' } },
+    actual: hasError(vars, 'alertmanager_extra_routes must be an array'),
+    expect: true,
+  },
+
+  testAlertmanagerExtraRoutes_needRender: {
+    local vars = cfgKubeadmFull { alertmanager_extra_routes: [{ receiver: 'null' }] },
+    actual: hasError(vars, 'alertmanager_extra_routes needs alertmanager_render_config'),
+    expect: true,
+  },
+
   // ── multiple errors returned at once ────────────────────────────────────
 
   testMultipleErrors_countedCorrectly: {

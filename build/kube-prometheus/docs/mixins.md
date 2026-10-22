@@ -38,6 +38,21 @@ excluded_alerts: ['KubeJobNotCompleted'],
 
 To skip an alert only in some namespaces or for some labels, use an Alertmanager route instead.
 
+## Alertmanager routes per cluster
+
+Clusters with `connect_obmondo` normally read `alertmanager.yaml` from the sealed `alertmanager-main` Secret, so changing a route means re-sealing it. With `alertmanager_render_config: true` the build renders the same configuration into the unsealed Secret `alertmanager-kubeaid-config` and points the Alertmanager at it. The configuration holds no credentials: the Obmondo client certificate stays in the sealed `obmondo-clientcert` Secret, which the Alertmanager mounts as files.
+
+`alertmanager_extra_routes` adds routes, in `alertmanager.yaml` syntax, after the built-in ones. An alert that no route matches goes to Obmondo:
+
+```jsonnet
+alertmanager_render_config: true,
+alertmanager_extra_routes: [
+  { receiver: 'null', matchers: ['namespace =~ "dev-.*"'] },
+],
+```
+
+Once the rendered Secret is in use, the sealed `alertmanager-main` Secret can be deleted.
+
 ## Updating an upstream mixin
 
 Use `update-mixin.sh` to pull the latest version of an upstream mixin:
