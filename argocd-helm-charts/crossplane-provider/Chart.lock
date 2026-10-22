@@ -8,5 +8,11 @@ dependencies:
 - name: keycloak
   repository: file://charts/keycloak
   version: 1.0.0
-digest: sha256:c803df7bdd0c0639c4c57a877218e5651f18e49817eff77448b4ad7b645f437e
-generated: "2026-10-09T20:57:48.016706+05:30"
+- name: crossview
+  repository: https://crossplane-contrib.github.io/crossview
+  version: 4.6.0
+- name: kubeaid-addons
+  repository: file://../kubeaid-addons
+  version: 1.1.0
+digest: sha256:e8f47726038b1335b0f3ee711168e73c41e78649adfd05c283a15604a6a5a02d
+generated: "2026-10-22T13:46:13.818058+02:00"

@@ -1,6 +1,6 @@
 # Crossplane Provider
 
-Obmondo-authored chart (no vendored upstream `charts/`) that installs every Crossplane provider KubeAid
+Obmondo-authored chart (the only vendored upstream chart is the optional [Crossview](#crossview) UI) that installs every Crossplane provider KubeAid
 supports, together with the provider configuration and the managed resources KubeAid models for it. Each
 provider is a sub-chart switched on from values, the way `capi-cluster` enables its infrastructure
 providers:
@@ -152,6 +152,44 @@ v2 managed resources are namespaced and resolve the Secrets they reference (clie
 passwords) in their own namespace, which is where the apps consuming those Secrets live. The rule
 generalises: a provider that targets an external cloud renders its resources here; a provider that
 configures an application KubeAid deploys renders them from that application's chart.
+
+### Crossview
+
+[Crossview](https://github.com/crossplane-contrib/crossview) is a web UI for browsing Crossplane resources. It
+ships as the upstream `crossview` sub-chart and is off by default. Its objects carry no sync wave, so they
+sync in wave `0`.
+
+| Value | Description | Default |
+|---|---|---|
+| `crossview.enabled` | Deploy Crossview | `false` |
+| `global.postgresql.enabled` | Create a CloudNativePG cluster `crossview-pgsql` via `kubeaid-addons` | `false` |
+| `crossview.config.database.{host,database,username}` | Database connection | `crossview-pgsql-rw`, `crossview`, `crossview` |
+| `crossview.secrets.dbPassword` | Database password Secret reference | `crossview-pgsql-app` / `password` |
+| `crossview.secrets.adminPassword`, `crossview.secrets.sessionSecret` | Secret references for the local admin password and session signing key | `crossview-auth` / `admin-password`, `session-secret` |
+| `crossview.ingress` | Ingress, `traefik-cert-manager` class | disabled |
+| `crossview.config.server.cors.origin` | Public URL of Crossview, also the post-SSO redirect | `https://crossview.example.com` |
+| `crossview.config.sso.oidc` | OIDC login (Keycloak etc.); client secret in `crossview.secrets.OIDCClientSecret` | disabled |
+
+The upstream bundled `postgres:latest` Deployment (`crossview.database.enabled`) is turned off. Crossview
+either uses the `kubeaid-addons` CNPG cluster, or an existing CNPG cluster in the release namespace:
+
+```yaml
+crossview:
+  enabled: true
+  config:
+    database:
+      host: crossview-db-rw
+      database: app
+      username: app
+  secrets:
+    dbPassword:
+      secretKeyRef:
+        name: crossview-db-app
+        key: password
+```
+
+Crossview falls back to `admin`/`password` and a hard-coded session secret when these are unset, so create
+the `crossview-auth` Secret (e.g. as a SealedSecret) before enabling it.
 
 ## How ordering works
 

@@ -69,3 +69,98 @@ keycloak:
   # deploys live in the keycloakx chart, next to the Secrets they reference. This sub-chart only
   # installs the provider package.
   extraResources: []
+
+global:
+  # CloudNativePG cluster for Crossview, rendered by kubeaid-addons as
+  # <instanceName>-pgsql (service <instanceName>-pgsql-rw, credentials in
+  # Secret <instanceName>-pgsql-app). Requires the cloudnative-pg operator.
+  # Leave disabled when Crossview uses a database managed elsewhere.
+  postgresql:
+    enabled: false
+    instanceName: crossview
+    database: crossview
+    owner: crossview
+    instances: 1
+    size: 2Gi
+
+# Crossview, the web UI for Crossplane: https://github.com/crossplane-contrib/crossview
+crossview:
+  enabled: false
+
+  image:
+    pullPolicy: IfNotPresent
+
+  resources:
+    limits:
+      cpu: null
+
+  # Upstream defaults to the nginx ingress class and nginx annotations.
+  ingress:
+    enabled: false
+    className: traefik-cert-manager
+    annotations:
+      nginx.ingress.kubernetes.io/ssl-redirect: null
+      nginx.ingress.kubernetes.io/force-ssl-redirect: null
+    hosts:
+      - host: crossview.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - hosts:
+          - crossview.example.com
+        secretName: crossview.example.com
+
+  # The upstream single-pod postgres:latest Deployment. Off, in favour of
+  # CloudNativePG (global.postgresql above, or an existing cluster).
+  database:
+    enabled: false
+
+  config:
+    database:
+      enabled: true
+      # Defaults match the kubeaid-addons cluster above. To use an existing
+      # CNPG cluster, point host at its -rw service and secrets.dbPassword at
+      # its -app Secret; database and username must match its initdb owner.
+      host: crossview-pgsql-rw
+      port: 5432
+      database: crossview
+      username: crossview
+      ssl:
+        mode: require
+    server:
+      auth:
+        mode: session
+      cors:
+        # Public URL of Crossview, no trailing slash. Also the post-SSO redirect target.
+        origin: https://crossview.example.com
+    sso:
+      # Keycloak example. The client secret goes in secrets.OIDCClientSecret.
+      #   oidc:
+      #     enabled: true
+      #     issuer: https://keycloak.example.com/auth/realms/<realm>
+      #     clientId: crossview
+      #     callbackURL: https://crossview.example.com/api/auth/oidc/callback
+      oidc:
+        enabled: false
+      saml:
+        enabled: false
+
+  # Crossview falls back to admin/password and a hard-coded session secret when
+  # these are unset, so they are read from a Secret you provide (e.g. a
+  # SealedSecret named crossview-auth with keys admin-password and session-secret).
+  secrets:
+    adminUsername: admin
+    adminPassword:
+      secretKeyRef:
+        name: crossview-auth
+        key: admin-password
+    sessionSecret:
+      secretKeyRef:
+        name: crossview-auth
+        key: session-secret
+    dbPassword:
+      secretKeyRef:
+        name: crossview-pgsql-app
+        key: password
+    OIDCClientSecret: ""

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "crossview.fullname" . }}-test-connection"
+  labels:
+    {{- include "crossview.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget', '-qO-', 'http://{{ include "crossview.fullname" . }}:{{ .Values.service.port }}/healthz']
+      args: ['{{ include "crossview.fullname" . }}:{{ .Values.service.port }}']
+  restartPolicy: Never

@@ -1,0 +1,27 @@
+suite: test extra manifests
+templates:
+  - extra-manifests.yaml
+tests:
+  - it: should render nothing when extraManifests is empty
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render extra manifests with tpl
+    set:
+      extraManifests:
+        - |
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: {{ include "crossview.fullname" . }}-extra
+          data:
+            foo: bar
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: ConfigMap
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-crossview-extra
