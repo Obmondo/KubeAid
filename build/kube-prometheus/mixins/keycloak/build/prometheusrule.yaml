@@ -1,0 +1,175 @@
+apiVersion: "monitoring.coreos.com/v1"
+kind: "PrometheusRule"
+metadata:
+  labels:
+    release: "prometheus"
+  name: "keycloak-alerts"
+spec:
+  groups:
+  - name: "keycloak-availability"
+    rules:
+    - alert: "KeycloakTargetScrapeFailing"
+      annotations:
+        description: "Prometheus cannot scrape {{ $labels.instance }} (port 9000 /metrics) for 2 minutes."
+        summary: "Cannot scrape Keycloak instance {{ $labels.instance }}"
+      expr: "up{job=~\".*keycloak.*\"} == 0"
+      for: "2m"
+      labels:
+        severity: "critical"
+    - alert: "KeycloakTargetsMissing"
+      annotations:
+        description: "No `up` series exists for Keycloak. All pods are down, or the ServiceMonitor/job selector is wrong."
+        summary: "No Keycloak targets found in Prometheus"
+      expr: "absent(up{job=~\".*keycloak.*\"})"
+      for: "3m"
+      labels:
+        severity: "critical"
+    - alert: "KeycloakReplicasNotReady"
+      annotations:
+        description: "{{ $labels.statefulset }} has {{ $value }} ready replicas, below the desired count."
+        summary: "Keycloak has fewer ready replicas than desired"
+      expr: |
+        kube_statefulset_status_replicas_ready{namespace="keycloak", statefulset=~".*keycloak.*"}
+          <
+        kube_statefulset_replicas{namespace="keycloak", statefulset=~".*keycloak.*"}
+      for: "5m"
+      labels:
+        severity: "critical"
+    - alert: "KeycloakHighHttp5xxRate"
+      annotations:
+        description: "{{ $value | humanizePercentage }} of requests are failing with 5xx."
+        summary: "Keycloak 5xx ratio is high"
+      expr: |
+        sum(rate(http_server_requests_seconds_count{job=~".*keycloak.*", status=~"5.."}[5m]))
+          /
+        sum(rate(http_server_requests_seconds_count{job=~".*keycloak.*"}[5m]))
+          > 0.01
+      for: "5m"
+      labels:
+        severity: "critical"
+    - alert: "KeycloakHighTokenLatencyP95"
+      annotations:
+        description: "p95 latency is {{ $value | humanizeDuration }}. Check DB pool, CPU and password hashing load."
+        summary: "Keycloak p95 protocol endpoint latency is high"
+      expr: |
+        histogram_quantile(0.95,
+          sum by (le) (
+            rate(http_server_requests_seconds_bucket{job=~".*keycloak.*", uri=~".*protocol.*"}[5m])
+          )
+        ) > 1
+      for: "10m"
+      labels:
+        severity: "warning"
+    - alert: "KeycloakTooManyActiveRequests"
+      annotations:
+        description: "{{ $value }} active requests. Possible saturation or slow dependencies."
+        summary: "High number of in-flight requests on {{ $labels.instance }}"
+      expr: "sum by (instance) (http_server_active_requests{job=~\".*keycloak.*\"}) > 200"
+      for: "5m"
+      labels:
+        severity: "warning"
+  - name: "keycloak-logins"
+    rules:
+    - alert: "KeycloakLoginFailureRatioHigh"
+      annotations:
+        description: "{{ $value | humanizePercentage }} of logins failed. Break failures down by cause: sum by (error) (increase(keycloak_user_events_total{event=\"login\", error!=\"\", realm=\"{{ $labels.realm }}\"}[10m]))"
+        summary: "High login failure ratio for client {{ $labels.client_id }} in realm {{ $labels.realm }}"
+      expr: |
+        sum by (realm, client_id) (increase(keycloak_user_events_total{event="login", error!=""}[10m]))
+          /
+        sum by (realm, client_id) (increase(keycloak_user_events_total{event="login"}[10m]))
+          > 0.29999999999999999
+        and on (realm, client_id)
+        sum by (realm, client_id) (increase(keycloak_user_events_total{event="login"}[10m])) >= 20
+      for: "10m"
+      labels:
+        severity: "warning"
+    - alert: "KeycloakLoginFailureRatioCritical"
+      annotations:
+        description: "{{ $value | humanizePercentage }} of logins failed. Likely a broken login flow (IdP, user federation, client config) or an attack."
+        summary: "Most logins are failing for client {{ $labels.client_id }} in realm {{ $labels.realm }}"
+      expr: |
+        sum by (realm, client_id) (increase(keycloak_user_events_total{event="login", error!=""}[10m]))
+          /
+        sum by (realm, client_id) (increase(keycloak_user_events_total{event="login"}[10m]))
+          > 0.69999999999999996
+        and on (realm, client_id)
+        sum by (realm, client_id) (increase(keycloak_user_events_total{event="login"}[10m])) >= 20
+      for: "5m"
+      labels:
+        severity: "critical"
+    - alert: "KeycloakUserNotFoundSpike"
+      annotations:
+        description: "{{ $value }} login attempts used usernames that do not exist. Possible enumeration or credential stuffing."
+        summary: "Many logins for unknown users in realm {{ $labels.realm }}"
+      expr: "sum by (realm) (increase(keycloak_user_events_total{event=\"login\", error=\"user_not_found\"}[10m])) > 50"
+      for: "5m"
+      labels:
+        severity: "warning"
+    - alert: "KeycloakLoginErrorSpike"
+      annotations:
+        description: "Login errors are well above the last hour's baseline. Check for brute-force attempts."
+        summary: "Login error spike in realm {{ $labels.realm }}"
+      expr: |
+        sum by (realm) (rate(keycloak_user_events_total{event="login", error!=""}[5m]))
+          >
+        5 * sum by (realm) (rate(keycloak_user_events_total{event="login", error!=""}[1h] offset 5m)) + 0.10000000000000001
+      for: "5m"
+      labels:
+        severity: "warning"
+    - alert: "KeycloakNoLoginsObserved"
+      annotations:
+        description: "Either no traffic (expected off-hours) or a broken login flow. Tune or remove for low-traffic environments."
+        summary: "No successful logins observed"
+      expr: "sum(increase(keycloak_user_events_total{event=\"login\", error=\"\"}[30m])) == 0"
+      for: "30m"
+      labels:
+        severity: "info"
+  - name: "keycloak-database"
+    rules:
+    - alert: "KeycloakDbPoolExhausted"
+      annotations:
+        description: "No available connections. Requests will queue and time out. Consider raising KC_DB_POOL_MAX_SIZE."
+        summary: "DB connection pool exhausted on {{ $labels.instance }}"
+      expr: "agroal_available_count{job=~\".*keycloak.*\"} == 0"
+      for: "2m"
+      labels:
+        severity: "critical"
+    - alert: "KeycloakDbPoolWaiters"
+      annotations:
+        description: "{{ $value }} threads are blocked waiting for a connection."
+        summary: "Threads waiting for a DB connection on {{ $labels.instance }}"
+      expr: "agroal_awaiting_count{job=~\".*keycloak.*\"} > 0"
+      for: "5m"
+      labels:
+        severity: "warning"
+  - name: "keycloak-jvm"
+    rules:
+    - alert: "KeycloakHeapUsageHigh"
+      annotations:
+        description: "Heap usage is {{ $value | humanizePercentage }}. Risk of OOM or GC thrash."
+        summary: "Heap usage is high on {{ $labels.instance }}"
+      expr: |
+        sum by (instance) (jvm_memory_used_bytes{job=~".*keycloak.*", area="heap"})
+          /
+        sum by (instance) (jvm_memory_max_bytes{job=~".*keycloak.*", area="heap"})
+          > 0.84999999999999998
+      for: "10m"
+      labels:
+        severity: "warning"
+    - alert: "KeycloakLongGcPauses"
+      annotations:
+        description: "A large share of wall time is spent in GC pauses."
+        summary: "Excessive GC time on {{ $labels.instance }}"
+      expr: "rate(jvm_gc_pause_seconds_sum{job=~\".*keycloak.*\"}[5m]) > 0.10000000000000001"
+      for: "10m"
+      labels:
+        severity: "warning"
+    - alert: "KeycloakHighCpu"
+      annotations:
+        description: "Often caused by password hashing under heavy login load."
+        summary: "High CPU usage on {{ $labels.instance }}"
+      expr: "process_cpu_usage{job=~\".*keycloak.*\"} > 0.84999999999999998"
+      for: "15m"
+      labels:
+        severity: "warning"

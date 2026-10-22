@@ -174,6 +174,11 @@ local mixins = remove_nulls([
     (import 'mixins/orphan-pvc/mixin.libsonnet'),
     vars,
   ),
+  addMixin(
+    'keycloak',
+    (import 'mixins/keycloak/mixin.libsonnet'),
+    vars,
+  ),
 ]);
 
 local scrape_namespaces = std.uniq(std.sort(std.flattenArrays(
