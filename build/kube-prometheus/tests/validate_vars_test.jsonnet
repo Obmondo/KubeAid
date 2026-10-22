@@ -175,6 +175,7 @@ test.suite({
     local vars = cfgKubeadmFull {
       alertmanager_render_config: true,
       alertmanager_extra_routes: [{ receiver: 'null', matchers: ['namespace =~ "dev-.*"'] }],
+      prometheus_monitor_namespace_selector: { matchLabels: { team: 'ops' } },
     },
     actual: noErrors(vars),
     expect: true,
@@ -195,6 +196,12 @@ test.suite({
   testAlertmanagerExtraRoutes_needRender: {
     local vars = cfgKubeadmFull { alertmanager_extra_routes: [{ receiver: 'null' }] },
     actual: hasError(vars, 'alertmanager_extra_routes needs alertmanager_render_config'),
+    expect: true,
+  },
+
+  testMonitorNamespaceSelector_mustBeObject: {
+    local vars = cfgKubeadmFull { prometheus_monitor_namespace_selector: 'namespace!~"dev-.*"' },
+    actual: hasError(vars, 'prometheus_monitor_namespace_selector must be a label selector object'),
     expect: true,
   },
 

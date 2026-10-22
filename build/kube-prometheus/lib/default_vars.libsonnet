@@ -31,6 +31,9 @@
   // Routes in alertmanager.yaml syntax, checked after the built-in routes,
   // e.g. { receiver: 'null', matchers: ['namespace =~ "dev-.*"'] }.
   alertmanager_extra_routes: [],
+  // Namespace selector for ServiceMonitors, PodMonitors, Probes and
+  // ScrapeConfigs. null scrapes every namespace.
+  prometheus_monitor_namespace_selector: null,
   prometheus_resources: {
     limits: { memory: '3Gi' },
     requests: { cpu: '200m', memory: '2500Mi' },

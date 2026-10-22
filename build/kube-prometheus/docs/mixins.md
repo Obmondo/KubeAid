@@ -53,6 +53,20 @@ alertmanager_extra_routes: [
 
 Once the rendered Secret is in use, the sealed `alertmanager-main` Secret can be deleted.
 
+## Not scraping some namespaces
+
+`prometheus_monitor_namespace_selector` sets the namespace selector Prometheus uses for ServiceMonitors, PodMonitors, Probes and ScrapeConfigs. The default `null` scrapes every namespace. To stop scraping namespaces that carry an opt-out label:
+
+```jsonnet
+prometheus_monitor_namespace_selector: {
+  matchExpressions: [
+    { key: 'monitoring.kubeaid.io/scrape', operator: 'NotIn', values: ['false'] },
+  ],
+},
+```
+
+Cluster-level metrics about pods in those namespaces, from kube-state-metrics and the kubelet, are still collected.
+
 ## Updating an upstream mixin
 
 Use `update-mixin.sh` to pull the latest version of an upstream mixin:

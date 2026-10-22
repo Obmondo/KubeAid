@@ -133,6 +133,12 @@ function(vars)
           'alertmanager_extra_routes needs alertmanager_render_config: true',
         ),
 
+      if std.get(vars, 'prometheus_monitor_namespace_selector', null) != null then
+        check(
+          std.type(vars.prometheus_monitor_namespace_selector) == 'object',
+          'prometheus_monitor_namespace_selector must be a label selector object',
+        ),
+
     ]
   );
 

@@ -314,6 +314,16 @@ local kpBase =
               }],
           },
         } + (
+          if vars.prometheus_monitor_namespace_selector != null then {
+            [field]: vars.prometheus_monitor_namespace_selector
+            for field in [
+              'serviceMonitorNamespaceSelector',
+              'podMonitorNamespaceSelector',
+              'probeNamespaceSelector',
+              'scrapeConfigNamespaceSelector',
+            ]
+          } else {}
+        ) + (
           // Opt-in remote-write receiver + wider TSDB out-of-order window
           // for backdated samples (migrations, backfills). Off by default.
           local rwr = std.get(vars.prometheus, 'remoteWriteReceiver', {});
