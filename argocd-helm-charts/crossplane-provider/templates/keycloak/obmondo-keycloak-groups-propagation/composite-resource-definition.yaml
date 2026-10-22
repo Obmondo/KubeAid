@@ -1,0 +1,83 @@
+{{- if and .Values.providers.keycloak.enabled .Values.providers.keycloak.obmondoKeycloakGroupsPropagation.enabled }}
+
+# Composite resource definition (XRD) for identity brokering against Obmondo's Keycloak: the
+# IdentityProvider the realm delegates login to, the mapper storing the groups claim Obmondo sends
+# on the brokered user, and the client scope handing those groups to clients as a `groups` claim.
+#
+# Namespaced Crossplane v2 API: the IdentityProvider reads the client credentials Obmondo issued
+# from a Secret, which a managed resource resolves in its own namespace.
+
+apiVersion: apiextensions.crossplane.io/v2
+kind: CompositeResourceDefinition
+metadata:
+  name: obmondokeycloakgroupspropagations.keycloak.kubeaid.org
+  annotations:
+    {{- include "crossplane-provider.wave1" . | nindent 4 }}
+
+spec:
+  scope: Namespaced
+
+  group: keycloak.kubeaid.org
+
+  names:
+    kind: ObmondoKeycloakGroupsPropagation
+    plural: obmondokeycloakgroupspropagations
+
+  enforcedCompositionRef:
+    name: obmondo-keycloak-groups-propagation
+
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                # Keycloak realm (forProvider.realm / realmId) the identity provider is added to.
+                realm:
+                  type: string
+
+                # Which ProviderConfig the composed resources authenticate with.
+                providerConfigRef:
+                  type: object
+                  properties:
+                    kind:
+                      type: string
+                      enum:
+                        - ClusterProviderConfig
+                        - ProviderConfig
+                      default: ClusterProviderConfig
+                    name:
+                      type: string
+                      default: default
+
+                # Realm URL of Obmondo's Keycloak. Every endpoint (auth, token, userinfo, logout,
+                # JWKS) is derived from it.
+                issuerURL:
+                  type: string
+
+                # Secret with the client credentials Obmondo issued for this realm, in the XR's
+                # namespace.
+                credentialsSecret:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    clientIdKey:
+                      type: string
+                      default: clientId
+                    clientSecretKey:
+                      type: string
+                      default: clientSecret
+                  required:
+                    - name
+
+              required:
+                - realm
+                - issuerURL
+                - credentialsSecret
+{{- end }}

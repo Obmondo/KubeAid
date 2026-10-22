@@ -1,0 +1,164 @@
+{{- if and .Values.providers.azure.enabled .Values.providers.azure.compositions.disasterRecoveryInfrastructure.enabled }}
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: disaster-recovery-infrastructure
+  annotations:
+    {{- include "crossplane-provider.wave2" . | nindent 4 }}
+
+spec:
+  compositeTypeRef:
+    apiVersion: azure.kubeaid.org/v1alpha1
+    kind: XDisasterRecoveryInfrastructure
+
+  mode: Pipeline
+  pipeline:
+    - step: render-go-templates
+      functionRef:
+        name: go-templating
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+            {{`{{- $xrSpec := .observed.composite.resource.spec -}}`}}
+            ---
+            apiVersion: managedidentity.azure.upbound.io/v1beta1
+            kind: UserAssignedIdentity
+            metadata:
+              labels:
+                uami: velero
+              annotations:
+                {{`{{ setResourceNameAnnotation "velero-uami" }}`}}
+                crossplane.io/external-name: "/subscriptions/{{`{{ $xrSpec.subscriptionID }}`}}/resourceGroups/{{`{{ $xrSpec.clusterName }}`}}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/velero"
+            spec:
+              forProvider:
+                name: velero
+            ---
+            apiVersion: authorization.azure.upbound.io/v1beta1
+            kind: RoleAssignment
+            metadata:
+              labels:
+                uami: velero
+              annotations:
+                {{`{{ setResourceNameAnnotation "velero-uami-storage-blob-data-owner-role-assignment" }}`}}
+                crossplane.io/external-name: "/subscriptions/{{`{{ $xrSpec.subscriptionID }}`}}/providers/Microsoft.Authorization/roleAssignments/8dc93d52-93be-40ea-bf77-64e9839b583b"
+            spec:
+              forProvider:
+                roleDefinitionName: "Storage Blob Data Owner"
+                name: 8dc93d52-93be-40ea-bf77-64e9839b583b
+
+    - step: patch-and-transform
+      functionRef:
+        name: patch-and-transform
+      input:
+        apiVersion: pt.fn.crossplane.io/v1beta1
+        kind: Resources
+
+        patchSets:
+          - name: location
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.location
+                toFieldPath: spec.forProvider.location
+
+          - name: resourceGroupName
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.clusterName
+                toFieldPath: spec.forProvider.resourceGroupName
+
+          - name: serviceAccountTokenIssuerURL
+            patches:
+              - type: CombineFromComposite
+                combine:
+                  variables:
+                    - fromFieldPath: spec.storageAccountName
+                  strategy: string
+                  string:
+                    fmt: "https://%s.blob.core.windows.net/oidc-provider"
+                toFieldPath: spec.forProvider.issuer
+
+        resources:
+          - name: velero-backups-blob-container
+            base:
+              apiVersion: storage.azure.upbound.io/v1beta1
+              kind: Container
+              metadata:
+                annotations:
+                  crossplane.io/external-name: velero-backups
+              spec:
+                deletionPolicy: Orphan
+                forProvider:
+                  containerAccessType: blob
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.storageAccountName
+                toFieldPath: spec.forProvider.storageAccountName
+
+          - name: sealed-secrets-backups-blob-container
+            base:
+              apiVersion: storage.azure.upbound.io/v1beta1
+              kind: Container
+              metadata:
+                annotations:
+                  crossplane.io/external-name: sealed-secrets-backups
+              spec:
+                deletionPolicy: Orphan
+                forProvider:
+                  containerAccessType: blob
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.storageAccountName
+                toFieldPath: spec.forProvider.storageAccountName
+
+          - name: velero-uami
+            patches:
+              - type: PatchSet
+                patchSetName: location
+              - type: PatchSet
+                patchSetName: resourceGroupName
+              - type: ToCompositeFieldPath
+                fromFieldPath: status.atProvider.principalId
+                toFieldPath: status.veleroUAMIPrincipalId
+
+          - name: velero-uami-storage-blob-data-owner-role-assignment
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: status.veleroUAMIPrincipalId
+                toFieldPath: spec.forProvider.principalId
+              - type: CombineFromComposite
+                combine:
+                  variables:
+                    - fromFieldPath: spec.subscriptionID
+                  strategy: string
+                  string:
+                    fmt: "/subscriptions/%s"
+                toFieldPath: spec.forProvider.scope
+
+          - name: velero-federated-identity-credential
+            base:
+              apiVersion: managedidentity.azure.upbound.io/v1beta1
+              kind: FederatedIdentityCredential
+              metadata:
+                annotations:
+                  crossplane.io/external-name: velero
+              spec:
+                forProvider:
+                  parentIdSelector:
+                    matchLabels:
+                      uami: velero
+                  audience:
+                    - "api://AzureADTokenExchange"
+                  subject: "system:serviceaccount:velero:velero"
+            patches:
+              - type: PatchSet
+                patchSetName: resourceGroupName
+              - type: PatchSet
+                patchSetName: serviceAccountTokenIssuerURL
+
+    - step: automatically-detect-ready-composed-resources
+      functionRef:
+        name: auto-ready
+{{- end }}
