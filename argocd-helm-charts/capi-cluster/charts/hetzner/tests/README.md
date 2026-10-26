@@ -43,13 +43,14 @@ Expected output:
  PASS  bare-metal mode with public network
  PASS  cluster naming and labels
  PASS  hcloud mode with private network
+ PASS  hcloud mode with a public control plane on the private network
  PASS  hcloud mode with public network
  PASS  hybrid mode, private control-plane network
  PASS  hybrid mode, public control-plane load-balancer
 
 Charts:      1 passed, 1 total
-Test Suites: 7 passed, 7 total
-Tests:       39 passed, 39 total
+Test Suites: 8 passed, 8 total
+Tests:       62 passed, 62 total
 ```
 
 Run a single suite:
@@ -105,9 +106,11 @@ Each scenario asserts the specific differences the chart is supposed to make:
 - `hcloud` + `private`: `HetznerCluster` has `hcloudNetwork`,
   `HCloudMachineTemplate.spec.template.spec.publicNetwork.enableIPv4/v6=false`,
   `KubeadmControlPlane` and `KubeadmConfigTemplate` include the
-  `/connect-nat-gateway.sh` file and invocation, no bare-metal resources.
+  `/connect-nat-gateway.sh` file and invocation, the control plane pins
+  kubelet's node IP and the controller-manager/scheduler bind address to its
+  private IP, no bare-metal resources.
 - `hcloud` + `public`: `hcloudNetwork` is omitted, `publicNetwork.enableIPv4/v6=true`,
-  no NAT-gateway script, no bare-metal resources.
+  no NAT-gateway script, no private-IP pin, no bare-metal resources.
 - `bare-metal` + `private`: no `hcloudNetwork`, no `HCloudMachineTemplate`,
   6 `HetznerBareMetalHost` documents rendered (3 CP + 2 × 2 workers),
   NAT-gateway script present on the control plane.
@@ -175,13 +178,16 @@ diff <(helm template demo argocd-helm-charts/capi-cluster/charts/hetzner \
         --set global.pods.cidrBlock=10.244.0.0/16 --set-json 'global.additionalUsers=[]')
 ```
 
-You should see exactly three differences:
+You should see exactly four differences:
 
 - `HetznerCluster.spec.hcloudNetwork` is present on `private`, absent on `public`.
 - `HCloudMachineTemplate.spec.template.spec.publicNetwork.enableIPv4/v6` flips
   from `false` → `true`.
 - `KubeadmControlPlane.spec.kubeadmConfigSpec` (and `KubeadmConfigTemplate`)
   drops the `/connect-nat-gateway.sh` file and its invocation.
+- `KubeadmControlPlane.spec.kubeadmConfigSpec` drops the private-IP pin:
+  kubelet's `node-ip`, the kubeadm `patches` directory with its two patch
+  files, and the preKubeadm step that fills them in.
 
 ## 3. Schema validation
 

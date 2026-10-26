@@ -88,3 +88,18 @@ tests:
       - equal:
           path: metadata.name
           value: "1866aff"
+
+  - it: pins the control plane's node IP and controller-manager/scheduler bind to its private IP
+    template: KubeadmControlPlane.yaml
+    asserts:
+      - contains:
+          path: spec.kubeadmConfigSpec.joinConfiguration.nodeRegistration.kubeletExtraArgs
+          content:
+            name: node-ip
+            value: __KUBEAID_NODE_IP__
+      - equal:
+          path: spec.kubeadmConfigSpec.joinConfiguration.patches.directory
+          value: /etc/kubernetes/kubeaid-patches
+      - matchRegex:
+          path: spec.kubeadmConfigSpec.preKubeadmCommands[1]
+          pattern: "ip -4 -o addr show scope global to 10\\.0\\.0\\.0/24"

@@ -62,3 +62,16 @@ tests:
     asserts:
       - hasDocuments:
           count: 0
+
+  - it: pins nothing to a private IP without a private network
+    template: KubeadmControlPlane.yaml
+    asserts:
+      - notExists:
+          path: spec.kubeadmConfigSpec.initConfiguration.patches
+      - notExists:
+          path: spec.kubeadmConfigSpec.joinConfiguration.patches
+      - notContains:
+          path: spec.kubeadmConfigSpec.initConfiguration.nodeRegistration.kubeletExtraArgs
+          content:
+            name: node-ip
+            value: __KUBEAID_NODE_IP__

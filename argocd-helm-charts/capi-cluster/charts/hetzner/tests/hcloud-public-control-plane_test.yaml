@@ -61,7 +61,7 @@ tests:
           path: spec.kubeadmConfigSpec.joinConfiguration.controlPlane.localAPIEndpoint.advertiseAddress
           value: __KUBEAID_NODE_IP__
 
-  - it: passes kubelet's node IP as a flag and resolves both placeholders from the private NIC at boot
+  - it: passes kubelet's node IP as a flag and fills the placeholders in from the private subnet at boot
     template: KubeadmControlPlane.yaml
     asserts:
       - contains:
@@ -79,13 +79,20 @@ tests:
           pattern: "nodeIP:"
       - matchRegex:
           path: spec.kubeadmConfigSpec.preKubeadmCommands[1]
-          pattern: "ip -4 route show default"
-      - matchRegex:
-          path: spec.kubeadmConfigSpec.preKubeadmCommands[1]
-          pattern: "/sys/class/net/"
+          pattern: "ip -4 -o addr show scope global to 10\\.0\\.0\\.0/24"
       - matchRegex:
           path: spec.kubeadmConfigSpec.preKubeadmCommands[1]
           pattern: "for kubeadm_config in"
+
+  - it: binds the controller-manager and scheduler to the private IP through kubeadm patches
+    template: KubeadmControlPlane.yaml
+    asserts:
+      - equal:
+          path: spec.kubeadmConfigSpec.initConfiguration.patches.directory
+          value: /etc/kubernetes/kubeaid-patches
+      - equal:
+          path: spec.kubeadmConfigSpec.joinConfiguration.patches.directory
+          value: /etc/kubernetes/kubeaid-patches
 
   - it: does not ship the NAT gateway bootstrap on a public control plane
     template: KubeadmControlPlane.yaml

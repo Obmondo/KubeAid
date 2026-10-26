@@ -1,6 +1,10 @@
-{{- $cpPublic := and (ne .Values.mode "bare-metal") (or (eq .Values.mode "hybrid") (eq .Values.network.type "private")) (dig "publicNetwork" "enabled" false (.Values.controlPlane.hcloud | default dict)) }}
+{{- $cpHCloudNetwork := and (ne .Values.mode "bare-metal") (or (eq .Values.mode "hybrid") (eq .Values.network.type "private")) }}
+{{- $cpPublic := and $cpHCloudNetwork (dig "publicNetwork" "enabled" false (.Values.controlPlane.hcloud | default dict)) }}
 {{- $cpOnly := and (not .Values.nodeGroups.hcloud) (not .Values.nodeGroups.bareMetal) }}
-{{- $pinNodeIP := or (and (eq .Values.mode "bare-metal") .Values.bareMetal.vSwitch) $cpPublic }}
+{{- /* Control planes with a private IP to pin: bare metal on a vSwitch, and
+     HCloud on the private network, public or not. Kubelet's node IP and the
+     controller-manager/scheduler bind address both go on it. */}}
+{{- $pinNodeIP := or (and (eq .Values.mode "bare-metal") .Values.bareMetal.vSwitch) $cpHCloudNetwork }}
 apiVersion: controlplane.cluster.x-k8s.io/v1beta2
 kind: KubeadmControlPlane
 metadata:
@@ -336,6 +340,36 @@ spec:
     {{- if ((.Values.controlPlane).apiServer).files }}
     {{- ((.Values.controlPlane).apiServer).files | toYaml | nindent 4 }}
     {{- end }}
+    {{- if $pinNodeIP }}
+    {{/* kubeadm runs kube-controller-manager and kube-scheduler with
+         --bind-address=127.0.0.1, which Prometheus can't scrape. Bind them to
+         this node's private IP instead, so neither listens on the public NIC.
+         The address differs per node, and the controllerManager/scheduler
+         extraArgs above are cluster-wide (a joining node reads them from the
+         kubeadm-config ConfigMap), so it goes in kubeadm patch files, which
+         init and join both apply. preKubeadmCommands fills in
+         __KUBEAID_NODE_IP__ as it does for kubelet's --node-ip. The health
+         probes kubeadm generates point at the bind address, so they move too. */}}
+    - content: |
+        [
+          {"op": "add", "path": "/spec/containers/0/command/-", "value": "--bind-address=__KUBEAID_NODE_IP__"},
+          {"op": "replace", "path": "/spec/containers/0/livenessProbe/httpGet/host", "value": "__KUBEAID_NODE_IP__"},
+          {"op": "replace", "path": "/spec/containers/0/startupProbe/httpGet/host", "value": "__KUBEAID_NODE_IP__"}
+        ]
+      owner: root:root
+      path: /etc/kubernetes/kubeaid-patches/kube-controller-manager+json.json
+      permissions: "0600"
+    - content: |
+        [
+          {"op": "add", "path": "/spec/containers/0/command/-", "value": "--bind-address=__KUBEAID_NODE_IP__"},
+          {"op": "replace", "path": "/spec/containers/0/livenessProbe/httpGet/host", "value": "__KUBEAID_NODE_IP__"},
+          {"op": "replace", "path": "/spec/containers/0/readinessProbe/httpGet/host", "value": "__KUBEAID_NODE_IP__"},
+          {"op": "replace", "path": "/spec/containers/0/startupProbe/httpGet/host", "value": "__KUBEAID_NODE_IP__"}
+        ]
+      owner: root:root
+      path: /etc/kubernetes/kubeaid-patches/kube-scheduler+json.json
+      permissions: "0600"
+    {{- end }}
     initConfiguration:
       {{- if $cpPublic }}
       {{/* etcd derives its peer and client URLs from advertiseAddress, and
@@ -350,6 +384,10 @@ spec:
            the control-plane load balancer sends apiserver traffic. */}}
       localAPIEndpoint:
         advertiseAddress: __KUBEAID_NODE_IP__
+      {{- end }}
+      {{- if $pinNodeIP }}
+      patches:
+        directory: /etc/kubernetes/kubeaid-patches
       {{- end }}
       skipPhases:
         - addon/kube-proxy
@@ -385,6 +423,10 @@ spec:
         localAPIEndpoint:
           advertiseAddress: __KUBEAID_NODE_IP__
       {{- end }}
+      {{- if $pinNodeIP }}
+      patches:
+        directory: /etc/kubernetes/kubeaid-patches
+      {{- end }}
       nodeRegistration:
         {{- if $cpOnly }}
         taints: []
@@ -409,48 +451,42 @@ spec:
     preKubeadmCommands:
       - set -x
 
-      {{- if $cpPublic }}
-      {{/* Substitute the __KUBEAID_NODE_IP__ placeholders (kubelet's --node-ip
-           and kubeadm's localAPIEndpoint.advertiseAddress) with this host's
-           HCloud private-network IP. The CP KubeadmConfigSpec is shared
-           across every Machine the KCP creates, so the per-host address can
-           only be filled in at boot.
+      {{- if $cpHCloudNetwork }}
+      {{/* Substitute the __KUBEAID_NODE_IP__ placeholders (kubelet's --node-ip,
+           the controller-manager/scheduler bind address in the kubeadm
+           patches and, on a public control plane, kubeadm's
+           localAPIEndpoint.advertiseAddress) with this host's HCloud
+           private-network IP. The CP KubeadmConfigSpec is shared across
+           every Machine the KCP creates, so the per-host address can only be
+           filled in at boot.
 
-           Found as the global IPv4 on the one interface that is neither
-           loopback nor the default route's — on these nodes that is the
-           HCloud private NIC. Picked by interface rather than by scanning
-           addresses, because the address list is exactly what kubeadm's own
-           auto-detection gets wrong: a Floating IP bound to the public NIC
-           can sort ahead of the node's real address. No NAT gateway is
-           involved — a public control plane has its own egress, so its
-           private NIC carries no default route to borrow a gateway from.
+           Found as the global IPv4 inside hcloud.subnetCidrBlock, the subnet
+           CAPH attaches servers to. That works on a public control plane,
+           whose default route is on the public NIC, and on a private-only
+           one, which has no default route until the NAT gateway hop below.
+           It can never return a public address or a Floating IP, which is
+           what kubeadm's own auto-detection gets wrong. Retried like
+           connect-nat-gateway.sh, since the private NIC can still be coming
+           up when runcmd starts.
 
            cloud-init writes write_files before runcmd, so kubeadm's config
            already exists here and is still editable. Only one of the two
            kubeadm configs is present on any given node (init on the first,
            join on the rest). */}}
       - |
-        PUBLIC_IFACE="$(ip -4 route show default | grep -o 'dev [^ ]*' | cut -d' ' -f2 | head -1)"
-        if [ -z "$PUBLIC_IFACE" ]; then
-          echo "no default route, cannot tell the public interface from the private one" >&2
-          exit 1
-        fi
         PRIVATE_IP=""
-        for iface_path in /sys/class/net/*; do
-          iface="${iface_path##*/}"
-          if [ "$iface" = "lo" ] || [ "$iface" = "$PUBLIC_IFACE" ]; then
-            continue
-          fi
-          PRIVATE_IP="$(ip -4 -o addr show dev "$iface" scope global | grep -o 'inet [0-9.]*' | cut -d' ' -f2 | head -1)"
+        for i in $(seq 1 30); do
+          PRIVATE_IP="$(ip -4 -o addr show scope global to {{ .Values.hcloud.subnetCidrBlock }} | grep -o 'inet [0-9.]*' | cut -d' ' -f2 | head -1)"
           if [ -n "$PRIVATE_IP" ]; then
             break
           fi
+          sleep 10
         done
         if [ -z "$PRIVATE_IP" ]; then
-          echo "no private-network IPv4 found outside ${PUBLIC_IFACE}, but this control-plane node is on the HCloud private network" >&2
+          echo "no IPv4 in {{ .Values.hcloud.subnetCidrBlock }} after 30 tries, but this control-plane node is on the HCloud private network" >&2
           exit 1
         fi
-        for kubeadm_config in /run/kubeadm/kubeadm.yaml /run/kubeadm/kubeadm-join-config.yaml; do
+        for kubeadm_config in /run/kubeadm/kubeadm.yaml /run/kubeadm/kubeadm-join-config.yaml /etc/kubernetes/kubeaid-patches/kube-controller-manager+json.json /etc/kubernetes/kubeaid-patches/kube-scheduler+json.json; do
           if [ -f "$kubeadm_config" ]; then
             sed -i "s|__KUBEAID_NODE_IP__|${PRIVATE_IP}|g" "$kubeadm_config"
           fi
@@ -626,10 +662,11 @@ spec:
         chmod 0600 /etc/netplan/60-vlan.yaml
         netplan apply
 
-        # Fill in kubelet's --node-ip in the kubeadm config. The backup at
+        # Fill in kubelet's --node-ip in the kubeadm config, and the bind
+        # address in the kubeadm patches. The backup at
         # /kubeadm-join-config.yaml is copied back over the original before
         # 'kubeadm join', so it needs the same substitution.
-        for kubeadm_config in /run/kubeadm/kubeadm.yaml /run/kubeadm/kubeadm-join-config.yaml /kubeadm-join-config.yaml; do
+        for kubeadm_config in /run/kubeadm/kubeadm.yaml /run/kubeadm/kubeadm-join-config.yaml /kubeadm-join-config.yaml /etc/kubernetes/kubeaid-patches/kube-controller-manager+json.json /etc/kubernetes/kubeaid-patches/kube-scheduler+json.json; do
           if [ -f "$kubeadm_config" ]; then
             sed -i "s|__KUBEAID_NODE_IP__|${MY_PRIVATE_IP}|g" "$kubeadm_config"
           fi

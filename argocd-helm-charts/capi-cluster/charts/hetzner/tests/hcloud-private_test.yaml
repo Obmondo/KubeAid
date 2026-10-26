@@ -70,16 +70,50 @@ tests:
       - hasDocuments:
           count: 0
 
-  - it: does not pin kubelet's node IP on a private control plane
+  - it: pins kubelet's node IP on a private-only control plane too
     template: KubeadmControlPlane.yaml
     asserts:
-      - notContains:
+      - contains:
           path: spec.kubeadmConfigSpec.initConfiguration.nodeRegistration.kubeletExtraArgs
           content:
             name: node-ip
             value: __KUBEAID_NODE_IP__
-      - notContains:
+      - contains:
           path: spec.kubeadmConfigSpec.joinConfiguration.nodeRegistration.kubeletExtraArgs
           content:
             name: node-ip
             value: __KUBEAID_NODE_IP__
+
+  - it: binds the controller-manager and scheduler to the private IP through kubeadm patches
+    template: KubeadmControlPlane.yaml
+    asserts:
+      - equal:
+          path: spec.kubeadmConfigSpec.initConfiguration.patches.directory
+          value: /etc/kubernetes/kubeaid-patches
+      - equal:
+          path: spec.kubeadmConfigSpec.joinConfiguration.patches.directory
+          value: /etc/kubernetes/kubeaid-patches
+      - matchRegex:
+          path: spec.kubeadmConfigSpec.files[?(@.path == "/etc/kubernetes/kubeaid-patches/kube-controller-manager+json.json")].content
+          pattern: '"--bind-address=__KUBEAID_NODE_IP__"'
+      - matchRegex:
+          path: spec.kubeadmConfigSpec.files[?(@.path == "/etc/kubernetes/kubeaid-patches/kube-scheduler+json.json")].content
+          pattern: '"--bind-address=__KUBEAID_NODE_IP__"'
+
+  - it: fills the placeholders in from the private subnet at boot
+    template: KubeadmControlPlane.yaml
+    asserts:
+      - matchRegex:
+          path: spec.kubeadmConfigSpec.preKubeadmCommands[1]
+          pattern: "ip -4 -o addr show scope global to 10\\.0\\.0\\.0/24"
+      - matchRegex:
+          path: spec.kubeadmConfigSpec.preKubeadmCommands[1]
+          pattern: "kube-scheduler\\+json\\.json; do"
+
+  - it: leaves the kubeadm advertise address to auto-detection on a private-only control plane
+    template: KubeadmControlPlane.yaml
+    asserts:
+      - notExists:
+          path: spec.kubeadmConfigSpec.initConfiguration.localAPIEndpoint
+      - notExists:
+          path: spec.kubeadmConfigSpec.joinConfiguration.controlPlane

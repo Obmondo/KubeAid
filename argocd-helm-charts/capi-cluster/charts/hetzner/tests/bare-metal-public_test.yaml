@@ -118,3 +118,31 @@ tests:
       - matchRegex:
           path: spec.kubeadmConfigSpec.preKubeadmCommands[14]
           pattern: "for kubeadm_config in /run/kubeadm/kubeadm.yaml /run/kubeadm/kubeadm-join-config.yaml /kubeadm-join-config.yaml"
+
+  - it: binds the controller-manager and scheduler to the vSwitch IP through kubeadm patches
+    template: KubeadmControlPlane.yaml
+    asserts:
+      - equal:
+          path: spec.kubeadmConfigSpec.initConfiguration.patches.directory
+          value: /etc/kubernetes/kubeaid-patches
+      - equal:
+          path: spec.kubeadmConfigSpec.joinConfiguration.patches.directory
+          value: /etc/kubernetes/kubeaid-patches
+      - matchRegex:
+          path: spec.kubeadmConfigSpec.preKubeadmCommands[14]
+          pattern: "kube-scheduler\\+json\\.json; do"
+
+  - it: pins nothing to a private IP without a vSwitch
+    template: KubeadmControlPlane.yaml
+    set:
+      bareMetal.vSwitch: null
+    asserts:
+      - notExists:
+          path: spec.kubeadmConfigSpec.initConfiguration.patches
+      - notExists:
+          path: spec.kubeadmConfigSpec.joinConfiguration.patches
+      - notContains:
+          path: spec.kubeadmConfigSpec.initConfiguration.nodeRegistration.kubeletExtraArgs
+          content:
+            name: node-ip
+            value: __KUBEAID_NODE_IP__
