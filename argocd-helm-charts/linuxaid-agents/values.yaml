@@ -40,7 +40,9 @@ interval: 4h
 controlRepo:
   url: https://github.com/Obmondo/linuxaid.git
   # Tag (or ref) to check out. Pinned, so a new LinuxAid tag reaches nodes only when
-  # this is bumped; empty = the repo's latest tag on every run.
+  # this is bumped; empty = the repo's latest tag on every run. bin/manage-helm-chart.sh
+  # bumps it to each new LinuxAid release, and both image tags to the linuxaid-cli
+  # version that release names.
   ref: v1.8.12
   # Secret holding git credentials for a private control-repo: key `ssh-privatekey`
   # (SSH remotes) or `token` (https remotes). Empty = public repo, no credentials.

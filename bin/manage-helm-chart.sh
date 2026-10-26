@@ -74,6 +74,10 @@ EXAMPLES:
   # Update a specific chart to a specific version
   ./manage-helm-chart.sh --update-helm-chart traefik --chart-version 25.0.0
 
+  # Move linuxaid-agents to the newest LinuxAid release, or to a given one
+  ./manage-helm-chart.sh --update-helm-chart linuxaid-agents
+  ./manage-helm-chart.sh --update-helm-chart linuxaid-agents --chart-version v1.8.12
+
   # Update all charts
   ./manage-helm-chart.sh --update-all
 
@@ -93,6 +97,13 @@ declare ARGOCD_CHART_PATH="argocd-helm-charts"
 declare HELM_VERSION_LAST_UPDATE_FILE="./.helm_version_last_update"
 declare CHART_VERSION=
 declare NEW_CHART=false
+
+# linuxaid-agents pins LinuxAid and the linuxaid-cli images in values.yaml, not as
+# chart dependencies. Each LinuxAid release names the linuxaid-cli version it runs.
+declare LINUXAID_AGENTS_CHART="linuxaid-agents"
+declare LINUXAID_CLI_VERSION_FILE="modules/enableit/common/data/common.yaml"
+declare LINUXAID_CLI_VERSION_KEY="common::system::openvox::linuxaid_cli::version"
+declare RELEASE_TAG_REGEX='^v[0-9]+\.[0-9]+\.[0-9]+$'
 
 # Arrays to track updates
 declare -a MINOR_UPDATES
@@ -277,6 +288,32 @@ function bump_version() {
     echo "${major}.${minor}.${patch}"
 }
 
+# Function to file an update line under its semver bump, for the commit
+# message and the KubeAid version bump
+function record_update() {
+  local update_type=$1
+  local update_line=$2
+
+  case $update_type in
+    major)
+      MAJOR_UPDATES+=("$update_line")
+      HAS_MAJOR=true
+      ;;
+    minor)
+      MINOR_UPDATES+=("$update_line")
+      if [ "$HAS_MAJOR" = false ]; then
+        HAS_MINOR=true
+      fi
+      ;;
+    patch)
+      PATCH_UPDATES+=("$update_line")
+      if [ "$HAS_MAJOR" = false ] && [ "$HAS_MINOR" = false ]; then
+        HAS_PATCH=true
+      fi
+      ;;
+  esac
+}
+
 # Function to get current KubeAid version
 function get_current_kubeaid_version() {
   git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0"
@@ -396,6 +433,129 @@ function prune_vendored_paths() {
   done < <(sed 's/#.*//' "$prune_file" | awk 'NF {print $1}')
 }
 
+# Function to find the newest vX.Y.Z tag of a git repository, skipping release
+# candidates and other suffixed tags
+function get_latest_release_tag() {
+  local repo_url=$1
+
+  GIT_TERMINAL_PROMPT=0 git ls-remote --tags --refs "$repo_url" 2>/dev/null \
+    | awk '{sub("refs/tags/", "", $2); print $2}' \
+    | grep -E "$RELEASE_TAG_REGEX" \
+    | sort -V \
+    | tail -n 1 || true
+}
+
+# Function to read the linuxaid-cli version a LinuxAid release pins in its hiera
+# data. The blob-less shallow clone downloads only the one file it reads.
+function get_linuxaid_cli_version() {
+  local repo_url=$1
+  local tag=$2
+  local clone_dir
+  local version=""
+
+  clone_dir=$(mktemp -d)
+  if GIT_TERMINAL_PROMPT=0 git clone --quiet --depth 1 --branch "$tag" --filter=blob:none --no-checkout "$repo_url" "$clone_dir" 2>/dev/null; then
+    version=$(GIT_TERMINAL_PROMPT=0 git -C "$clone_dir" show "HEAD:$LINUXAID_CLI_VERSION_FILE" 2>/dev/null | yq eval ".\"$LINUXAID_CLI_VERSION_KEY\"" - 2>/dev/null || true)
+  fi
+  rm -rf "$clone_dir"
+
+  echo "$version"
+}
+
+# Function to set one scalar inside a top-level block of a YAML file. sed rather
+# than yq -i, which drops the blank lines that group a values file.
+function set_yaml_block_value() {
+  local file=$1
+  local block=$2
+  local key=$3
+  local value=$4
+
+  sed -i "/^${block}:/,/^[^ #]/ s/^\(${key}: \).*/\1${value}/" "$file"
+}
+
+# Function to move linuxaid-agents to the newest LinuxAid release, or to the one
+# asked for, with its images on the linuxaid-cli version that release pins.
+# A ref that is not a release tag (empty = newest tag on every run, or a branch)
+# is a deliberate choice and is left alone.
+function update_linuxaid_agents() {
+  local chart_path=$1
+  local requested_ref=${2:-}
+  local values="$chart_path/values.yaml"
+  local chart_yaml="$chart_path/Chart.yaml"
+  local repo_url current_ref current_image_tag new_ref new_image_tag cli_version
+  local release_values release_ref release_image_tag
+
+  repo_url=$(yq eval '.controlRepo.url' "$values")
+  current_ref=$(yq eval '.controlRepo.ref' "$values")
+  current_image_tag=$(yq eval '.agentImage.tag' "$values")
+
+  if [[ ! "$current_ref" =~ $RELEASE_TAG_REGEX ]]; then
+    echo "linuxaid-agents follows LinuxAid ref '$current_ref', not a release tag, leaving it"
+    return
+  fi
+
+  new_ref=${requested_ref:-$(get_latest_release_tag "$repo_url")}
+  if [[ ! "$new_ref" =~ $RELEASE_TAG_REGEX ]]; then
+    echo "Could not look up the latest LinuxAid release in $repo_url, keeping linuxaid-agents on $current_ref"
+    return
+  fi
+
+  # Only move forward, unless a version was asked for
+  if [ -z "$requested_ref" ] && [ "$(get_update_type "$current_ref" "$new_ref")" = "none" ]; then
+    new_ref=$current_ref
+  fi
+
+  cli_version=$(get_linuxaid_cli_version "$repo_url" "$new_ref")
+  new_image_tag="v${cli_version#v}"
+  if [[ ! "$new_image_tag" =~ $RELEASE_TAG_REGEX ]]; then
+    echo "Could not read the linuxaid-cli version LinuxAid $new_ref pins, keeping linuxaid-agents on $current_ref"
+    return
+  fi
+
+  if [ -z "$requested_ref" ] && [ "$(get_update_type "$current_image_tag" "$new_image_tag")" = "none" ]; then
+    new_image_tag=$current_image_tag
+  fi
+
+  if [ "$new_ref" = "$current_ref" ] && [ "$new_image_tag" = "$current_image_tag" ]; then
+    echo "linuxaid-agents is on the latest LinuxAid release $current_ref with linuxaid-cli $current_image_tag"
+  else
+    echo "Moving linuxaid-agents to LinuxAid $new_ref with linuxaid-cli $new_image_tag"
+    set_yaml_block_value "$values" controlRepo "  ref" "$new_ref"
+    set_yaml_block_value "$values" operator "    tag" "$new_image_tag"
+    set_yaml_block_value "$values" agentImage "  tag" "$new_image_tag"
+    sed -i "s/^appVersion: .*/appVersion: $new_image_tag/" "$chart_yaml"
+
+    # The sed patterns follow the files' layout; if that changed, undo rather
+    # than leave the chart half updated
+    if [ "$(yq eval '.controlRepo.ref' "$values")" != "$new_ref" ] \
+      || [ "$(yq eval '.operator.image.tag' "$values")" != "$new_image_tag" ] \
+      || [ "$(yq eval '.agentImage.tag' "$values")" != "$new_image_tag" ] \
+      || [ "$(yq eval '.appVersion' "$chart_yaml")" != "$new_image_tag" ]; then
+      echo "Could not set every linuxaid-agents version, reverting $values and $chart_yaml"
+      git checkout -- "$values" "$chart_yaml"
+      return
+    fi
+  fi
+
+  # Report against the last KubeAid release, as the dependency updates do
+  release_values=$(git show "$CURRENT_VERSION:$values" 2>/dev/null || true)
+  if [ -z "$release_values" ]; then
+    return
+  fi
+
+  release_ref=$(echo "$release_values" | yq eval '.controlRepo.ref' -)
+  if [[ "$release_ref" =~ $RELEASE_TAG_REGEX ]] && [ "$release_ref" != "$new_ref" ]; then
+    UPDATE_LINE="Updated linuxaid-agents LinuxAid from version $release_ref to $new_ref"
+    record_update "$(get_update_type "$release_ref" "$new_ref")" "$UPDATE_LINE"
+  fi
+
+  release_image_tag=$(echo "$release_values" | yq eval '.agentImage.tag' -)
+  if [[ "$release_image_tag" =~ $RELEASE_TAG_REGEX ]] && [ "$release_image_tag" != "$new_image_tag" ]; then
+    UPDATE_LINE="Updated linuxaid-agents linuxaid-cli from version $release_image_tag to $new_image_tag"
+    record_update "$(get_update_type "$release_image_tag" "$new_image_tag")" "$UPDATE_LINE"
+  fi
+}
+
 function update_helm_chart {
 
   HELM_CHART_PATH="$1"
@@ -406,6 +566,10 @@ function update_helm_chart {
   if ! test -f "$HELM_CHART_YAML"; then
     echo "No $HELM_CHART_YAML present, please fix it"
     return
+  fi
+
+  if [ "$(basename "$HELM_CHART_PATH")" = "$LINUXAID_AGENTS_CHART" ]; then
+    update_linuxaid_agents "$HELM_CHART_PATH" "$HELM_CHART_NEW_VERSION"
   fi
 
   HELM_CHART_DEP_PRESENT=$(yq eval '.dependencies | length' "$HELM_CHART_YAML")
@@ -544,24 +708,7 @@ function update_helm_chart {
         continue
       fi
 
-      case $UPDATE_TYPE in
-        major)
-          MAJOR_UPDATES+=("$UPDATE_LINE")
-          HAS_MAJOR=true
-          ;;
-        minor)
-          MINOR_UPDATES+=("$UPDATE_LINE")
-          if [ "$HAS_MAJOR" = false ]; then
-            HAS_MINOR=true
-          fi
-          ;;
-        patch)
-          PATCH_UPDATES+=("$UPDATE_LINE")
-          if [ "$HAS_MAJOR" = false ] && [ "$HAS_MINOR" = false ]; then
-            HAS_PATCH=true
-          fi
-          ;;
-      esac
+      record_update "$UPDATE_TYPE" "${UPDATE_LINE:-}"
 
     done
   fi

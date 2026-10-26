@@ -222,7 +222,7 @@ nodeSelector: "!node-role.kubernetes.io/control-plane"
 | `enforce` | `false` | `false` = report-only (`puppet apply --noop`); `true` = apply changes. |
 | `interval` | `4h` | How often the operator creates a Job per node, as a Go duration such as `30m`. |
 | `controlRepo.url` | `https://github.com/Obmondo/linuxaid.git` | Control repo each node clones. |
-| `controlRepo.ref` | `v1.8.12` | Tag or branch to check out. Empty = the repo's newest tag on every run, so nodes move forward on their own. |
+| `controlRepo.ref` | the newest LinuxAid release | Tag or branch to check out. `bin/manage-helm-chart.sh` moves the default to each new release. Empty = the repo's newest tag on every run, so nodes move forward on their own. |
 | `controlRepo.secretName` | `""` | Secret for a private control repo: key `ssh-privatekey` for SSH URLs, or `token` (a Gitea access token) for https URLs. |
 | `openvoxEnvironment` | `""` | Name of the environment directory on the node. Empty = `controlRepo.ref` with dots as underscores (`v1.8.8` → `v1_8_8`), or `master` without a ref. It only names the directory: `controlRepo.ref` decides which code runs. With a ref, the name is also added to the hiera data as `common::system::openvox::environment`. |
 | `hiera` | `classes: [role::kubeaid]`, `monitor::enable: false` | Hiera data for every node; see [What gets managed](#what-gets-managed). |
@@ -231,8 +231,8 @@ nodeSelector: "!node-role.kubernetes.io/control-plane"
 | `agentJob.ttlSecondsAfterFinished` | `600` | Seconds a finished Job and its logs are kept; the node is skipped while it exists. |
 | `agentJob.activeDeadlineSeconds` | `1200` | A run is stopped after this many seconds. |
 | `agentJob.backoffLimit` | `0` | Retries within a cycle; a failed run is tried again at the next `interval`. |
-| `operator.image.repository`, `operator.image.tag` | `ghcr.io/obmondo/linuxaid-agent`, `v1.11.5` | Operator image. |
-| `agentImage.repository`, `agentImage.tag` | `ghcr.io/obmondo/linuxaid-cli`, `v1.11.5` | Image the Jobs run. Keep both tags on the same linuxaid-cli release. |
+| `operator.image.repository`, `operator.image.tag` | `ghcr.io/obmondo/linuxaid-agent`, the linuxaid-cli version the `controlRepo.ref` release names | Operator image. |
+| `agentImage.repository`, `agentImage.tag` | `ghcr.io/obmondo/linuxaid-cli`, the same version | Image the Jobs run. Keep both tags on the same linuxaid-cli release. |
 | `operator.image.pullPolicy`, `agentImage.pullPolicy` | `IfNotPresent` | Image pull policies. |
 | `operator.resources` | 10m CPU and 32Mi memory requested, 64Mi memory limit | Operator resources. |
 
