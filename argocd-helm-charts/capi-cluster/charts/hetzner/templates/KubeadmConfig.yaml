@@ -201,7 +201,10 @@ spec:
 
          The NAT-gateway-egress routes (10.0.0.0/16 + default via
          10.0.1.1) belong only to hybrid — pure bare-metal nodes
-         keep their default route on the public NIC. */}}
+         keep their default route on the public NIC. In hybrid,
+         installimage's public default route (01-netcfg.yaml, no metric
+         = 0) is bumped to metric 300 so the default via 10.0.1.1
+         (metric 200) wins and egress leaves through the NAT gateway. */}}
     - |
       cat <<EOF > /etc/netplan/60-vlan.yaml
       network:
@@ -228,6 +231,9 @@ spec:
       {{- end }}
       EOF
       chmod 0600 /etc/netplan/60-vlan.yaml
+      {{- if (eq $.Values.mode "hybrid") }}
+      grep -q 'metric: 300' /etc/netplan/01-netcfg.yaml || sed -i '/to: 0\.0\.0\.0\/0/{n;s/^\( *\)via: .*/&\n\1metric: 300/}' /etc/netplan/01-netcfg.yaml
+      {{- end }}
       netplan apply
     {{- end -}}
 

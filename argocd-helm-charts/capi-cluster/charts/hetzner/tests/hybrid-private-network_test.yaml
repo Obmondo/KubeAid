@@ -79,6 +79,14 @@ tests:
           path: metadata.name
           value: capi-hybrid-private-bm-workers-1866aff
 
+  - it: bare-metal KubeadmConfig demotes the public default route below the vSwitch one
+    template: KubeadmConfig.yaml
+    documentIndex: 0
+    asserts:
+      - matchRegex:
+          path: spec.preKubeadmCommands[4]
+          pattern: "metric: 300/\\}' /etc/netplan/01-netcfg.yaml"
+
   - it: renders a HetznerBareMetalHost for each bare-metal node-group host
     template: HetznerBareMetalHost.yaml
     documentIndex: 0
