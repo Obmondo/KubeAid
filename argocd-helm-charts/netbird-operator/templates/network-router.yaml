@@ -18,4 +18,8 @@ spec:
     name: {{ required "networkRouter.dnsZone is required when networkRouter.enabled=true — the domain of an existing NetBird DNS zone, e.g. staging.mesh.acme.com" .Values.networkRouter.dnsZone }}
   workloadOverride:
     replicas: {{ .Values.networkRouter.replicas }}
+    {{- with .Values.networkRouter.podTemplate }}
+    podTemplate:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
 {{- end }}
