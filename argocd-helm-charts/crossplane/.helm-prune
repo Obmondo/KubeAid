@@ -1,0 +1,9 @@
+# Paths deleted from the vendored subcharts after `helm dependency update`.
+# One path per line, relative to this chart directory. Comments with #.
+#
+# The upstream crossview chart ships helm-unittest suites written against its
+# own defaults (bundled postgres, database on). Our values turn the database
+# off, so those suites fail when helm-unittest runs this chart with its
+# subcharts, as CI does. The published tarball carries them regardless, which
+# is why this file exists: without it they come back on the next version bump.
+charts/crossview/tests

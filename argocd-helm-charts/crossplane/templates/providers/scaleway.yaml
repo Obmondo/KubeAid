@@ -1,0 +1,45 @@
+{{- if .Values.providers.scaleway.enabled }}
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-scaleway
+  annotations:
+    {{- include "crossplane.wave1" . | nindent 4 }}
+spec:
+  package: xpkg.upbound.io/scaleway/provider-scaleway:{{ .Values.providers.scaleway.provider.version }}
+  runtimeConfigRef:
+    name: provider-scaleway
+
+---
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
+metadata:
+  name: provider-scaleway
+  annotations:
+    {{- include "crossplane.wave1" . | nindent 4 }}
+spec:
+  deploymentTemplate:
+    spec:
+      selector: {}
+      template:
+        spec:
+          containers:
+            - name: package-runtime
+              args:
+                - --enable-management-policies
+
+---
+apiVersion: scaleway.m.upbound.io/v1beta1
+kind: ClusterProviderConfig
+metadata:
+  name: default
+  annotations:
+    {{- include "crossplane.wave2" . | nindent 4 }}
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: {{ .Release.Namespace }}
+      name: {{ .Values.providers.scaleway.credentials.secretName }}
+      key: {{ .Values.providers.scaleway.credentials.secretKey }}
+{{- end }}

@@ -1,0 +1,4 @@
+apiVersion: v2
+name: compositions
+description: Composite APIs KubeAid models on top of the Crossplane providers, and the composition functions they run
+version: 1.0.0

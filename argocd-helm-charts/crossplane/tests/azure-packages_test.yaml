@@ -1,0 +1,43 @@
+suite: azure providers
+templates:
+  - providers/azure.yaml
+release:
+  name: crossplane
+  namespace: crossplane
+set:
+  providers.azure.enabled: true
+tests:
+  - it: renders the five Azure providers and their ProviderConfig
+    template: providers/azure.yaml
+    asserts:
+      - hasDocuments:
+          count: 6
+
+  - it: installs the five Azure providers in sync wave 1
+    template: providers/azure.yaml
+    documentSelector:
+      path: kind
+      value: Provider
+      matchMany: true
+    asserts:
+      - isKind:
+          of: Provider
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/sync-wave"]
+          value: "1"
+
+  - it: pins the provider packages
+    template: providers/azure.yaml
+    asserts:
+      - equal:
+          path: metadata.name
+          value: azure-network
+        documentIndex: 0
+      - equal:
+          path: spec.package
+          value: xpkg.crossplane.io/crossplane-contrib/provider-azure-network:v1.11.2
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: azure-authorization
+        documentIndex: 4

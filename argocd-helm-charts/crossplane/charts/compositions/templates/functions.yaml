@@ -1,0 +1,31 @@
+# Composition pipeline functions which the Compositions in this chart run. They are installed
+# whenever this sub-chart is enabled, because every Composition here needs them.
+
+apiVersion: pkg.crossplane.io/v1
+kind: Function
+metadata:
+  name: patch-and-transform
+  annotations:
+    {{- include "compositions.wave1" . | nindent 4 }}
+spec:
+  package: xpkg.crossplane.io/crossplane-contrib/function-patch-and-transform:v0.9.0
+
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Function
+metadata:
+  name: go-templating
+  annotations:
+    {{- include "compositions.wave1" . | nindent 4 }}
+spec:
+  package: xpkg.crossplane.io/crossplane-contrib/function-go-templating:v0.10.0
+
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Function
+metadata:
+  name: auto-ready
+  annotations:
+    {{- include "compositions.wave1" . | nindent 4 }}
+spec:
+  package: xpkg.crossplane.io/crossplane-contrib/function-auto-ready:v0.5.0

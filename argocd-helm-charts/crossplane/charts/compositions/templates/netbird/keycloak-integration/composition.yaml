@@ -1,0 +1,322 @@
+{{- if .Values.netbird.keycloakIntegration.enabled }}
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: netbird-keycloak-integration
+  annotations:
+    {{- include "compositions.wave3" . | nindent 4 }}
+
+spec:
+  compositeTypeRef:
+    apiVersion: netbird.kubeaid.org/v1alpha1
+    kind: KeycloakIntegration
+
+  mode: Pipeline
+  pipeline:
+    - step: patch-and-transform
+      functionRef:
+        name: patch-and-transform
+      input:
+        apiVersion: pt.fn.crossplane.io/v1beta1
+        kind: Resources
+
+        patchSets:
+          - name: realm
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.realm
+                toFieldPath: spec.forProvider.realmId
+
+        resources:
+          - name: netbird-backend-client
+            base:
+              apiVersion: openidclient.keycloak.m.crossplane.io/v1alpha1
+              kind: Client
+              metadata:
+                name: netbird-backend
+              spec:
+                forProvider:
+                  clientId: netbird-backend
+
+                  # Access type credential is used for server-side clients that require both client
+                  # ID and secret when authenticating. This client should be used for applications
+                  # using the Authorization Code or Client Credentials grant flows.
+                  accessType: CONFIDENTIAL
+
+                  standardFlowEnabled: true
+                  directAccessGrantsEnabled: true
+                  serviceAccountsEnabled: true
+                  oauth2DeviceAuthorizationGrantEnabled: true
+                  frontchannelLogoutEnabled: true
+
+                  validRedirectUris:
+                    - /*
+                  webOrigins:
+                    - /*
+            patches:
+              - type: PatchSet
+                patchSetName: realm
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.netbirdBackendClient.clientSecret.name
+                toFieldPath: spec.forProvider.clientSecretWoSecretRef.name
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.netbirdBackendClient.clientSecret.key
+                toFieldPath: spec.forProvider.clientSecretWoSecretRef.key
+              # Keycloak never reads the client secret back, so a changed Secret is only pushed
+              # when this version is bumped.
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.netbirdBackendClient.clientSecret.version
+                toFieldPath: spec.forProvider.clientSecretWoVersion
+
+          - name: netbird-backend-client-default-scopes
+            base:
+              apiVersion: openidclient.keycloak.m.crossplane.io/v1alpha1
+              kind: ClientDefaultScopes
+              metadata:
+                name: netbird-backend
+              spec:
+                forProvider:
+                  clientIdRef:
+                    name: netbird-backend
+                  defaultScopes:
+                    - email
+                    - profile
+
+                    # Keycloak built-in scopes.
+                    - acr
+                    - basic
+                    - web-origins
+                    - roles
+            patches:
+              - type: PatchSet
+                patchSetName: realm
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.namespace
+                toFieldPath: spec.forProvider.clientIdRef.namespace
+
+          # The built in realm management client provides the view-users role for the corresponding
+          # realm. Keycloak makes this client, thus the policy is Observe. Without it, Crossplane
+          # tries to create the client and gets a 409 from Keycloak.
+          - name: realm-management-client
+            base:
+              apiVersion: openidclient.keycloak.m.crossplane.io/v1alpha1
+              kind: Client
+              metadata:
+                name: realm-management
+              spec:
+                managementPolicies: ["Observe"]
+                forProvider:
+                  clientId: realm-management
+            patches:
+              - type: PatchSet
+                patchSetName: realm
+
+          - name: netbird-backend-client-service-account-role
+            base:
+              apiVersion: openidclient.keycloak.m.crossplane.io/v1alpha1
+              kind: ClientServiceAccountRole
+              metadata:
+                name: netbird-backend
+              spec:
+                forProvider:
+                  clientIdRef:
+                    name: realm-management
+                  serviceAccountUserClientIdRef:
+                    name: netbird-backend
+
+                  # What NetBird's IdP manager needs to list and read the realm's users. Creating
+                  # users in Keycloak (NetBird's invite flow) would need manage-users as a second
+                  # role, not a different value here.
+                  role: view-users
+            patches:
+              - type: PatchSet
+                patchSetName: realm
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.namespace
+                toFieldPath: spec.forProvider.clientIdRef.namespace
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.namespace
+                toFieldPath: spec.forProvider.serviceAccountUserClientIdRef.namespace
+
+          # Used by the NetBird clients.
+          - name: netbird-client-client
+            base:
+              apiVersion: openidclient.keycloak.m.crossplane.io/v1alpha1
+              kind: Client
+              metadata:
+                name: netbird-client
+              spec:
+                forProvider:
+                  clientId: netbird-client
+
+                  # Access type public is used for browser-only applications that do not require a
+                  # client secret, and instead rely only on authorized redirect URIs for security.
+                  # This client should be used for applications using the Implicit grant flow.
+                  accessType: PUBLIC
+
+                  standardFlowEnabled: true
+                  directAccessGrantsEnabled: true
+                  oauth2DeviceAuthorizationGrantEnabled: true
+
+                  webOrigins:
+                    - "+"
+            patches:
+              - type: PatchSet
+                patchSetName: realm
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.dashboardURL
+                toFieldPath: spec.forProvider.rootUrl
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.dashboardURL
+                toFieldPath: spec.forProvider.baseUrl
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.dashboardURL
+                toFieldPath: spec.forProvider.validRedirectUris[0]
+                transforms:
+                  - type: string
+                    string:
+                      type: TrimSuffix
+                      trim: "/"
+                  - type: string
+                    string:
+                      type: Format
+                      fmt: "%s/*"
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.dashboardURL
+                toFieldPath: spec.forProvider.validPostLogoutRedirectUris[0]
+                transforms:
+                  - type: string
+                    string:
+                      type: TrimSuffix
+                      trim: "/"
+                  - type: string
+                    string:
+                      type: Format
+                      fmt: "%s/*"
+
+          - name: netbird-management-api-client-scope
+            base:
+              apiVersion: openidclient.keycloak.m.crossplane.io/v1alpha1
+              kind: ClientScope
+              metadata:
+                name: netbird-management-api
+              spec:
+                forProvider:
+                  name: api
+                  includeInTokenScope: true
+            patches:
+              - type: PatchSet
+                patchSetName: realm
+
+          - name: netbird-client-client-default-scopes
+            base:
+              apiVersion: openidclient.keycloak.m.crossplane.io/v1alpha1
+              kind: ClientDefaultScopes
+              metadata:
+                name: netbird-client
+              spec:
+                forProvider:
+                  clientIdRef:
+                    name: netbird-client
+                  defaultScopes:
+                    - api
+                    - email
+                    - groups
+                    - profile
+
+                    # Keycloak built-in scopes.
+                    - acr
+                    - basic
+                    - web-origins
+                    - roles
+            patches:
+              - type: PatchSet
+                patchSetName: realm
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.namespace
+                toFieldPath: spec.forProvider.clientIdRef.namespace
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.netbirdClientClient.propagatedGroupScopes
+                toFieldPath: spec.forProvider.defaultScopes
+                policy:
+                  mergeOptions:
+                    appendSlice: true
+
+          - name: netbird-management-api-client-scope-mapper
+            base:
+              apiVersion: client.keycloak.m.crossplane.io/v1alpha1
+              kind: ProtocolMapper
+              metadata:
+                name: netbird-management-api-audience
+              spec:
+                forProvider:
+                  # The ClientScope object above.
+                  clientScopeIdRef:
+                    name: netbird-management-api
+                  name: "Audience for NetBird Management API"
+                  protocol: openid-connect
+                  protocolMapper: oidc-audience-mapper
+                  config:
+                    # NetBird rejects an access token that is not issued for its own client ID.
+                    included.client.audience: netbird-client
+                    id.token.claim: "false"
+                    access.token.claim: "true"
+                    introspection.token.claim: "true"
+                    userinfo.token.claim: "false"
+                    lightweight.claim: "false"
+            patches:
+              - type: PatchSet
+                patchSetName: realm
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.namespace
+                toFieldPath: spec.forProvider.clientScopeIdRef.namespace
+
+          # You can login to NetBird as this user, in the beginning.
+          - name: initial-netbird-user
+            base:
+              apiVersion: user.keycloak.m.crossplane.io/v1alpha1
+              kind: User
+              spec:
+                forProvider:
+                  enabled: true
+
+                  # Without this Keycloak attaches the VERIFY_EMAIL action and mails a
+                  # confirmation link.
+                  emailVerified: true
+
+                  # Explicitly empty : guarantees no required action (profile update, password
+                  # reset, OTP enrolment) is ever attached to the user.
+                  requiredActions: []
+
+                  initialPassword:
+                    - temporary: false
+            patches:
+              - type: PatchSet
+                patchSetName: realm
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.initialNetBirdUser.username
+                toFieldPath: metadata.name
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.initialNetBirdUser.username
+                toFieldPath: spec.forProvider.username
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.initialNetBirdUser.email
+                toFieldPath: spec.forProvider.email
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.initialNetBirdUser.firstName
+                toFieldPath: spec.forProvider.firstName
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.initialNetBirdUser.lastName
+                toFieldPath: spec.forProvider.lastName
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.initialNetBirdUser.initialPasswordSecret.name
+                toFieldPath: spec.forProvider.initialPassword[0].valueSecretRef.name
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.initialNetBirdUser.initialPasswordSecret.key
+                toFieldPath: spec.forProvider.initialPassword[0].valueSecretRef.key
+
+    - step: automatically-detect-ready-composed-resources
+      functionRef:
+        name: auto-ready
+{{- end }}

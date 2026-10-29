@@ -1,0 +1,57 @@
+{{- if .Values.keycloak.obmondoKeycloakGroupsPropagation.enabled }}
+
+apiVersion: apiextensions.crossplane.io/v2
+kind: CompositeResourceDefinition
+metadata:
+  name: obmondokeycloakgroupspropagations.keycloak.kubeaid.org
+  annotations:
+    {{- include "compositions.wave2" . | nindent 4 }}
+
+spec:
+  scope: Namespaced
+
+  group: keycloak.kubeaid.org
+
+  names:
+    kind: ObmondoKeycloakGroupsPropagation
+    plural: obmondokeycloakgroupspropagations
+
+  enforcedCompositionRef:
+    name: obmondo-keycloak-groups-propagation
+
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                realm:
+                  type: string
+
+                issuerURL:
+                  type: string
+
+                credentialsSecret:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    clientIdKey:
+                      type: string
+                      default: clientId
+                    clientSecretKey:
+                      type: string
+                      default: clientSecret
+                  required:
+                    - name
+
+              required:
+                - realm
+                - issuerURL
+                - credentialsSecret
+{{- end }}

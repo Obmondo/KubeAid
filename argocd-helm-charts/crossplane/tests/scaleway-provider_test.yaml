@@ -1,0 +1,116 @@
+suite: scaleway provider
+templates:
+  - providers/scaleway.yaml
+release:
+  name: crossplane
+  namespace: crossplane
+set:
+  providers.scaleway.enabled: true
+tests:
+  - it: renders the Provider pinned to the configured package version with its runtime config
+    asserts:
+      - hasDocuments:
+          count: 3
+      - isKind:
+          of: Provider
+        documentIndex: 0
+      - isAPIVersion:
+          of: pkg.crossplane.io/v1
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: provider-scaleway
+        documentIndex: 0
+      - equal:
+          path: spec.package
+          value: xpkg.upbound.io/scaleway/provider-scaleway:v0.6.0
+        documentIndex: 0
+      - equal:
+          path: spec.runtimeConfigRef.name
+          value: provider-scaleway
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations
+          value:
+            argocd.argoproj.io/sync-wave: "1"
+            argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+        documentIndex: 0
+
+  - it: renders a DeploymentRuntimeConfig that turns on management policies
+    asserts:
+      - isKind:
+          of: DeploymentRuntimeConfig
+        documentIndex: 1
+      - isAPIVersion:
+          of: pkg.crossplane.io/v1beta1
+        documentIndex: 1
+      - equal:
+          path: metadata.name
+          value: provider-scaleway
+        documentIndex: 1
+      - equal:
+          path: spec.deploymentTemplate.spec.selector
+          value: {}
+        documentIndex: 1
+      - equal:
+          path: spec.deploymentTemplate.spec.template.spec.containers[0].name
+          value: package-runtime
+        documentIndex: 1
+      - contains:
+          path: spec.deploymentTemplate.spec.template.spec.containers[0].args
+          content: --enable-management-policies
+        documentIndex: 1
+
+  - it: follows a provider version override
+    set:
+      providers.scaleway.provider.version: v0.7.0
+    asserts:
+      - equal:
+          path: spec.package
+          value: xpkg.upbound.io/scaleway/provider-scaleway:v0.7.0
+        documentIndex: 0
+
+  - it: renders the default ClusterProviderConfig reading the credentials Secret from the release namespace
+    asserts:
+      - isKind:
+          of: ClusterProviderConfig
+        documentIndex: 2
+      - isAPIVersion:
+          of: scaleway.m.upbound.io/v1beta1
+        documentIndex: 2
+      - equal:
+          path: metadata.name
+          value: default
+        documentIndex: 2
+      - equal:
+          path: metadata.annotations
+          value:
+            argocd.argoproj.io/sync-wave: "2"
+            argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+        documentIndex: 2
+      - equal:
+          path: spec.credentials.source
+          value: Secret
+        documentIndex: 2
+      - equal:
+          path: spec.credentials.secretRef
+          value:
+            namespace: crossplane
+            name: scaleway-credentials
+            key: credentials
+        documentIndex: 2
+
+  - it: honours a custom credentials Secret name and key
+    set:
+      providers.scaleway.credentials:
+        secretName: scw-prod
+        secretKey: creds.json
+    asserts:
+      - equal:
+          path: spec.credentials.secretRef.name
+          value: scw-prod
+        documentIndex: 2
+      - equal:
+          path: spec.credentials.secretRef.key
+          value: creds.json
+        documentIndex: 2

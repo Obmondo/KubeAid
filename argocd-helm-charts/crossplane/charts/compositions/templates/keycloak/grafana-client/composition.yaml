@@ -1,0 +1,188 @@
+{{- if .Values.keycloak.grafanaClient.enabled }}
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: grafana-keycloak-client
+  annotations:
+    {{- include "compositions.wave3" . | nindent 4 }}
+
+spec:
+  compositeTypeRef:
+    apiVersion: keycloak.kubeaid.org/v1alpha1
+    kind: GrafanaClient
+
+  mode: Pipeline
+  pipeline:
+    - step: patch-and-transform
+      functionRef:
+        name: patch-and-transform
+      input:
+        apiVersion: pt.fn.crossplane.io/v1beta1
+        kind: Resources
+
+        patchSets:
+          - name: realm
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.realm
+                toFieldPath: spec.forProvider.realmId
+
+          # Every resource below the client references it by object name.
+          - name: clientRef
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.namespace
+                toFieldPath: spec.forProvider.clientIdRef.namespace
+
+        resources:
+          - name: client
+            base:
+              apiVersion: openidclient.keycloak.m.crossplane.io/v1alpha1
+              kind: Client
+              metadata:
+                name: grafana
+              spec:
+                forProvider:
+                  clientId: grafana
+
+                  accessType: CONFIDENTIAL
+
+                  standardFlowEnabled: true
+                  directAccessGrantsEnabled: true
+                  frontchannelLogoutEnabled: true
+            patches:
+              - type: PatchSet
+                patchSetName: realm
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.validRedirectUris
+                toFieldPath: spec.forProvider.validRedirectUris
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.validPostLogoutRedirectUris
+                toFieldPath: spec.forProvider.validPostLogoutRedirectUris
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.clientSecret.name
+                toFieldPath: spec.forProvider.clientSecretWoSecretRef.name
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.clientSecret.key
+                toFieldPath: spec.forProvider.clientSecretWoSecretRef.key
+              # Keycloak never reads the client secret back, so a rotated Secret is only pushed
+              # when this version is bumped.
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.clientSecret.version
+                toFieldPath: spec.forProvider.clientSecretWoVersion
+
+          - name: client-default-scopes
+            base:
+              apiVersion: openidclient.keycloak.m.crossplane.io/v1alpha1
+              kind: ClientDefaultScopes
+              metadata:
+                name: grafana
+              spec:
+                forProvider:
+                  clientIdRef:
+                    name: grafana
+                  defaultScopes:
+                    - email
+                    - profile
+
+                    # Keycloak built-in scopes.
+                    - acr
+                    - basic
+                    - web-origins
+                    - roles
+            patches:
+              - type: PatchSet
+                patchSetName: realm
+              - type: PatchSet
+                patchSetName: clientRef
+
+          - name: client-roles-mapper
+            base:
+              apiVersion: client.keycloak.m.crossplane.io/v1alpha1
+              kind: ProtocolMapper
+              metadata:
+                name: grafana-client-roles
+              spec:
+                forProvider:
+                  clientIdRef:
+                    name: grafana
+                  name: client roles
+                  protocol: openid-connect
+                  protocolMapper: oidc-usermodel-client-role-mapper
+                  config:
+                    usermodel.clientRoleMapping.clientId: grafana
+                    claim.name: resource_access.${client_id}.roles
+                    jsonType.label: String
+                    multivalued: "true"
+                    id.token.claim: "true"
+                    access.token.claim: "true"
+                    userinfo.token.claim: "true"
+                    introspection.token.claim: "true"
+                    lightweight.claim: "false"
+                    # Keycloak's client-role mapper ignores user.attribute but stores whatever the
+                    # UI sent. Kept so an imported client diffs clean.
+                    user.attribute: foo
+            patches:
+              - type: PatchSet
+                patchSetName: realm
+              - type: PatchSet
+                patchSetName: clientRef
+
+          # The three roles Grafana maps onto its own permissions.
+
+          - name: admin-role
+            base:
+              apiVersion: role.keycloak.m.crossplane.io/v1alpha1
+              kind: Role
+              metadata:
+                name: grafana-admin
+              spec:
+                forProvider:
+                  clientIdRef:
+                    name: grafana
+                  name: Admin
+            patches:
+              - type: PatchSet
+                patchSetName: realm
+              - type: PatchSet
+                patchSetName: clientRef
+
+          - name: editor-role
+            base:
+              apiVersion: role.keycloak.m.crossplane.io/v1alpha1
+              kind: Role
+              metadata:
+                name: grafana-editor
+              spec:
+                forProvider:
+                  clientIdRef:
+                    name: grafana
+                  name: Editor
+            patches:
+              - type: PatchSet
+                patchSetName: realm
+              - type: PatchSet
+                patchSetName: clientRef
+
+          - name: viewer-role
+            base:
+              apiVersion: role.keycloak.m.crossplane.io/v1alpha1
+              kind: Role
+              metadata:
+                name: grafana-viewer
+              spec:
+                forProvider:
+                  clientIdRef:
+                    name: grafana
+                  name: Viewer
+            patches:
+              - type: PatchSet
+                patchSetName: realm
+              - type: PatchSet
+                patchSetName: clientRef
+
+    - step: automatically-detect-ready-composed-resources
+      functionRef:
+        name: auto-ready
+{{- end }}

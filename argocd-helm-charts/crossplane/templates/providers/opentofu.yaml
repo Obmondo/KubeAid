@@ -1,0 +1,9 @@
+{{- if .Values.providers.opentofu.enabled }}
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: opentofu
+  namespace: crossplane-system
+spec:
+  package: xpkg.upbound.io/upbound/provider-opentofu:{{ .Values.providers.opentofu.provider.version }}
+{{- end }}
