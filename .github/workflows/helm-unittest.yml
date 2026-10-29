@@ -40,14 +40,14 @@ jobs:
             helmunittest/helm-unittest:latest \
             charts/aws charts/azure charts/hetzner
 
-      - name: Run helm-unittest on the crossplane-provider chart
+      - name: Run helm-unittest on the crossplane charts
         run: |
           docker run --rm \
             --user "$(id -u):$(id -g)" \
             -e HOME=/tmp \
             -v "$PWD/argocd-helm-charts:/apps" \
             helmunittest/helm-unittest:latest \
-            crossplane-provider
+            crossplane crossplane/charts/compositions crossplane-provider
 
       - name: Run helm-unittest on the cilium chart
         run: |
