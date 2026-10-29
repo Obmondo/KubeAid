@@ -37,14 +37,12 @@ tests:
       - equal:
           path: metadata.annotations
           value:
-            argocd.argoproj.io/sync-wave: "2"
+            argocd.argoproj.io/sync-wave: "3"
             argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
         documentIndex: 0
-      - equal:
+      # Namespaced managed resources use the ClusterProviderConfig named default.
+      - notExists:
           path: spec.providerConfigRef
-          value:
-            kind: ClusterProviderConfig
-            name: default
         documentIndex: 0
       - equal:
           path: spec.forProvider.realmId
@@ -76,20 +74,19 @@ tests:
           value: "false"
         documentIndex: 1
 
-  - it: can be renamed and emit full group paths
+  - it: can be renamed
     set:
       providers.keycloak.groupsClientScope.enabled: true
       providers.keycloak.groupsClientScope.name: keycloak-groups
-      providers.keycloak.groupsClientScope.fullGroupPath: true
     asserts:
       - equal:
           path: metadata.name
           value: keycloak-groups
         documentIndex: 0
       - equal:
-          path: spec.forProvider.config["full.path"]
-          value: "true"
-        documentIndex: 1
+          path: spec.forProvider.name
+          value: keycloak-groups
+        documentIndex: 0
 
   - it: falls back to the release namespace
     set:

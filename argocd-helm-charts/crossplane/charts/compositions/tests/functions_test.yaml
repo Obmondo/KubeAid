@@ -1,0 +1,39 @@
+suite: composition pipeline functions
+templates:
+  - functions.yaml
+release:
+  name: compositions
+  namespace: crossplane
+tests:
+  - it: installs the three functions whenever the sub-chart is enabled, in sync wave 1
+    asserts:
+      - hasDocuments:
+          count: 3
+      - isKind:
+          of: Function
+      - equal:
+          path: metadata.annotations
+          value:
+            argocd.argoproj.io/sync-wave: "1"
+            argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+      - equal:
+          path: metadata.name
+          value: patch-and-transform
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: go-templating
+        documentIndex: 1
+      - equal:
+          path: metadata.name
+          value: auto-ready
+        documentIndex: 2
+
+  - it: installs them even when no composition is switched on
+    set:
+      azure.workloadIdentityInfrastructure.enabled: false
+      keycloak.argocdClient.enabled: false
+      netbird.keycloakIntegration.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 3

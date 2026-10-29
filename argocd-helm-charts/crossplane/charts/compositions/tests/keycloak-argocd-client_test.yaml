@@ -1,0 +1,132 @@
+suite: keycloak argocd client
+templates:
+  - keycloak/argocd-client/composite-resource-definition.yaml
+  - keycloak/argocd-client/composition.yaml
+release:
+  name: compositions
+  namespace: crossplane
+set:
+  keycloak.argocdClient.enabled: true
+tests:
+  - it: renders nothing when the client is switched off
+    set:
+      keycloak.argocdClient.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+        template: keycloak/argocd-client/composite-resource-definition.yaml
+      - hasDocuments:
+          count: 0
+        template: keycloak/argocd-client/composition.yaml
+
+  - it: renders a namespaced Crossplane v2 XRD in sync wave 1
+    template: keycloak/argocd-client/composite-resource-definition.yaml
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: CompositeResourceDefinition
+      - isAPIVersion:
+          of: apiextensions.crossplane.io/v2
+      - equal:
+          path: metadata.name
+          value: argocdclients.keycloak.kubeaid.org
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/sync-wave"]
+          value: "2"
+      - equal:
+          path: spec.scope
+          value: Namespaced
+      - equal:
+          path: spec.names.kind
+          value: ArgoCDClient
+      - equal:
+          path: spec.enforcedCompositionRef.name
+          value: argocd-keycloak-client
+      - equal:
+          path: spec.versions[0].schema.openAPIV3Schema.properties.spec.required
+          value:
+            - realm
+            - validRedirectUris
+            - clientSecret
+      # The client ID is fixed in the Composition, so it is not part of the API.
+      - notExists:
+          path: spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.clientId
+
+  - it: renders the Composition in sync wave 2
+    template: keycloak/argocd-client/composition.yaml
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Composition
+      - equal:
+          path: metadata.name
+          value: argocd-keycloak-client
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/sync-wave"]
+          value: "3"
+      - equal:
+          path: spec.compositeTypeRef
+          value:
+            apiVersion: keycloak.kubeaid.org/v1alpha1
+            kind: ArgoCDClient
+      - equal:
+          path: spec.pipeline[0].functionRef.name
+          value: patch-and-transform
+      - equal:
+          path: spec.pipeline[1].functionRef.name
+          value: auto-ready
+      - lengthEqual:
+          path: spec.pipeline[0].input.resources
+          count: 2
+      - equal:
+          path: spec.pipeline[0].input.resources[0].name
+          value: client
+      - equal:
+          path: spec.pipeline[0].input.resources[1].name
+          value: client-default-scopes
+
+  - it: fixes the client ID, the access type and the scopes in the bases
+    template: keycloak/argocd-client/composition.yaml
+    asserts:
+      - equal:
+          path: spec.pipeline[0].input.resources[0].base.metadata.name
+          value: argocd
+      - equal:
+          path: spec.pipeline[0].input.resources[0].base.spec.forProvider.clientId
+          value: argocd
+      - equal:
+          path: spec.pipeline[0].input.resources[0].base.spec.forProvider.accessType
+          value: CONFIDENTIAL
+      - equal:
+          path: spec.pipeline[0].input.resources[0].base.spec.forProvider.webOrigins
+          value:
+            - "*"
+      - equal:
+          path: spec.pipeline[0].input.resources[1].base.spec.forProvider.clientIdRef.name
+          value: argocd
+      # ArgoCD RBAC matches on the groups claim, so the realm's `groups` scope is part of the base.
+      - equal:
+          path: spec.pipeline[0].input.resources[1].base.spec.forProvider.defaultScopes
+          value:
+            - email
+            - groups
+            - profile
+            - acr
+            - basic
+            - web-origins
+            - roles
+
+  - it: appends the propagated group scopes rather than replacing the list
+    template: keycloak/argocd-client/composition.yaml
+    asserts:
+      - equal:
+          path: spec.pipeline[0].input.resources[1].patches[2]
+          value:
+            type: FromCompositeFieldPath
+            fromFieldPath: spec.propagatedGroupScopes
+            toFieldPath: spec.forProvider.defaultScopes
+            policy:
+              mergeOptions:
+                appendSlice: true

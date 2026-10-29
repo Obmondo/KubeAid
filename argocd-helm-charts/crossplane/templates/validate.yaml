@@ -1,0 +1,10 @@
+{{- if .Values.compositions.enabled }}
+{{- $compositions := .Values.compositions }}
+{{- if and (or $compositions.azure.workloadIdentityInfrastructure.enabled $compositions.azure.disasterRecoveryInfrastructure.enabled) (not .Values.providers.azure.enabled) }}
+{{- fail "compositions.azure needs providers.azure.enabled: it composes Azure managed resources" }}
+{{- end }}
+{{- $keycloak := $compositions.keycloak }}
+{{- if and (or $keycloak.obmondoKeycloakGroupsPropagation.enabled $keycloak.argocdClient.enabled $keycloak.grafanaClient.enabled $keycloak.openobserveClient.enabled $compositions.netbird.keycloakIntegration.enabled) (not .Values.providers.keycloak.enabled) }}
+{{- fail "compositions.keycloak and compositions.netbird need providers.keycloak.enabled: they compose Keycloak managed resources" }}
+{{- end }}
+{{- end }}

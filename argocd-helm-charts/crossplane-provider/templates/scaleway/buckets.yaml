@@ -18,7 +18,7 @@ metadata:
   name: {{ $name }}
   namespace: {{ $.Release.Namespace }}
   annotations:
-    {{- include "crossplane-provider.wave2" $ | nindent 4 }}
+    {{- include "crossplane-provider.wave3" $ | nindent 4 }}
     {{- with .externalName }}
     crossplane.io/external-name: {{ . | quote }}
     {{- end }}
@@ -54,7 +54,7 @@ metadata:
   name: {{ $name }}
   namespace: {{ $.Release.Namespace }}
   annotations:
-    {{- include "crossplane-provider.wave2" $ | nindent 4 }}
+    {{- include "crossplane-provider.wave3" $ | nindent 4 }}
 spec:
   providerConfigRef:
     kind: ClusterProviderConfig

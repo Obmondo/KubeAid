@@ -5,3 +5,29 @@ crossplane:
   resourcesRBACManager:
     limits:
       cpu: null
+
+providers:
+  azure:
+    enabled: false
+    credentials:
+      secretName: azure-credentials
+      secretKey: credentials
+
+  scaleway:
+    enabled: false
+    provider:
+      version: v0.6.0
+    credentials:
+      secretName: scaleway-credentials
+      secretKey: credentials
+
+  keycloak:
+    enabled: false
+    provider:
+      version: v2.18.0
+    credentials:
+      secretName: keycloak-credentials
+      secretKey: credentials
+
+compositions:
+  enabled: false

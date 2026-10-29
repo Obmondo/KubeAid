@@ -1,0 +1,115 @@
+suite: keycloak openobserve client
+templates:
+  - keycloak/openobserve-client/composite-resource-definition.yaml
+  - keycloak/openobserve-client/composition.yaml
+release:
+  name: compositions
+  namespace: crossplane
+set:
+  keycloak.openobserveClient.enabled: true
+tests:
+  - it: renders nothing when the client is switched off
+    set:
+      keycloak.openobserveClient.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+        template: keycloak/openobserve-client/composite-resource-definition.yaml
+      - hasDocuments:
+          count: 0
+        template: keycloak/openobserve-client/composition.yaml
+
+  - it: renders a namespaced Crossplane v2 XRD in sync wave 1
+    template: keycloak/openobserve-client/composite-resource-definition.yaml
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isAPIVersion:
+          of: apiextensions.crossplane.io/v2
+      - equal:
+          path: metadata.name
+          value: openobserveclients.keycloak.kubeaid.org
+      - equal:
+          path: spec.scope
+          value: Namespaced
+      - equal:
+          path: spec.names.kind
+          value: OpenObserveClient
+      - equal:
+          path: spec.enforcedCompositionRef.name
+          value: openobserve-keycloak-client
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/sync-wave"]
+          value: "2"
+
+  - it: renders the Composition with the client, its scopes, the optional scope and the role mapper
+    template: keycloak/openobserve-client/composition.yaml
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Composition
+      - equal:
+          path: metadata.name
+          value: openobserve-keycloak-client
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/sync-wave"]
+          value: "3"
+      - equal:
+          path: spec.compositeTypeRef.kind
+          value: OpenObserveClient
+      - lengthEqual:
+          path: spec.pipeline[0].input.resources
+          count: 4
+      - equal:
+          path: spec.pipeline[0].input.resources[0].name
+          value: client
+      - equal:
+          path: spec.pipeline[0].input.resources[1].name
+          value: client-default-scopes
+      - equal:
+          path: spec.pipeline[0].input.resources[2].name
+          value: client-optional-scopes
+      - equal:
+          path: spec.pipeline[0].input.resources[3].name
+          value: client-roles-mapper
+
+  - it: fixes the dex client ID, the flows, the scopes and the role claim in the bases
+    template: keycloak/openobserve-client/composition.yaml
+    asserts:
+      - equal:
+          path: spec.pipeline[0].input.resources[0].base.metadata.name
+          value: openobserve-dex
+      - equal:
+          path: spec.pipeline[0].input.resources[0].base.spec.forProvider.clientId
+          value: openobserve-dex
+      - equal:
+          path: spec.pipeline[0].input.resources[0].base.spec.forProvider.accessType
+          value: CONFIDENTIAL
+      # Dex only runs the Authorization Code flow.
+      - equal:
+          path: spec.pipeline[0].input.resources[0].base.spec.forProvider.standardFlowEnabled
+          value: true
+      - equal:
+          path: spec.pipeline[0].input.resources[0].base.spec.forProvider.directAccessGrantsEnabled
+          value: false
+      - equal:
+          path: spec.pipeline[0].input.resources[1].base.spec.forProvider.defaultScopes
+          value:
+            - email
+            - profile
+            - acr
+            - basic
+            - web-origins
+            - roles
+      # Dex asks for offline_access to get a refresh token.
+      - equal:
+          path: spec.pipeline[0].input.resources[2].base.spec.forProvider.optionalScopes
+          value:
+            - offline_access
+      - equal:
+          path: spec.pipeline[0].input.resources[3].base.spec.forProvider.config["claim.name"]
+          value: role
+      - equal:
+          path: spec.pipeline[0].input.resources[3].base.spec.forProvider.config["usermodel.clientRoleMapping.clientId"]
+          value: openobserve-dex

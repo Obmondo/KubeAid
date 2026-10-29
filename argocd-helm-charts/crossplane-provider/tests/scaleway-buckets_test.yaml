@@ -37,7 +37,7 @@ tests:
       - equal:
           path: metadata.annotations
           value:
-            argocd.argoproj.io/sync-wave: "2"
+            argocd.argoproj.io/sync-wave: "3"
             argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
       - equal:
           path: spec.managementPolicies
@@ -121,7 +121,7 @@ tests:
         documentIndex: 1
       - equal:
           path: metadata.annotations["argocd.argoproj.io/sync-wave"]
-          value: "2"
+          value: "3"
         documentIndex: 1
       - notExists:
           path: spec.managementPolicies

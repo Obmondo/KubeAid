@@ -1,0 +1,44 @@
+suite: composition / provider agreement
+templates:
+  - validate.yaml
+release:
+  name: crossplane
+  namespace: crossplane
+tests:
+  - it: renders nothing when the compositions sub-chart is off
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: refuses an azure composition without the azure provider
+    set:
+      compositions.enabled: true
+      compositions.azure.workloadIdentityInfrastructure.enabled: true
+    asserts:
+      - failedTemplate:
+          errorPattern: compositions.azure needs providers.azure.enabled
+
+  - it: refuses a keycloak composition without the keycloak provider
+    set:
+      compositions.enabled: true
+      compositions.keycloak.argocdClient.enabled: true
+    asserts:
+      - failedTemplate:
+          errorPattern: compositions.keycloak and compositions.netbird need providers.keycloak.enabled
+
+  - it: refuses the netbird integration without the keycloak provider
+    set:
+      compositions.enabled: true
+      compositions.netbird.keycloakIntegration.enabled: true
+    asserts:
+      - failedTemplate:
+          errorPattern: compositions.keycloak and compositions.netbird need providers.keycloak.enabled
+
+  - it: is happy when both sides agree
+    set:
+      providers.keycloak.enabled: true
+      compositions.enabled: true
+      compositions.keycloak.argocdClient.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 0

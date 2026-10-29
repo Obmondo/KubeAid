@@ -1,22 +1,20 @@
 {{- if and .Values.providers.keycloak.enabled .Values.providers.keycloak.groupsClientScope.enabled }}
+
 {{- $scope := .Values.providers.keycloak.groupsClientScope }}
+
 {{- $namespace := include "crossplane-provider.keycloak.namespace" . }}
 {{- $realm := include "crossplane-provider.keycloak.realm" . }}
 
-# Client scope exposing the groups created in this Keycloak itself (as opposed to groups brokered
-# from Obmondo's Keycloak, see obmondo-keycloak-groups-propagation) as a `groups` claim. Two plain managed
-# resources rather than a Composition: there is nothing to compose.
+# Client scope which gives the groups of this Keycloak to clients via a "groups" claim.
+# For the groups from Obmondo's Keycloak, see obmondo-keycloak-groups-propagation.
 apiVersion: openidclient.keycloak.m.crossplane.io/v1alpha1
 kind: ClientScope
 metadata:
   name: {{ $scope.name }}
   namespace: {{ $namespace }}
   annotations:
-    {{- include "crossplane-provider.wave2" . | nindent 4 }}
+    {{- include "crossplane-provider.wave3" . | nindent 4 }}
 spec:
-  providerConfigRef:
-    kind: {{ $scope.providerConfigRef.kind }}
-    name: {{ $scope.providerConfigRef.name }}
   forProvider:
     realmId: {{ $realm | quote }}
     name: {{ $scope.name | quote }}
@@ -30,11 +28,8 @@ metadata:
   name: {{ $scope.name }}
   namespace: {{ $namespace }}
   annotations:
-    {{- include "crossplane-provider.wave2" . | nindent 4 }}
+    {{- include "crossplane-provider.wave3" . | nindent 4 }}
 spec:
-  providerConfigRef:
-    kind: {{ $scope.providerConfigRef.kind }}
-    name: {{ $scope.providerConfigRef.name }}
   forProvider:
     realmId: {{ $realm | quote }}
     clientScopeIdRef:
@@ -45,9 +40,7 @@ spec:
     protocolMapper: oidc-group-membership-mapper
     config:
       claim.name: groups
-      # Group names without the leading slash, which is what consumers match on (the ArgoCD RBAC
-      # policy, NetBird's JWT groups).
-      full.path: {{ $scope.fullGroupPath | quote }}
+      full.path: "false"
       id.token.claim: "true"
       access.token.claim: "true"
       userinfo.token.claim: "true"

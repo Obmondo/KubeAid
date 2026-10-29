@@ -1,0 +1,68 @@
+{{- if .Values.keycloak.argocdClient.enabled }}
+
+apiVersion: apiextensions.crossplane.io/v2
+kind: CompositeResourceDefinition
+metadata:
+  name: argocdclients.keycloak.kubeaid.org
+  annotations:
+    {{- include "compositions.wave2" . | nindent 4 }}
+
+spec:
+  scope: Namespaced
+
+  group: keycloak.kubeaid.org
+
+  names:
+    kind: ArgoCDClient
+    plural: argocdclients
+
+  enforcedCompositionRef:
+    name: argocd-keycloak-client
+
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                realm:
+                  type: string
+
+                validRedirectUris:
+                  type: array
+                  items:
+                    type: string
+
+                validPostLogoutRedirectUris:
+                  type: array
+                  items:
+                    type: string
+
+                clientSecret:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    key:
+                      type: string
+                      default: clientSecret
+                    version:
+                      type: integer
+                      default: 1
+                  required:
+                    - name
+
+                propagatedGroupScopes:
+                  type: array
+                  items:
+                    type: string
+              required:
+                - realm
+                - validRedirectUris
+                - clientSecret
+{{- end }}

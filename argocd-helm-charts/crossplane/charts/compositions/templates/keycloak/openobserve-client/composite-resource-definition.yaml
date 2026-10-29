@@ -1,0 +1,63 @@
+{{- if .Values.keycloak.openobserveClient.enabled }}
+
+apiVersion: apiextensions.crossplane.io/v2
+kind: CompositeResourceDefinition
+metadata:
+  name: openobserveclients.keycloak.kubeaid.org
+  annotations:
+    {{- include "compositions.wave2" . | nindent 4 }}
+
+spec:
+  scope: Namespaced
+
+  group: keycloak.kubeaid.org
+
+  names:
+    kind: OpenObserveClient
+    plural: openobserveclients
+
+  enforcedCompositionRef:
+    name: openobserve-keycloak-client
+
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                realm:
+                  type: string
+
+                validRedirectUris:
+                  type: array
+                  items:
+                    type: string
+
+                webOrigins:
+                  type: array
+                  items:
+                    type: string
+
+                clientSecret:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    key:
+                      type: string
+                      default: clientSecret
+                    version:
+                      type: integer
+                      default: 1
+                  required:
+                    - name
+              required:
+                - realm
+                - validRedirectUris
+                - clientSecret
+{{- end }}

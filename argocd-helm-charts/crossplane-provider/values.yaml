@@ -1,39 +1,19 @@
-# Every provider is one entry under `providers`, switched on with
-# `providers.<provider>.enabled: true`, the way capi-cluster enables its infrastructure providers.
-# Each entry ships the Crossplane Provider package, its runtime config, the ProviderConfig /
-# ClusterProviderConfig reading the credentials Secret, and the managed resources (or
-# Compositions) KubeAid models for that provider. The whole chart syncs as ONE ArgoCD
-# Application: Providers and composition Functions go in sync wave 0, provider configs and XRDs in
-# wave 1, Compositions and managed resources in wave 2, and the composite resources this chart
-# creates itself in wave 3 (see README).
+# Managed resources KubeAid models for each Crossplane provider. The providers themselves, their
+# provider configs, the composition functions and the composite APIs are in the crossplane chart;
+# this chart holds the resources which are not part of a composition. Enable a provider in both
+# charts.
 #
-# Resource types the chart does not model yet go into `providers.<provider>.extraResources` as raw
-# YAML.
+# Resource types this chart does not model yet go into `providers.<provider>.extraResources` as
+# raw YAML.
 
 providers:
   azure:
     enabled: false
-    compositions:
-      workloadIdentityInfrastructure:
-        enabled: true
-      disasterRecoveryInfrastructure:
-        enabled: false
-    # Secret with the Azure Service Principal credentials, in the release namespace.
-    credentials:
-      secretName: azure-credentials
-      secretKey: credentials
     extraResources: []
 
   scaleway:
     enabled: false
-    provider:
-      package: xpkg.upbound.io/scaleway/provider-scaleway
-      version: v0.6.0
-    # Secret with the Scaleway API key, in the release namespace, created out of band (for example
-    # by the cluster's sealed-secrets app).
-    credentials:
-      secretName: scaleway-credentials
-      secretKey: credentials
+
     # Scaleway project every managed resource is created in. Required once buckets are configured.
     projectId: ""
     region: fr-par
@@ -67,23 +47,14 @@ providers:
 
   keycloak:
     enabled: false
-    provider:
-      package: xpkg.upbound.io/crossplane-contrib/provider-keycloak
-      version: v2.18.0
-
-    # The Realm itself, and the ClusterProviderConfig the resources below authenticate with, are
-    # rendered by the keycloakx chart. What lives here are the realm-level pieces every KubeAid
-    # Keycloak tends to need, plus the integrations other applications build on them (for example
-    # providers.netbird.keycloakIntegration).
 
     # Realm every Keycloak resource this chart renders is created in. Required as soon as one of
     # them is enabled.
     realm: ""
 
-    # Namespace they are created in. It has to be the namespace holding the Secrets they read
-    # (client credentials, initial passwords), because Crossplane v2 managed resources resolve
-    # Secret references in their own namespace — i.e. the namespace the applications consuming
-    # those Secrets live in. Defaults to the release namespace.
+    # Namespace they are created in. It has to be the namespace holding the Secrets they read,
+    # because Crossplane v2 managed resources resolve Secret references in their own namespace.
+    # Defaults to the release namespace.
     namespace: ""
 
     # Client scope exposing the groups created in this Keycloak itself as a `groups` claim, for
@@ -93,149 +64,10 @@ providers:
     groupsClientScope:
       enabled: false
       name: groups
-      # Emit "/Parent/Child" instead of "Child". Consumers usually match on the bare name.
-      fullGroupPath: false
-      providerConfigRef:
-        kind: ClusterProviderConfig
-        name: default
-
-    # Obmondo's Keycloak as an upstream OIDC identity provider, with this Keycloak acting as the
-    # identity broker, so the groups a user belongs to in Obmondo's Keycloak propagate into this
-    # realm: Obmondo's SREs keep their group membership on their side, and the customer's clients
-    # see it as an ordinary `groups` claim. Created through the ObmondoKeycloakGroupsPropagation
-    # composite API (keycloak.kubeaid.org/v1alpha1): an IdentityProvider, an
-    # IdentityProviderMapper storing the brokered groups claim on the user, and a client scope
-    # reading it back out.
-    obmondoKeycloakGroupsPropagation:
-      enabled: false
-
-      # Name of the ObmondoKeycloakGroupsPropagation composite resource.
-      name: obmondo
-
-      # Realm URL of Obmondo's Keycloak. Every endpoint (auth, token, userinfo, logout, JWKS) is
-      # derived from it.
-      issuerURL: https://keycloak.vpn.obmondo.com/auth/realms/obmondo
-
-      # Secret with the client credentials Obmondo issued for this realm, in the namespace above,
-      # created out of band (typically by the cluster's sealed-secrets app).
-      credentialsSecret:
-        name: obmondo-keycloak-credentials
-        clientIdKey: clientId
-        clientSecretKey: clientSecret
-
-      providerConfigRef:
-        kind: ClusterProviderConfig
-        name: default
-
-    # Keycloak clients for the applications KubeAid deploys, one composite API each
-    # (keycloak.kubeaid.org/v1alpha1). The client ID, access type, flows, scopes, protocol mappers
-    # and roles are fixed in the Composition; the composite resource carries the realm, the
-    # callback URLs and the Secret holding the client secret. A cluster's XRs are written next to
-    # its other Keycloak manifests, in the namespace holding those Secrets.
-    #
-    #   ArgoCDClient       the client ArgoCD's dex logs users in through. Authorizes on the
-    #                      `groups` claim, so its default scopes carry the realm's `groups` scope,
-    #                      plus whatever `propagatedGroupScopes` the XR names.
-    #   GrafanaClient      the client Grafana logs users in through. Authorizes on client roles
-    #                      (resource_access.grafana.roles), so the Composition also creates the
-    #                      client-role protocol mapper and the Admin / Editor / Viewer roles.
-    #   OpenObserveClient  the client Dex, in front of OpenObserve, is configured with. Carries
-    #                      offline_access as an optional scope (Dex needs a refresh token) and a
-    #                      mapper emitting client roles as a `role` claim.
-    #
-    # Assigning roles or group membership to users stays outside Crossplane.
-    argocdClient:
-      enabled: false
-
-    grafanaClient:
-      enabled: false
-
-    openobserveClient:
-      enabled: false
 
     extraResources: []
 
-  # NetBird is not a Crossplane provider of its own (yet). What it brings is the Keycloak side of
-  # a NetBird installation, modelled as a Composition on top of providers.keycloak.
   netbird:
     enabled: false
-
-    # Keycloak objects NetBird needs to use Keycloak as its IdP, created through the
-    # KeycloakIntegration composite API (netbird.kubeaid.org/v1alpha1):
-    #
-    #   - the service-account User NetBird's IdP manager logs in as,
-    #   - the confidential Client it calls the Keycloak Admin API with, its default scopes and a
-    #     realm-management service account role (view-users),
-    #   - the public Client the dashboard and the NetBird clients authenticate through, its
-    #     default scopes, and the client scope carrying the Management API audience mapper.
-    #
-    # Needs providers.keycloak.enabled, and the realm itself to exist already (KubeAid's keycloakx
-    # chart renders the Realm).
-    keycloakIntegration:
-      enabled: false
-
-      # Name of the KeycloakIntegration composite resource.
-      name: netbird
-
-      # Namespace the composite resource, and with it every composed Keycloak resource, is created
-      # in, and the realm they belong to. Both default to providers.keycloak.namespace /
-      # providers.keycloak.realm; set them only to put the NetBird objects somewhere else.
-      namespace: ""
-      realm: ""
-
-      # Public URL of the NetBird dashboard. Required: it becomes the public client's root and
-      # base URL, and "<dashboardURL>/*" its valid redirect and post-logout redirect URIs.
-      dashboardURL: ""
-
-      # Which Keycloak ProviderConfig the composed resources authenticate with. KubeAid's
-      # keycloakx chart renders a ClusterProviderConfig named `default`.
-      providerConfigRef:
-        kind: ClusterProviderConfig
-        name: default
-
-      # Service account NetBird's management service authenticates as over the Keycloak Admin
-      # API, to read and sync the realm's users: the netbird chart feeds it in as
-      # IDP_SERVICE_ACCOUNT_USER / IDP_SERVICE_ACCOUNT_PASSWORD. It is also the identity the admin
-      # logs into the dashboard with, which makes it the owner of the NetBird account — so give it
-      # a real email and name.
-      idpServiceAccount:
-        username: netbird
-        email: ""
-        firstName: ""
-        lastName: ""
-        # Secret holding its initial password, in the namespace above, created out of band
-        # (typically by the cluster's sealed-secrets app). The same Secret is what the netbird
-        # chart mounts as IDP_SERVICE_ACCOUNT_PASSWORD.
-        initialPasswordSecret:
-          name: netbird-user-init-password
-          key: password
-
-      # Confidential client NetBird management authenticates with. Its client ID (netbird-backend)
-      # is fixed by the Composition.
-      backendClient:
-        # Secret holding the client secret, in the namespace above. Keycloak is told this value,
-        # it is not generated by Keycloak, so the same Secret can be mounted into NetBird
-        # (IDP_CLIENT_MGMT_SECRET).
-        clientSecret:
-          name: netbird-backend-client-credentials
-          key: clientSecret
-          # Bump to make the provider write the Secret's current value to Keycloak again: the
-          # field is write-only, so a rotated Secret alone is not noticed.
-          version: 1
-
-      # Public client the dashboard and the NetBird clients authenticate through. Its client ID
-      # (netbird-client) and the `api` client scope carrying the Management API audience mapper
-      # are fixed by the Composition.
-      dashboardClient:
-        # Client scopes emitting groups that are propagated from another IdP, appended to this
-        # client's default scopes (api, email, groups, profile and Keycloak's built-ins, listed in
-        # the Composition). NetBird acts on the claim they emit once groups_propagation_enabled /
-        # jwt_groups_enabled and jwt_groups_claim_name: groups are set on the NetBird account.
-        #
-        # Name only scopes the realm has — Keycloak rejects a default scope that does not exist:
-        #   - obmondo-keycloak-groups   created by providers.keycloak.obmondoKeycloakGroupsPropagation
-        #   - any scope another brokered IdP emits its groups through
-        propagatedGroupScopes: []
-
     extraResources: []
 >>>>>>> 71b4981ab (chore: save progress)

@@ -37,7 +37,7 @@ tests:
       - equal:
           path: metadata.annotations
           value:
-            argocd.argoproj.io/sync-wave: "2"
+            argocd.argoproj.io/sync-wave: "3"
             argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 
   - it: lets the resource keep its own annotations and override the wave
@@ -48,13 +48,13 @@ tests:
           metadata:
             name: early
             annotations:
-              argocd.argoproj.io/sync-wave: "1"
+              argocd.argoproj.io/sync-wave: "2"
               crossplane.io/external-name: existing
     asserts:
       - equal:
           path: metadata.annotations
           value:
-            argocd.argoproj.io/sync-wave: "1"
+            argocd.argoproj.io/sync-wave: "2"
             argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
             crossplane.io/external-name: existing
 
