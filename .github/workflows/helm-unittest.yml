@@ -9,7 +9,7 @@ name: Helm Unittest
     paths:
       - 'argocd-helm-charts/capi-cluster/**'
       - 'argocd-helm-charts/cilium/**'
-      - 'argocd-helm-charts/crossplane-provider/**'
+      - 'argocd-helm-charts/crossplane/**'
       - '.github/workflows/helm-unittest.yml'
 
 permissions:
@@ -47,7 +47,7 @@ jobs:
             -e HOME=/tmp \
             -v "$PWD/argocd-helm-charts:/apps" \
             helmunittest/helm-unittest:latest \
-            crossplane crossplane/charts/compositions crossplane-provider
+            crossplane crossplane/charts/compositions
 
       - name: Run helm-unittest on the cilium chart
         run: |

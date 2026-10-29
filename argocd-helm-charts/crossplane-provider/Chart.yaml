@@ -1,4 +1,0 @@
-apiVersion: v2
-name: crossplane-provider
-description: Managed resources KubeAid models for each Crossplane provider. The providers, provider configs, functions and composite APIs are in the crossplane chart
-version: 2.0.0
