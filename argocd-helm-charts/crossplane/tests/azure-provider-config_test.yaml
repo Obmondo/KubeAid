@@ -1,6 +1,6 @@
 suite: azure ProviderConfig
 templates:
-  - azure/provider-config.yaml
+  - providers/azure-provider-config.yaml
 release:
   name: crossplane
   namespace: crossplane

@@ -1,6 +1,6 @@
 suite: scaleway provider
 templates:
-  - scaleway/provider.yaml
+  - providers/scaleway.yaml
 release:
   name: crossplane
   namespace: crossplane

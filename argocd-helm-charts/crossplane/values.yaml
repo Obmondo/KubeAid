@@ -50,5 +50,10 @@ providers:
       secretName: keycloak-credentials
       secretKey: credentials
 
+  opentofu:
+    enabled: false
+    provider:
+      version: v1.1.7
+
 compositions:
   enabled: false
