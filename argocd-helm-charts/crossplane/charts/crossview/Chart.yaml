@@ -1,0 +1,24 @@
+annotations:
+  artifacthub.io/images: |
+    - name: crossview
+      image: ghcr.io/crossplane-contrib/crossview:v4.6.0
+    - name: postgres
+      image: postgres:latest
+apiVersion: v2
+appVersion: v4.6.0
+description: A Helm chart for Crossview - Crossplane resource visualization and management
+  platform
+home: https://github.com/crossplane-contrib/crossview
+icon: https://crossplane-contrib.github.io/crossview/images/helm-logo.svg
+keywords:
+- kubernetes
+- crossplane
+- visualization
+- management
+maintainers:
+- name: Crossview Team
+name: crossview
+sources:
+- https://github.com/crossplane-contrib/crossview
+type: application
+version: 4.6.0

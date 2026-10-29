@@ -1,0 +1,54 @@
+{{- if not .Values.config.ref }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "crossview.fullname" . }}-config
+  namespace: {{ include "crossview.namespace" . }}
+  labels:
+    {{- include "crossview.labels" . | nindent 4 }}
+data:
+{{- $dbHost := .Values.config.database.host }}
+{{- if not $dbHost }}
+{{- $dbHost = printf "%s-postgres" (include "crossview.fullname" .) }}
+{{- end }}
+  DB_HOST: {{ $dbHost | quote }}
+  DB_PORT: {{ .Values.config.database.port | default 5432 | quote }}
+  DB_ENABLED: {{ .Values.config.database.enabled | default false | quote }}
+  DB_NAME: {{ .Values.config.database.database | default "crossview" | quote }}
+  DB_USER: {{ .Values.config.database.username | default "postgres" | quote }}
+  DB_SSL_MODE: {{ .Values.config.database.ssl.mode | default "disable" | quote }}
+  DB_SSL_ROOT_CERT: {{ .Values.config.database.ssl.rootCert | default "" | quote }}
+  DB_SSL_CERT: {{ .Values.config.database.ssl.cert | default "" | quote }}
+  DB_SSL_KEY: {{ .Values.config.database.ssl.key | default "" | quote }}
+  PORT: {{ .Values.config.server.port | default 3001 | quote }}
+{{- $auth := .Values.config.server.auth | default dict }}
+{{- $authHeader := $auth.header | default dict }}
+  AUTH_MODE: {{ $auth.mode | default "none" | quote }}
+  AUTH_TRUSTED_HEADER: {{ $authHeader.trustedHeader | default "X-Auth-User" | quote }}
+  AUTH_CREATE_USERS: {{ $authHeader.createUsers | default true | quote }}
+  AUTH_DEFAULT_ROLE: {{ $authHeader.defaultRole | default "viewer" | quote }}
+  LOG_LEVEL: {{ .Values.config.server.log.level | default "info" | quote }}
+  CORS_ORIGIN: {{ .Values.config.server.cors.origin | default "http://localhost:5173" | quote }}
+  CONTEXT_ALIASES: {{ .Values.config.server.contextAliases | default dict | toJson | quote }}
+  OIDC_ENABLED: {{ .Values.config.sso.oidc.enabled | default false | quote }}
+  OIDC_ISSUER: {{ .Values.config.sso.oidc.issuer | default "" | quote }}
+  OIDC_CLIENT_ID: {{ .Values.config.sso.oidc.clientId | default "crossview-client" | quote }}
+  OIDC_AUTHORIZATION_URL: {{ .Values.config.sso.oidc.authorizationURL | default "" | quote }}
+  OIDC_TOKEN_URL: {{ .Values.config.sso.oidc.tokenURL | default "" | quote }}
+  OIDC_USERINFO_URL: {{ .Values.config.sso.oidc.userInfoURL | default "" | quote }}
+  OIDC_CALLBACK_URL: {{ .Values.config.sso.oidc.callbackURL | default "http://localhost:3001/api/auth/oidc/callback" | quote }}
+  OIDC_SCOPE: {{ .Values.config.sso.oidc.scope | default "openid profile email" | quote }}
+  OIDC_USERNAME_ATTRIBUTE: {{ .Values.config.sso.oidc.usernameAttribute | default "preferred_username" | quote }}
+  OIDC_EMAIL_ATTRIBUTE: {{ .Values.config.sso.oidc.emailAttribute | default "email" | quote }}
+  OIDC_FIRSTNAME_ATTRIBUTE: {{ .Values.config.sso.oidc.firstNameAttribute | default "given_name" | quote }}
+  OIDC_LASTNAME_ATTRIBUTE: {{ .Values.config.sso.oidc.lastNameAttribute | default "family_name" | quote }}
+  SAML_ENABLED: {{ .Values.config.sso.saml.enabled | default false | quote }}
+  SAML_ENTRY_POINT: {{ .Values.config.sso.saml.entryPoint | default "http://localhost:8080/realms/crossview/protocol/saml" | quote }}
+  SAML_ISSUER: {{ .Values.config.sso.saml.issuer | default "crossview" | quote }}
+  SAML_CALLBACK_URL: {{ .Values.config.sso.saml.callbackURL | default "http://localhost:3001/api/auth/saml/callback" | quote }}
+  SAML_USERNAME_ATTRIBUTE: {{ .Values.config.sso.saml.usernameAttribute | default "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name" | quote }}
+  SAML_EMAIL_ATTRIBUTE: {{ .Values.config.sso.saml.emailAttribute | default "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress" | quote }}
+  SAML_FIRSTNAME_ATTRIBUTE: {{ .Values.config.sso.saml.firstNameAttribute | default "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname" | quote }}
+  SAML_LASTNAME_ATTRIBUTE: {{ .Values.config.sso.saml.lastNameAttribute | default "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname" | quote }}
+{{- end }}
+

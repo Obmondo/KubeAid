@@ -6,6 +6,10 @@ dependencies:
   - name: crossplane
     version: "2.4.3"
     repository: https://charts.crossplane.io/stable
+  - name: crossview
+    version: 4.6.0
+    repository: https://crossplane-contrib.github.io/crossview
+    condition: crossview.enabled
   - name: compositions
     version: 1.0.0
     repository: file://charts/compositions
