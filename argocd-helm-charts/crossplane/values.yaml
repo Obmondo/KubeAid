@@ -6,6 +6,27 @@ crossplane:
     limits:
       cpu: null
 
+crossview:
+  enabled: true
+
+  image:
+    pullPolicy: IfNotPresent
+
+  resources:
+    limits:
+      cpu: null
+
+  config:
+    server:
+      auth:
+        # Since, we're not using sessions, we don't need any Postgres database.
+        mode: none
+    database:
+      enabled: false
+
+  database:
+    enabled: false
+
 providers:
   azure:
     enabled: false
