@@ -7,16 +7,28 @@ release:
 set:
   providers.azure.enabled: true
 tests:
-  - it: installs the five Azure providers in sync wave 1
+  - it: renders the five Azure providers and their ProviderConfig
     template: providers/azure.yaml
     asserts:
       - hasDocuments:
-          count: 5
+          count: 6
+
+  - it: installs the five Azure providers in sync wave 1
+    template: providers/azure.yaml
+    documentSelector:
+      path: kind
+      value: Provider
+      matchMany: true
+    asserts:
       - isKind:
           of: Provider
       - equal:
           path: metadata.annotations["argocd.argoproj.io/sync-wave"]
           value: "1"
+
+  - it: pins the provider packages
+    template: providers/azure.yaml
+    asserts:
       - equal:
           path: metadata.name
           value: azure-network
@@ -29,4 +41,3 @@ tests:
           path: metadata.name
           value: azure-authorization
         documentIndex: 4
-

@@ -1,16 +1,18 @@
 suite: azure ProviderConfig
 templates:
-  - providers/azure-provider-config.yaml
+  - providers/azure.yaml
 release:
   name: crossplane
   namespace: crossplane
 set:
   providers.azure.enabled: true
+# The ProviderConfig is the last document of providers/azure.yaml, after the five Providers.
 tests:
-  - it: renders the default ProviderConfig reading the credentials Secret from the release namespace in sync wave 1
+  - it: renders the default ProviderConfig reading the credentials Secret from the release namespace in sync wave 2
+    documentSelector:
+      path: kind
+      value: ProviderConfig
     asserts:
-      - hasDocuments:
-          count: 1
       - isKind:
           of: ProviderConfig
       - isAPIVersion:
@@ -31,6 +33,9 @@ tests:
             key: credentials
 
   - it: honours a custom Secret name and key
+    documentSelector:
+      path: kind
+      value: ProviderConfig
     set:
       providers.azure.credentials:
         secretName: azure-sp
