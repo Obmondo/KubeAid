@@ -1,27 +1,13 @@
-# Composite APIs KubeAid models on top of the Crossplane providers. Switch each one on by itself;
-# the composition functions they run are installed whenever this sub-chart is enabled.
-#
-# A composite API needs its provider enabled in the parent chart: the Azure ones need
-# providers.azure, every Keycloak and NetBird one needs providers.keycloak. The parent refuses to
-# render when they disagree.
-#
-# A composite resource (XR) is written by the cluster operator, next to the application manifests
-# which need it. This chart does not create one.
-
 azure:
-  # XRD + Composition for the Azure infrastructure CAPZ and Velero need.
   workloadIdentityInfrastructure:
     enabled: false
   disasterRecoveryInfrastructure:
     enabled: false
 
 keycloak:
-  # Obmondo's Keycloak as an upstream identity provider, so the Obmondo groups of a user reach
-  # this realm.
   obmondoKeycloakGroupsPropagation:
     enabled: false
 
-  # Keycloak clients for the applications KubeAid deploys.
   argocdClient:
     enabled: false
   grafanaClient:
@@ -30,6 +16,5 @@ keycloak:
     enabled: false
 
 netbird:
-  # The Keycloak user, clients and scopes a NetBird installation needs.
   keycloakIntegration:
     enabled: false
