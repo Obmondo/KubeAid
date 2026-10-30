@@ -38,6 +38,17 @@ excluded_alerts: ['KubeJobNotCompleted'],
 
 To skip an alert only in some namespaces or for some labels, use an Alertmanager route instead.
 
+## kube-controller-manager and kube-scheduler on kubeadm
+
+kubeadm binds both to `127.0.0.1`. KubeAid's cluster templates keep that default. Prometheus scrapes the node IP, so the scrape can never succeed. On `platform: 'kubeadm'` the build therefore:
+
+- leaves out both ServiceMonitors and their `*-prometheus-discovery` Services
+- replaces the up-based alerts (`KubeControllerManagerDown`, `KubeControllerManagerInstanceUnreachable`, `KubeSchedulerDown`, `KubeSchedulerInstanceUnreachable`) with `KubeControllerManagerNoLeader` and `KubeSchedulerNoLeader`. These fire when nobody has renewed the component's leader lease (`kube_lease_renew_time` from kube-state-metrics) for 2 minutes.
+
+A single instance that keeps failing its liveness probe still shows up as `KubePodCrashLooping`.
+
+On a cluster that binds them to a reachable address, `scrape_controller_manager_and_scheduler: true` keeps the scrape and the upstream alerts.
+
 ## Updating an upstream mixin
 
 Use `update-mixin.sh` to pull the latest version of an upstream mixin:
