@@ -108,3 +108,20 @@ kyverno:
   # is above 1, and spreads the pods over nodes with a preferred anti-affinity.
   admissionController:
     replicas: 3
+
+  # Several CRDs here exceed the 256 KiB client-side apply limit. A per-resource
+  # sync option still applies when a sync request sets its own options.
+  crds:
+    annotations:
+      argocd.argoproj.io/sync-options: ServerSideApply=true
+
+  kyverno-api:
+    annotations:
+      argocd.argoproj.io/sync-options: ServerSideApply=true
+
+  # Sets the app.kubernetes.io/version label on every object. The CRDs themselves
+  # still come from the kyverno-api subchart vendored in the kyverno chart.
+  global:
+    templating:
+      enabled: true
+      version: v0.0.1-alpha.5
