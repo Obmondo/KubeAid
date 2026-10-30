@@ -110,13 +110,12 @@ argo-cd:
       # delete those XRs.
       application.resourceTrackingMethod: annotation
       resource.exclusions: |
-        ### Network resources created by the Kubernetes control plane and excluded to reduce the number of watched events and UI clutter
-        - apiGroups:
-          - ''
-          - discovery.k8s.io
-          kinds:
-          - Endpoints
-          - EndpointSlice
+        ### Endpoints and EndpointSlice are deliberately NOT excluded here. kube-prometheus renders a
+        ### hand-written EndpointSlice to point Prometheus at the etcd static pods, and an exclusion
+        ### matches on group and kind, so it cannot tell that one apart from the control-plane churn it
+        ### was aimed at - excluding them silently drops etcd monitoring. The upstream chart's
+        ### resource.customizations.ignoreResourceUpdates rules for both kinds already suppress the
+        ### churn without hiding the resources.
         ### Internal Kubernetes resources excluded reduce the number of watched events
         - apiGroups:
           - coordination.k8s.io
