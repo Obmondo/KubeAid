@@ -119,6 +119,16 @@ realmImports:
       "loginWithEmailAllowed": true,
       "duplicateEmailsAllowed": false,
       "bruteForceProtected": true,
+      "clientScopes": [
+        {
+          "name": "openid",
+          "protocol": "openid-connect",
+          "attributes": {
+            "include.in.token.scope": "true",
+            "display.on.consent.screen": "false"
+          }
+        }
+      ],
       "clients": [
         {
           "clientId": "mattermost",
@@ -139,6 +149,15 @@ realmImports:
           ],
           "webOrigins": [
             "https://chat.example.com"
+          ],
+          "defaultClientScopes": [
+            "openid",
+            "profile",
+            "email",
+            "roles",
+            "web-origins",
+            "acr",
+            "basic"
           ],
           "protocolMappers": [
             {
@@ -356,8 +375,6 @@ mattermostEnv:
     value: "true"
   - name: MM_GITLABSETTINGS_ID
     value: "mattermost"
-  - name: MM_GITLABSETTINGS_SCOPE
-    value: "openid"
   - name: MM_GITLABSETTINGS_SECRET
     valueFrom:
       secretKeyRef:
@@ -371,11 +388,28 @@ mattermostEnv:
     value: "https://auth.example.com/auth/realms/customers/protocol/openid-connect/userinfo"
 ```
 
-The scope line is not optional. The GitLab connector sends no `scope` parameter
-unless one is configured, Keycloak then issues a token without `openid`, and its
-userinfo endpoint refuses that token with a bodiless 403. Mattermost reports it as
-"Received invalid response from OAuth service provider" with an empty
-`response_body` in the server log.
+There is no `MM_GITLABSETTINGS_SCOPE` line, and that is deliberate. The GitLab
+connector sends no `scope` parameter unless one is configured, so Keycloak issues a
+token without `openid`, and its userinfo endpoint refuses that token with a
+bodiless 403 (Mattermost logs "Received invalid response from OAuth service
+provider" with an empty `response_body`). Setting the scope does not help: Team
+Edition reroutes any GitLab scope containing `openid` to the OpenID provider it
+does not ship, and the login fails with "Gitlab SSO through OAuth 2.0 not
+available on this server". The way out is to let Keycloak put `openid` on the
+token by itself: a client scope named exactly `openid`, with "Include in token
+scope" on and no mappers, attached to the Mattermost client as a default client
+scope. Keycloak builds the token's scope claim from client scope names, so
+userinfo then passes without the connector asking for anything.
+
+```sh
+CLIENT_ID=$(kcadm.sh get clients -r "$HUB" -q clientId=mattermost --fields id --format csv --noquotes)
+SCOPE_ID=$(kcadm.sh create client-scopes -r "$HUB" -i \
+  -s name=openid \
+  -s protocol=openid-connect \
+  -s 'attributes."include.in.token.scope"=true' \
+  -s 'attributes."display.on.consent.screen"=false')
+kcadm.sh update "clients/$CLIENT_ID/default-client-scopes/$SCOPE_ID" -r "$HUB"
+```
 
 Two things about the GitLab connector shape what the hub must emit:
 
@@ -449,6 +483,8 @@ chart values.
 - Keycloak forum, [federated identity from another realm of the same server](https://forum.keycloak.org/t/federated-identity-from-another-realm-of-the-same-server/5660).
 - Mattermost server, [GitLab OAuth provider source](https://github.com/mattermost/mattermost/blob/master/server/channels/app/oauthproviders/gitlab/gitlab.go)
   and [GitLab SSO docs](https://docs.mattermost.com/administration-guide/onboard/sso-gitlab.html).
+- Ashish Jaiswal, [How to make Mattermost Team Edition work with Keycloak 20 and above](https://ashish1099.me/posts/mattermost-team-edition-keycloak-openid-scope-catch22/)
+  (the `openid` client scope workaround and the five userinfo mappers).
 - Big Bang, [Mattermost with Keycloak via the GitLab connector](https://docs-bigbang.dso.mil/latest/packages/mattermost/docs/keycloak/)
   (the `mattermostId` attribute to `id` long claim mapping).
 - Keycloak issue [#52676](https://github.com/keycloak/keycloak/issues/52676), CVE-2026-4633, identity-first login domain enumeration.
