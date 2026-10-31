@@ -165,7 +165,7 @@ realmImports:
               "protocol": "openid-connect",
               "protocolMapper": "oidc-usermodel-attribute-mapper",
               "config": {
-                "user.attribute": "mattermostId",
+                "user.attribute": "obmondo_user_id",
                 "claim.name": "id",
                 "jsonType.label": "long",
                 "id.token.claim": "false",
@@ -193,11 +193,15 @@ realmImports:
 The realm does not list `requiredActions`: a partial list replaces Keycloak's
 defaults and silently drops things like `UPDATE_PASSWORD`. Leave the key out.
 
-Keycloak 24 and later only store user attributes that the realm's user profile
-declares, or any attribute when unmanaged attributes are allowed. Pick one in
-every realm that will hold `mattermostId`, the hub and each tenant, before relying
-on the mappers below: *Realm settings* -> *General* -> *Unmanaged attributes* ->
-*Enabled*, or declare the attribute under *Realm settings* -> *User profile*.
+The examples below carry one user attribute from tenant to hub, `obmondo_user_id`:
+the user's id in the system that provisions the tenant realms. Any attribute your
+provisioning already writes works the same way; what matters is that it is a
+positive integer, unique across all tenants, and never changes. Keycloak 24 and
+later only store user attributes that the realm's user profile declares, or any
+attribute when unmanaged attributes are allowed. The tenant realms get it from the
+provisioner; the hub needs it too, since the broker writes it onto the shadow user:
+*Realm settings* -> *General* -> *Unmanaged attributes* -> *Enabled*, or declare
+the attribute under *Realm settings* -> *User profile*.
 
 Nobody has local credentials in the hub once every tenant is brokered, so leave
 `registrationAllowed` and `resetPasswordAllowed` off. The only users here are the
@@ -238,7 +242,7 @@ kcadm.sh create "clients/$CLIENT_ID/protocol-mappers/models" -r "$TENANT" \
   -s name="mattermost id" \
   -s protocol=openid-connect \
   -s protocolMapper=oidc-usermodel-attribute-mapper \
-  -s 'config."user.attribute"=mattermostId' \
+  -s 'config."user.attribute"=obmondo_user_id' \
   -s 'config."claim.name"=mattermost_id' \
   -s 'config."jsonType.label"=String' \
   -s 'config."id.token.claim"=true' \
@@ -303,7 +307,7 @@ kcadm.sh create "identity-provider/instances/$TENANT/mappers" -r "$HUB" \
   -s identityProviderMapper=oidc-user-attribute-idp-mapper \
   -s 'config.syncMode=IMPORT' \
   -s 'config.claim=mattermost_id' \
-  -s 'config."user.attribute"=mattermostId'
+  -s 'config."user.attribute"=obmondo_user_id'
 ```
 
 This mapper overrides the provider's sync mode with `IMPORT` on purpose: it runs
@@ -418,18 +422,13 @@ Two things about the GitLab connector shape what the hub must emit:
   as the user's `AuthData`. Keycloak's own subject is a UUID, so a plain `sub` will
   not do; the client needs a mapper from a user attribute to a claim named `id`
   with JSON type `long`, and steps 2 and 3 carry that attribute from the tenant
-  realm into the hub. The attribute has to be set once per user, unique, and never
-  change. A tenant-side reconciler that creates users is the right place to assign
-  it. A value that needs no counter and no bookkeeping is the first 15 hex digits
-  of the tenant user's own Keycloak id, read as a number: it fits in a positive
-  `int64`, is stable for the life of the user, and a collision among a few thousand
-  users is not a practical concern.
-
-  ```sh
-  USER_ID=$(kcadm.sh get users -r "$TENANT" -q username=alice --fields id --format csv --noquotes)
-  MM_ID=$(printf '%d' "0x$(echo "$USER_ID" | tr -d - | cut -c1-15)")
-  kcadm.sh update "users/$USER_ID" -r "$TENANT" -s "attributes.mattermostId=$MM_ID"
-  ```
+  realm into the hub. Do not invent a number for this. The system that provisions
+  tenant users already has a stable integer id for each of them, and writing it
+  onto the Keycloak user at creation (`obmondo_user_id` here) gives every tenant's
+  users a Mattermost id with no per-user work and no collisions across tenants.
+  A user created by hand in a tenant realm has no such id and cannot log in to
+  Mattermost, which is a reasonable guard. Nothing may ever change the value once
+  a user has logged in.
 - **Accounts are matched on that id, not on email.** Every Mattermost user who has
   logged in through the hub before already has an `AuthData`. The hub must keep
   returning the same number for the same person, or the next login fails with
@@ -453,7 +452,7 @@ kcadm.sh create "clients/$CLIENT_ID/protocol-mappers/models" -r "$HUB" \
   -s name="mattermost id" \
   -s protocol=openid-connect \
   -s protocolMapper=oidc-usermodel-attribute-mapper \
-  -s 'config."user.attribute"=mattermostId' \
+  -s 'config."user.attribute"=obmondo_user_id' \
   -s 'config."claim.name"=id' \
   -s 'config."jsonType.label"=long' \
   -s 'config."userinfo.token.claim"=true'
@@ -486,5 +485,5 @@ chart values.
 - Ashish Jaiswal, [How to make Mattermost Team Edition work with Keycloak 20 and above](https://ashish1099.me/posts/mattermost-team-edition-keycloak-openid-scope-catch22/)
   (the `openid` client scope workaround and the five userinfo mappers).
 - Big Bang, [Mattermost with Keycloak via the GitLab connector](https://docs-bigbang.dso.mil/latest/packages/mattermost/docs/keycloak/)
-  (the `mattermostId` attribute to `id` long claim mapping).
+  (a user attribute to `id` long claim mapping).
 - Keycloak issue [#52676](https://github.com/keycloak/keycloak/issues/52676), CVE-2026-4633, identity-first login domain enumeration.
