@@ -1,0 +1,248 @@
+{{- if .Values.azure.workloadIdentityInfrastructure.enabled }}
+# Compositions are a template for creating multiple managed resources as a single object.
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: workload-identity-infrastructure
+  annotations:
+    {{- include "compositions.wave3" . | nindent 4 }}
+
+spec:
+  # Referring the Composite Resource (XR).
+  compositeTypeRef:
+    apiVersion: azure.kubeaid.org/v1alpha1
+    kind: XWorkloadIdentityInfrastructure
+
+  mode: Pipeline
+  pipeline:
+    - step: render-go-templates
+      functionRef:
+        name: go-templating
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+            {{`{{- $xrSpec := .observed.composite.resource.spec -}}`}}
+            ---
+            apiVersion: authorization.azure.upbound.io/v1beta1
+            kind: RoleAssignment
+            metadata:
+              annotations:
+                {{`{{ setResourceNameAnnotation "storage-account-owner-role-assignment" }}`}}
+                crossplane.io/external-name: "/subscriptions/{{`{{ $xrSpec.subscriptionID }}`}}/resourceGroups/{{`{{ $xrSpec.clusterName }}`}}/providers/Microsoft.Storage/storageAccounts/{{`{{ $xrSpec.storageAccountName }}`}}/providers/Microsoft.Authorization/roleAssignments/0004e602-0ddb-4a8d-8d89-2d6729cfc751"
+            spec:
+              forProvider:
+                principalType: ServicePrincipal
+                roleDefinitionName: Storage Blob Data Owner
+                name: 0004e602-0ddb-4a8d-8d89-2d6729cfc751
+              managementPolicies:
+                - Create
+                - Delete
+                - Observe
+            ---
+            apiVersion: managedidentity.azure.upbound.io/v1beta1
+            kind: UserAssignedIdentity
+            metadata:
+              labels:
+                uami: capi
+              annotations:
+                {{`{{ setResourceNameAnnotation "capi-uami" }}`}}
+                crossplane.io/external-name: "/subscriptions/{{`{{ $xrSpec.subscriptionID }}`}}/resourceGroups/{{`{{ $xrSpec.clusterName }}`}}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/capi"
+            spec:
+              forProvider:
+                name: capi
+            ---
+            apiVersion: authorization.azure.upbound.io/v1beta1
+            kind: RoleAssignment
+            metadata:
+              labels:
+                uami: capi
+              annotations:
+                {{`{{ setResourceNameAnnotation "capi-uami-contributor-role-assignment" }}`}}
+                crossplane.io/external-name: "/subscriptions/{{`{{ $xrSpec.subscriptionID }}`}}/providers/Microsoft.Authorization/roleAssignments/4f33edbb-78b5-49c9-958a-0cc8105d0278"
+            spec:
+              forProvider:
+                roleDefinitionName: Contributor
+                name: 4f33edbb-78b5-49c9-958a-0cc8105d0278
+
+    - step: patch-and-transform
+      functionRef:
+        name: patch-and-transform
+      input:
+        apiVersion: pt.fn.crossplane.io/v1beta1
+        kind: Resources
+
+        patchSets:
+          - name: location
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.location
+                toFieldPath: spec.forProvider.location
+
+          - name: resourceGroupName
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.clusterName
+                toFieldPath: spec.forProvider.resourceGroupName
+
+          - name: aadApplicationPrincipalID
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.aadApplicationPrincipalID
+                toFieldPath: spec.forProvider.principalId
+
+          - name: serviceAccountTokenIssuerURL
+            patches:
+              - type: CombineFromComposite
+                combine:
+                  variables:
+                    - fromFieldPath: spec.storageAccountName
+                  strategy: string
+                  string:
+                    fmt: "https://%s.blob.core.windows.net/oidc-provider"
+                toFieldPath: spec.forProvider.issuer
+
+        resources:
+          - name: resource-group
+            base:
+              apiVersion: azure.upbound.io/v1beta1
+              kind: ResourceGroup
+              spec:
+                deletionPolicy: Orphan
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.clusterName
+                toFieldPath: metadata.annotations["crossplane.io/external-name"]
+              - type: PatchSet
+                patchSetName: location
+
+          - name: storage-account
+            base:
+              apiVersion: storage.azure.upbound.io/v1beta2
+              kind: Account
+              spec:
+                deletionPolicy: Orphan
+                forProvider:
+                  accountKind: BlobStorage
+                  accountTier: Standard
+                  accountReplicationType: LRS
+                  accessTier: Hot
+                writeConnectionSecretToRef:
+                  namespace: crossplane
+                  name: storage-account-details
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.storageAccountName
+                toFieldPath: metadata.annotations["crossplane.io/external-name"]
+              - type: PatchSet
+                patchSetName: location
+              - type: PatchSet
+                patchSetName: resourceGroupName
+
+          - name: storage-account-owner-role-assignment
+            patches:
+              - type: PatchSet
+                patchSetName: aadApplicationPrincipalID
+              - type: CombineFromComposite
+                combine:
+                  variables:
+                    - fromFieldPath: spec.subscriptionID
+                    - fromFieldPath: spec.clusterName
+                    - fromFieldPath: spec.storageAccountName
+                  strategy: string
+                  string:
+                    fmt: "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s"
+                toFieldPath: spec.forProvider.scope
+
+          - name: oidc-provider-blob-container
+            base:
+              apiVersion: storage.azure.upbound.io/v1beta1
+              kind: Container
+              metadata:
+                annotations:
+                  crossplane.io/external-name: oidc-provider
+              spec:
+                deletionPolicy: Orphan
+                forProvider:
+                  containerAccessType: blob
+                writeConnectionSecretToRef:
+                  name: oidc-provider-container-connection-details
+                  namespace: capi-cluster
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.storageAccountName
+                toFieldPath: spec.forProvider.storageAccountName
+
+          - name: capi-uami
+            patches:
+              - type: PatchSet
+                patchSetName: location
+              - type: PatchSet
+                patchSetName: resourceGroupName
+              - type: ToCompositeFieldPath
+                fromFieldPath: status.atProvider.principalId
+                toFieldPath: status.capiUAMIPrincipalId
+
+          - name: capi-uami-contributor-role-assignment
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: status.capiUAMIPrincipalId
+                toFieldPath: spec.forProvider.principalId
+              - type: CombineFromComposite
+                combine:
+                  variables:
+                    - fromFieldPath: spec.subscriptionID
+                  strategy: string
+                  string:
+                    fmt: "/subscriptions/%s"
+                toFieldPath: spec.forProvider.scope
+
+          - name: capz-federated-identity-credential
+            base:
+              apiVersion: managedidentity.azure.upbound.io/v1beta1
+              kind: FederatedIdentityCredential
+              metadata:
+                annotations:
+                  crossplane.io/external-name: capi-capz
+              spec:
+                forProvider:
+                  parentIdSelector:
+                    matchLabels:
+                      uami: capi
+                  audience:
+                    - "api://AzureADTokenExchange"
+                  subject: "system:serviceaccount:capi-cluster:capz-manager"
+            patches:
+              - type: PatchSet
+                patchSetName: resourceGroupName
+              - type: PatchSet
+                patchSetName: serviceAccountTokenIssuerURL
+
+          - name: aso-federated-identity-credential
+            base:
+              apiVersion: managedidentity.azure.upbound.io/v1beta1
+              kind: FederatedIdentityCredential
+              metadata:
+                annotations:
+                  crossplane.io/external-name: capi-aso
+              spec:
+                forProvider:
+                  parentIdSelector:
+                    matchLabels:
+                      uami: capi
+                  audience:
+                    - "api://AzureADTokenExchange"
+                  subject: "system:serviceaccount:capi-cluster:azureserviceoperator-default"
+            patches:
+              - type: PatchSet
+                patchSetName: resourceGroupName
+              - type: PatchSet
+                patchSetName: serviceAccountTokenIssuerURL
+
+    - step: automatically-detect-ready-composed-resources
+      functionRef:
+        name: auto-ready
+{{- end }}

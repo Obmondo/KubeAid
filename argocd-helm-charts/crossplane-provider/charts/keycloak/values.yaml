@@ -1,8 +1,0 @@
-provider:
-  package: xpkg.upbound.io/crossplane-contrib/provider-keycloak
-  version: v2.18.0
-
-# This sub-chart installs the provider package only. The ClusterProviderConfig and the Realm,
-# User, Client, ... resources for a Keycloak deployed by KubeAid live in the keycloakx chart,
-# next to the Secrets (client secrets, initial passwords) they reference.
-extraResources: []

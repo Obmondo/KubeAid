@@ -1,0 +1,45 @@
+{{- if .Values.providers.keycloak.enabled }}
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: keycloak
+  annotations:
+    {{- include "crossplane.wave1" . | nindent 4 }}
+spec:
+  package: xpkg.upbound.io/crossplane-contrib/provider-keycloak:{{ .Values.providers.keycloak.provider.version }}
+  runtimeConfigRef:
+    name: provider-keycloak
+
+---
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
+metadata:
+  name: provider-keycloak
+  annotations:
+    {{- include "crossplane.wave1" . | nindent 4 }}
+spec:
+  deploymentTemplate:
+    spec:
+      selector: {}
+      template:
+        spec:
+          containers:
+            - name: package-runtime
+              args:
+                - --enable-management-policies
+
+---
+apiVersion: keycloak.m.crossplane.io/v1beta1
+kind: ClusterProviderConfig
+metadata:
+  name: default
+  annotations:
+    {{- include "crossplane.wave2" . | nindent 4 }}
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: {{ .Release.Namespace }}
+      name: {{ .Values.providers.keycloak.credentials.secretName }}
+      key: {{ .Values.providers.keycloak.credentials.secretKey }}
+{{- end }}

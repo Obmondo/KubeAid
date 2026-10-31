@@ -1,0 +1,58 @@
+{{- if .Values.azure.disasterRecoveryInfrastructure.enabled }}
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xdisasterrecoveryinfrastructures.azure.kubeaid.org
+  annotations:
+    {{- include "compositions.wave2" . | nindent 4 }}
+
+spec:
+  group: azure.kubeaid.org
+
+  names:
+    kind: XDisasterRecoveryInfrastructure
+    plural: xdisasterrecoveryinfrastructures
+
+  claimNames:
+    kind: DisasterRecoveryInfrastructure
+    plural: disasterrecoveryinfrastructures
+
+  enforcedCompositionRef:
+    name: disaster-recovery-infrastructure
+
+  defaultCompositionUpdatePolicy: Manual
+
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                subscriptionID:
+                  type: string
+
+                clusterName:
+                  type: string
+
+                location:
+                  type: string
+
+                storageAccountName:
+                  type: string
+              required:
+                - subscriptionID
+                - clusterName
+                - location
+                - storageAccountName
+
+            status:
+              type: object
+              properties:
+                veleroUAMIPrincipalId:
+                  type: string
+{{- end }}

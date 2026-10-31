@@ -5,3 +5,55 @@ crossplane:
   resourcesRBACManager:
     limits:
       cpu: null
+
+crossview:
+  enabled: true
+
+  image:
+    pullPolicy: IfNotPresent
+
+  resources:
+    limits:
+      cpu: null
+
+  config:
+    server:
+      auth:
+        # Since, we're not using sessions, we don't need any Postgres database.
+        mode: none
+    database:
+      enabled: false
+
+  database:
+    enabled: false
+
+providers:
+  azure:
+    enabled: false
+    credentials:
+      secretName: azure-credentials
+      secretKey: credentials
+
+  scaleway:
+    enabled: false
+    provider:
+      version: v0.6.0
+    credentials:
+      secretName: scaleway-credentials
+      secretKey: credentials
+
+  keycloak:
+    enabled: false
+    provider:
+      version: v2.18.0
+    credentials:
+      secretName: keycloak-credentials
+      secretKey: credentials
+
+  opentofu:
+    enabled: false
+    provider:
+      version: v1.1.7
+
+compositions:
+  enabled: false

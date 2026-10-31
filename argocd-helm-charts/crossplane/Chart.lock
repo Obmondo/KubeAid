@@ -2,5 +2,11 @@ dependencies:
 - name: crossplane
   repository: https://charts.crossplane.io/stable
   version: 2.4.3
-digest: sha256:cc32c77d4dfa26c5ac0d39122a0ad24c4eefe3fe1953c20b3f64a8f7089edc91
-generated: "2026-10-25T08:01:22.735700867Z"
+- name: crossview
+  repository: https://crossplane-contrib.github.io/crossview
+  version: 4.6.0
+- name: compositions
+  repository: file://charts/compositions
+  version: 1.0.0
+digest: sha256:2999783223dfae4f3c1b7665400cb3d5a5d0f1e8a19c57cad8258593ea4f4e88
+generated: "2026-10-29T01:40:14.648843+01:00"

@@ -1,0 +1,97 @@
+{{- if .Values.netbird.keycloakIntegration.enabled }}
+
+apiVersion: apiextensions.crossplane.io/v2
+kind: CompositeResourceDefinition
+metadata:
+  name: keycloakintegrations.netbird.kubeaid.org
+  annotations:
+    {{- include "compositions.wave2" . | nindent 4 }}
+
+spec:
+  scope: Namespaced
+
+  group: netbird.kubeaid.org
+
+  names:
+    kind: KeycloakIntegration
+    plural: keycloakintegrations
+
+  enforcedCompositionRef:
+    name: netbird-keycloak-integration
+
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+
+                realm:
+                  type: string
+
+                dashboardURL:
+                  type: string
+
+                initialNetBirdUser:
+                  type: object
+                  properties:
+                    username:
+                      type: string
+                      default: netbird
+                    email:
+                      type: string
+                    firstName:
+                      type: string
+                    lastName:
+                      type: string
+                    initialPasswordSecret:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        key:
+                          type: string
+                          default: password
+                      required:
+                        - name
+                  required:
+                    - initialPasswordSecret
+
+                netbirdBackendClient:
+                  type: object
+                  properties:
+                    clientSecret:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        key:
+                          type: string
+                          default: clientSecret
+                        version:
+                          type: integer
+                          default: 1
+                      required:
+                        - name
+                  required:
+                    - clientSecret
+
+                netbirdClientClient:
+                  type: object
+                  properties:
+                    propagatedGroupScopes:
+                      type: array
+                      items:
+                        type: string
+              required:
+                - realm
+                - dashboardURL
+                - initialNetBirdUser
+                - netbirdBackendClient
+                - netbirdClientClient
+{{- end }}

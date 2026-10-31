@@ -1,0 +1,106 @@
+suite: keycloak provider
+templates:
+  - providers/keycloak.yaml
+release:
+  name: crossplane
+  namespace: crossplane
+set:
+  providers.keycloak.enabled: true
+tests:
+  - it: renders the Provider pinned to the configured package version in sync wave 1
+    asserts:
+      - hasDocuments:
+          count: 3
+      - isKind:
+          of: Provider
+        documentIndex: 0
+      - isAPIVersion:
+          of: pkg.crossplane.io/v1
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: keycloak
+        documentIndex: 0
+      - equal:
+          path: spec.package
+          value: xpkg.upbound.io/crossplane-contrib/provider-keycloak:v2.18.0
+        documentIndex: 0
+      - equal:
+          path: spec.runtimeConfigRef.name
+          value: provider-keycloak
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations
+          value:
+            argocd.argoproj.io/sync-wave: "1"
+            argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+        documentIndex: 0
+
+  - it: renders a DeploymentRuntimeConfig that turns on management policies
+    asserts:
+      - isKind:
+          of: DeploymentRuntimeConfig
+        documentIndex: 1
+      - equal:
+          path: metadata.name
+          value: provider-keycloak
+        documentIndex: 1
+      - contains:
+          path: spec.deploymentTemplate.spec.template.spec.containers[0].args
+          content: --enable-management-policies
+        documentIndex: 1
+
+  - it: renders the default ClusterProviderConfig in sync wave 1
+    asserts:
+      - isKind:
+          of: ClusterProviderConfig
+        documentIndex: 2
+      - isAPIVersion:
+          of: keycloak.m.crossplane.io/v1beta1
+        documentIndex: 2
+      - equal:
+          path: metadata.name
+          value: default
+        documentIndex: 2
+      - equal:
+          path: metadata.annotations
+          value:
+            argocd.argoproj.io/sync-wave: "2"
+            argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+        documentIndex: 2
+      - equal:
+          path: spec.credentials.source
+          value: Secret
+        documentIndex: 2
+      # The Secret goes in the release namespace, like the other providers' credentials.
+      - equal:
+          path: spec.credentials.secretRef
+          value:
+            name: keycloak-credentials
+            key: credentials
+            namespace: crossplane
+        documentIndex: 2
+
+  - it: follows a provider version override
+    set:
+      providers.keycloak.provider.version: v2.19.0
+    asserts:
+      - equal:
+          path: spec.package
+          value: xpkg.upbound.io/crossplane-contrib/provider-keycloak:v2.19.0
+        documentIndex: 0
+
+  - it: honours a custom credentials Secret name and key
+    set:
+      providers.keycloak.credentials:
+        secretName: keycloak-admin
+        secretKey: creds.json
+    asserts:
+      - equal:
+          path: spec.credentials.secretRef.name
+          value: keycloak-admin
+        documentIndex: 2
+      - equal:
+          path: spec.credentials.secretRef.key
+          value: creds.json
+        documentIndex: 2

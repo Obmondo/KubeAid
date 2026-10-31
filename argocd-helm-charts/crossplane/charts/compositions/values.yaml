@@ -1,0 +1,20 @@
+azure:
+  workloadIdentityInfrastructure:
+    enabled: false
+  disasterRecoveryInfrastructure:
+    enabled: false
+
+keycloak:
+  obmondoKeycloakGroupsPropagation:
+    enabled: false
+
+  argocdClient:
+    enabled: false
+  grafanaClient:
+    enabled: false
+  openobserveClient:
+    enabled: false
+
+netbird:
+  keycloakIntegration:
+    enabled: false
