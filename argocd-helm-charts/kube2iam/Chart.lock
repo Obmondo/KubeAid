@@ -1,6 +1,6 @@
 dependencies:
-- name: kube2iam
-  repository: https://jtblin.github.io/kube2iam/
-  version: 2.6.0
-digest: sha256:dd2f7def59a101307bd738ef808877771e21b2daa6c7eb25a0627601d6ac1fbb
-generated: "2022-01-10T16:05:05.955846986+05:30"
+- name: kube2iam-chart
+  repository: oci://ghcr.io/jtblin
+  version: 0.15.0
+digest: sha256:c958a7578d1654b16bbac493bbf3ab5866d454f33939cfb6eea57995dcf80215
+generated: "2026-11-02T10:23:55.093521971+05:30"

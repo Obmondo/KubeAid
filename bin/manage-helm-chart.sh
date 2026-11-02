@@ -444,8 +444,10 @@ function update_helm_chart {
       HELM_REPOSITORY_URL=$(yq eval ".dependencies[$i].repository" "$HELM_CHART_YAML")
       HELM_CHART_CURRENT_VERSION=$(yq eval ".dependencies[$i].version" "$HELM_CHART_YAML")
 
-      # skip if the helm chart is locally available and not on a repo
-      if [[ "$HELM_REPOSITORY_URL" =~ ^file:// ]]; then
+      # skip if the helm chart is locally available and not on a repo:
+      # file://, an empty repository, or none at all (yq prints null)
+      if [[ -z "$HELM_REPOSITORY_URL" || "$HELM_REPOSITORY_URL" = "null" \
+        || "$HELM_REPOSITORY_URL" =~ ^file:// ]]; then
         continue
       fi
 
@@ -465,7 +467,7 @@ function update_helm_chart {
         # Compare the dates first, if date is not matching current date, update the cache file
         # Add the repo
         if ! compare_dates; then
-          if ! helm repo list -o yaml | yq eval -e '.[].name'| grep "$HELM_CHART_NAME" >/dev/null 2>&1; then
+          if ! helm repo list -o yaml | yq eval '.[].name' | grep -Fx "$HELM_CHART_NAME" >/dev/null 2>&1; then
             echo "Adding Helm repository $HELM_REPOSITORY_URL"
             helm repo add "$HELM_CHART_NAME" "$HELM_REPOSITORY_URL" >/dev/null || {
               echo "Failed to add repository $HELM_REPOSITORY_URL for chart $HELM_CHART_NAME. Skipping."

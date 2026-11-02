@@ -3,7 +3,7 @@ name: open-xchange
 version: 1.0.0
 dependencies:
   - name: kubeaid-addons
-    version: 0.1.0
+    version: 1.1.0
     repository: file://../kubeaid-addons
   - name: appsuite
     version: 8.48.481

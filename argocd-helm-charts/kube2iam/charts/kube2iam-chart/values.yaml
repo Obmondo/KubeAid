@@ -1,0 +1,147 @@
+# -- Additional container arguments
+extraArgs: {}
+#   base-role-arn: arn:aws:iam::0123456789:role/
+#   default-role: kube2iam-default
+#   api-server: ...
+#   api-token: ...
+
+# -- Additional container environment variables
+extraEnv: {}
+#    http_proxy: http://example.com:8080
+#    NO_PROXY: localhost,127.0.0.1
+
+host:
+  # -- IP address of host
+  ip: $(HOST_IP)
+  # -- Add iptables rule
+  iptables: false
+  # -- Host interface for proxying AWS metadata
+  interface: docker0
+  # -- Port to listen on
+  port: 8181
+
+prometheus:
+  # Port to expose the /metrics endpoint on. If unset, defaults to `host.port`
+  # metricsPort: 9543
+
+  service:
+    # -- If true, create a Service resource for Prometheus
+    enabled: false
+#    annotations:
+#      prometheus.io/scrape: "true"
+#      prometheus.io/port: "9543"
+#      prometheus.io/path: "/metrics"
+
+  serviceMonitor:
+    # -- Create prometheus-operator ServiceMonitor
+    enabled: false
+    # -- Interval at which the metrics endpoint is scraped
+    interval: 10s
+    # -- Alternative namespace to install the ServiceMonitor in
+    namespace: ""
+    # -- Labels to add to the service monitor
+    labels: {}
+
+image:
+  # -- Image repository
+  repository: jtblin/kube2iam
+  # -- Image tag (automatically updated by CI during release)
+  tag: 0.15.0
+  # -- Image pull policy
+  pullPolicy: IfNotPresent
+  # Optionally specify an array of imagePullSecrets.
+  # Secrets must be manually created in the namespace.
+  # ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+  # pullSecrets:
+  #   - myRegistryKeySecretName
+
+# AWS Access keys to inject as environment variables
+aws:
+  # -- The value to use for AWS_SECRET_ACCESS_KEY
+  secret_key: ""
+  # -- The value to use for AWS_ACCESS_KEY_ID
+  access_key: ""
+  # -- The AWS region to use
+  region: ""
+
+# -- Set the AWS credentials using an existing secret
+existingSecret: ""
+
+# -- Node labels for pod assignment (ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/)
+nodeSelector: {}
+
+# -- Affinity configuration for pod assignment (ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/)
+affinity: {}
+
+# -- Annotations to be added to pods
+podAnnotations: {}
+
+# -- priorityClassName to be added to pods
+priorityClassName: ""
+
+# -- Labels to be added to pods
+podLabels: {}
+
+livenessProbe:
+  # -- Enable/disable pod liveness probe
+  enabled: true
+  # -- Liveness probe initial delay
+  initialDelaySeconds: 30
+  # -- Liveness probe check interval
+  periodSeconds: 5
+  # -- Liveness probe success threshold
+  successThreshold: 1
+  # -- Liveness probe fail threshold
+  failureThreshold: 3
+  # -- Liveness probe timeout
+  timeoutSeconds: 1
+
+readinessProbe:
+  # -- Enable/disable pod readiness probe
+  enabled: true
+  # -- Readiness probe initial delay
+  initialDelaySeconds: 0
+  # -- Readiness probe check interval
+  periodSeconds: 5
+  # -- Readiness probe success threshold
+  successThreshold: 1
+  # -- Readiness probe failure threshold
+  failureThreshold: 3
+  # -- Readiness probe timeout
+  timeoutSeconds: 1
+
+rbac:
+  # -- If true, create & use RBAC resources. Recommended for production.
+  create: false
+
+  # -- existing ServiceAccount to use (ignored if rbac.create=true)
+  serviceAccountName: default
+
+# -- pod resource requests & limits
+resources: {}
+  # For example:
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 50m
+  #   memory: 64Mi
+
+# -- Strategy for DaemonSet updates (ref: https://kubernetes.io/docs/tasks/manage-daemon/update-daemon-set/)
+updateStrategy: OnDelete
+
+# -- Maximum number of Pods that can be unavailable during update (ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#max-unavailable)
+maxUnavailable: 1
+
+# -- Enable verbose output
+verbose: false
+
+# -- List of node taints to tolerate
+tolerations: []
+
+podSecurityPolicy:
+  # -- If true, create a podSecurityPolicy object (Deprecated in K8s 1.25+)
+  enabled: false
+
+  # -- Annotations to add to the podSecurityPolicy object
+  annotations: {}
