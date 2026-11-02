@@ -23,7 +23,7 @@ spec:
         spec:
           containers:
             - name: logical-backup
-              image: "{{ (((((.Values.global).postgresql).logicalbackup).image)).repository | default "ghcr.io/obmondo/postgres-logical-backup" }}:{{ (((((.Values.global).postgresql).logicalbackup).image)).tag | default "26.8.0" }}"
+              image: "{{ (((((.Values.global).postgresql).logicalbackup).image)).repository | default "ghcr.io/obmondo/postgres-logical-backup" }}:{{ (((((.Values.global).postgresql).logicalbackup).image)).tag | default "26.10.0" }}"
               imagePullPolicy: IfNotPresent
               env:
                 - name: POD_NAMESPACE
