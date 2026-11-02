@@ -444,8 +444,10 @@ function update_helm_chart {
       HELM_REPOSITORY_URL=$(yq eval ".dependencies[$i].repository" "$HELM_CHART_YAML")
       HELM_CHART_CURRENT_VERSION=$(yq eval ".dependencies[$i].version" "$HELM_CHART_YAML")
 
-      # skip if the helm chart is locally available and not on a repo
-      if [[ "$HELM_REPOSITORY_URL" =~ ^file:// ]]; then
+      # skip if the helm chart is locally available and not on a repo:
+      # file://, an empty repository, or none at all (yq prints null)
+      if [[ -z "$HELM_REPOSITORY_URL" || "$HELM_REPOSITORY_URL" = "null" \
+        || "$HELM_REPOSITORY_URL" =~ ^file:// ]]; then
         continue
       fi
 
