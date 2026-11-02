@@ -301,9 +301,9 @@ function compare_version() {
 # so we dont have to helm repo search, since it was update today locally
 # on the node, so next re-run is faster
 function get_repo_last_update_date() {
-  # Note: we only need to check if chart is present or not, if someone add duplicate entry
-  # it should not fail
-  UPDATE_DATE=$(grep "$HELM_CHART_NAME$" "$HELM_VERSION_LAST_UPDATE_FILE" | uniq | awk '{print $1}' || true)
+  # Only a line for the pinned version counts, the same key the cache lookup uses,
+  # so a blank version still gets its repo. A duplicate entry should not fail
+  UPDATE_DATE=$(grep " $HELM_CHART_CURRENT_VERSION $HELM_CHART_NAME$" "$HELM_VERSION_LAST_UPDATE_FILE" | uniq | awk '{print $1}' || true)
 
   if [ -z "$UPDATE_DATE" ]; then
     date -d "1 day ago" '+%Y-%m-%d'
@@ -346,6 +346,10 @@ function get_helm_latest_version_from_cache() {
         # This avoids regex issues and correctly distinguishes 'traefik/traefik' from 'traefik/traefikee'
         SEARCH_QUERY="${HELM_CHART_NAME}/${HELM_CHART_NAME}"
         HELM_CHART_NEW_VERSION=$(helm search repo "$SEARCH_QUERY" --output yaml | yq eval ".[] | select(.name == \"$SEARCH_QUERY\") | .version" -)
+        if [ -z "$HELM_CHART_NEW_VERSION" ]; then
+          echo "Could not look up the latest $HELM_CHART_NAME version in $HELM_REPOSITORY_URL, keeping $HELM_CHART_DEP_CURRENT_VERSION"
+          HELM_CHART_NEW_VERSION=$HELM_CHART_DEP_CURRENT_VERSION
+        fi
       else
         HELM_CHART_NEW_VERSION="$HELM_CHART_DEP_CURRENT_VERSION"
       fi
@@ -363,7 +367,7 @@ function add_last_update_date() {
     echo "$HELM_CHART_LINE" >> "$HELM_VERSION_LAST_UPDATE_FILE"
   else
     # Remove duplicate line if its present for any reason
-    sed -i "/$HELM_CHART_NAME/d" "$HELM_VERSION_LAST_UPDATE_FILE"
+    sed -i "/ $HELM_CHART_NAME\$/d" "$HELM_VERSION_LAST_UPDATE_FILE"
     echo "$HELM_CHART_LINE" >> "$HELM_VERSION_LAST_UPDATE_FILE"
   fi
 }
