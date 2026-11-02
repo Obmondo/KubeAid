@@ -99,10 +99,19 @@ autoinstrumentation:
   enabled: true
   # Sampling rate for traces (0.0 to 1.0). 0.1 = 10%, 1.0 = 100%
   samplingRate: "1.0"
-  # Go instrumentation image version.
+  # Go instrumentation image version, used unless images.go is set.
   # Deprecated: the Go Instrumentation (openobserve-go) will be removed in a later
   # release; trace Go services with ebpf below instead.
   goImageVersion: "v0.23.0"
+  # Optional complete image overrides, e.g. for a private mirror. Empty values
+  # keep the operator's defaults for DotNet, Java, NodeJS, and Python; Go
+  # defaults to the GHCR image tagged goImageVersion.
+  images:
+    dotnet: ""
+    go: ""
+    java: ""
+    nodejs: ""
+    python: ""
   # Enable Python logs auto-instrumentation
   pythonLogsEnabled: false
 
@@ -114,11 +123,16 @@ autoinstrumentation:
 ebpf:
   enabled: false
   # What to trace. Each non-empty list is one rule; a process matching any is traced.
-  # At least one must be set when enabled. Globs may not contain ',', '{' or '}'.
+  # At least one must be set, unless network.enabled. Globs may not contain ',', '{' or '}'.
   trace:
     ports: []        # ports and ranges, e.g. [8080, "9000-9100"]
     exePaths: []     # executable path globs, e.g. ["/app/checkout*"]
     cmdLines: []     # command-line globs, e.g. ["*reports.py*"]
+  # Network flow metrics (obi.network.flow.bytes): bytes between workloads, any TCP
+  # or UDP protocol, labelled with source and destination owner, namespace and node.
+  # Runs the pods on the host network. Works with or without trace selectors.
+  network:
+    enabled: false
   nodeSelector: {}
   affinity:          # the receiver is built for Linux on amd64 and arm64 only
     nodeAffinity:

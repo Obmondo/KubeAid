@@ -10,19 +10,27 @@ You can add following to your pods/namespaces to auto instrument your applicatio
   5. Go (deprecated, use ebpf.enabled instead): instrumentation.opentelemetry.io/inject-go: "openobserve-collector/openobserve-go" , instrumentation.opentelemetry.io/otel-go-auto-target-exe: "/path/to/container/executable"
   6. OpenTelemetry SDK environment variables only: instrumentation.opentelemetry.io/inject-sdk: "true"
 {{- if .Values.ebpf.enabled }}
+{{- with .Values.ebpf.trace }}
+{{- if or .ports .exePaths .cmdLines }}
 
-eBPF tracing is enabled ({{ include "openobserve-collector.fullname" . }}-ebpf DaemonSet). It traces processes matching:
-{{- with .Values.ebpf.trace.ports }}
+eBPF tracing is enabled ({{ include "openobserve-collector.fullname" $ }}-ebpf DaemonSet). It traces processes matching:
+{{- with .ports }}
   ports: {{ join ", " . }}
 {{- end }}
-{{- with .Values.ebpf.trace.exePaths }}
+{{- with .exePaths }}
   executable paths: {{ join ", " . }}
 {{- end }}
-{{- with .Values.ebpf.trace.cmdLines }}
+{{- with .cmdLines }}
   command lines: {{ join ", " . }}
 {{- end }}
+{{- end }}
+{{- end }}
+{{- if (.Values.ebpf.network | default dict).enabled }}
 
-It requires OpenTelemetry Operator v0.142.0 or later; older operators drop or reject spec.hostPID and the pods trace nothing.
+eBPF network flow metrics are enabled ({{ include "openobserve-collector.fullname" . }}-ebpf DaemonSet, on the host network).
+{{- end }}
+
+It requires OpenTelemetry Operator v0.142.0 or later; older operators drop or reject spec.hostPID and the pods capture nothing.
 The release namespace must allow privileged pods.
 {{- end }}
 

@@ -1,9 +1,9 @@
 dependencies:
 - name: lemmy
   repository: https://ananace.gitlab.io/charts
-  version: 0.6.15
+  version: 0.6.16
 - name: kubeaid-addons
   repository: file://../kubeaid-addons
-  version: 0.1.0
-digest: sha256:f6df3bc1e93c189fa994d1ffd4242aec02831d0db1f6875fc8115a8093a1c2dd
-generated: "2026-07-27T19:51:36.579212652+05:30"
+  version: 1.1.0
+digest: sha256:2d21cb5b881e33d389f186ee545d330c7d1067c687707d85af17ce076b25c6d1
+generated: "2026-11-02T04:23:39.912240481Z"

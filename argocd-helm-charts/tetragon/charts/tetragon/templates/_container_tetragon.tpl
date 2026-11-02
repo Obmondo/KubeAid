@@ -1,9 +1,14 @@
 {{- define "container.tetragon" -}}
+{{- $securityContext := deepCopy .Values.tetragon.securityContext }}
+{{- /* The API server rejects a privileged container with allowPrivilegeEscalation: false. */}}
+{{- if and $securityContext.privileged (not $securityContext.allowPrivilegeEscalation) }}
+{{- $_ := unset $securityContext "allowPrivilegeEscalation" }}
+{{- end }}
 - name: {{ include "container.tetragon.name" . }}
   securityContext:
-    {{- toYaml .Values.tetragon.securityContext | nindent 4 }}
-  image: "{{ if .Values.tetragon.image.override }}{{ .Values.tetragon.image.override }}{{ else }}{{ .Values.tetragon.image.repository }}:{{ .Values.tetragon.image.tag | default .Chart.AppVersion }}{{ end }}"
-  imagePullPolicy: {{ .Values.imagePullPolicy }}
+    {{- toYaml $securityContext | nindent 4 }}
+  image: {{ include "tetragon.image" . }}
+  imagePullPolicy: {{ .Values.imagePullPolicy | quote }}
   terminationMessagePolicy: FallbackToLogsOnError
 {{- with .Values.tetragon.commandOverride }}
   command:
@@ -30,19 +35,30 @@
       name: tetragon-config
       readOnly: true
     - mountPath: /sys/fs/bpf
+      {{- /* Bidirectional propagation is only allowed for privileged containers,
+      otherwise the mount-bpf-fs init container mounts bpffs on the host. */}}
+      {{- if .Values.tetragon.securityContext.privileged }}
       mountPropagation: Bidirectional
+      {{- else }}
+      mountPropagation: HostToContainer
+      {{- end }}
       name: bpf-maps
     - mountPath: "/var/run/cilium"
       name: cilium-run
     - mountPath: "/var/run/tetragon"
       name: tetragon-run
-    - mountPath: {{ .Values.exportDirectory }}
+    - mountPath: {{ .Values.exportDirectory | quote }}
       name: export-logs
     - mountPath: "/procRoot"
       name: host-proc
 {{- if and (.Values.tetragon.cri.enabled) (.Values.tetragon.cri.socketHostPath) }}
-    - mountPath: {{ quote .Values.tetragon.cri.socketHostPath }}
+    - mountPath: {{ dir .Values.tetragon.cri.socketHostPath | quote }}
       name: cri-socket
+{{- end }}
+{{- if and .Values.tetragon.grpc.enabled .Values.tetragon.grpc.tls.enabled }}
+    - mountPath: /var/lib/tetragon/tls
+      name: tetragon-grpc-tls
+      readOnly: true
 {{- end }}
 {{- range .Values.extraHostPathMounts }}
     - name: {{ .name }}
@@ -66,6 +82,7 @@
 {{- if .Values.tetragon.extraEnv }}
   {{- toYaml .Values.tetragon.extraEnv | nindent 4 }}
 {{- end }}
+    {{- include "tetragon.environment.extra" . | nindent 4 }}
 {{- with .Values.tetragon.resources }}
   resources:
     {{- toYaml . | nindent 4 }}
@@ -77,8 +94,18 @@
   livenessProbe:
      timeoutSeconds: 60
      grpc:
-      port: {{ .Values.tetragon.healthGrpc.port }}
+      port: {{ .Values.tetragon.healthGrpc.port | int64 }}
       service: "liveness"
+{{- end -}}
+{{- if .Values.tetragon.startupProbe }}
+  startupProbe:
+  {{- toYaml .Values.tetragon.startupProbe | nindent 4 }}
+{{- else if .Values.tetragon.healthGrpc.enabled }}
+  startupProbe:
+     timeoutSeconds: 60
+     grpc:
+      port: {{ .Values.tetragon.healthGrpc.port | int64 }}
+      service: "startup"
 {{- end -}}
 {{- end -}}
 

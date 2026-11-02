@@ -3,7 +3,7 @@ name: peertube
 version: 1.0.0
 dependencies:
   - name: peertube
-    version: 1.8.3
+    version: 1.8.4
     repository: https://ananace.gitlab.io/charts
   - name: kubeaid-addons
     version: 1.1.0

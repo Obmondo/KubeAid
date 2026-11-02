@@ -1,3 +1,0 @@
-# exclude devices
-config:
-  device_exclude: "/dev/sr.*"

@@ -14,6 +14,9 @@ spec:
     type: parentbased_traceidratio
     argument: {{ .Values.autoinstrumentation.samplingRate | quote }}
   python:
+    {{- with .Values.autoinstrumentation.images.python }}
+    image: {{ . | quote }}
+    {{- end }}
     env:
       - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
         value: http/protobuf

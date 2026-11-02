@@ -321,7 +321,7 @@ Additional volume mounts to add to the trust-manager container.
 > false
 > ```
 
-If set to true, enable writing trust bundles to Kubernetes Secrets as a target. trust-manager can only write to secrets which are explicitly allowed via either authorizedSecrets or authorizedSecretsAll. Note that enabling secret targets will grant trust-manager read access to all secrets in the cluster.
+If set to true, enable writing trust bundles to Kubernetes Secrets as a target. Enabling this alone changes no RBAC: the Secret rules are emitted only once authorizedSecrets or authorizedSecretsAll is configured. Once one of them is, trust-manager is granted read access to all Secrets in scope: cluster-wide by default, or — when app.targetNamespaces is set — only in those namespaces plus the trust namespace.
 #### **secretTargets.authorizedSecretsAll** ~ `bool`
 > Default value:
 > ```yaml
@@ -336,7 +336,7 @@ If set, ignores the authorizedSecrets list.
 > []
 > ```
 
-A list of secret names which trust-manager will be permitted to read and write across all namespaces. These are the only allowable Secrets that can be used as targets. If the list is empty (and authorizedSecretsAll is false), trust-manager can't write to secrets and can only read secrets in the trust namespace for use as sources.
+A list of secret names which trust-manager will be permitted to write (patch and delete) within the configured scope (cluster-wide by default, or — when app.targetNamespaces is set — the target namespaces plus the trust namespace). Read access is NOT limited to these names: configuring this list (or authorizedSecretsAll) grants trust-manager read (get/list/watch) on all Secrets in scope (cluster-wide, or — when app.targetNamespaces is set — those namespaces plus the trust namespace). Only patching and deleting are restricted to these names. Kubernetes RBAC ignores resourceNames for the create verb, because the API server does not know the object's name at authorization time. If the list is empty (and authorizedSecretsAll is false), trust-manager can't write to secrets and can only read secrets in the trust namespace for use as sources.
 #### **resources** ~ `object`
 > Default value:
 > ```yaml
@@ -548,7 +548,8 @@ Security Context to be set on the trust-manager app container. For more informat
 > {}
 > ```
 
-Pod labels to add to trust-manager pods.
+Pod labels to add to trust-manager pods.  
+On a key collision these win over commonLabels. The "app" label cannot be overridden, because it must match the selectors that target these Pods.
 #### **app.podAnnotations** ~ `object`
 > Default value:
 > ```yaml
@@ -771,7 +772,12 @@ This configures the maximum unavailable pods for disruptions. It can either be s
 > {}
 > ```
 
-Labels to apply to all resources
+Labels to apply to all resources.  
+On a key collision these win over the chart's own labels, except where something selects on the label and overriding it would break that selection:  
+"app" on the trust-manager Pods, "app" and "app.kubernetes.io/component" on  
+the metrics Service, "prometheus" on the ServiceMonitor, and  
+"rbac.authorization.k8s.io/aggregate-to-cluster-reader" on the aggregated  
+ClusterRole. Those keep the chart's value on the resource in question, and are still applied from commonLabels to every other resource.
 #### **commonAnnotations** ~ `object`
 > Default value:
 > ```yaml

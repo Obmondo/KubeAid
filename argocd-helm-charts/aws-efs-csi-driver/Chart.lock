@@ -1,6 +1,6 @@
 dependencies:
 - name: aws-efs-csi-driver
   repository: https://kubernetes-sigs.github.io/aws-efs-csi-driver/
-  version: 4.5.2
-digest: sha256:84afd10b96ae069494eaba75e68e3da95c740300949117cd151ad780df3cf518
-generated: "2026-10-18T07:40:25.984755271Z"
+  version: 4.5.4
+digest: sha256:537710fccfcb56dcb8de77b77abe75df70cc541ea7dec9ed267375ad8ffa62c4
+generated: "2026-11-02T04:20:44.302750679Z"

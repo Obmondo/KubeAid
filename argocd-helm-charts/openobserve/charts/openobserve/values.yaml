@@ -6,11 +6,11 @@ image:
   oss:
     repository: o2cr.ai/openobserve/openobserve
     # Overrides the image tag whose default is the chart appVersion.
-    tag: "v1.0.1"
+    tag: "v1.1.2"
   enterprise:
     repository: o2cr.ai/openobserve/openobserve-enterprise
     # Overrides the image tag whose default is the chart appVersion.
-    tag: "v1.0.1"
+    tag: "v1.1.2"
   reportserver:
     repository: o2cr.ai/openobserve/report-server
     tag: "v0.11.4"
@@ -19,7 +19,7 @@ image:
     tag: 1.36.1
   o2ai:
     repository: ghcr.io/openobserve/o2-ai
-    tag: "v1.0.1"
+    tag: "v1.1.0"
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -173,6 +173,7 @@ externalSecret:
 #   ZO_SMTP_USER_NAME: "ABAAQQQQFFFFF" # Replace with your own SMTP username
 #   ZO_SMTP_PASSWORD: "+fjlahsguykevfkajvjk#jsbj43$bjkjbkk" # Replace with your own SMTP password
 #   O2_AI_INTERNAL_SECRET: "" # Optional; when present it is injected into both OpenObserve and o2ai (see auth.O2_AI_INTERNAL_SECRET)
+#   O2_MASTER_ENCRYPTION_KEY: "" # Optional; encrypts stored secrets at rest (see enterprise.parameters.ZO_MASTER_ENCRYPTION_KEY)
 
 # Credentials for authentication. Will be stored in a k8s secret
 auth:
@@ -193,6 +194,7 @@ auth:
   ZO_RUM_CLIENT_TOKEN: ""
   ZO_REPORT_USER_EMAIL: "" # Check details at https://github.com/openobserve/o2_report_server
   ZO_REPORT_USER_PASSWORD: ""
+  ZO_REPORT_SERVER_SECRET: "" # Shared by OpenObserve and the report server; empty means the chart generates one and keeps it across upgrades
   ZO_SMTP_USER_NAME: "ABAAQQQQFFFFF" # Replace with your own SMTP username
   ZO_SMTP_PASSWORD: "+fjlahsguykevfkajvjk#jsbj43$bjkjbkk" # Replace with your own SMTP password
   O2_AI_API_KEY: "" # AI API key for o2ai
@@ -253,6 +255,7 @@ config:
   ZO_FEATURE_QUERY_PARTITION_STRATEGY: "file_hash"
   ZO_FEATURE_SHARED_MEMTABLE_ENABLED: "false"
   ZO_FEATURE_QUERY_STREAMING_AGGS: "true"
+  ZO_FEATURE_PROFILING_ENABLED: "true" # show the Profiles module in the UI
   ZO_UTF8_VIEW_ENABLED: "false"
   ZO_DATAFUSION_STREAMING_AGGS_CACHE_MAX_ENTRIES: "10000"
   ZO_DATAFUSION_FILE_STAT_CACHE_MAX_ENTRIES: "10000"
@@ -469,11 +472,11 @@ config:
   ZO_HISTOGRAM_ENABLED: "true" # show/hide histogram on logs page by default
   ZO_SGRAPH_ENABLED: "true"
   # Synthetics (introduced in v1.0.1)
-  # No ZO_SYNTHETICS_* key is set here on purpose. The server already defines a
+  ZO_SYNTHETICS_ENABLED: "true"
+  # No other ZO_SYNTHETICS_* key is set here on purpose. The server already defines a
   # default for each one, and a key listed here is an override, not a default:
   # it is written into the ConfigMap and wins over the server's own value.
   # Set only the keys you actually want to change, for example:
-  #   ZO_SYNTHETICS_ENABLED: "true"
   #   ZO_SYNTHETICS_API_ENDPOINT: "https://o2.example.com"
   #   ZO_SYNTHETICS_LAMBDA_NET: "o2-synthetics-net-probe"
   # Alerts — composite / charts / eval (introduced in v1.0.1)
@@ -485,6 +488,7 @@ config:
   ZO_ALERT_COMPOSITE_SWEEP_SECS: "300"
   ZO_ALERT_EVAL_LEDGER_RETENTION_DAYS: "97"
   ZO_ALERT_TEST_SEND_PER_MINUTE: "6"
+  ZO_ALERT_SCHEDULE_CONCURRENCY: "50" # max alert jobs pulled from the scheduler per cycle
   # Other (introduced in v1.0.1)
   ZO_AI_SESSION_OWNER_TTL: "86400" # seconds
   ZO_TRACE_TIME_INDEX_ENABLED: "true"
@@ -907,7 +911,7 @@ enterprise:
     O2_AI_ENABLED: "false"
     O2_AGENT_URL: ""  # Leave empty to use default auto-generated URL
     O2_TOOL_API_URL: ""  # Leave empty to use default auto-generated URL
-    ZO_MASTER_ENCRYPTION_ALGORITHM: "" # MUST be empty if key is empty
+    ZO_MASTER_ENCRYPTION_ALGORITHM: ""
     ZO_MASTER_ENCRYPTION_KEY: ""
     # Service Graph features
     O2_SERVICE_GRAPH_ENABLED: "true"

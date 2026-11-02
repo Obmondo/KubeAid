@@ -1,0 +1,90 @@
+{{/*
+Reusable JobSpec body for the certgen Job and CronJob. Renders the
+cilium-certgen invocation that (re)creates the server + CA Secrets for the
+tetragon gRPC TLS listener.
+*/}}
+{{- define "tetragon.certgen.jobSpec" -}}
+{{- $validityHours := mul .Values.tetragon.grpc.tls.auto.certValidityDuration 24 -}}
+{{- $validityStr := printf "%dh" $validityHours -}}
+{{- $caValidityHours := mul .Values.tetragon.grpc.tls.ca.certValidityDuration 24 -}}
+{{- $caValidityStr := printf "%dh" $caValidityHours -}}
+template:
+  metadata:
+    labels:
+      {{- include "tetragon-certgen.labels" . | nindent 6 }}
+      {{- with .Values.certgen.podLabels }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+  spec:
+    restartPolicy: OnFailure
+    serviceAccountName: {{ include "tetragon.name" . }}-certgen
+    {{- if (semverCompare ">= 1.33-0" .Capabilities.KubeVersion.Version) }}
+    hostUsers: {{ include "tetragon.bool" .Values.certgen.hostUsers }}
+    {{- end }}
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 65534
+      runAsGroup: 65534
+      seccompProfile:
+        type: RuntimeDefault
+    {{- with .Values.certgen.nodeSelector }}
+    nodeSelector:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.certgen.tolerations }}
+    tolerations:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.certgen.affinity }}
+    affinity:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.imagePullSecrets }}
+    imagePullSecrets:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    containers:
+      - name: certgen
+        image: {{ .Values.certgen.image.override | default (printf "%v:%v" .Values.certgen.image.repository .Values.certgen.image.tag) | quote }}
+        imagePullPolicy: {{ .Values.certgen.image.pullPolicy | quote }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+        command:
+          - "/usr/bin/cilium-certgen"
+        args:
+          - {{ printf "--ca-generate=%v" .Values.certgen.generateCA | quote }}
+          - "--ca-reuse-secret"
+          - "--ca-secret-namespace={{ .Release.Namespace }}"
+          - "--ca-secret-name={{ include "tetragon.caSecretName" . }}"
+          - "--ca-common-name=Tetragon CA"
+          - "--ca-validity-duration={{ $caValidityStr }}"
+        env:
+          - name: CILIUM_CERTGEN_CONFIG
+            value: |
+              certs:
+                - name: {{ include "tetragon.grpcTlsSecretName" . }}
+                  namespace: {{ .Release.Namespace }}
+                  commonName: {{ include "tetragon.grpcTls.commonName" . | quote }}
+                  hosts:
+                    - {{ include "tetragon.grpcTls.commonName" . | quote }}
+                    {{- range .Values.tetragon.grpc.tls.server.extraDnsNames }}
+                    - {{ . | quote }}
+                    {{- end }}
+                    {{- range .Values.tetragon.grpc.tls.server.extraIpAddresses }}
+                    - {{ . | quote }}
+                    {{- end }}
+                  usage:
+                    - signing
+                    - key encipherment
+                    - server auth
+                    - client auth
+                  validity: {{ $validityStr }}
+        {{- with .Values.certgen.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+{{- end -}}

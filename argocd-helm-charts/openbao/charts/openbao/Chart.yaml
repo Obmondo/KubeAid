@@ -1,12 +1,16 @@
 annotations:
   artifacthub.io/changes: |
+    - kind: changed
+      description: |
+        Bump OpenBao to 2.7.2
     - kind: fixed
-      description: fix(grafana/dashboard): add Namespace variable
-  artifacthub.io/containsSecurityUpdates: "false"
+      description: |
+        ArtifactHub changes annotation
+  artifacthub.io/containsSecurityUpdates: "true"
   charts.openshift.io/name: OpenBao
   charts.openshift.io/provider: OpenBao
 apiVersion: v2
-appVersion: v2.7.1
+appVersion: v2.7.2
 description: Official OpenBao Chart
 home: https://github.com/openbao/openbao-helm
 icon: https://raw.githubusercontent.com/openbao/artwork/refs/heads/main/color/openbao-color.svg
@@ -27,4 +31,4 @@ maintainers:
 name: openbao
 sources:
 - https://github.com/openbao/openbao-helm
-version: 0.30.4
+version: 0.30.6

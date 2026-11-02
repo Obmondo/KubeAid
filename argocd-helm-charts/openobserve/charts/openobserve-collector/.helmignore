@@ -36,3 +36,6 @@ t_*.*
 install.sh
 uninstall.sh
 values_testing.yaml
+
+# Chart tests
+tests/

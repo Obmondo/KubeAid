@@ -73,7 +73,7 @@ ebpf:
     cmdLines: ["*reports.py*"]    # command-line globs
 ```
 
-Each non-empty list is one rule; a process matching any of them is traced. At least one list must be set, or the chart fails to render. Globs may not contain `,`, `{` or `}`.
+Each non-empty list is one rule; a process matching any of them is traced. At least one list must be set, or the chart fails to render, unless `ebpf.network.enabled` is true (network flow metrics only; see [metrics.md](metrics.md#13-ebpf-network-flows)). Globs may not contain `,`, `{` or `}`.
 
 Selection caveats:
 

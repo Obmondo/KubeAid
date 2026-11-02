@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    resources.teleport.dev/scoped: "false"
+    resources.teleport.dev/scoped: "true"
   name: teleportappsv3.resources.teleport.dev
 spec:
   group: resources.teleport.dev
@@ -16,7 +16,16 @@ spec:
     singular: teleportappv3
   scope: Namespaced
   versions:
-  - name: v1
+  - additionalPrinterColumns:
+    - description: Resource's scope.
+      jsonPath: .scope
+      name: scope
+      type: string
+    - description: The age of this resource
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1
     schema:
       openAPIV3Schema:
         description: AppV3 is the Schema for the appsv3 API
@@ -33,6 +42,13 @@ spec:
             type: string
           metadata:
             type: object
+          scope:
+            description: The App's scope.
+            type: string
+            x-kubernetes-validations:
+            - message: Scope is immutable. To create the resource in a different scope
+                you must delete it first.
+              rule: self == oldSelf
           spec:
             description: App resource definition v3 from Teleport
             properties:
@@ -190,8 +206,12 @@ spec:
                     items:
                       properties:
                         name:
+                          description: Name defines the model name. This is the requested
+                            value.
                           type: string
                         provider_name:
+                          description: Represents the model name in the configured
+                            provider.
                           type: string
                       type: object
                     nullable: true
@@ -223,6 +243,47 @@ spec:
                   command:
                     description: Command to launch stdio-based MCP servers.
                     type: string
+                  oauth:
+                    description: Oauth contains the OAuth settings clients use to
+                      log in to the MCP server. Only supported for MCP servers using
+                      streamable HTTP transport.
+                    nullable: true
+                    properties:
+                      auth_server_metadata_url:
+                        description: AuthServerMetadataUrl is the URL of the OAuth
+                          authorization server metadata document, such as "https://auth.example.com/.well-known/oauth-authorization-server".
+                          When set, clients fetch the metadata from it instead of
+                          discovering it from the MCP server, and do not check its
+                          issuer against the URL.
+                        type: string
+                      callback_port:
+                        description: CallbackPort is the local port of the OAuth callback
+                          registered with the OAuth provider. Mutually exclusive with
+                          redirect_uri.
+                        format: int32
+                        type: integer
+                      client_id:
+                        description: ClientId is the OAuth client ID of a pre-registered
+                          client. When set, clients skip dynamic client registration.
+                        type: string
+                      mode:
+                        description: 'Mode declares whether the MCP server requires
+                          OAuth. When empty, it is unspecified. Supported values:
+                          "required" (the MCP server requires OAuth), "not_required"
+                          (the MCP server does not use OAuth)'
+                        type: string
+                      redirect_uri:
+                        description: RedirectUri is the loopback OAuth redirect URI
+                          registered with the OAuth provider, such as "http://localhost:3118/callback".
+                          Mutually exclusive with callback_port.
+                        type: string
+                      scopes:
+                        description: Scopes is the list of OAuth scopes to request.
+                        items:
+                          type: string
+                        nullable: true
+                        type: array
+                    type: object
                   run_as_host_user:
                     description: RunAsHostUser is the host user account under which
                       the command will be executed. Required for stdio-based MCP servers.
@@ -410,6 +471,10 @@ spec:
                 type: integer
             type: object
         type: object
+        x-kubernetes-validations:
+        - message: Scope is immutable. To create the resource in a different scope
+            you must delete it first.
+          rule: has(self.scope) == has(oldSelf.scope)
     served: true
     storage: true
     subresources:

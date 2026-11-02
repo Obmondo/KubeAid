@@ -1,3 +1,9 @@
+{{- if and .Values.tetragon.grpc.tls.enabled .Values.tetragon.grpc.enabled (hasPrefix "unix://" .Values.tetragon.grpc.address) -}}
+{{- fail (printf "tetragon.grpc.tls.enabled requires tetragon.grpc.address to point at a TCP listener, got %q. TLS does not apply to the unix-domain socket." .Values.tetragon.grpc.address) -}}
+{{- end -}}
+{{- if and .Values.tetragon.grpc.tls.enabled (not .Values.tetragon.grpc.tls.auto.enabled) (not .Values.tetragon.grpc.tls.server.existingSecret) -}}
+{{- fail "tetragon.grpc.tls: auto provisioning is disabled but server.existingSecret is empty. Set server.existingSecret to a Secret containing tls.crt, tls.key, and (for mTLS) ca.crt." -}}
+{{- end -}}
 {{- if .Values.tetragon.enabled }}
 apiVersion: v1
 kind: ConfigMap
@@ -9,7 +15,7 @@ metadata:
 data:
   cluster-name: {{ .Values.tetragon.clusterName | quote }}
 {{- if .Values.tetragon.btf }}
-  btf: {{ .Values.tetragon.btf }}
+  btf: {{ .Values.tetragon.btf | quote }}
 {{- end }}
   procfs: /procRoot
   debug: {{ .Values.tetragon.debug | quote }}
@@ -17,8 +23,9 @@ data:
   enable-process-ns: {{ .Values.tetragon.enableProcessNs | quote }}
   enable-ancestors: {{ .Values.tetragon.processAncestors.enabled | quote }}
   process-cache-size: {{ .Values.tetragon.processCacheSize | quote }}
+  deleted-pod-cache-size: {{ .Values.tetragon.deletedPodCacheSize | quote }}
 {{- if .Values.tetragon.exportFilename }}
-  export-filename: {{ .Values.exportDirectory}}/{{ .Values.tetragon.exportFilename }}
+  export-filename: {{ printf "%v/%v" .Values.exportDirectory .Values.tetragon.exportFilename | quote }}
   export-file-perm: {{ .Values.tetragon.exportFilePerm | quote }}
   export-file-max-size-mb: {{ .Values.tetragon.exportFileMaxSizeMB | quote }}
   export-file-max-backups: {{ .Values.tetragon.exportFileMaxBackups | quote }}
@@ -37,26 +44,34 @@ data:
   enable-k8s-api: "true"
 {{- end }}
 {{- if .Values.tetragon.prometheus.enabled }}
-  metrics-server: {{ .Values.tetragon.prometheus.address }}:{{ .Values.tetragon.prometheus.port }}
+  metrics-server: {{ printf "%v:%v" .Values.tetragon.prometheus.address .Values.tetragon.prometheus.port | quote }}
 {{- else }}
   metrics-server: ""
 {{- end }}
 {{- if .Values.tetragon.prometheus.enabled }}
-  metrics-label-filter: {{ .Values.tetragon.prometheus.metricsLabelFilter }}
+  metrics-label-filter: {{ .Values.tetragon.prometheus.metricsLabelFilter | quote }}
 {{- end }}
 {{- if .Values.tetragon.grpc.enabled }}
-  server-address: {{ .Values.tetragon.grpc.address }}
+  server-address: {{ .Values.tetragon.grpc.address | quote }}
 {{- else }}
   server-address: ""
 {{- end }}
+{{- if and .Values.tetragon.grpc.enabled .Values.tetragon.grpc.tls.enabled }}
+  server-tls-cert-file: "/var/lib/tetragon/tls/tls.crt"
+  server-tls-key-file: "/var/lib/tetragon/tls/tls.key"
+{{- if .Values.tetragon.grpc.tls.requireClientCert }}
+  server-tls-require-client-cert: "true"
+  server-tls-client-ca-files: "/var/lib/tetragon/tls/ca.crt"
+{{- end }}
+{{- end }}
 {{- if .Values.tetragon.healthGrpc.enabled }}
-  health-server-address: :{{ .Values.tetragon.healthGrpc.port }}
+  health-server-address: {{ printf ":%v" .Values.tetragon.healthGrpc.port | quote }}
   health-server-interval: {{ .Values.tetragon.healthGrpc.interval | quote }}
 {{- else }}
   health-server-address: ""
 {{- end }}
 {{- if .Values.tetragon.gops.enabled }}
-  gops-address: {{ .Values.tetragon.gops.address }}:{{ .Values.tetragon.gops.port }}
+  gops-address: {{ printf "%v:%v" .Values.tetragon.gops.address .Values.tetragon.gops.port | quote }}
 {{- end }}
 {{- if .Values.tetragon.enablePolicyFilter }}
   enable-policy-filter: "true"
@@ -73,7 +88,7 @@ data:
   enable-pod-info: {{ .Values.tetragonOperator.podInfo.enabled | quote }}
   enable-tracing-policy-crd: {{ .Values.tetragonOperator.tracingPolicy.enabled | quote }}
 {{- if .Values.tetragon.pprof.enabled }}
-  pprof-address: {{ .Values.tetragon.pprof.address }}:{{ .Values.tetragon.pprof.port }}
+  pprof-address: {{ printf "%v:%v" .Values.tetragon.pprof.address .Values.tetragon.pprof.port | quote }}
 {{- end }}
   event-cache-retries: {{ .Values.tetragon.eventCacheRetries | quote }}
   event-cache-retry-delay: {{ .Values.tetragon.eventCacheRetryDelay | quote }}
@@ -85,7 +100,7 @@ data:
   process-cache-gc-interval: {{ .Values.tetragon.processCacheGCInterval | quote }}
   enable-cri: {{ .Values.tetragon.cri.enabled | quote }}
 {{- if and (.Values.tetragon.cri.enabled) (.Values.tetragon.cri.socketHostPath) }}
-  cri-endpoint: "unix://{{ .Values.tetragon.cri.socketHostPath }}"
+  cri-endpoint: {{ printf "unix://%v" .Values.tetragon.cri.socketHostPath | quote }}
 {{- end }}
   enable-cgidmap: {{ .Values.tetragon.cgidmap.enabled | quote }}
   enable-pod-annotations: {{ .Values.tetragon.podAnnotations.enabled | default "false" | quote }}

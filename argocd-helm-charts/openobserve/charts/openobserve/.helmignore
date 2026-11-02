@@ -37,3 +37,6 @@ values_testing.yaml
 
 t_*.*
 
+
+# Chart tests
+tests/

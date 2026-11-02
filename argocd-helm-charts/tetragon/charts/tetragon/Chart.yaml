@@ -1,7 +1,7 @@
 apiVersion: v2
-appVersion: 1.7.1
+appVersion: 1.8.0
 description: Helm chart for Tetragon
 icon: https://tetragon.io/images/tetragon-shield.png
 name: tetragon
 type: application
-version: 1.7.1
+version: 1.8.0
