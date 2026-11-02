@@ -109,6 +109,12 @@ kyverno:
   admissionController:
     replicas: 3
 
+  # clusterpolicies and policies are too big for client-side apply too, and they
+  # come from the crds subchart, which kyverno-api below doesn't cover.
+  crds:
+    annotations:
+      argocd.argoproj.io/sync-options: ServerSideApply=true
+
   # The policies.kyverno.io CRDs render empty labels and annotations maps when
   # none are set, which Argo CD shows as a diff on every refresh. These CRDs are
   # also too big for client-side apply, so the annotation forces server-side apply.
