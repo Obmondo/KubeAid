@@ -13,7 +13,10 @@ metadata:
       Rewrites container and initContainer images that point at Docker Hub, ghcr.io or
       registry.k8s.io (each only when a Harbor project is configured for it) to the
       proxy-cache projects on harbor.example.com and adds the matching imagePullSecret,
-      so pulls bypass upstream rate limits. Mutates at admission time on CREATE.
+      so pulls bypass upstream rate limits. Mutates at admission time on CREATE, and on
+      UPDATE for Deployments, StatefulSets, DaemonSets, Jobs, and CronJobs so an Argo CD
+      server-side diff dry-run sees the rewritten image. Pods stay CREATE-only because
+      imagePullSecrets cannot be changed on a running Pod.
     kyverno.io/kubernetes-version: "1.27"
     policies.kyverno.io/minversion: 1.19.0
 spec:
@@ -32,11 +35,11 @@ spec:
       - apiGroups: ["apps"]
         apiVersions: ["v1"]
         resources: ["deployments", "statefulsets", "daemonsets"]
-        operations: ["CREATE"]
+        operations: ["CREATE", "UPDATE"]
       - apiGroups: ["batch"]
         apiVersions: ["v1"]
         resources: ["jobs", "cronjobs"]
-        operations: ["CREATE"]
+        operations: ["CREATE", "UPDATE"]
     # As a selector, not a match condition: the mutate-existing back-fill honours
     # matchConstraints only.
     namespaceSelector:
