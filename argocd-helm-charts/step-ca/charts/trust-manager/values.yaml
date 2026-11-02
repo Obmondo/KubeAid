@@ -159,7 +159,7 @@ defaultPackageImage:
 
   # WARNING: For internal use only, is overwritten before releasing the chart.
   # +docs:hidden
-  _defaultReference: :20250419.2
+  _defaultReference: :20250419-deb13u1.1
   # imagePullPolicy for the default package image.
   pullPolicy: IfNotPresent
 # Automounting API credentials for the trust-manager pod.
@@ -182,14 +182,20 @@ volumes: []
 volumeMounts: []
 secretTargets:
   # If set to true, enable writing trust bundles to Kubernetes Secrets as a target.
-  # trust-manager can only write to secrets which are explicitly allowed via either authorizedSecrets or authorizedSecretsAll.
-  # Note that enabling secret targets will grant trust-manager read access to all secrets in the cluster.
+  # Enabling this alone changes no RBAC: the Secret rules are emitted only once authorizedSecrets or
+  # authorizedSecretsAll is configured. Once one of them is, trust-manager is granted read access to
+  # all Secrets in scope: cluster-wide by default, or — when app.targetNamespaces is set — only in those
+  # namespaces plus the trust namespace.
   enabled: false
   # If set to true, grant read/write permission to all secrets across the cluster. Use with caution!
   # If set, ignores the authorizedSecrets list.
   authorizedSecretsAll: false
-  # A list of secret names which trust-manager will be permitted to read and write across all namespaces.
-  # These are the only allowable Secrets that can be used as targets. If the list is empty (and authorizedSecretsAll is false),
+  # A list of secret names which trust-manager will be permitted to write (patch and delete) within the configured scope (cluster-wide by default, or — when app.targetNamespaces is set — the target namespaces plus the trust namespace).
+  # Read access is NOT limited to these names: configuring this list (or authorizedSecretsAll) grants
+  # trust-manager read (get/list/watch) on all Secrets in scope (cluster-wide, or — when app.targetNamespaces
+  # is set — those namespaces plus the trust namespace). Only patching and deleting are restricted to these
+  # names. Kubernetes RBAC ignores resourceNames for the create verb, because the API server does not
+  # know the object's name at authorization time. If the list is empty (and authorizedSecretsAll is false),
   # trust-manager can't write to secrets and can only read secrets in the trust namespace for use as sources.
   authorizedSecrets: []
 # Kubernetes pod resource limits for trust.
@@ -299,6 +305,8 @@ app:
     seccompProfile:
       type: RuntimeDefault
   # Pod labels to add to trust-manager pods.
+  # On a key collision these win over commonLabels. The "app" label cannot be
+  # overridden, because it must match the selectors that target these Pods.
   podLabels: {}
   # Pod annotations to add to trust-manager pods.
   podAnnotations: {}
@@ -407,7 +415,14 @@ podDisruptionBudget:
   # +docs:type=unknown
   # +docs:property
   # maxUnavailable: 1
-# Labels to apply to all resources
+# Labels to apply to all resources.
+# On a key collision these win over the chart's own labels, except where
+# something selects on the label and overriding it would break that selection:
+# "app" on the trust-manager Pods, "app" and "app.kubernetes.io/component" on
+# the metrics Service, "prometheus" on the ServiceMonitor, and
+# "rbac.authorization.k8s.io/aggregate-to-cluster-reader" on the aggregated
+# ClusterRole. Those keep the chart's value on the resource in question, and
+# are still applied from commonLabels to every other resource.
 commonLabels: {}
 # Annotations to apply to all resources
 # NOTE: These annotations won't be added to the CRDs.

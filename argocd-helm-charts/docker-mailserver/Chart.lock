@@ -1,6 +1,6 @@
 dependencies:
 - name: docker-mailserver
   repository: https://docker-mailserver.github.io/docker-mailserver-helm
-  version: 5.1.1
-digest: sha256:db028913fbd0d1c70c5065d12f457f0e79d8a6f5177487a18bce7e0085ad3544
-generated: "2026-07-09T00:03:07.809779868+05:30"
+  version: 6.0.0
+digest: sha256:94512050d234b68d4c699fe3f4ca7faae49d22dd24192ed8f035b463d462d6e5
+generated: "2026-11-02T04:21:02.047826296Z"

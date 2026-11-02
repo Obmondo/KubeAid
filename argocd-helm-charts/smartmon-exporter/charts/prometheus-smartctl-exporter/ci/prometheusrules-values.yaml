@@ -1,5 +1,0 @@
-# enable prometheus rules
-prometheusRules:
-  enabled: true
-  extraLabels:
-    release: prometheus-operator

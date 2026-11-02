@@ -9,8 +9,10 @@
 {{- fail (printf "ebpf.trace.%s must be a list, e.g. --set 'ebpf.trace.%s={...}'" $name $name) }}
 {{- end }}
 {{- end }}
-{{- if not (or $ports $exePaths $cmdLines) }}
-{{- fail "ebpf.enabled is true but ebpf.trace.ports, ebpf.trace.exePaths and ebpf.trace.cmdLines are all empty: set at least one to choose what to trace" }}
+{{- $network := (.Values.ebpf.network | default (dict)).enabled }}
+{{- $tracing := or $ports $exePaths $cmdLines }}
+{{- if not (or $tracing $network) }}
+{{- fail "ebpf.enabled is true but ebpf.trace.ports, ebpf.trace.exePaths and ebpf.trace.cmdLines are all empty: set at least one to choose what to trace, or set ebpf.network.enabled=true" }}
 {{- end }}
 {{- $openPorts := list }}
 {{- range $ports }}
@@ -48,6 +50,10 @@ spec:
   mode: daemonset
   # spec.hostPID needs opentelemetry-operator v0.142.0 or later.
   hostPID: true
+  {{- if $network }}
+  # Network flow capture watches the node's interfaces, not only the pod's.
+  hostNetwork: true
+  {{- end }}
   serviceAccount: {{ include "openobserve-collector.serviceAccountName" . }}
   image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
   {{- with .Values.image.imagePullSecrets }}
@@ -101,76 +107,54 @@ spec:
   config:
     receivers:
       obi:
-        version: "2.0"
-        safety:
-          enforce_system_capabilities: true
-        engine:
-          propagation:
-            context_propagation: headers
-        policy:
-          default_action: exclude
-          match_order: first_match_wins
-        # Custom rules replace OBI's built-in exclusions, so the first three restore
-        # them (OBI v0.15.2's lists). Excludes must come before includes.
-        rules:
-          - action: exclude
-            name: collectors
-            match:
-              process:
-                exe_path_glob: ["*/obi", "obi", "*otelcol", "*otelcol-contrib", "*otelcol-contrib[!/]*"]
-          - action: exclude
-            name: system-namespaces
-            match:
-              kubernetes:
-                namespace_glob:
-                  - kube-system
-                  - kube-node-lease
-                  - local-path-storage
-                  - cert-manager
-                  - monitoring
-                  - gatekeeper-system
-                  - gke-connect
-                  - gke-gmp-system
-                  - gke-managed-cim
-                  - gke-managed-filestorecsi
-                  - gke-managed-metrics-server
-                  - gke-managed-system
-                  - gke-system
-                  - gke-managed-volumepopulator
-          - action: exclude
-            name: already-instrumented
-            match:
-              process:
-                exports_otlp:
-                  port: 4317
-                  protocol: protobuf
-          {{- if $openPorts }}
-          - action: include
-            name: ports
-            match:
-              process:
-                open_ports: {{ join "," $openPorts | quote }}
-          {{- end }}
-          {{- if $exePaths }}
-          - action: include
-            name: exe
-            match:
-              process:
-                exe_path_glob:
-                  {{- range $exePaths }}
-                  - {{ toString . | quote }}
-                  {{- end }}
-          {{- end }}
-          {{- if $cmdLines }}
-          - action: include
-            name: cmd
-            match:
-              process:
-                cmd_args_glob:
-                  {{- range $cmdLines }}
-                  - {{ toString . | quote }}
-                  {{- end }}
-          {{- end }}
+        # The legacy (v1) schema: OBI v0.15.2 rejects attribute selection in the
+        # receiver's 2.0 config.
+        {{- if $network }}
+        network:
+          enable: true
+        # Network flow metrics only, not application RED metrics.
+        metrics:
+          features: [network]
+        attributes:
+          select:
+            # Each node sees only its own pods' flows, so both ends' nodes let the UI add
+            # per-node shares without double counting. An include list replaces OBI's
+            # defaults, so it repeats them, plus host.id, the reporting node's resource
+            # attribute, which it also filters. The receiver matches the key as written, so
+            # it is OBI's internal name for obi.network.flow.bytes.
+            obi.network.flow:
+              include:
+                - host.id
+                - direction
+                - k8s.src.owner.name
+                - k8s.src.owner.type
+                - k8s.src.namespace
+                - k8s.dst.owner.name
+                - k8s.dst.owner.type
+                - k8s.dst.namespace
+                - k8s.cluster.name
+                - k8s.src.node.name
+                - k8s.dst.node.name
+        {{- end }}
+        enforce_sys_caps: true
+        ebpf:
+          context_propagation: headers
+        {{- if $tracing }}
+        # A process matching any selector is traced. OBI's built-in exclusions still
+        # apply and win over these: OBI and collector binaries, system namespaces, and
+        # apps that already export OTLP.
+        discovery:
+          instrument:
+            {{- if $openPorts }}
+            - open_ports: {{ join "," $openPorts | quote }}
+            {{- end }}
+            {{- if $exePaths }}
+            - exe_path: {{ printf "{%s}" (join "," $exePaths) | quote }}
+            {{- end }}
+            {{- if $cmdLines }}
+            - cmd_args: {{ printf "{%s}" (join "," $cmdLines) | quote }}
+            {{- end }}
+        {{- end }}
     processors:
       memory_limiter:
         {{- toYaml .Values.ebpf.memoryLimiter | nindent 8 }}
@@ -199,9 +183,28 @@ spec:
         {{- toYaml (index .Values.exporters "otlphttp/openobserve") | nindent 8 }}
       {{- end }}
     service:
+      {{- if $network }}
+      # On the host network, keep the collector's own metrics off the node's addresses.
+      telemetry:
+        metrics:
+          readers:
+            - pull:
+                exporter:
+                  prometheus:
+                    host: 127.0.0.1
+                    port: 8888
+      {{- end }}
       pipelines:
+        {{- if $tracing }}
         traces:
           receivers: [obi]
           processors: [memory_limiter, filter/node_processes, attributes, batch]
           exporters: [{{ if .Values.gateway.enabled }}otlphttp/gateway{{ else }}otlphttp/openobserve{{ end }}]
+        {{- end }}
+        {{- if $network }}
+        metrics:
+          receivers: [obi]
+          processors: [memory_limiter, attributes, batch]
+          exporters: [{{ if .Values.gateway.enabled }}otlphttp/gateway{{ else }}otlphttp/openobserve{{ end }}]
+        {{- end }}
 {{- end }}

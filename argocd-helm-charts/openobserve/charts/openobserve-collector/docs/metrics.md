@@ -1,6 +1,7 @@
 # Metrics Collection
 
-All metrics are sent to the `default` stream in OpenObserve.
+All metrics are sent to the `default` organization in OpenObserve (as set in the exporter
+endpoint); each metric is stored as its own stream, named after the metric.
 
 ---
 
@@ -20,6 +21,7 @@ All metrics are sent to the `default` stream in OpenObserve.
 | [prometheus-autodiscovery](#10-prometheus-autodiscovery) | Gateway | 30s | Any annotated pod's custom metrics |
 | [k8s_cluster](#11-k8s-cluster) | Gateway | 10s | Cluster-level resource usage/conditions |
 | [servicegraph](#12-service-graph) | Gateway | off by default | Service-to-service call metrics |
+| [eBPF network flows](#13-ebpf-network-flows) | eBPF DaemonSet (per node) | off by default | Bytes between workloads, any TCP or UDP protocol |
 
 ---
 
@@ -486,3 +488,105 @@ When enabled, derived from distributed traces — measures service-to-service ca
 **Labels on all service graph metrics:** `client`, `server`, `http.method`
 
 **Latency buckets:** 2ms, 4ms, 6ms, 8ms, 10ms, 50ms, 100ms, 200ms, 400ms, 800ms, 1s, 1.4s, 2s, 5s, 10s, 15s
+
+---
+
+## 13. eBPF Network Flows
+
+**Receiver:** `obi` in the eBPF DaemonSet (`<fullname>-ebpf`), with `ebpf.enabled: true` and `ebpf.network.enabled: true`
+**Source:** eBPF on each node's network interfaces; works for any TCP or UDP protocol, not only HTTP
+
+| Metric | Description |
+|--------|-------------|
+| `obi.network.flow.bytes` | Bytes sent from source to destination (cumulative counter). Queried as `obi_network_flow_bytes` |
+
+**Labels:**
+
+| Label | Values |
+|-------|--------|
+| `k8s_src_owner_name`, `k8s_dst_owner_name` | Owning workload, e.g. the Deployment name; the node name for host processes and host-network pods; empty for addresses outside the cluster and for node-local traffic such as kubelet probes |
+| `k8s_src_owner_type`, `k8s_dst_owner_type` | `Deployment`, `StatefulSet`, `DaemonSet`, `Job`, `CronJob`, `Pod`, `Service`, `Node`, `ReplicaSet` (only one whose name has no `-`), or empty. OBI guesses the CronJob from the Job's name: a Job whose name contains a `-` (e.g. `nightly-export`) is reported as a `CronJob` named by the part before the last `-` (`nightly`), so two such Jobs can merge into one owner (Jobs `blob-c` and `blob-d` both show as CronJob `blob`). A ReplicaSet whose name contains a `-` is likewise reported as a Deployment |
+| `k8s_src_namespace`, `k8s_dst_namespace` | Namespace; empty for nodes and outside addresses |
+| `direction` | `request` (client to server), `response` (server to client), or `unknown`, mostly when OBI didn't see the TCP handshake: UDP, and TCP connections already open when the eBPF pod started (keepalive, database and gRPC pools after an install or upgrade), until they reconnect. Part of a busy new TCP connection can also be `unknown` (about 1-3% of its bytes in one test) |
+| `k8s_src_node_name`, `k8s_dst_node_name` | Node running the source or destination pod; empty for Services, nodes and outside addresses. From chart 0.8.2 |
+| `host_id` | Machine ID of the node that reported the flow (not the node name) |
+| `k8s_cluster` | From `k8sCluster` |
+
+Pod names, IP addresses and ports are not included, which keeps the number of series low.
+`k8s_cluster_name` may be empty (OBI fills it only from eksctl, AKS or Cluster API node
+labels); use `k8s_cluster`.
+
+**Counting each connection once.** The same bytes are reported more than once:
+
+- traffic between pods on different nodes is reported by both nodes (two `host_id` values);
+- on the client's node, a connection to a Service is reported twice: once with the
+  Service as the other end (owner type `Service`) and once with the workload behind it.
+
+Which pod workloads talk to each other is exact; byte totals are not. Host processes and
+host-network pods on one node all share that node's identity, and outside addresses share
+an empty one. Drop the `Service` rows
+(or keep only them), and don't sum across `host_id`. A node reports only the flows of its
+own pods, and the bytes between a source node and a destination node are reported in full
+by both of those nodes and by no other. One edge on one node can have several series (e.g.
+`request` and `unknown`), so sum per reporting node first, take the `max` across reporting
+nodes for each pair of pod nodes, then add the pairs up. For example, bytes per second sent
+from each workload to another:
+
+```promql
+sum by (k8s_cluster, k8s_src_namespace, k8s_src_owner_name, k8s_dst_namespace, k8s_dst_owner_name) (
+  max by (k8s_cluster, k8s_src_namespace, k8s_src_owner_name, k8s_dst_namespace, k8s_dst_owner_name,
+          k8s_src_node_name, k8s_dst_node_name) (
+    sum by (k8s_cluster, k8s_src_namespace, k8s_src_owner_name, k8s_dst_namespace, k8s_dst_owner_name,
+            k8s_src_node_name, k8s_dst_node_name, host_id) (
+      rate(obi_network_flow_bytes{k8s_src_owner_type!="Service", k8s_dst_owner_type!="Service"}[5m])
+    )
+  )
+)
+```
+
+Adding `direction="request"` keeps only client-to-server bytes, but drops connections
+whose direction is `unknown` entirely: an edge carried only by a connection that was open
+before the eBPF pod started is missing until it reconnects, and busy edges lose the part
+counted as `unknown`. Without the filter such an edge shows up both ways, as each end
+sends bytes to the other.
+
+`max` avoids counting the bytes twice. Each node counts whole packets, headers
+included, so the two nodes' counts differ by up to a few percent, depending on the setup
+(headers, and receive offload merging packets). When either workload's pods all run on
+one node, that node sees nearly the whole total, but the workload rows can still
+undercount by several percent (0.93-0.95x of the payload for multi-second, rate-limited
+transfers in one test). Without the node labels (charts before 0.8.2) the query reduces
+to the `max` across reporting nodes, which undercounts workloads spread over several
+nodes, as each node reports only its own pods' share; `sum` across nodes instead counts
+traffic between nodes twice (about 2x when both ends are monitored). With two replicas of
+each end, one per node, in one test: 498 B/s per pair of nodes, against 364 for the `max`
+and 682 for the `sum`. While a chart upgrade rolls out, traffic between an upgraded node
+and one not yet upgraded is counted twice.
+
+For traffic sent to a Service, the `Service` rows are reported only by the client's
+node, so summing them counts each byte once wherever the clients run, and they were the
+most accurate total in testing: within about 1% of the payload, headers included, with
+clients on one node or both. They name the Service, not the workload
+behind it, and are absent for traffic sent straight to pods (headless Services,
+StatefulSet pod DNS names). A Service is never the client, so `k8s_dst_owner_type="Service"`
+already selects only the bytes the clients sent, and no `direction` filter is needed:
+
+```promql
+sum by (k8s_cluster, k8s_src_namespace, k8s_src_owner_name, k8s_dst_namespace, k8s_dst_owner_name) (
+  rate(obi_network_flow_bytes{k8s_dst_owner_type="Service"}[5m])
+)
+```
+
+Short bursts (0.8 and 6 seconds) were counted fully in testing. The undercount seen is
+in the workload rows of slower multi-second transfers (above), likely a race in how OBI
+drains its flow map.
+
+A flow series idle for about 6 minutes is dropped and starts again from 0 when traffic
+resumes. `rate()` and `increase()` handle this; subtracting two raw readings can go
+negative.
+
+When the gateway is enabled, its `k8sattributes` processor adds a `k8s_pod_ip` label to
+the flows. It is not an end of the flow: the eBPF pods use the node's network, and the
+values seen were the node's pod-network bridge or overlay address (e.g. `cni0` or
+`flannel.1`), not a pod's.
+

@@ -146,6 +146,10 @@ spec:
                     type: string
                   nullable: true
                   type: object
+                message:
+                  maxLength: 500
+                  minLength: 1
+                  type: string
                 mirroringInfo:
                   description: MirroringInfoSpec is the status of the pool/radosnamespace mirroring
                   properties:
@@ -711,6 +715,10 @@ spec:
                     type: string
                   nullable: true
                   type: object
+                message:
+                  maxLength: 500
+                  minLength: 1
+                  type: string
                 mirroringInfo:
                   description: MirroringInfoSpec is the status of the pool/radosnamespace mirroring
                   properties:
@@ -3207,7 +3215,18 @@ spec:
                       maximum: 65535
                       minimum: 0
                       type: integer
+                    scrapeTimeoutSeconds:
+                      description: |-
+                        ScrapeTimeoutSeconds determines the timeout of a prometheus scrape, in seconds. It must
+                        not be greater than the scrape interval, which defaults to 10s when unset. Defaults to the
+                        Prometheus global scrape timeout when unset.
+                      format: int64
+                      minimum: 1
+                      type: integer
                   type: object
+                  x-kubernetes-validations:
+                    - message: scrapeTimeoutSeconds must not be greater than interval, which defaults to 10s
+                      rule: '!has(self.scrapeTimeoutSeconds) || (has(self.interval) ? duration(self.interval).getSeconds() : 10) >= self.scrapeTimeoutSeconds'
                 network:
                   description: Network related configuration
                   nullable: true
@@ -9527,6 +9546,10 @@ spec:
                   description: Use only info and put mirroringStatus in it?
                   nullable: true
                   type: object
+                message:
+                  maxLength: 500
+                  minLength: 1
+                  type: string
                 mirroringStatus:
                   description: MirroringStatus is the filesystem mirroring status
                   properties:
@@ -9826,6 +9849,10 @@ spec:
                     type: string
                   nullable: true
                   type: object
+                message:
+                  maxLength: 500
+                  minLength: 1
+                  type: string
                 observedGeneration:
                   description: ObservedGeneration is the latest generation observed by the controller.
                   format: int64
@@ -12127,6 +12154,10 @@ spec:
                         type: string
                     type: object
                   type: array
+                message:
+                  maxLength: 500
+                  minLength: 1
+                  type: string
                 observedGeneration:
                   description: ObservedGeneration is the latest generation observed by the controller.
                   format: int64
@@ -12225,6 +12256,14 @@ spec:
                   description: The number of active gateway instances
                   minimum: 1
                   type: integer
+                interruptMode:
+                  description: |-
+                    InterruptMode controls whether SPDK runs in interrupt mode (true) or poll mode (false).
+                    In interrupt mode, SPDK reactors only consume CPU when processing I/O, dramatically
+                    reducing idle CPU usage. In poll mode, reactors spin at 100% CPU per core for lowest
+                    latency under heavy I/O workloads.
+                    If not set, defaults to true (interrupt mode).
+                  type: boolean
                 labels:
                   additionalProperties:
                     type: string
@@ -13058,6 +13097,10 @@ spec:
                         type: string
                     type: object
                   type: array
+                message:
+                  maxLength: 500
+                  minLength: 1
+                  type: string
                 observedGeneration:
                   description: ObservedGeneration is the latest generation observed by the controller.
                   format: int64
@@ -14758,6 +14801,13 @@ spec:
                             type: string
                           description: The labels-related configuration to add/set on each rgw service.
                           type: object
+                        trafficDistribution:
+                          description: The trafficDistribution to set on each rgw service.
+                          enum:
+                            - PreferClose
+                            - PreferSameZone
+                            - PreferSameNode
+                          type: string
                       type: object
                     sslCertificateRef:
                       description: The name of the secret that stores the ssl certificate for secure rgw connections
@@ -15712,6 +15762,8 @@ spec:
                   nullable: true
                   type: object
                 message:
+                  maxLength: 500
+                  minLength: 1
                   type: string
                 observedGeneration:
                   description: ObservedGeneration is the latest generation observed by the controller.
@@ -16087,6 +16139,68 @@ spec:
                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                       x-kubernetes-int-or-string: true
                   type: object
+                secretTemplate:
+                  description: |-
+                    SecretTemplate defines labels and annotations to add to the Secret that
+                    holds this user's credentials, for example to opt the Secret in to a
+                    tool that copies Secrets into other namespaces. Anyone who can edit this
+                    CephObjectStoreUser can use it to hand the credentials to such a tool.
+                    The labels app, user, rook_cluster and rook_object_store, which Rook
+                    sets on this Secret, are reserved.
+                  minProperties: 1
+                  properties:
+                    annotations:
+                      additionalProperties:
+                        description: |-
+                          AnnotationValue is a Kubernetes annotation value of at most 256 KiB. Its
+                          length is also capped at 262144 characters, the most a 256 KiB value can
+                          hold, because the API server needs that bound to accept the CEL rules that
+                          check a template's annotations.
+                        maxLength: 262144
+                        type: string
+                        x-kubernetes-validations:
+                          - message: annotation values must be at most 256 KiB
+                            rule: size(bytes(self)) <= 262144
+                      description: |-
+                        Annotations to add to the Secret, at most 256 KiB in total. The key
+                        cephx-keyring, and keys with a rook.io or *.rook.io prefix, are reserved.
+                      maxProperties: 32
+                      minProperties: 1
+                      type: object
+                      x-kubernetes-validations:
+                        - message: annotation keys must be valid Kubernetes annotation keys
+                          rule: self.all(k, !format.qualifiedName().validate(k.lowerAscii()).hasValue())
+                        - message: annotation key cephx-keyring is reserved by Rook
+                          rule: self.all(k, k != 'cephx-keyring')
+                        - message: annotation keys with a rook.io prefix are reserved by Rook
+                          rule: self.all(k, !k.matches('^([^/]*[.])?rook[.]io/'))
+                        - message: annotations must total at most 256 KiB
+                          rule: self.map(k, size(bytes(k)) + size(bytes(self[k]))).sum() <= 262144
+                    labels:
+                      additionalProperties:
+                        description: |-
+                          LabelValue is a Kubernetes label value: at most 63 characters, empty or
+                          alphanumeric at both ends, with '-', '_' and '.' allowed in between.
+                        maxLength: 63
+                        pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
+                        type: string
+                      description: |-
+                        Labels to add to the Secret. The key do_not_reconcile, and keys with a
+                        rook.io or *.rook.io prefix, are reserved.
+                      maxProperties: 32
+                      minProperties: 1
+                      type: object
+                      x-kubernetes-validations:
+                        - message: label keys must be valid Kubernetes label keys
+                          rule: self.all(k, !format.qualifiedName().validate(k).hasValue())
+                        - message: label key do_not_reconcile is reserved by Rook
+                          rule: self.all(k, k != 'do_not_reconcile')
+                        - message: label keys with a rook.io prefix are reserved by Rook
+                          rule: self.all(k, !k.matches('^([^/]*[.])?rook[.]io/'))
+                  type: object
+                  x-kubernetes-validations:
+                    - message: label keys app, user, rook_cluster and rook_object_store are reserved by Rook
+                      rule: '!has(self.labels) || self.labels.all(k, !(k in [''app'', ''user'', ''rook_cluster'', ''rook_object_store'']))'
                 store:
                   description: The store the user will be created in
                   type: string

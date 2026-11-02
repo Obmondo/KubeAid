@@ -17,7 +17,7 @@ spec:
   selector:
     matchLabels:
       {{- include "tetragon-operator.selectorLabels" . | nindent 6 }}
-  replicas: {{ .Values.tetragonOperator.replicas }}
+  replicas: {{ .Values.tetragonOperator.replicas | int64 }}
   template:
     metadata:
       {{- with .Values.tetragonOperator.podAnnotations }}
@@ -38,10 +38,10 @@ spec:
           - serve
           - --config-dir=/etc/tetragon/operator.conf.d/
         {{- if .Values.tetragonOperator.prometheus.enabled }}
-          - --metrics-bind-address={{ .Values.tetragonOperator.prometheus.address }}:{{ .Values.tetragonOperator.prometheus.port }}
+          - {{ printf "--metrics-bind-address=%v:%v" .Values.tetragonOperator.prometheus.address .Values.tetragonOperator.prometheus.port | quote }}
         {{- end }}
-        image: "{{ if .Values.tetragonOperator.image.override }}{{ .Values.tetragonOperator.image.override }}{{ else }}{{ .Values.tetragonOperator.image.repository }}:{{ .Values.tetragonOperator.image.tag }}{{ end }}"
-        imagePullPolicy: {{ .Values.tetragonOperator.image.pullPolicy }}
+        image: {{ .Values.tetragonOperator.image.override | default (printf "%v:%v" .Values.tetragonOperator.image.repository .Values.tetragonOperator.image.tag) | quote }}
+        imagePullPolicy: {{ .Values.tetragonOperator.image.pullPolicy | quote }}
         volumeMounts:
           - mountPath: /etc/tetragon/operator.conf.d/
             name: tetragon-operator-config
@@ -59,7 +59,7 @@ spec:
         {{- if .Values.tetragonOperator.prometheus.enabled }}
         ports:
           - name: metrics
-            containerPort: {{ .Values.tetragonOperator.prometheus.port }}
+            containerPort: {{ .Values.tetragonOperator.prometheus.port | int64 }}
             protocol: TCP
         {{- end }}
         livenessProbe:
@@ -83,7 +83,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- with .Values.tetragonOperator.priorityClassName }}
-      priorityClassName: "{{ . }}"
+      priorityClassName: {{ . | quote }}
       {{- end }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -102,6 +102,9 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "tetragon-operator.serviceAccount" . }}
+      {{- if (semverCompare ">= 1.33-0" .Capabilities.KubeVersion.Version) }}
+      hostUsers: {{ include "tetragon.bool" .Values.tetragonOperator.hostUsers }}
+      {{- end }}
       terminationGracePeriodSeconds: 10
       volumes:
         - name: tetragon-operator-config

@@ -224,9 +224,7 @@ deployment:
     # set those unless you're using a secret
     #RELAY_PASSWORD:
 
-  securityContext:
-    runAsUser: 5000
-    runAsGroup: 5000
+  securityContext: {}
 
   containerSecurityContext:
     readOnlyRootFilesystem: false # incompatible with the way docker-mailserver works
@@ -321,13 +319,15 @@ service:
   ##       to allocate a free IP from the pool.
   ## Default: Automatically assign a random IP
   # clusterIp:
+  ## IP family policy for the service. Options: SingleStack, PreferDualStack, RequireDualStack
+  ## Default: SingleStack
+  #ipFamilyPolicy:
+  ## List of IP families to use. Options: IPv4, IPv6
+  ## Order determines preference when ipFamilyPolicy is PreferDualStack or RequireDualStack
+  ## Default: Determined by cluster configuration
+  #ipFamilies:
   annotations: {}
   labels: {}
-  ## Whether to expose plaintext IMAP (port 143, and 10143 with proxyProtocol) on the Service.
-  ## Defaults to false: only TLS IMAPS (993) is exposed. STARTTLS-capable plaintext IMAP has
-  ## no business being reachable from outside the cluster - set to true only if you have a
-  ## specific client that cannot do IMAPS and you accept the risk.
-  exposePlaintextImap: false
 
 # Note this is a dictionary and not a list so individual keys can be overridden by --set or --value helm parameters
 persistent_volume_claims:
@@ -447,25 +447,22 @@ rspamd:
       secret:
 
 dovecot:
+  # Full text search using Dovecot's flatcurve plugin. See
+  # https://docker-mailserver.github.io/docker-mailserver/latest/config/advanced/full-text-search/
   fullTextSearch:
     enabled: false
-    verbose: 0 # 0 (silent), 1 (verbose) or 2 (debug)
+    # Match partial words (like the previous xapian partial=3 setting). Makes the index much larger.
+    substringSearch: true
+    # Log flatcurve debug messages
+    debug: false
     resources:
-      memory: 2GB
-    cron:
-      enabled: true       # Optimize index every day
-      schedule: 0 4 * * * # Every day at 4am
+      # Limit the RAM usage of each indexer-worker process, ex: 512M, 1G, 2G
+      memory: 2G
 
 proxyProtocol:
   enabled: true
   # List of sources (in CIDR format, space-separated) to permit PROXY protocol from
   trustedNetworks: "10.0.0.0/8 192.168.0.0/16 172.16.0.0/12"
-
-tls:
-  # Require TLS on outbound mail delivery (smtp_tls_security_level = encrypt) instead of
-  # the Postfix default opportunistic behaviour (may). Mail to servers without TLS support
-  # will bounce rather than send in cleartext.
-  enforceOutbound: false
 
 # when metrics is enabled, we mount subpath log from pvc into /var/log/mail
 metrics:
@@ -582,27 +579,48 @@ configMaps:
         {{- end -}}
       {{- end -}}
 
-  fts-xapian-plugin.conf:
+  fts-flatcurve.conf:
     create: true
-    path: /etc/dovecot/conf.d/10-plugin.conf
+    path: /etc/dovecot/conf.d/90-fts-flatcurve.conf
     data: |
       {{- if .Values.dovecot.fullTextSearch.enabled }}
-        mail_plugins = $mail_plugins fts fts_xapian
-
-        plugin {
-            fts = xapian
-            fts_xapian = partial=3 full=20 verbose={{ .Values.dovecot.fullTextSearch.verbose }}
-
-            fts_autoindex = yes
-            fts_enforced = yes
-
-            # Index attachements
-            fts_decoder = decode2text
+        mail_plugins {
+          fts = yes
+          fts_flatcurve = yes
         }
 
+        fts_autoindex = yes
+
+        # Don't spend time indexing mail that is about to be deleted
+        namespace inbox {
+          mailbox Trash {
+            fts_autoindex = no
+          }
+          mailbox Junk {
+            fts_autoindex = no
+          }
+        }
+
+        language_filters = normalizer-icu snowball stopwords
+        language_tokenizers = generic email-address
+        language_tokenizer_generic_algorithm = simple
+
+        language en {
+          default = yes
+          filters = lowercase snowball english-possessive stopwords
+        }
+
+        fts flatcurve {
+          substring_search = {{ ternary "yes" "no" .Values.dovecot.fullTextSearch.substringSearch }}
+        }
+
+        {{- if .Values.dovecot.fullTextSearch.debug }}
+
+        log_debug = category=fts-flatcurve
+        {{- end }}
+
         service indexer-worker {
-            # limit size of indexer-worker RAM usage, ex: 512MB, 1GB, 2GB
-            vsz_limit = {{ .Values.dovecot.fullTextSearch.resources.memory }}
+          vsz_limit = {{ .Values.dovecot.fullTextSearch.resources.memory }}
         }
       {{- end -}}
 
@@ -614,7 +632,7 @@ configMaps:
 
       {{- if .Values.proxyProtocol.enabled }}
       # NOTE: Keep in sync with upstream advice:
-      # https://github.com/docker-mailserver/docker-mailserver/blob/v15.0.0/docs/content/examples/tutorials/mailserver-behind-proxy.md?plain=1#L238-L268
+      # https://github.com/docker-mailserver/docker-mailserver/blob/v16.0.1/docs/content/examples/tutorials/mailserver-behind-proxy.md
 
       # Duplicate the config for the submission(s) service ports (587 / 465) with adjustments for the PROXY ports (10587 / 10465) and `syslog_name` setting:
       postconf -Mf submission/inet | sed -e s/^submission/10587/ -e 's/submission/submission-proxyprotocol/' >> /etc/postfix/master.cf
@@ -622,7 +640,7 @@ configMaps:
       # Enable PROXY Protocol support for these new service variants:
       postconf -P 10587/inet/smtpd_upstream_proxy_protocol=haproxy
       postconf -P 10465/inet/smtpd_upstream_proxy_protocol=haproxy
-      
+
       # Create a variant for port 25 too (NOTE: Port 10025 is already assigned in DMS to Amavis):
       postconf -Mf smtp/inet | sed -e s/^smtp/12525/ >> /etc/postfix/master.cf
       # Enable PROXY Protocol support:
@@ -634,12 +652,6 @@ configMaps:
 
       # Add the `proxy:` prefix to share this cache between each running postscreen service via `proxymap`:
       postconf 'postscreen_cache_map = proxy:btree:$data_directory/postscreen_cache'
-      {{- end }}
-
-      {{- if .Values.tls.enforceOutbound }}
-      # Require TLS on outbound delivery instead of opportunistic (may) - mail to servers
-      # without TLS support will bounce rather than send in cleartext.
-      postconf -e 'smtp_tls_security_level = encrypt'
       {{- end }}
 
 ## The secrets key works the same way as the configs key. Use secrets to store sensitive information,

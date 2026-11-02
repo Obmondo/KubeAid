@@ -28,6 +28,9 @@ spec:
         {{- with .Values.auth.O2_AI_INTERNAL_SECRET }}
         checksum/o2-ai-internal-secret: {{ printf "%s-%s" $.Release.Name . | sha256sum }}
         {{- end }}
+        {{- if and .Values.enterprise.parameters.ZO_MASTER_ENCRYPTION_KEY (not .Values.externalSecret.enabled) }}
+        checksum/master-encryption-key: {{ printf "%s-%s" $.Release.Name .Values.enterprise.parameters.ZO_MASTER_ENCRYPTION_KEY | sha256sum }}
+        {{- end }}
       labels:
         {{- include "openobserve.selectorLabels" . | nindent 8 }}
         role: alertquerier

@@ -67,7 +67,8 @@ agent:
 
 `ebpf.enabled: true` adds a separate DaemonSet, `<fullname>-ebpf`, that traces selected
 processes with the collector's `obi` receiver (OpenTelemetry eBPF Instrumentation). Choose
-what to trace by port, executable path or command line; at least one is required:
+what to trace by port, executable path or command line; at least one is required unless
+`ebpf.network.enabled` is true:
 
 ```yaml
 ebpf:
@@ -82,6 +83,24 @@ It needs OpenTelemetry operator v0.142.0 or later. On older operators `spec.host
 rejected or silently dropped, and then nothing is traced. The eBPF pods are privileged and
 share the host PID namespace, so the release namespace must allow privileged pods. See
 [docs/traces.md](docs/traces.md#ebpf-tracing) for details and limits.
+
+`ebpf.network.enabled: true` also sends network flow metrics from the same DaemonSet:
+`obi.network.flow.bytes`, the bytes sent between workloads over any TCP or UDP protocol,
+labelled with the source and destination owner (Deployment, StatefulSet, Node, ...),
+namespace and node. Use it to map which workloads talk to each other. It works with or without
+trace selectors, and runs the eBPF pods on the host network. The collector's own metrics
+then listen on `127.0.0.1:8888` of each node, so that port must be free there, and the
+operator's `<fullname>-ebpf-collector-monitoring` Service can't be scraped:
+
+```yaml
+ebpf:
+  enabled: true
+  network:
+    enabled: true
+```
+
+See [docs/metrics.md](docs/metrics.md#13-ebpf-network-flows) for the labels and how the
+same bytes can be reported more than once.
 
 ## Development
 

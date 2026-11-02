@@ -28,6 +28,10 @@ spec:
         {{- with .Values.auth.O2_AI_INTERNAL_SECRET }}
         checksum/o2-ai-internal-secret: {{ printf "%s-%s" $.Release.Name . | sha256sum }}
         {{- end }}
+        {{- if and .Values.enterprise.parameters.ZO_MASTER_ENCRYPTION_KEY (not .Values.externalSecret.enabled) }}
+        checksum/master-encryption-key: {{ printf "%s-%s" $.Release.Name .Values.enterprise.parameters.ZO_MASTER_ENCRYPTION_KEY | sha256sum }}
+        {{- end }}
+        checksum/report-server-secret: {{ printf "%s-%s" $.Release.Name (include "openobserve.reportServerSecret" $) | sha256sum }}
       labels:
         {{- include "openobserve.selectorLabels" . | nindent 8 }}
         role: scheduler
@@ -115,6 +119,11 @@ spec:
           env:
             - name: ZO_NODE_ROLE
               value: "alertmanager"
+            - name: ZO_REPORT_SERVER_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "openobserve.reportServerSecretName" . }}
+                  key: ZO_REPORT_SERVER_SECRET
             - name: K8S_CONTAINER_NAME
               value: "{{ .Chart.Name }}-scheduler"
             {{- include "openobserve.k8sMetaEnv" . | nindent 12 }}
