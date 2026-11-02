@@ -7,9 +7,21 @@ spec:
   concurrencyPolicy: Forbid
   jobTemplate:
     spec:
+      # a run stuck on mounting the PVC would block every run after it
+      activeDeadlineSeconds: 1800
       template:
         spec:
           restartPolicy: Never
+          # the web pod's node already has the PVC mounted
+          affinity:
+            podAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 100
+                  podAffinityTerm:
+                    labelSelector:
+                      matchLabels:
+                        app.kubernetes.io/name: matomo
+                    topologyKey: kubernetes.io/hostname
           containers:
             - name: archive
               image: {{ include "matomo.image" . }}
