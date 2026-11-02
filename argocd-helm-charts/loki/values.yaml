@@ -96,11 +96,6 @@ loki:
   test:
     enabled: false
 
-  # Loki ships its own MinIO subchart for object storage. KubeAid has dedicated
-  # charts for that (minio, garage, rook-ceph), use one of those instead.
-  minio:
-    enabled: false
-
   monitoring:
     # Requires kube-prometheus (the Prometheus Operator CRDs) in the cluster.
     serviceMonitor:
