@@ -130,7 +130,8 @@ global:
       # endpointURL: ""     # object store endpoint
       # secretName: ""      # Kubernetes Secret holding cloud credentials
 
-    # -- Logical backup configuration that uses ghcr.io/obmondo/logical-backup.
+    # -- Logical backup configuration that uses ghcr.io/obmondo/postgres-logical-backup.
+    # Dumps are written to <bucket>/cnpg/<scope>/logical_backups/.
     logicalbackup:
       enabled: false
 

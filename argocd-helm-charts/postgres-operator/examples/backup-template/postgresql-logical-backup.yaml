@@ -15,7 +15,7 @@ spec:
         spec:
           containers:
             - name: logical-backup
-              image: ghcr.io/obmondo/logical-backup:1.0.1
+              image: ghcr.io/obmondo/postgres-logical-backup:26.10.0
               imagePullPolicy: IfNotPresent
               env:
                 - name: POD_NAMESPACE
@@ -86,7 +86,7 @@ spec:
                 - name: PG_VERSION
                   value: "{{ (.Values.postgres.logicalbackup).pgversion | default 16 }}"
                 - name: POSTGRES_OPERATOR
-                  value: cngp
+                  value: cnpg
               resources:
                 limits:
                   memory: 500Mi
