@@ -2,7 +2,8 @@ apiVersion: v2
 name: kube2iam
 version: 1.0.0
 dependencies:
-  - name: kube2iam
-    version: "2.6.0"
-    repository: https://jtblin.github.io/kube2iam/
+  - name: kube2iam-chart
+    alias: kube2iam
+    version: "0.15.0"
+    repository: oci://ghcr.io/jtblin
     #repository: "oci://ghcr.io/Obmondo"
