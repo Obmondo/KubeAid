@@ -5,3 +5,9 @@ keda:
     revisionHistoryLimit: 0
   webhooks:
     revisionHistoryLimit: 0
+
+  # The scaledjobs CRD is too big for client-side apply, so the annotation forces
+  # server-side apply.
+  crds:
+    additionalAnnotations:
+      argocd.argoproj.io/sync-options: ServerSideApply=true
