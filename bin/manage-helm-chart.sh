@@ -467,7 +467,7 @@ function update_helm_chart {
         # Compare the dates first, if date is not matching current date, update the cache file
         # Add the repo
         if ! compare_dates; then
-          if ! helm repo list -o yaml | yq eval -e '.[].name'| grep "$HELM_CHART_NAME" >/dev/null 2>&1; then
+          if ! helm repo list -o yaml | yq eval '.[].name' | grep -Fx "$HELM_CHART_NAME" >/dev/null 2>&1; then
             echo "Adding Helm repository $HELM_REPOSITORY_URL"
             helm repo add "$HELM_CHART_NAME" "$HELM_REPOSITORY_URL" >/dev/null || {
               echo "Failed to add repository $HELM_REPOSITORY_URL for chart $HELM_CHART_NAME. Skipping."
