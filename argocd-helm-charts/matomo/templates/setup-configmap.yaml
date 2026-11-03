@@ -46,6 +46,8 @@ data:
     {{- range .Values.plugins }}
     console plugin:activate {{ .name }}
     {{- end }}
+    # plugins come from .Values.plugins, and its hourly matomo.org check fails the archive job when it times out
+    console plugin:deactivate Marketplace
     console config:set \
       'General.trusted_hosts={{ include "matomo.hosts" . }}' \
       'General.enable_trusted_host_check=1' \

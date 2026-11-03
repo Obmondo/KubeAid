@@ -7,8 +7,8 @@ spec:
   concurrencyPolicy: Forbid
   jobTemplate:
     spec:
-      # a run stuck on mounting the PVC would block every run after it
-      activeDeadlineSeconds: 1800
+      # a full run can take over 30 min, this is only for one stuck on the PVC mount
+      activeDeadlineSeconds: 7200
       template:
         spec:
           restartPolicy: Never

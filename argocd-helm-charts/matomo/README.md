@@ -23,7 +23,8 @@ a plugin whose database columns are only added on the next run; 5.9 does this wi
 `log_visit.ai_agent_name`. After that it activates the plugins and writes `trusted_hosts`, the proxy
 settings and the OIDC settings to `config.ini.php`. It also sets `enable_auto_update = 0` and
 `enable_update_communication = 0`, because the version comes from `image.tag` and the one-click updater and
-update emails would only get in the way. The pod has a checksum of the setup ConfigMap as an annotation, so
+update emails would only get in the way. It turns off the Marketplace too, as plugins come from `plugins`
+and its hourly check against matomo.org fails the archive job when it times out. The pod has a checksum of the setup ConfigMap as an annotation, so
 it restarts when these values change.
 
 The `matomo-archive` CronJob runs `core:archive` every 5 minutes, which also runs the scheduled tasks. It
