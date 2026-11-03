@@ -19,7 +19,7 @@ tests:
               severity: critical
               alert_id: blackbox_http_endpoint_down
             exp_annotations:
-              summary: HTTP endpoint is down
+              summary: HTTP endpoint is down.
               description: Probe to **obmondo.com** is failing.
 
   # =========================
@@ -38,7 +38,7 @@ tests:
               severity: critical
               alert_id: blackbox_http_5xx
             exp_annotations:
-              summary: HTTP 5xx responses detected
+              summary: HTTP 5xx responses detected.
               description: '**obmondo.com** is returning server errors with HTTP status code: 500'
 
   # =========================
@@ -57,7 +57,7 @@ tests:
               severity: warning
               alert_id: blackbox_tls_expiring
             exp_annotations:
-              summary: TLS certificate nearing expiry
+              summary: TLS certificate nearing expiry.
               description: TLS cert for **obmondo.com** expires in less than 15 days.
 
   # =========================
@@ -76,7 +76,7 @@ tests:
               severity: critical
               alert_id: blackbox_tls_expiring_soon
             exp_annotations:
-              summary: TLS certificate expiring soon
+              summary: TLS certificate expiring soon.
               description: TLS cert for **obmondo.com** expires in less than 7 days.
 
   # =========================
@@ -95,7 +95,7 @@ tests:
               severity: warning
               alert_id: blackbox_high_latency
             exp_annotations:
-              summary: High response latency detected
+              summary: High response latency detected.
               description: '**obmondo.com** is responding slowly (~3 seconds).'
 
   # =========================
@@ -114,7 +114,7 @@ tests:
               severity: critical
               alert_id: blackbox_very_high_latency
             exp_annotations:
-              summary: Very high latency detected
+              summary: Very high latency detected.
               description: '**obmondo.com** latency is critically high (~6 seconds).'
 
   # =========================
@@ -133,7 +133,7 @@ tests:
               severity: warning
               alert_id: blackbox_redirect_loop
             exp_annotations:
-              summary: Too many HTTP redirects
+              summary: Too many HTTP redirects.
               description: '**obmondo.com** may have a redirect loop.'
 
   # =========================
@@ -154,7 +154,7 @@ tests:
               severity: critical
               alert_id: blackbox_dns_failure
             exp_annotations:
-              summary: DNS resolution failed
+              summary: DNS resolution failed.
               description: DNS lookup failed for **obmondo.com**.
 
   # =========================
@@ -173,5 +173,5 @@ tests:
               severity: warning
               alert_id: blackbox_dns_slow
             exp_annotations:
-              summary: Slow DNS resolution
+              summary: Slow DNS resolution.
               description: '**obmondo.com** DNS lookup is slow (~2 seconds).'
