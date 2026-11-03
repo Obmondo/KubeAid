@@ -812,8 +812,13 @@ spec:
       - API_SERVER_HOST=$(echo "$API_SERVER_URL" | awk -F[/:] '{print $4}')
       - API_SERVER_PORT=$(echo "$API_SERVER_URL" | awk -F[/:] '{print $5}')
 
+      # The add-ons below are installed only by the node that ran 'kubeadm
+      # init'. Cluster API writes /run/kubeadm/kubeadm.yaml on that one
+      # machine; every control plane that joins later (scale-up, rollout,
+      # rebuilt node) gets kubeadm-join-config.yaml instead, and must not
+      # re-apply chart defaults over the add-ons ArgoCD manages.
       - |
-        if marker=$(kubectl -n default get configmap cilium-bootstrapped --ignore-not-found -o name) && [ -z "$marker" ]; then
+        if [ -f /run/kubeadm/kubeadm.yaml ]; then
           helm template cilium kubeaid/argocd-helm-charts/cilium \
             --namespace cilium \
             --values kubeaid/argocd-helm-charts/cilium/values.yaml \
@@ -822,8 +827,7 @@ spec:
             --set cilium.k8sServicePort=${API_SERVER_PORT} \
             --set-string 'cilium.extraArgs[0]=--devices=vswitch+\,eth0\,enp+\,eno+' \
             > /tmp/cilium.yaml \
-          && kubectl apply -f /tmp/cilium.yaml \
-          && kubectl -n default create configmap cilium-bootstrapped
+          && kubectl apply -f /tmp/cilium.yaml
         fi
 
       # Hetzner Cloud Controller Manager(s). Both apps install the SAME
@@ -847,7 +851,7 @@ spec:
 
       {{- if or (eq .Values.mode "hcloud") (eq .Values.mode "hybrid") }}
       - |
-        if marker=$(kubectl -n default get configmap ccm-hcloud-bootstrapped --ignore-not-found -o name) && [ -z "$marker" ]; then
+        if [ -f /run/kubeadm/kubeadm.yaml ]; then
           helm template ccm-hcloud kubeaid/argocd-helm-charts/ccm-hetzner \
             --namespace kube-system \
             --values kubeaid/argocd-helm-charts/ccm-hetzner/values.yaml \
@@ -859,14 +863,13 @@ spec:
             --set 'ccm-hetzner.additionalTolerations[0].effect=NoSchedule' \
             --set env.HCLOUD_LOAD_BALANCERS_ENABLED.value=false \
             > /tmp/ccm-hcloud.yaml \
-          && kubectl apply -f /tmp/ccm-hcloud.yaml \
-          && kubectl -n default create configmap ccm-hcloud-bootstrapped
+          && kubectl apply -f /tmp/ccm-hcloud.yaml
         fi
       {{- end }}
 
       {{- if or (eq .Values.mode "bare-metal") (eq .Values.mode "hybrid") }}
       - |
-        if marker=$(kubectl -n default get configmap ccm-hetzner-bootstrapped --ignore-not-found -o name) && [ -z "$marker" ]; then
+        if [ -f /run/kubeadm/kubeadm.yaml ]; then
           helm template ccm-hetzner kubeaid/argocd-helm-charts/ccm-hetzner \
             --namespace kube-system \
             --values kubeaid/argocd-helm-charts/ccm-hetzner/values.yaml \
@@ -878,8 +881,7 @@ spec:
             --set-string 'ccm-hetzner.args.controllers=cloud-node\,cloud-node-lifecycle' \
             {{- end }}
             > /tmp/ccm-hetzner.yaml \
-          && kubectl apply -f /tmp/ccm-hetzner.yaml \
-          && kubectl -n default create configmap ccm-hetzner-bootstrapped
+          && kubectl apply -f /tmp/ccm-hetzner.yaml
         fi
       {{- end }}
 
@@ -910,13 +912,12 @@ spec:
       # replace it because of the structural vSwitch blind spot. Also
       # remove the matching opt-out / TODO in kubeaid-cli at that point.
       - |
-        if marker=$(kubectl -n default get configmap kubelet-csr-approver-bootstrapped --ignore-not-found -o name) && [ -z "$marker" ]; then
+        if [ -f /run/kubeadm/kubeadm.yaml ]; then
           helm template kubelet-csr-approver kubeaid/argocd-helm-charts/kubelet-csr-approver \
             --namespace kube-system \
             --values kubeaid/argocd-helm-charts/kubelet-csr-approver/values.yaml \
             > /tmp/kubelet-csr-approver.yaml \
-          && kubectl apply -f /tmp/kubelet-csr-approver.yaml \
-          && kubectl -n default create configmap kubelet-csr-approver-bootstrapped
+          && kubectl apply -f /tmp/kubelet-csr-approver.yaml
         fi
       {{- end }}
 
@@ -938,14 +939,13 @@ spec:
       # logic is active from the first kubeadm-init onward, including
       # the window before ArgoCD itself is fully reconciled.
       - |
-        if marker=$(kubectl -n default get configmap hetzner-robot-bootstrapped --ignore-not-found -o name) && [ -z "$marker" ]; then
+        if [ -f /run/kubeadm/kubeadm.yaml ]; then
           helm template hetzner-robot kubeaid/argocd-helm-charts/hetzner-robot \
             --namespace kube-system \
             --values kubeaid/argocd-helm-charts/hetzner-robot/values.yaml \
             --set failoverIP={{ .Values.controlPlane.bareMetal.endpoint.host }} \
             > /tmp/hetzner-robot.yaml \
-          && kubectl apply -f /tmp/hetzner-robot.yaml \
-          && kubectl -n default create configmap hetzner-robot-bootstrapped
+          && kubectl apply -f /tmp/hetzner-robot.yaml
         fi
       {{- end }}
 
