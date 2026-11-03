@@ -23,7 +23,14 @@ on as an open-source patch.
 ### 2. Pull Request (PR) Process
 
 1. **Fork** the repository to your own GitHub account.
-2. **Clone** the project to your machine.
+2. **Clone your fork** to your machine and add the upstream repository:
+
+   ```bash
+   git clone https://github.com/<your-username>/KubeAid.git
+   cd KubeAid
+   git remote add upstream https://github.com/Obmondo/KubeAid.git
+   ```
+
 3. **Create a branch** locally with a succinct name (e.g., `feat/add-azure-support`).
 4. **Commit changes** to your own branch.
 5. **Push** your work back up to your fork.
@@ -53,8 +60,8 @@ Maintainers managing Helm chart updates and cutting releases should see the guid
 ### Build & Test Commands
 
 ```bash
-# Clone the repo
-git clone [https://github.com/Obmondo/KubeAid.git](https://github.com/Obmondo/KubeAid.git)
+# Clone your fork (replace <your-username> with your GitHub username)
+git clone https://github.com/<your-username>/KubeAid.git
 cd KubeAid
 
 # Install dependencies
