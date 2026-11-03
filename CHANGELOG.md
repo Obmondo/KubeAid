@@ -2,6 +2,15 @@
 
 All releases and the changes included in them (pulled from git commits added since last release) will be detailed in this file.
 
+## KubeAid Release Version 36.0.1
+
+### Bug Fixes
+
+- bc96ab8df fix(hetzner): install the bootstrap add-ons from the init node only
+- 07d5e4fc2 fix(matomo): run archive next to the web pod and stop stuck runs
+- 133c3a7e9 fix(kubeaid-backup-exporter): run v1.3.2, which reads dumps from cnpg/
+- ce847df2b fix(kubeaid-addons): run postgres-logical-backup 26.10.0 so dumps land under cnpg/
+
 ## KubeAid Release Version 36.0.0
 
 ### Major Version Upgrades
