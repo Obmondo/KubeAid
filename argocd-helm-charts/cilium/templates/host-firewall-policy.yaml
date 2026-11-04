@@ -67,14 +67,30 @@ spec:
     {{- end }}
 
     {{- if .Values.hostNetworkPolicy.privateCIDRs }}
-    # The cluster's private L2 (e.g. a Hetzner vSwitch), all ports. A node's
+    # The cluster's private L2 (e.g. a Hetzner vSwitch): the node-to-node ports
+    # only (VXLAN overlay, kubelet, Cilium health, apiserver, etcd). A node's
     # address there is not a node address until the CCM publishes it as an
     # InternalIP, so the identity rule above does not match the tunnel and
-    # kubelet traffic the node already sends from it.
+    # kubelet traffic the node already sends from it. SSH is not included;
+    # allowSshFrom governs it.
     - fromCIDR:
         {{- range .Values.hostNetworkPolicy.privateCIDRs }}
         - {{ if contains "/" . }}{{ . }}{{ else }}{{ . }}/32{{ end }}
         {{- end }}
+      toPorts:
+        - ports:
+            - port: "8472"
+              protocol: UDP
+            - port: "10250"
+              protocol: TCP
+            - port: "4240"
+              protocol: TCP
+            - port: "6443"
+              protocol: TCP
+            - port: "2379"
+              protocol: TCP
+            - port: "2380"
+              protocol: TCP
     {{- end }}
 
     # Public world ingress: configured public ports (80/443), plus SSH when

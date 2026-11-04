@@ -27,8 +27,9 @@ Two KubeAid-specific top-level keys render extra manifests from this wrapper's `
 
 - `hostNetworkPolicy` — a `CiliumClusterwideNetworkPolicy` (`kubeaid-host-firewall`) that locks down the host
   endpoint on every node: cluster-internal traffic by identity, SSH only from `allowSshFrom`, apiserver/etcd ports
-  only from `apiserverSourceCIDRs`, DHCP replies (68/UDP) only from `dhcpServerCIDRs`, all ports from the cluster's
-  private L2 subnets in `privateCIDRs`, plus `publicPorts` (default 80/443) and ICMP echo from the world. Disabled by default; enable it on bare-metal clusters where the public NIC
+  only from `apiserverSourceCIDRs`, DHCP replies (68/UDP) only from `dhcpServerCIDRs`, the node ports (VXLAN,
+  kubelet, Cilium health, apiserver, etcd) from the cluster's private L2 subnets in `privateCIDRs`, plus
+  `publicPorts` (default 80/443) and ICMP echo from the world. Disabled by default; enable it on bare-metal clusters where the public NIC
   has no cloud security group in front of it. See the [host-firewall guide](../../docs/guides/cilium-host-firewall.md).
 - `loadBalancerIPPool` — a list of CIDRs rendered into a `CiliumLoadBalancerIPPool` so Cilium LB-IPAM assigns them
   to `type: LoadBalancer` Services on bare-metal clusters without a cloud load balancer. Empty list = no pool.
@@ -58,7 +59,8 @@ loadBalancerIPPool:
 - Set `privateCIDRs` to the subnet of the nodes' private L2 (Hetzner vSwitch, cloud private network). Cilium
   trusts a node's addresses only once the CCM publishes them, so a node that already uses its private address for
   the VXLAN tunnel and kubelet traffic is "world" to its peers until then, and a joining control plane can sit
-  unreachable for CAPH and KCP although it is Ready.
+  unreachable for CAPH and KCP although it is Ready. The rule opens only 8472/UDP, 10250, 4240, 6443 and
+  2379-2380; SSH from the private L2 is still subject to `allowSshFrom`.
 - Argo CD is configured (in the [`argo-cd`](../argo-cd) chart) to exclude `CiliumIdentity`/`CiliumEndpoint`/
   `CiliumEndpointSlice` from tracking, to cut watched-event noise.
 
