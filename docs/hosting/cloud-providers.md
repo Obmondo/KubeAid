@@ -142,13 +142,7 @@ for the full field list.
 
 ### Azure Upgrade
 
-There are no `--new-k8s-version` / `--new-image-offer` flags. Edit `cluster.k8sVersion` (and the
-machine image fields) in `general.yaml`, then run:
-
-```bash
-kubeaid-cli cluster upgrade --cluster-name <cluster>
-# --skip-pr-workflow pushes changes directly instead of opening a PR
-```
+For upgrade instructions, see the [Cluster Upgrade Guide](../operations/cluster-upgrade.md).
 
 ### Azure Cleanup
 
