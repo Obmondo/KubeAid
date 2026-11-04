@@ -31,6 +31,7 @@ hostNetworkPolicy:
   publicPorts: [80, 443]        # Service ports allowed from the world
   apiserverSourceCIDRs: []      # CIDRs/IPs allowed to reach 6443/TCP; empty = no 6443 rule emitted
   dhcpServerCIDRs: []           # DHCP servers whose replies (68/UDP) are allowed; empty = no DHCP rule emitted
+  privateCIDRs: []              # Subnets of the nodes' private L2 (vSwitch), node ports only; empty = no rule emitted
 ```
 
 ### Example: Bare-Metal Production Cluster
@@ -55,6 +56,23 @@ hostNetworkPolicy:
 | Hetzner Hybrid | ✅ Yes | Bare-metal workers have exposed NICs |
 | HCloud-only | ❌ No | Hetzner Cloud firewall / security groups handle this |
 | AWS / Azure | ❌ No | Cloud-provider security groups handle this |
+
+## Nodes on a Private L2 (vSwitch)
+
+Cilium trusts a node's addresses only once the cloud controller manager publishes them on the Node object.
+A node that uses its private-network address earlier, for the VXLAN tunnel or for kubelet traffic, is
+"world" to its peers until then, and the policy drops that traffic on every port except the public ones.
+On a bare-metal cluster with a vSwitch this leaves a freshly joined control plane unreachable for CAPH and
+KCP although the node is Ready. List the private subnet in `privateCIDRs`; the rule allows the node ports
+from it (8472/UDP for the VXLAN overlay, 10250 kubelet, 4240 Cilium health, 6443 apiserver, 2379-2380
+etcd) and nothing else; SSH from the private L2 is still governed by `allowSshFrom`:
+
+```yaml
+hostNetworkPolicy:
+  enabled: true
+  privateCIDRs:
+    - "10.0.1.0/24"             # The vSwitch subnet shared by all nodes
+```
 
 ## Nodes That Get Their Address by DHCP
 
