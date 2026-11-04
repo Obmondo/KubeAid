@@ -171,6 +171,17 @@ controlPlane:
     # @schema
     machineType: cax11
     # @schema
+    # type: array
+    # items: { type: string, minLength: 1 }
+    # description: Server types to use, in order, when machineType cannot be created in every control-plane region (needs machineTypeFallback.enabled). Each must have the same CPU architecture as machineType (unless allowArchitectureChange) and at least its cores, memory and disk. Empty (default) = no fallback.
+    # @schema
+    fallbackMachineTypes: []
+    # @schema
+    # type: boolean
+    # description: Allow fallbackMachineTypes of another CPU architecture than machineType (e.g. x86 cpx for an arm64 cax). Only when hcloud.imageName exists for both architectures.
+    # @schema
+    allowArchitectureChange: false
+    # @schema
     # type: integer
     # minimum: 1
     # description: Desired number of control-plane replicas.
@@ -225,7 +236,9 @@ nodeGroups:
   # description: |
   #   HCloud node-groups. Item shape:
   #     name, replicas, minSize, maxSize, machineType, cpu, memory, rootVolumeSize,
-  #     labels (map), taints (array of {key,value,effect}).
+  #     labels (map), taints (array of {key,value,effect}), failureDomain,
+  #     fallbackMachineTypes (array of server types, see machineTypeFallback),
+  #     allowArchitectureChange (boolean, default false).
   # @schema
   hcloud: []
 
@@ -239,3 +252,61 @@ nodeGroups:
   #     name, labels (map), bareMetalHosts: [{ serverID, wwns: [ "0x..." ] }].
   # @schema
   bareMetal: []
+
+# Switch HCloud machines to another server type when the configured one cannot
+# be created in a region (not offered there, or out of capacity), so a dead
+# control-plane or worker node is replaced instead of looping on a type Hetzner
+# refuses. Server types to fall back to are listed per template in
+# controlPlane.hcloud.fallbackMachineTypes and nodeGroups.hcloud[].fallbackMachineTypes.
+# Needs Kyverno in the cluster. See README.md, "Server type fallback".
+machineTypeFallback:
+  # @schema
+  # type: boolean
+  # description: Deploy the machine-type picker and the Kyverno policy that applies its choice to new HCloudMachines. Only in mode hcloud and hybrid.
+  # @schema
+  enabled: false
+  # @schema
+  # type: string
+  # minLength: 1
+  # description: Image that runs the picker script; needs sh, kubectl, curl and jq. Pinned by digest.
+  # @schema
+  image: alpine/k8s:1.33.4@sha256:b0523f0a244ddc4c8e055aa335c040d3d78b3ead5528f4544395f7f9f69c7b68
+  # @schema
+  # type: integer
+  # minimum: 5
+  # description: Seconds between picker iterations (failed-machine check, overrides, retries).
+  # @schema
+  intervalSeconds: 30
+  # @schema
+  # type: integer
+  # minimum: 10
+  # description: Seconds between reads of the HCloud server type list (per-location availability and deprecation).
+  # @schema
+  apiIntervalSeconds: 60
+  # @schema
+  # type: integer
+  # minimum: 60
+  # description: Seconds a server type stays unusable in a region after a server of that type failed to be created there, whatever the API says.
+  # @schema
+  failureCooldownSeconds: 3600
+  # @schema
+  # type: boolean
+  # description: Delete Machines whose server was never created once their template has another server type, so they are recreated at once instead of after the MachineHealthCheck node startup timeout.
+  # @schema
+  deleteFailedMachines: true
+  # @schema
+  # type: string
+  # description: PriorityClass of the picker pod. Empty = none.
+  # @schema
+  priorityClassName: system-cluster-critical
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Container resources of the picker.
+  # @schema
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 128Mi

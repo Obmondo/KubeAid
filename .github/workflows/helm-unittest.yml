@@ -40,6 +40,13 @@ jobs:
             helmunittest/helm-unittest:latest \
             charts/aws charts/azure charts/hetzner
 
+      - name: Test the Hetzner machine-type picker script
+        run: |
+          shellcheck -s sh \
+            argocd-helm-charts/capi-cluster/charts/hetzner/files/machine-type-picker.sh \
+            argocd-helm-charts/capi-cluster/charts/hetzner/tests/machine-type-picker/run.sh
+          sh argocd-helm-charts/capi-cluster/charts/hetzner/tests/machine-type-picker/run.sh
+
       - name: Run helm-unittest on the crossplane-provider subcharts
         run: |
           docker run --rm \

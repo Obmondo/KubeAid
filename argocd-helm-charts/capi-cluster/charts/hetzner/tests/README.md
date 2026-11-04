@@ -99,6 +99,14 @@ additional overrides pinned in its `set:` block.
 | `hybrid-private-network_test.yaml` | `hybrid`     | –              | `../values.example.hybrid.private-network.yaml`   | –                                   |
 | `hybrid-public-network_test.yaml`  | `hybrid`     | –              | `../values.example.hybrid.public-network.yaml`    | –                                   |
 | `cluster-name-label_test.yaml`     | `hybrid`     | –              | `../values.example.hybrid.private-network.yaml`   | –                                   |
+| `machine-type-fallback_test.yaml`  | `hcloud`     | `private`      | `../values.example.hcloud.yaml`                   | `machineTypeFallback`, fallback lists, `global.*`; Kyverno via `capabilities` |
+
+The decision logic of the server type fallback picker (`files/machine-type-picker.sh`)
+has its own tests, plain `sh` + `jq`, no cluster needed:
+
+```bash
+sh argocd-helm-charts/capi-cluster/charts/hetzner/tests/machine-type-picker/run.sh
+```
 
 Each scenario asserts the specific differences the chart is supposed to make:
 

@@ -1,0 +1,224 @@
+suite: server type fallback for HCloud machines
+templates:
+  - MachineTypeFallback.yaml
+release:
+  name: demo
+  namespace: capi-cluster
+chart:
+  version: 1.0.0
+  appVersion: 1.0.0
+values:
+  - ../values.example.hcloud.yaml
+set:
+  mode: hcloud
+  network.type: private
+  global.clusterName: demo
+  global.kubernetes.version: v1.33.0
+  global.pods.cidrBlock: 10.244.0.0/16
+  global.additionalUsers: []
+  machineTypeFallback.enabled: true
+  controlPlane.hcloud.fallbackMachineTypes: [cax31, cax41]
+  nodeGroups.hcloud:
+    - name: md-0
+      replicas: 2
+      minSize: 2
+      maxSize: 5
+      machineType: cax31
+      fallbackMachineTypes: [cax41]
+      memory: 8
+      cpu: 4
+      rootVolumeSize: 80
+      labels: {}
+      taints: []
+    - name: md-pinned
+      replicas: 1
+      minSize: 1
+      maxSize: 1
+      machineType: cpx32
+      fallbackMachineTypes: [cpx42]
+      allowArchitectureChange: true
+      failureDomain: fsn1
+      memory: 8
+      cpu: 4
+      rootVolumeSize: 160
+      labels: {}
+      taints: []
+    - name: md-plain
+      replicas: 1
+      minSize: 1
+      maxSize: 1
+      machineType: cax31
+      memory: 8
+      cpu: 4
+      rootVolumeSize: 80
+      labels: {}
+      taints: []
+tests:
+  - it: renders nothing when disabled
+    capabilities: &kyverno
+      apiVersions:
+        - policies.kyverno.io/v1
+    set:
+      machineTypeFallback.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders nothing in bare-metal mode
+    capabilities: *kyverno
+    set:
+      mode: bare-metal
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: refuses to render without Kyverno, which applies the choice
+    asserts:
+      - failedTemplate:
+          errorPattern: "machineTypeFallback.enabled needs Kyverno"
+
+  - it: lists every template with fallbacks, with the regions it can land in
+    capabilities: *kyverno
+    documentSelector:
+      path: metadata.name
+      value: demo-machine-type-fallbacks
+    asserts:
+      - isKind:
+          of: ConfigMap
+      # Control plane: all control-plane regions (the region is not known when
+      # KCP creates the HCloudMachine). md-pinned: its failureDomain only.
+      # md-plain has no fallbacks and is left out.
+      - equal:
+          path: data["fallbacks.json"]
+          value: '{"demo-control-plane":{"allowArchitectureChange":false,"regions":["fsn1","nbg1","hel1"],"types":["cax21","cax31","cax41"]},"demo-md-0":{"allowArchitectureChange":false,"regions":["fsn1","nbg1","hel1"],"types":["cax31","cax41"]},"demo-md-pinned":{"allowArchitectureChange":true,"regions":["fsn1"],"types":["cpx32","cpx42"]}}'
+
+  - it: ships the picker script
+    capabilities: *kyverno
+    documentSelector:
+      path: metadata.name
+      value: demo-machine-type-picker-script
+    asserts:
+      - matchRegex:
+          path: data["machine-type-picker.sh"]
+          pattern: "^#!/bin/sh\n# machine-type-picker:"
+
+  - it: runs one picker at a time with the HCloud token CAPH uses
+    capabilities: *kyverno
+    set:
+      cloudCredentialsSecretName: my-hetzner-credentials
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 1
+      - equal:
+          path: spec.strategy.type
+          value: Recreate
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: HCLOUD_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: my-hetzner-credentials
+                key: hcloud
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OVERRIDES_CM
+            value: demo-machine-type-overrides
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DELETE_FAILED_MACHINES
+            value: "true"
+      - equal:
+          path: spec.template.spec.priorityClassName
+          value: system-cluster-critical
+
+  - it: leaves a dead node within 30 seconds and may run on control-plane nodes
+    capabilities: *kyverno
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.tolerations
+          content:
+            key: node.kubernetes.io/unreachable
+            operator: Exists
+            effect: NoExecute
+            tolerationSeconds: 30
+      - contains:
+          path: spec.template.spec.tolerations
+          content:
+            key: node-role.kubernetes.io/control-plane
+            operator: Exists
+            effect: NoSchedule
+
+  - it: lets the picker delete Machines and write only its own ConfigMaps
+    capabilities: *kyverno
+    documentSelector:
+      path: kind
+      value: Role
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["cluster.x-k8s.io"]
+            resources: ["machines"]
+            verbs: ["get", "list", "delete"]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: ["configmaps"]
+            resourceNames: ["demo-machine-type-overrides", "demo-machine-type-fallback-state"]
+            verbs: ["get", "patch"]
+
+  - it: rewrites the type only when an HCloudMachine is created, and never blocks it
+    capabilities: *kyverno
+    documentSelector:
+      path: kind
+      value: MutatingPolicy
+    asserts:
+      - equal:
+          path: metadata.name
+          value: demo-hcloud-machine-type-fallback
+      - equal:
+          path: spec.failurePolicy
+          value: Ignore
+      - equal:
+          path: spec.matchConstraints.resourceRules[0].operations
+          value: ["CREATE"]
+      - equal:
+          path: spec.matchConstraints.resourceRules[0].resources
+          value: ["hcloudmachines"]
+      - equal:
+          path: spec.matchConstraints.namespaceSelector.matchLabels["kubernetes.io/metadata.name"]
+          value: capi-cluster
+      - matchRegex:
+          path: spec.variables[1].expression
+          pattern: 'resource.Get\("v1", "configmaps", "capi-cluster", "demo-machine-type-overrides"\)'
+      - matchRegex:
+          path: spec.matchConditions[0].expression
+          pattern: '"cluster.x-k8s.io/cluster-name"\] == "demo"'
+
+  - it: lets the Kyverno admission controller read the overrides ConfigMap only
+    capabilities: *kyverno
+    documentSelector:
+      path: kind
+      value: ClusterRole
+    asserts:
+      - equal:
+          path: metadata.labels["rbac.kyverno.io/aggregate-to-admission-controller"]
+          value: "true"
+      - equal:
+          path: rules
+          value:
+            - apiGroups: [""]
+              resources: ["configmaps"]
+              resourceNames: ["demo-machine-type-overrides"]
+              verbs: ["get"]

@@ -1,0 +1,338 @@
+{{/*
+Server type fallback for HCloud machines.
+
+CAPH gives up for good when Hetzner cannot create a server type in a location
+(invalid_input: not offered there; resource_unavailable: no capacity), and
+HCloudMachine.spec.type / HCloudMachineTemplate.spec are immutable. Without this,
+a control-plane node that dies while its type is unavailable in that region is
+replaced by a Machine of the same type that fails forever.
+
+Two parts, both off unless machineTypeFallback.enabled:
+  - the picker Deployment (files/machine-type-picker.sh) works out which listed
+    type each template should use right now and writes it to the
+    <cluster>-machine-type-overrides ConfigMap, and deletes Machines whose
+    server was never created so they are retried on that type straight away;
+  - a Kyverno MutatingPolicy sets spec.type from that ConfigMap when an
+    HCloudMachine is created. Existing machines are never changed, and KCP /
+    MachineSets only compare the template they cloned from, so nothing rolls.
+*/}}
+{{- $fallback := .Values.machineTypeFallback | default dict }}
+{{- if and $fallback.enabled (or (eq .Values.mode "hcloud") (eq .Values.mode "hybrid")) }}
+{{- if not (.Capabilities.APIVersions.Has "policies.kyverno.io/v1") }}
+{{- fail "machineTypeFallback.enabled needs Kyverno in the cluster (policies.kyverno.io/v1 MutatingPolicy): the server type is swapped by a Kyverno policy. Enable the kyverno app first." }}
+{{- end }}
+{{- $cluster := .Values.global.clusterName }}
+{{- $name := printf "%s-machine-type-picker" $cluster }}
+{{- $fallbacksName := printf "%s-machine-type-fallbacks" $cluster }}
+{{- $overridesName := printf "%s-machine-type-overrides" $cluster }}
+{{- $stateName := printf "%s-machine-type-fallback-state" $cluster }}
+
+{{/* Template name -> ordered types (configured first) and the regions a
+     Machine from it can land in. KCP creates the HCloudMachine before the
+     Machine, so the control-plane region is not known at create time and the
+     pick has to work in all control-plane regions. Node groups without a
+     failureDomain can land in any of them too. */}}
+{{- $templates := dict }}
+{{- $cp := .Values.controlPlane.hcloud }}
+{{- if $cp.fallbackMachineTypes }}
+{{- $_ := set $templates (printf "%s-control-plane" $cluster) (dict
+      "types" (prepend $cp.fallbackMachineTypes $cp.machineType | uniq)
+      "regions" .Values.controlPlane.regions
+      "allowArchitectureChange" ($cp.allowArchitectureChange | default false)) }}
+{{- end }}
+{{- range $nodeGroup := .Values.nodeGroups.hcloud }}
+{{- if $nodeGroup.fallbackMachineTypes }}
+{{- $regions := $.Values.controlPlane.regions }}
+{{- if $nodeGroup.failureDomain }}
+{{- $regions = list $nodeGroup.failureDomain }}
+{{- end }}
+{{- $_ := set $templates (printf "%s-%s" $cluster $nodeGroup.name) (dict
+      "types" (prepend $nodeGroup.fallbackMachineTypes $nodeGroup.machineType | uniq)
+      "regions" $regions
+      "allowArchitectureChange" ($nodeGroup.allowArchitectureChange | default false)) }}
+{{- end }}
+{{- end }}
+{{- $script := .Files.Get "files/machine-type-picker.sh" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fallbacksName }}
+  labels:
+    app.kubernetes.io/name: hcloud-machine-type-picker
+    cluster.x-k8s.io/cluster-name: {{ $cluster }}
+data:
+  fallbacks.json: {{ toJson $templates | quote }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-script
+  labels:
+    app.kubernetes.io/name: hcloud-machine-type-picker
+    cluster.x-k8s.io/cluster-name: {{ $cluster }}
+data:
+  machine-type-picker.sh: |
+    {{- $script | nindent 4 }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  labels:
+    app.kubernetes.io/name: hcloud-machine-type-picker
+    cluster.x-k8s.io/cluster-name: {{ $cluster }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $name }}
+  labels:
+    app.kubernetes.io/name: hcloud-machine-type-picker
+    cluster.x-k8s.io/cluster-name: {{ $cluster }}
+rules:
+  - apiGroups: ["infrastructure.cluster.x-k8s.io"]
+    resources: ["hcloudmachines"]
+    verbs: ["get", "list"]
+  - apiGroups: ["cluster.x-k8s.io"]
+    resources: ["machines"]
+    verbs: ["get", "list", "delete"]
+  - apiGroups: ["cluster.x-k8s.io"]
+    resources: ["clusters"]
+    resourceNames: [{{ $cluster | quote }}]
+    verbs: ["get"]
+  # create cannot be limited by name; get and patch are.
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: [{{ $overridesName | quote }}, {{ $stateName | quote }}]
+    verbs: ["get", "patch"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: [{{ $fallbacksName | quote }}]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $name }}
+  labels:
+    app.kubernetes.io/name: hcloud-machine-type-picker
+    cluster.x-k8s.io/cluster-name: {{ $cluster }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    app.kubernetes.io/name: hcloud-machine-type-picker
+    cluster.x-k8s.io/cluster-name: {{ $cluster }}
+spec:
+  replicas: 1
+  # Never two pickers at once: both would write the same ConfigMaps and
+  # delete the same Machines.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: hcloud-machine-type-picker
+      app.kubernetes.io/instance: {{ $name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: hcloud-machine-type-picker
+        app.kubernetes.io/instance: {{ $name }}
+      annotations:
+        checksum/config: {{ printf "%s\n%s" (toJson $templates) $script | sha256sum }}
+    spec:
+      serviceAccountName: {{ $name }}
+      {{- with $fallback.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      # It matters most while a node is down, so it may run on control-plane
+      # nodes and leaves a dead node after 30s instead of the default 5 min.
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+        - key: node.kubernetes.io/not-ready
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 30
+        - key: node.kubernetes.io/unreachable
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 30
+      containers:
+        - name: picker
+          # Stock image (kubectl, curl, jq); all the logic is the mounted script.
+          image: {{ required "machineTypeFallback.image is required" $fallback.image }}
+          command: ["/bin/sh", "/scripts/machine-type-picker.sh"]
+          env:
+            - name: CLUSTER_NAME
+              value: {{ $cluster | quote }}
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            # The token CAPH itself uses (HetznerCluster.spec.hetznerSecretRef).
+            - name: HCLOUD_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.cloudCredentialsSecretName }}
+                  key: hcloud
+            - name: INTERVAL_SECONDS
+              value: {{ $fallback.intervalSeconds | quote }}
+            - name: API_INTERVAL_SECONDS
+              value: {{ $fallback.apiIntervalSeconds | quote }}
+            - name: FAILURE_COOLDOWN_SECONDS
+              value: {{ $fallback.failureCooldownSeconds | quote }}
+            - name: DELETE_FAILED_MACHINES
+              value: {{ $fallback.deleteFailedMachines | quote }}
+            - name: OVERRIDES_CM
+              value: {{ $overridesName | quote }}
+            - name: STATE_CM
+              value: {{ $stateName | quote }}
+            - name: OWNER_CM
+              value: {{ $fallbacksName | quote }}
+            # kubectl keeps its discovery cache under $HOME.
+            - name: HOME
+              value: /tmp
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - test $(( $(date +%s) - $(stat -c %Y /tmp/heartbeat) )) -lt 300
+            initialDelaySeconds: 120
+            periodSeconds: 60
+          {{- with $fallback.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: script
+              mountPath: /scripts
+              readOnly: true
+            - name: fallbacks
+              mountPath: /config
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: script
+          configMap:
+            name: {{ $name }}-script
+            defaultMode: 0555
+        - name: fallbacks
+          configMap:
+            name: {{ $fallbacksName }}
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi
+---
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: {{ $cluster }}-hcloud-machine-type-fallback
+  labels:
+    app.kubernetes.io/name: hcloud-machine-type-picker
+    cluster.x-k8s.io/cluster-name: {{ $cluster }}
+  annotations:
+    policies.kyverno.io/title: "HCloud server type fallback"
+    policies.kyverno.io/category: "Cluster API"
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/subject: "HCloudMachine"
+    policies.kyverno.io/description: >-
+      When an HCloudMachine of cluster {{ $cluster }} is created, sets spec.type
+      to the server type the machine-type picker chose for its template in
+      ConfigMap {{ .Release.Namespace }}/{{ $overridesName }}, and records the
+      configured type in the kubeaid.io/machine-type-requested annotation.
+      Templates without an entry, and updates, are left alone.
+    policies.kyverno.io/minversion: 1.19.0
+spec:
+  # A failure here must never block a machine from being created: without the
+  # rewrite the machine gets the configured type, as before this policy.
+  failurePolicy: Ignore
+  evaluation:
+    mutateExisting:
+      enabled: false
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["infrastructure.cluster.x-k8s.io"]
+        apiVersions: ["v1beta1"]
+        resources: ["hcloudmachines"]
+        operations: ["CREATE"]
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: {{ .Release.Namespace }}
+  matchConditions:
+    - name: cloned-from-a-template-of-this-cluster
+      expression: >-
+        has(object.metadata.labels)
+        && "cluster.x-k8s.io/cluster-name" in object.metadata.labels
+        && object.metadata.labels["cluster.x-k8s.io/cluster-name"] == {{ $cluster | quote }}
+        && has(object.metadata.annotations)
+        && "cluster.x-k8s.io/cloned-from-name" in object.metadata.annotations
+  variables:
+    - name: template
+      expression: 'string(object.metadata.annotations["cluster.x-k8s.io/cloned-from-name"])'
+    - name: overrides
+      expression: 'resource.Get("v1", "configmaps", {{ .Release.Namespace | quote }}, {{ $overridesName | quote }})'
+    - name: chosen
+      expression: >-
+        has(variables.overrides.data) && variables.template in variables.overrides.data
+        ? string(variables.overrides.data[variables.template]) : ""
+  mutations:
+    - patchType: JSONPatch
+      jsonPatch:
+        expression: >-
+          variables.chosen == "" || variables.chosen == object.spec.type ? [] : [
+          JSONPatch{op: "replace", path: "/spec/type", value: variables.chosen},
+          JSONPatch{op: "add", path: "/metadata/annotations/kubeaid.io~1machine-type-requested", value: string(object.spec.type)}
+          ]
+---
+# Lets the Kyverno admission controller read the overrides ConfigMap
+# (aggregated into its ClusterRole by this label).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $cluster }}-kyverno-read-machine-type-overrides
+  labels:
+    app.kubernetes.io/name: hcloud-machine-type-picker
+    cluster.x-k8s.io/cluster-name: {{ $cluster }}
+    rbac.kyverno.io/aggregate-to-admission-controller: "true"
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: [{{ $overridesName | quote }}]
+    verbs: ["get"]
+{{- end }}
