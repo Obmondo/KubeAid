@@ -49,17 +49,25 @@ spec:
               protocol: TCP
     {{- end }}
 
+    {{- if .Values.hostNetworkPolicy.allowDhcpReplies }}
+    # DHCP replies (server 67 -> client 68/UDP). Nodes that get their address
+    # by DHCP (e.g. a Hetzner Cloud private network) restart the exchange with a
+    # broadcast whenever systemd-networkd restarts, e.g. a systemd or netplan
+    # upgrade from unattended-upgrades. The server's unicast reply then has no
+    # conntrack entry and is dropped; the node keeps its old address only until
+    # the lease runs out (24h on Hetzner), then goes dark.
+    # With dhcpServerCIDRs set, replies are accepted from those servers only.
+    # Without it they are accepted from any source: Cilium cannot match the
+    # source port (67), and 68/UDP is the DHCP client port.
     {{- if .Values.hostNetworkPolicy.dhcpServerCIDRs }}
-    # DHCP replies (server 67 -> client 68/UDP) from the listed DHCP servers.
-    # Nodes that get their address by DHCP (Hetzner Cloud private network)
-    # restart the exchange with a broadcast whenever systemd-networkd restarts,
-    # e.g. via needrestart after unattended-upgrades. The server's unicast reply
-    # then has no conntrack entry and is dropped; the node keeps its old address
-    # only until the lease runs out (24h on Hetzner), then goes dark.
     - fromCIDR:
         {{- range .Values.hostNetworkPolicy.dhcpServerCIDRs }}
         - {{ if contains "/" . }}{{ . }}{{ else }}{{ . }}/32{{ end }}
         {{- end }}
+    {{- else }}
+    - fromEntities:
+        - world
+    {{- end }}
       toPorts:
         - ports:
             - port: "68"
