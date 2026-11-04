@@ -219,6 +219,15 @@ spec:
       preKubeadmCommands:
       - set -x
 
+      {{- if and ($.Values.controlPlane.endpoint).host ($.Values.controlPlane.loadBalancer).privateIP }}
+      {{/* Same reasoning as the control plane: workers resolve the endpoint
+           through the node resolver too, so the mapping has to exist before
+           kubeadm join. See KubeadmControlPlane.yaml for the full note. */}}
+      - |
+        sed -i '/[[:space:]]{{ ($.Values.controlPlane.endpoint).host }}$/d' /etc/hosts
+        echo '{{ ($.Values.controlPlane.loadBalancer).privateIP }} {{ ($.Values.controlPlane.endpoint).host }}' >> /etc/hosts
+      {{- end }}
+
       {{- if or (eq $.Values.mode "hybrid") (eq $.Values.network.type "private") }}
       - chmod +x /connect-nat-gateway.sh && /connect-nat-gateway.sh
       {{- end }}
