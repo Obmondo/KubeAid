@@ -15,6 +15,12 @@ hostNetworkPolicy:
   # network gateway (first IP of the network range, 10.0.0.1 for 10.0.0.0/16).
   # Empty by default; when empty, no DHCP rule is emitted (policy blocks it).
   dhcpServerCIDRs: []
+  # privateCIDRs lists the subnets of the cluster's private L2, e.g. a Hetzner
+  # vSwitch. A node sends tunnel and kubelet traffic from its address there
+  # before that address is advertised as an InternalIP, and the identity rule
+  # does not cover it yet; traffic from these subnets is trusted on all ports
+  # like node traffic. Empty by default; when empty, no rule is emitted.
+  privateCIDRs: []
 
 # loadBalancerIPPool is a list of CIDRs rendered into a CiliumLoadBalancerIPPool
 # so Cilium LB-IPAM hands them to type=LoadBalancer services. Use on bare-metal

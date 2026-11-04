@@ -40,3 +40,32 @@ tests:
                   - port: "68"
                     protocol: UDP
           count: 1
+
+  - it: renders no private-network rule when privateCIDRs is unset
+    set:
+      hostNetworkPolicy.enabled: true
+    asserts:
+      - notContains:
+          path: spec.ingress
+          content:
+            fromCIDR:
+              - 10.0.1.0/24
+          any: true
+
+  # A node on the private L2 sends tunnel and kubelet traffic from its address
+  # there before the CCM publishes it as an InternalIP; until then the identity
+  # rule does not match it and the policy drops it as world.
+  - it: allows all ports from each privateCIDRs entry, bare IPs as /32
+    set:
+      hostNetworkPolicy.enabled: true
+      hostNetworkPolicy.privateCIDRs:
+        - 10.0.1.0/24
+        - 10.0.2.1
+    asserts:
+      - contains:
+          path: spec.ingress
+          content:
+            fromCIDR:
+              - 10.0.1.0/24
+              - 10.0.2.1/32
+          count: 1
