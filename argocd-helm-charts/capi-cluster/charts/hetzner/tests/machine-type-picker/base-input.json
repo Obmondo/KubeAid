@@ -1,0 +1,60 @@
+{
+  "now": 1793750400,
+  "cooldown": 3600,
+  "cluster": "demo",
+  "deleteFailedMachines": true,
+  "fallbacks": {
+    "demo-control-plane": {
+      "types": ["cax21", "cax31", "cpx31"],
+      "regions": ["fsn1", "nbg1", "hel1"],
+      "allowArchitectureChange": false
+    },
+    "demo-md-0": {
+      "types": ["cpx32", "cpx42", "cx33"],
+      "regions": ["fsn1"],
+      "allowArchitectureChange": false
+    }
+  },
+  "serverTypes": [
+    {
+      "name": "cax21", "architecture": "arm", "cores": 4, "memory": 8, "disk": 80,
+      "locations": [
+        {"name": "fsn1", "available": true, "deprecation": null},
+        {"name": "nbg1", "available": true, "deprecation": null},
+        {"name": "hel1", "available": true, "deprecation": null}
+      ]
+    },
+    {
+      "name": "cax31", "architecture": "arm", "cores": 8, "memory": 16, "disk": 160,
+      "locations": [
+        {"name": "fsn1", "available": true, "deprecation": null},
+        {"name": "nbg1", "available": true, "deprecation": null},
+        {"name": "hel1", "available": true, "deprecation": null}
+      ]
+    },
+    {
+      "name": "cpx31", "architecture": "x86", "cores": 4, "memory": 8, "disk": 160,
+      "locations": [
+        {"name": "fsn1", "available": true, "deprecation": null},
+        {"name": "nbg1", "available": true, "deprecation": null},
+        {"name": "hel1", "available": true, "deprecation": null}
+      ]
+    },
+    {
+      "name": "cpx32", "architecture": "x86", "cores": 4, "memory": 8, "disk": 160,
+      "locations": [{"name": "fsn1", "available": true, "deprecation": null}]
+    },
+    {
+      "name": "cpx42", "architecture": "x86", "cores": 8, "memory": 16, "disk": 320,
+      "locations": [{"name": "fsn1", "available": true, "deprecation": null}]
+    },
+    {
+      "name": "cx33", "architecture": "x86", "cores": 4, "memory": 8, "disk": 80,
+      "locations": [{"name": "fsn1", "available": true, "deprecation": null}]
+    }
+  ],
+  "hcloudMachines": [],
+  "machines": [],
+  "overrides": {},
+  "state": {}
+}

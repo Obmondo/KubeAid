@@ -159,6 +159,21 @@
         "hcloud": {
           "additionalProperties": false,
           "properties": {
+            "allowArchitectureChange": {
+              "default": false,
+              "description": "Allow fallbackMachineTypes of another CPU architecture than machineType (e.g. x86 cpx for an arm64 cax). Only when hcloud.imageName exists for both architectures.",
+              "title": "allowArchitectureChange",
+              "type": "boolean"
+            },
+            "fallbackMachineTypes": {
+              "description": "Server types to use, in order, when machineType cannot be created in every control-plane region (needs machineTypeFallback.enabled). Each must have the same CPU architecture as machineType (unless allowArchitectureChange) and at least its cores, memory and disk. Empty (default) = no fallback.",
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "title": "fallbackMachineTypes",
+              "type": "array"
+            },
             "floatingIPs": {
               "description": "Floating IPs to bind (/32) on every control-plane node's primary network interface via netplan, so a host-network service stays reachable at a stable public IP across CP failures (e.g. NetBird Coturn fronted by hcloud-fip-controller, which moves the API-level assignment but not the OS interface). Empty (default) = no binding.",
               "items": {
@@ -309,6 +324,67 @@
       "title": "hcloud",
       "type": "object"
     },
+    "machineTypeFallback": {
+      "additionalProperties": false,
+      "properties": {
+        "apiIntervalSeconds": {
+          "default": 60,
+          "description": "Seconds between reads of the HCloud server type list (per-location availability and deprecation).",
+          "minimum": 10,
+          "title": "apiIntervalSeconds",
+          "type": "integer"
+        },
+        "deleteFailedMachines": {
+          "default": true,
+          "description": "Delete Machines whose server was never created once their template has another server type, so they are recreated at once instead of after the MachineHealthCheck node startup timeout.",
+          "title": "deleteFailedMachines",
+          "type": "boolean"
+        },
+        "enabled": {
+          "default": false,
+          "description": "Deploy the machine-type picker and the Kyverno policy that applies its choice to new HCloudMachines. Only in mode hcloud and hybrid.",
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "failureCooldownSeconds": {
+          "default": 3600,
+          "description": "Seconds a server type stays unusable in a region after a server of that type failed to be created there, whatever the API says.",
+          "minimum": 60,
+          "title": "failureCooldownSeconds",
+          "type": "integer"
+        },
+        "image": {
+          "default": "alpine/k8s:1.33.4@sha256:b0523f0a244ddc4c8e055aa335c040d3d78b3ead5528f4544395f7f9f69c7b68",
+          "description": "Image that runs the picker script; needs sh, kubectl, curl and jq. Pinned by digest.",
+          "minLength": 1,
+          "title": "image",
+          "type": "string"
+        },
+        "intervalSeconds": {
+          "default": 30,
+          "description": "Seconds between picker iterations (failed-machine check, overrides, retries).",
+          "minimum": 5,
+          "title": "intervalSeconds",
+          "type": "integer"
+        },
+        "priorityClassName": {
+          "default": "system-cluster-critical",
+          "description": "PriorityClass of the picker pod. Empty = none.",
+          "title": "priorityClassName",
+          "type": "string"
+        },
+        "resources": {
+          "additionalProperties": true,
+          "description": "Container resources of the picker.",
+          "required": [],
+          "title": "resources",
+          "type": "object"
+        }
+      },
+      "required": [],
+      "title": "machineTypeFallback",
+      "type": "object"
+    },
     "mode": {
       "default": "hcloud",
       "description": "Hetzner deployment mode:\n  hcloud     - control-plane and node-groups all in HCloud.\n  bare-metal - control-plane and node-groups all on dedicated Hetzner servers.\n  hybrid     - control-plane in HCloud, node-groups mixed HCloud + Hetzner bare-metal.",
@@ -358,7 +434,7 @@
           "type": "array"
         },
         "hcloud": {
-          "description": "HCloud node-groups. Item shape:\n  name, replicas, minSize, maxSize, machineType, cpu, memory, rootVolumeSize,\n  labels (map), taints (array of {key,value,effect}).",
+          "description": "HCloud node-groups. Item shape:\n  name, replicas, minSize, maxSize, machineType, cpu, memory, rootVolumeSize,\n  labels (map), taints (array of {key,value,effect}), failureDomain,\n  fallbackMachineTypes (array of server types, see machineTypeFallback),\n  allowArchitectureChange (boolean, default false).",
           "items": {
             "additionalProperties": true,
             "required": [],

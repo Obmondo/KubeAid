@@ -90,6 +90,40 @@ To use Hetzner Cloud nodes, set `controlPlaneType: hcloud` and/or `includeWorker
 
 The chart includes configuration for automatic remediation of unhealthy nodes. You can enable or disable remediation for each provider and node type, and configure parameters like retry limits, timeouts, and remediation types.
 
+### Server type fallback
+
+When Hetzner cannot create the configured server type in a region (the type is not offered there, is past its `unavailable_after` date, or is out of capacity), CAPH marks the HCloudMachine as failed for good, and the MachineHealthCheck replaces it with another Machine of the same type, which fails again. A control-plane node that dies at that moment is never replaced, and the cluster runs one failure away from losing etcd quorum.
+
+With `machineTypeFallback.enabled: true`, new HCloud machines switch to the next server type you list when the configured one cannot be created:
+
+```yaml
+controlPlane:
+  hcloud:
+    machineType: cax21
+    fallbackMachineTypes: [cax31, cax41]
+nodeGroups:
+  hcloud:
+    - name: workers
+      machineType: cpx32
+      fallbackMachineTypes: [cpx42]
+      # ...
+machineTypeFallback:
+  enabled: true
+```
+
+How it works:
+
+- **Picker** (`files/machine-type-picker.sh`, a Deployment on a stock kubectl image): every minute it reads `GET /v1/server_types` with the HCloud token CAPH uses, and picks for each template the first listed type that is available in every region a Machine from it can land in. That is all `controlPlane.regions` for the control plane, because KCP creates the HCloudMachine before it picks a region; for a node group it is its `failureDomain`, or all regions. The picks go to the `<cluster>-machine-type-overrides` ConfigMap. A server that really failed to be created marks that type unusable in that region for `failureCooldownSeconds`, because the API's availability is only an indicator. Machines whose server was never created are deleted at once, so they are recreated on the new type without waiting for the MachineHealthCheck node startup timeout.
+- **Kyverno MutatingPolicy**: when an HCloudMachine is created, it sets `spec.type` from the overrides ConfigMap and records the configured type in the `kubeaid.io/machine-type-requested` annotation. Existing machines are never changed, so nothing rolls. With `failurePolicy: Ignore`, a Kyverno outage only means the configured type is used.
+
+Rules for the lists:
+
+- A fallback must have the same CPU architecture as `machineType` (set `allowArchitectureChange: true` only if `hcloud.imageName` exists for both) and at least its cores, memory and disk. The node group's cluster-autoscaler capacity annotations are based on `machineType`.
+- When the configured type can be created again, new machines go back to it. Machines already on a fallback type stay until they are replaced.
+- A single control-plane node is not covered: KCP never replaces the only control-plane node.
+
+Requirements: Kyverno with `policies.kyverno.io/v1` (KubeAid's `kyverno` app). The chart refuses to render with the feature on and no Kyverno. The picker records events on the `Cluster` object: `MachineTypeFallbackActive`, `MachineTypeFallbackCleared`, `MachineTypeFallbackNoCandidate` and `MachineTypeFallbackRetry`. Decision logic tests: `sh tests/machine-type-picker/run.sh`.
+
 ## Examples
 
 ### Baremetal-only Cluster
