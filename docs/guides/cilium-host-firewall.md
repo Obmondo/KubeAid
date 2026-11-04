@@ -13,7 +13,7 @@ When enabled, the policy:
 - Allows admin SSH only from specified CIDRs
 - Restricts the Kubernetes API server (port 6443) to explicit source CIDRs (the node public IPs -
   never the open internet)
-- Allows DHCP replies (68/UDP) only from the listed DHCP servers
+- Allows DHCP replies (68/UDP), from the listed DHCP servers when set, otherwise from any source
 - Allows HTTP (80) and HTTPS (443) plus ICMP from the world
 
 The policy is **disabled by default**. There is no standalone `kubeaid-cli cluster lockdown`
@@ -30,7 +30,8 @@ hostNetworkPolicy:
   allowSshFrom: []              # CIDRs or bare IPs (treated as /32); empty = SSH open to world
   publicPorts: [80, 443]        # Service ports allowed from the world
   apiserverSourceCIDRs: []      # CIDRs/IPs allowed to reach 6443/TCP; empty = no 6443 rule emitted
-  dhcpServerCIDRs: []           # DHCP servers whose replies (68/UDP) are allowed; empty = no DHCP rule emitted
+  allowDhcpReplies: true        # Allow DHCP replies (68/UDP); false = no DHCP rule emitted
+  dhcpServerCIDRs: []           # Narrow DHCP replies to these servers; empty = from any source
 ```
 
 ### Example: Bare-Metal Production Cluster
@@ -66,8 +67,12 @@ on Hetzner Cloud), then loses it: kubelet, etcd and SSH all stop at once. Nodes 
 their first unattended-upgrade in the same window, so a whole control plane can lose its addresses within
 minutes of each other.
 
-If any node gets its address by DHCP, list the DHCP servers in `dhcpServerCIDRs`. On a Hetzner Cloud
-network this is the network gateway, the first IP of the network's IP range:
+So DHCP replies are allowed by default (`allowDhcpReplies: true`). Cilium policies cannot match a source
+port, so without `dhcpServerCIDRs` the rule accepts UDP port 68 from any source. Only a DHCP client
+listens on that port, and it ignores replies that do not carry its own transaction ID; on a node with a
+static address nothing listens there at all. To accept replies from your DHCP server only, list it in
+`dhcpServerCIDRs`. On a Hetzner Cloud network this is the network gateway, the first IP of the network's
+IP range:
 
 ```yaml
 hostNetworkPolicy:
@@ -76,10 +81,10 @@ hostNetworkPolicy:
     - "10.0.0.1"                # Gateway of the 10.0.0.0/16 Hetzner Cloud network
 ```
 
-`kubeaid-cli` does not set this value; add it to your per-cluster Cilium values overlay. To confirm the
-rule works, restart `systemd-networkd` on one node and check that the journal logs
-`DHCPv4 address ... acquired` within seconds. Without the rule, Hubble shows the replies as
-`POLICY_DENIED` ingress drops from the DHCP server's port 67 to UDP port 68 on the node.
+Set `allowDhcpReplies: false` only when no node gets its address by DHCP. To confirm the rule works,
+restart `systemd-networkd` on one node and check that the journal logs `DHCPv4 address ... acquired`
+within seconds. Without the rule, Hubble shows the replies as `POLICY_DENIED` ingress drops from the
+DHCP server's port 67 to UDP port 68 on the node.
 
 ## How It Works
 

@@ -11,17 +11,36 @@ tests:
       - hasDocuments:
           count: 0
 
-  - it: renders no DHCP rule when dhcpServerCIDRs is unset
+  # A node whose address comes from DHCP (Hetzner Cloud private network) re-runs
+  # the exchange from scratch whenever systemd-networkd restarts. The server's
+  # unicast reply has no conntrack entry then, so without this rule it is dropped
+  # and the node loses its only address when the lease runs out. Clusters that
+  # never set dhcpServerCIDRs must still get the rule.
+  - it: allows DHCP replies (UDP 68) from the world by default
     set:
       hostNetworkPolicy.enabled: true
+    asserts:
+      - contains:
+          path: spec.ingress
+          content:
+            fromEntities:
+              - world
+            toPorts:
+              - ports:
+                  - port: "68"
+                    protocol: UDP
+          count: 1
+
+  - it: renders no DHCP rule when allowDhcpReplies is false
+    set:
+      hostNetworkPolicy.enabled: true
+      hostNetworkPolicy.allowDhcpReplies: false
+      hostNetworkPolicy.dhcpServerCIDRs:
+        - 10.0.0.1
     asserts:
       - notExists:
           path: spec.ingress[?(@.toPorts[0].ports[0].port == "68")]
 
-  # A node whose address comes from DHCP (Hetzner Cloud private network) re-runs
-  # the exchange from scratch whenever systemd-networkd restarts. The server's
-  # unicast reply has no conntrack entry then, so without this rule it is dropped
-  # and the node loses its only address when the lease runs out.
   - it: allows DHCP replies (UDP 68) from each dhcpServerCIDRs entry, bare IPs as /32
     set:
       hostNetworkPolicy.enabled: true
@@ -40,3 +59,12 @@ tests:
                   - port: "68"
                     protocol: UDP
           count: 1
+      - notContains:
+          path: spec.ingress
+          content:
+            fromEntities:
+              - world
+            toPorts:
+              - ports:
+                  - port: "68"
+                    protocol: UDP

@@ -10,10 +10,16 @@ hostNetworkPolicy:
   # apiserverSourceCIDRs lists the CIDRs/IPs allowed to reach 6443/TCP.
   # Empty by default; when empty, no 6443 rule is emitted (policy blocks it).
   apiserverSourceCIDRs: []
-  # dhcpServerCIDRs lists the DHCP servers whose replies (68/UDP) are allowed.
-  # Set it whenever a node gets its address by DHCP, e.g. the Hetzner Cloud
-  # network gateway (first IP of the network range, 10.0.0.1 for 10.0.0.0/16).
-  # Empty by default; when empty, no DHCP rule is emitted (policy blocks it).
+  # allowDhcpReplies lets DHCP replies (68/UDP) reach the node. Nodes that get
+  # their address by DHCP (e.g. a Hetzner Cloud private network) need it:
+  # without it, the first systemd-networkd restart leaves the node unable to
+  # get a new lease, and it loses its address when the old one runs out (24h on
+  # Hetzner). Set it to false only when no node uses DHCP.
+  allowDhcpReplies: true
+  # dhcpServerCIDRs narrows the DHCP rule to the listed servers, e.g. the
+  # Hetzner Cloud network gateway (first IP of the network range, 10.0.0.1 for
+  # 10.0.0.0/16). Empty by default; when empty, replies are accepted from any
+  # source, since Cilium cannot match the server's source port (67).
   dhcpServerCIDRs: []
 
 # loadBalancerIPPool is a list of CIDRs rendered into a CiliumLoadBalancerIPPool
