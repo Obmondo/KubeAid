@@ -36,6 +36,7 @@ jb install "github.com/bitnami-labs/sealed-secrets/contrib/prometheus-mixin@main
 jb install "github.com/obmondo/ceph/monitoring/ceph-mixin@main"
 jb install "gitlab.com/uneeq-oss/cert-manager-mixin@master"
 jb install "github.com/grafana/jsonnet-libs/opensearch-mixin@master"
+jb install "github.com/grafana/jsonnet-libs/cilium-enterprise-mixin@master"
 jb install "github.com/adinhodovic/opencost-mixin@main"
 jb install "github.com/grafana/jsonnet-libs/mixin-utils@master"
 

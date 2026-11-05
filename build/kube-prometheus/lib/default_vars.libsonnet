@@ -128,6 +128,7 @@
     'node-pressure': true,
     sealedsecrets: true,
     etcd: true,
+    'cilium-enterprise': true,
     velero: false,
     zfs: false,
     opensearch: false,
