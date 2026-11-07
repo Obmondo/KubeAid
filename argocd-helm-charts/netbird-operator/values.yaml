@@ -46,6 +46,20 @@ networkRouter:
   # CRD default is 3 — heavy for small clusters; one routing peer is
   # plenty until HA routing is actually needed.
   replicas: 1
+  # Strategic-merged by the operator into the router pods' template.
+  # ndots: the router resolves networkEgresses FQDNs with the pod's resolver,
+  # and the NetBird client adds every DNS zone with search enabled to the
+  # search list. With the Kubernetes default of ndots:5, a name like
+  # traefik-internal.traefik.kam.acme.com (4 dots) is tried as
+  # <name>.kam.acme.com first, and a public *.kam.acme.com wildcard answers
+  # it with the public address, so the egress silently goes to the wrong
+  # host. With ndots:1, names with a dot are looked up as-is first.
+  podTemplate:
+    spec:
+      dnsConfig:
+        options:
+          - name: ndots
+            value: "1"
 
 # One entry per Service to expose. Fields: name (CR name), namespace (the
 # Service's own namespace), service (the Service name), groups (optional
