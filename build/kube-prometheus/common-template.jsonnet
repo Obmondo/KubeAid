@@ -222,6 +222,33 @@ local dropExcludedAlerts(groups) =
     ]
   );
 
+// Fires when no instance of a control-plane component has renewed its leader
+// lease, i.e. none of them is doing the work. kube-state-metrics exports the
+// lease, so this needs no access to the component itself.
+local leaderLeaseAlert(alert, lease, impact) = {
+  alert: alert,
+  expr: |||
+    time() - kube_lease_renew_time{job="kube-state-metrics", namespace="kube-system", lease="%s"} > 120
+  ||| % lease,
+  'for': '5m',
+  labels: { severity: 'critical' },
+  annotations: {
+    summary: '%s has no active leader.' % lease,
+    description: 'No %s has renewed the kube-system/%s leader lease for {{ $value | humanizeDuration }}, so %s.' % [lease, lease, impact],
+  },
+};
+
+// Replace the rules of the upstream up-based alert groups when the components
+// are not scraped.
+local leaderLeaseRules = {
+  'kubernetes-system-controller-manager': [
+    leaderLeaseAlert('KubeControllerManagerNoLeader', 'kube-controller-manager', 'controllers (deployments, nodes, garbage collection, endpoints) are not reconciling'),
+  ],
+  'kubernetes-system-scheduler': [
+    leaderLeaseAlert('KubeSchedulerNoLeader', 'kube-scheduler', 'new pods are not being scheduled'),
+  ],
+};
+
 local kpBase =
   (import 'kube-prometheus/main.libsonnet') +
   // Uncomment the following imports to enable its patches
@@ -493,7 +520,27 @@ local kpBase =
       },
     },
   } + (
-    if vars.platform == 'kubeadm' then {
+    if vars.platform == 'kubeadm' && !vars.scrape_controller_manager_and_scheduler then {
+      // kubeadm binds both to 127.0.0.1, so a scrape over the node IP never
+      // succeeds and up == 0 (plus TargetDown) fires forever. Drop the scrape
+      // and alert on the leader leases instead. The ServiceMonitors and the
+      // up-based groups go together: without the scrape, absent(up) fires.
+      kubernetesControlPlane+: {
+        serviceMonitorKubeControllerManager:: null,
+        serviceMonitorKubeScheduler:: null,
+        kubeControllerManagerPrometheusDiscoveryService:: null,
+        kubeSchedulerPrometheusDiscoveryService:: null,
+        prometheusRule+: {
+          spec+: {
+            local g = super.groups,
+            groups: [
+              if std.objectHas(leaderLeaseRules, h.name) then h { rules: leaderLeaseRules[h.name] } else h
+              for h in g
+            ],
+          },
+        },
+      },
+    } else if vars.platform == 'kubeadm' then {
       kubernetesControlPlane+: {
         serviceMonitorKubeScheduler+: {
           spec+: {
