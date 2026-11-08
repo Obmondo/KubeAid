@@ -63,11 +63,12 @@ spec:
           {{- if .Values.api.rootPath }}
           - --api-root-path={{ .Values.api.rootPath }}
           {{- end }}
-          {{- if .Values.api.traceHeader }}
-          - --api-trace-header={{ .Values.api.traceHeader }}
+          {{- $correlationIdHeader := .Values.api.correlationIdHeader | default .Values.api.traceHeader }}
+          {{- if $correlationIdHeader }}
+          - --api-correlation-id-header={{ $correlationIdHeader }}
           {{- end }}
-          {{- if .Values.api.disableHealthCheckLogging }}
-          - --api-disable-health-check-logging
+          {{- if or .Values.api.disableHealthCheckRouteTelemetry .Values.api.disableHealthCheckLogging }}
+          - --api-disable-health-check-route-telemetry
           {{- end }}
           {{- if .Values.api.enableDebugRoute }}
           - --api-enable-debug-route
@@ -84,11 +85,26 @@ spec:
           {{- if .Values.api.downloadFromDenyList }}
           - --api-download-from-deny-list={{ .Values.api.downloadFromDenyList }}
           {{- end }}
+          {{- if .Values.api.downloadFromDenyPrivateIps }}
+          - --api-download-from-deny-private-ips
+          {{- end }}
+          {{- if .Values.api.downloadFromDenyPublicIps }}
+          - --api-download-from-deny-public-ips
+          {{- end }}
           {{- if .Values.api.downloadFromMaxRetry }}
           - --api-download-from-max-retry={{ .Values.api.downloadFromMaxRetry }}
           {{- end }}
           {{- if .Values.api.disableDownloadFrom }}
           - --api-disable-download-from
+          {{- end }}
+          {{- if .Values.api.disableRootRouteTelemetry }}
+          - --api-disable-root-route-telemetry
+          {{- end }}
+          {{- if .Values.api.disableDebugRouteTelemetry }}
+          - --api-disable-debug-route-telemetry
+          {{- end }}
+          {{- if .Values.api.disableVersionRouteTelemetry }}
+          - --api-disable-version-route-telemetry
           {{- end }}
 
           {{- if .Values.chromium.restartAfter }}
@@ -111,6 +127,12 @@ spec:
           {{- end }}
           {{- if .Values.chromium.denyList }}
           - --chromium-deny-list={{ .Values.chromium.denyList }}
+          {{- end }}
+          {{- if .Values.chromium.denyPrivateIps }}
+          - --chromium-deny-private-ips
+          {{- end }}
+          {{- if .Values.chromium.denyPublicIps }}
+          - --chromium-deny-public-ips
           {{- end }}
           {{- if .Values.chromium.ignoreCertificateErrors }}
           - --chromium-ignore-certificate-errors
@@ -145,6 +167,9 @@ spec:
           {{- if .Values.chromium.maxConcurrency }}
           - --chromium-max-concurrency={{ .Values.chromium.maxConcurrency }}
           {{- end }}
+          {{- if .Values.chromium.idleShutdownTimeout }}
+          - --chromium-idle-shutdown-timeout={{ .Values.chromium.idleShutdownTimeout }}
+          {{- end }}
 
           {{- if .Values.libreOffice.restartAfter }}
           - --libreoffice-restart-after={{ .Values.libreOffice.restartAfter }}
@@ -160,6 +185,21 @@ spec:
           {{- end }}
           {{- if .Values.libreOffice.maxQueueSize }}
           - --libreoffice-max-queue-size={{ .Values.libreOffice.maxQueueSize }}
+          {{- end }}
+          {{- if .Values.libreOffice.idleShutdownTimeout }}
+          - --libreoffice-idle-shutdown-timeout={{ .Values.libreOffice.idleShutdownTimeout }}
+          {{- end }}
+          {{- if .Values.libreOffice.allowList }}
+          - --libreoffice-allow-list={{ .Values.libreOffice.allowList }}
+          {{- end }}
+          {{- if .Values.libreOffice.denyList }}
+          - --libreoffice-deny-list={{ .Values.libreOffice.denyList }}
+          {{- end }}
+          {{- if .Values.libreOffice.denyPrivateIps }}
+          - --libreoffice-deny-private-ips
+          {{- end }}
+          {{- if .Values.libreOffice.denyPublicIps }}
+          - --libreoffice-deny-public-ips
           {{- end }}
 
           {{- if .Values.pdfEngines.engines }}
@@ -189,6 +229,27 @@ spec:
           {{- if .Values.pdfEngines.embedEngines }}
           - --pdfengines-embed-engines={{ .Values.pdfEngines.embedEngines }}
           {{- end }}
+          {{- if .Values.pdfEngines.embedMetadataEngines }}
+          - --pdfengines-embed-metadata-engines={{ .Values.pdfEngines.embedMetadataEngines }}
+          {{- end }}
+          {{- if .Values.pdfEngines.watermarkEngines }}
+          - --pdfengines-watermark-engines={{ .Values.pdfEngines.watermarkEngines }}
+          {{- end }}
+          {{- if .Values.pdfEngines.stampEngines }}
+          - --pdfengines-stamp-engines={{ .Values.pdfEngines.stampEngines }}
+          {{- end }}
+          {{- if .Values.pdfEngines.rotateEngines }}
+          - --pdfengines-rotate-engines={{ .Values.pdfEngines.rotateEngines }}
+          {{- end }}
+          {{- if .Values.pdfEngines.readBookmarksEngines }}
+          - --pdfengines-read-bookmarks-engines={{ .Values.pdfEngines.readBookmarksEngines }}
+          {{- end }}
+          {{- if .Values.pdfEngines.writeBookmarksEngines }}
+          - --pdfengines-write-bookmarks-engines={{ .Values.pdfEngines.writeBookmarksEngines }}
+          {{- end }}
+          {{- if .Values.pdfEngines.facturXEngines }}
+          - --pdfengines-factur-x-engines={{ .Values.pdfEngines.facturXEngines }}
+          {{- end }}
           {{- if .Values.pdfEngines.disableRoutes }}
           - --pdfengines-disable-routes
           {{- end }}
@@ -201,6 +262,12 @@ spec:
           {{- end }}
           {{- if .Values.webhook.denyList }}
           - --webhook-deny-list={{ .Values.webhook.denyList }}
+          {{- end }}
+          {{- if .Values.webhook.denyPrivateIps }}
+          - --webhook-deny-private-ips
+          {{- end }}
+          {{- if .Values.webhook.denyPublicIps }}
+          - --webhook-deny-public-ips
           {{- end }}
           {{- if .Values.webhook.errorAllowList }}
           - --webhook-error-allow-list={{ .Values.webhook.errorAllowList }}
@@ -236,12 +303,16 @@ spec:
           {{- if .Values.prometheus.disableCollect  }}
           - --prometheus-disable-collect
           {{- end }}
-          {{- if .Values.prometheus.disableRouterLogging }}
-          - --prometheus-disable-route-logging
+          {{- if or .Values.prometheus.disableRouteTelemetry .Values.prometheus.disableRouterLogging }}
+          - --prometheus-disable-route-telemetry
           {{- end }}
 
-          {{- if .Values.logging.format }}
-          - --log-format={{ .Values.logging.format }}
+          {{- $logStdFormat := .Values.logging.stdFormat | default .Values.logging.format }}
+          {{- if $logStdFormat }}
+          - --log-std-format={{ $logStdFormat }}
+          {{- end }}
+          {{- if .Values.logging.stdLevelCase }}
+          - --log-std-level-case={{ .Values.logging.stdLevelCase }}
           {{- end }}
           {{- if .Values.logging.level }}
           - --log-level={{ .Values.logging.level }}
@@ -249,8 +320,8 @@ spec:
           {{- if .Values.logging.fieldsPrefix }}
           - --log-fields-prefix={{ .Values.logging.fieldsPrefix }}
           {{- end }}
-          {{- if .Values.logging.enableGcpFields }}
-          - --log-enable-gcp-fields
+          {{- if or .Values.logging.stdEnableGcpFields .Values.logging.enableGcpFields }}
+          - --log-std-enable-gcp-fields
           {{- end }}
           {{- if .Values.logging.enableGcpSeverity }}
           - --log-enable-gcp-severity
@@ -301,7 +372,7 @@ spec:
               value: /home/gotenberg
           {{- end }}
           {{- with .Values.extraEnv }}
-          {{- toYaml . | nindent 10 }}
+          {{- toYaml . | nindent 12 }}
           {{- end }}
           ports:
             - name: http

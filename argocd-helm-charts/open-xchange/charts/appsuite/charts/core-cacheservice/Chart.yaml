@@ -1,10 +1,10 @@
 apiVersion: v2
-appVersion: 8.48.0
+appVersion: 8.54.0
 dependencies:
 - name: ox-common
   repository: oci://registry.open-xchange.com/appsuite/charts
-  version: 1.0.49
+  version: 1.0.50
 description: Cache service core Helm chart
 name: core-cacheservice
 type: application
-version: 1.46.1
+version: 1.52.1

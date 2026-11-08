@@ -110,6 +110,38 @@ it is added to the list. A package is disabled, if:
 {{ print "\n" }}
 {{- end -}}
 
+{{/*
+Returns the names of the self-managed Secrets behind one `existing*Secret` / `existing*Secrets` pair as a
+YAML list: the single name first, followed by every entry of the list. Empty names and duplicates are dropped.
+
+Usage:
+{{- $names := include "core-mw.existingSecretNames" (dict "Single" .Values.existingMetaSecret "List" .Values.existingMetaSecrets) | fromYamlArray }}
+*/}}
+{{- define "core-mw.existingSecretNames" -}}
+{{- $names := list -}}
+{{- if .Single -}}
+{{-   $names = append $names (toString .Single) -}}
+{{- end -}}
+{{- range $name := (default list .List) -}}
+{{-   if and $name (not (has (toString $name) $names)) -}}
+{{-     $names = append $names (toString $name) -}}
+{{-   end -}}
+{{- end -}}
+{{- $names | toYaml -}}
+{{- end -}}
+
+{{/*
+Reports whether an `existing*Secret` / `existing*Secrets` pair names at least one Secret. Renders a non-empty
+string if it does and nothing otherwise, so it MUST be used as a condition. A volumeMount MUST be gated on this
+rather than on the raw values: a list holding nothing but empty entries is truthy, but yields no volume.
+
+Usage:
+{{- if include "core-mw.hasExistingSecrets" (dict "Single" .Values.existingMetaSecret "List" .Values.existingMetaSecrets) }}
+*/}}
+{{- define "core-mw.hasExistingSecrets" -}}
+{{- if include "core-mw.existingSecretNames" . | fromYamlArray -}}true{{- end -}}
+{{- end -}}
+
 {{- define "core-mw.secretPropertiesYAML" -}}
 {{- range $filename, $contentMap := .secretPropertiesFiles -}}
     {{ $filename }}: {{ toYaml (default dict $contentMap) | nindent 2 }}
@@ -192,9 +224,9 @@ it is added to the list. A package is disabled, if:
     name: {{ .Context.Release.Name }}-common-env
 - secretRef:
     name: {{ include "core-mw.resourceName" (dict "DeploymentContext" . "ResourceName" "secret-envvars") }}
-{{- if .Values.existingEnvSecret }}
+{{- range $name := include "core-mw.existingSecretNames" (dict "Single" .Values.existingEnvSecret "List" .Values.existingEnvSecrets) | fromYamlArray }}
 - secretRef:
-    name: {{ .Values.existingEnvSecret }}
+    name: {{ $name | quote }}
 {{- end }}
 {{- end -}}
 
@@ -215,19 +247,19 @@ it is added to the list. A package is disabled, if:
   subPath: languages.properties
 - name: properties-redis-{{.TypeName}}
   mountPath: /injections/configuration/properties-redis
-{{- if .Values.existingPropertiesSecret }}
+{{- if include "core-mw.hasExistingSecrets" (dict "Single" .Values.existingPropertiesSecret "List" .Values.existingPropertiesSecrets) }}
 - name: existing-properties-{{.TypeName}}
   mountPath: /injections/configuration/existing-properties
 {{- end }}
 - name: ui-settings-{{.TypeName}}
   mountPath: /injections/configuration/ui-settings
-{{- if .Values.existingUISettingsSecret }}
+{{- if include "core-mw.hasExistingSecrets" (dict "Single" .Values.existingUISettingsSecret "List" .Values.existingUISettingsSecrets) }}
 - name: existing-ui-settings-{{.TypeName}}
   mountPath: /injections/configuration/existing-ui-settings
 {{- end }}
 - name: meta-{{.TypeName}}
   mountPath: /injections/etc/meta/meta
-{{- if .Values.existingMetaSecret }}
+{{- if include "core-mw.hasExistingSecrets" (dict "Single" .Values.existingMetaSecret "List" .Values.existingMetaSecrets) }}
 - name: existing-meta-{{.TypeName}}
   mountPath: /injections/etc/existing-meta/meta
 {{- end }}
@@ -235,11 +267,11 @@ it is added to the list. A package is disabled, if:
   mountPath: /injections/etc/etc
 - name: etc-secrets-{{.TypeName}}
   mountPath: /injections/etc/secretEtc
-{{- if .Values.existingETCFilesSecret }}
+{{- if include "core-mw.hasExistingSecrets" (dict "Single" .Values.existingETCFilesSecret "List" .Values.existingETCFilesSecrets) }}
 - name: existing-etc-files-{{.TypeName}}
   mountPath: /injections/etc/existingEtc
 {{- end }}
-{{- if .Values.existingETCBinariesSecret }}
+{{- if include "core-mw.hasExistingSecrets" (dict "Single" .Values.existingETCBinariesSecret "List" .Values.existingETCBinariesSecrets) }}
 - name: existing-etc-binaries-{{.TypeName}}
   mountPath: /injections/etc/existingSecretEtc
 {{- end }}
@@ -247,7 +279,7 @@ it is added to the list. A package is disabled, if:
   mountPath: /injections/etc/yaml
 - name: yaml-secrets-{{.TypeName}}
   mountPath: /injections/etc/secretYaml
-{{- if .Values.existingYAMLFilesSecret }}
+{{- if include "core-mw.hasExistingSecrets" (dict "Single" .Values.existingYAMLFilesSecret "List" .Values.existingYAMLFilesSecrets) }}
 - name: existing-yaml-files-{{.TypeName}}
   mountPath: /injections/etc/existingSecretYaml
 {{- end }}
@@ -260,7 +292,7 @@ it is added to the list. A package is disabled, if:
 {{- end }}
 - name: context-sets-{{.TypeName}}
   mountPath: /injections/etc/context-sets/contextSets
-{{- if .Values.existingContextSetsSecret }}
+{{- if include "core-mw.hasExistingSecrets" (dict "Single" .Values.existingContextSetsSecret "List" .Values.existingContextSetsSecrets) }}
 - name: existing-context-sets-{{.TypeName}}
   mountPath: /injections/etc/existing-context-sets/contextSets
 {{- end }}
@@ -277,6 +309,18 @@ it is added to the list. A package is disabled, if:
 
 {{- define "core-mw.volumes" -}}
 {{- $context := . -}}
+{{- if (include "core-mw.provisioningGateway.onThisType" .) }}
+- name: provisioning-gateway-config
+  configMap:
+    name: {{ include "ox-common.names.fullname" .Context }}-provisioning-gateway
+- name: provisioning-gateway-descriptor
+  emptyDir: {}
+{{- if .Values.provisioningGateway.tls.enabled }}
+- name: provisioning-gateway-tls
+  secret:
+    secretName: {{ required "provisioningGateway.tls.existingSecret is required when the gateway terminates TLS" .Values.provisioningGateway.tls.existingSecret }}
+{{- end }}
+{{- end }}
 - name: shared-{{.TypeName}}
   emptyDir: {}
 - name: disabled-bundles-{{.TypeName}}
@@ -319,12 +363,15 @@ it is added to the list. A package is disabled, if:
       {{- else }}
           name: {{ include "core-mw.resourceName" (dict "DeploymentContext" . "ResourceName" "properties-redis-secret") }}
       {{- end }}
-{{- if .Values.existingPropertiesSecret }}
+{{- $existingPropertiesSecretNames := include "core-mw.existingSecretNames" (dict "Single" .Values.existingPropertiesSecret "List" .Values.existingPropertiesSecrets) | fromYamlArray }}
+{{- if $existingPropertiesSecretNames }}
 - name: existing-properties-{{.TypeName}}
   projected:
     sources:
+    {{- range $name := $existingPropertiesSecretNames }}
       - secret:
-          name: {{ .Values.existingPropertiesSecret }}
+          name: {{ $name | quote }}
+    {{- end }}
 {{- end }}
 - name: ui-settings-{{.TypeName}}
   projected:
@@ -333,24 +380,30 @@ it is added to the list. A package is disabled, if:
           name: {{ include "core-mw.resourceName" (dict "DeploymentContext" . "ResourceName" "ui-settings-secret") }}
       - configMap:
           name: {{ include "core-mw.resourceName" (dict "DeploymentContext" . "ResourceName" "ui-settings-configmap") }}
-{{- if .Values.existingUISettingsSecret }}
+{{- $existingUISettingsSecretNames := include "core-mw.existingSecretNames" (dict "Single" .Values.existingUISettingsSecret "List" .Values.existingUISettingsSecrets) | fromYamlArray }}
+{{- if $existingUISettingsSecretNames }}
 - name: existing-ui-settings-{{.TypeName}}
   projected:
     sources:
+    {{- range $name := $existingUISettingsSecretNames }}
       - secret:
-          name: {{ .Values.existingUISettingsSecret }}
+          name: {{ $name | quote }}
+    {{- end }}
 {{- end }}
 - name: meta-{{.TypeName}}
   projected:
     sources:
       - configMap:
           name: {{ include "core-mw.resourceName" (dict "DeploymentContext" . "ResourceName" "meta-configmap") }}
-{{- if .Values.existingMetaSecret }}
+{{- $existingMetaSecretNames := include "core-mw.existingSecretNames" (dict "Single" .Values.existingMetaSecret "List" .Values.existingMetaSecrets) | fromYamlArray }}
+{{- if $existingMetaSecretNames }}
 - name: existing-meta-{{.TypeName}}
   projected:
     sources:
+    {{- range $name := $existingMetaSecretNames }}
       - secret:
-          name: {{ .Values.existingMetaSecret }}
+          name: {{ $name | quote }}
+    {{- end }}
 {{- end }}
 - name: etc-files-{{.TypeName}}
   projected:
@@ -370,19 +423,25 @@ it is added to the list. A package is disabled, if:
       - secret:
           name: {{ include "core-mw.resourceName" (dict "DeploymentContext" $context "ResourceName" "etc-binaries-secret") }}-{{ .name }}
       {{ end }}
-{{- if .Values.existingETCFilesSecret }}
+{{- $existingETCFilesSecretNames := include "core-mw.existingSecretNames" (dict "Single" .Values.existingETCFilesSecret "List" .Values.existingETCFilesSecrets) | fromYamlArray }}
+{{- if $existingETCFilesSecretNames }}
 - name: existing-etc-files-{{.TypeName}}
   projected:
     sources:
+    {{- range $name := $existingETCFilesSecretNames }}
       - secret:
-          name: {{ .Values.existingETCFilesSecret }}
+          name: {{ $name | quote }}
+    {{- end }}
 {{- end }}
-{{- if .Values.existingETCBinariesSecret }}
+{{- $existingETCBinariesSecretNames := include "core-mw.existingSecretNames" (dict "Single" .Values.existingETCBinariesSecret "List" .Values.existingETCBinariesSecrets) | fromYamlArray }}
+{{- if $existingETCBinariesSecretNames }}
 - name: existing-etc-binaries-{{.TypeName}}
   projected:
     sources:
+    {{- range $name := $existingETCBinariesSecretNames }}
       - secret:
-          name: {{ .Values.existingETCBinariesSecret }}
+          name: {{ $name | quote }}
+    {{- end }}
 {{- end }}
 - name: yaml-files-{{.TypeName}}
   projected:
@@ -404,12 +463,15 @@ it is added to the list. A package is disabled, if:
             - key: {{ splitList "/" $relativePath | last }}
               path: {{ $relativePath }}
           {{ end }}
-{{- if .Values.existingYAMLFilesSecret }}
+{{- $existingYAMLFilesSecretNames := include "core-mw.existingSecretNames" (dict "Single" .Values.existingYAMLFilesSecret "List" .Values.existingYAMLFilesSecrets) | fromYamlArray }}
+{{- if $existingYAMLFilesSecretNames }}
 - name: existing-yaml-files-{{.TypeName}}
   projected:
     sources:
+    {{- range $name := $existingYAMLFilesSecretNames }}
       - secret:
-          name: {{ .Values.existingYAMLFilesSecret }}
+          name: {{ $name | quote }}
+    {{- end }}
 {{- end }}
 - name: context-sets-{{.TypeName}}
   projected:
@@ -418,12 +480,15 @@ it is added to the list. A package is disabled, if:
           name: {{ include "core-mw.resourceName" (dict "DeploymentContext" . "ResourceName" "contextsets-secret") }}
       - configMap:
           name: {{ include "core-mw.resourceName" (dict "DeploymentContext" . "ResourceName" "contextsets-configmap") }}
-{{- if .Values.existingContextSetsSecret }}
+{{- $existingContextSetsSecretNames := include "core-mw.existingSecretNames" (dict "Single" .Values.existingContextSetsSecret "List" .Values.existingContextSetsSecrets) | fromYamlArray }}
+{{- if $existingContextSetsSecretNames }}
 - name: existing-context-sets-{{.TypeName}}
   projected:
     sources:
+    {{- range $name := $existingContextSetsSecretNames }}
       - secret:
-          name: {{ .Values.existingContextSetsSecret }}
+          name: {{ $name | quote }}
+    {{- end }}
 {{- end }}
 - name: as-config-{{.TypeName}}
   projected:
@@ -452,8 +517,71 @@ it is added to the list. A package is disabled, if:
 {{- end -}}
 
 {{- define "core-mw.containers" -}}
+{{- $gw := .Values.provisioningGateway -}}
+{{- if (include "core-mw.provisioningGateway.onThisType" .) }}
+- name: provisioning-gateway
+  image: {{ printf "%s:%s" $gw.image.repository $gw.image.tag | quote }}
+  imagePullPolicy: {{ $gw.image.pullPolicy }}
+  args:
+    - "-c"
+    - "/etc/envoy/envoy.yaml"
+  ports:
+    - name: provisioning
+      containerPort: {{ $gw.port }}
+      protocol: TCP
+  resources:
+    {{- toYaml $gw.resources | nindent 4 }}
+  volumeMounts:
+    - name: provisioning-gateway-config
+      mountPath: /etc/envoy
+      readOnly: true
+    - name: provisioning-gateway-descriptor
+      mountPath: {{ $gw.descriptorMountPath }}
+      readOnly: true
+    {{- if $gw.tls.enabled }}
+    - name: provisioning-gateway-tls
+      mountPath: {{ $gw.tls.mountPath }}
+      readOnly: true
+    {{- end }}
+{{- end }}
 {{- if .Values.extraContainers }}
 {{ toYaml .Values.extraContainers }}
+{{- end }}
+{{- end -}}
+
+{{/*
+Whether the provisioning gateway sidecar belongs on the node type currently being rendered.
+It is switched on globally but only runs next to the role that serves the provisioning API.
+*/}}
+{{- define "core-mw.provisioningGateway.onThisType" -}}
+{{- $gw := .Values.provisioningGateway -}}
+{{- if ($gw).enabled -}}
+{{-   $roleMap := (include "core-mw.roleMap" (dict "Roles" .Roles)) | fromYaml -}}
+{{-   if (get $roleMap $gw.role) -}}
+true
+{{-   end -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "core-mw.extraInitContainers" -}}
+{{- $gw := .Values.provisioningGateway -}}
+{{- if (include "core-mw.provisioningGateway.onThisType" .) }}
+- name: provisioning-gateway-descriptor
+  # A sidecar cannot read the middleware container's filesystem, so the descriptor is copied out of
+  # the very image that serves the API. That is what keeps the two from drifting apart.
+  image: {{ include "ox-common.images.image" (dict "imageRoot" .Values.image "global" .Context "context" .Context) }}
+  imagePullPolicy: {{ .Values.image.pullPolicy }}
+  securityContext: {{ toYaml .Values.securityContext | nindent 4 }}
+  command:
+    - "/bin/sh"
+    - "-c"
+    - "cp /opt/open-xchange/grpc/provisioning.pb {{ $gw.descriptorMountPath }}/provisioning.pb"
+  volumeMounts:
+    - name: provisioning-gateway-descriptor
+      mountPath: {{ $gw.descriptorMountPath }}
+{{- end }}
+{{- if .Values.extraInitContainers }}
+{{ toYaml .Values.extraInitContainers }}
 {{- end }}
 {{- end -}}
 
@@ -605,6 +733,12 @@ metadata:
 {{-     $_ := set $result "existingPropertiesSecret" $existingPropertiesSecret.data -}}
 {{-   end -}}
 {{- end -}}
+{{- if $values.existingUISettingsSecret -}}
+{{-   $existingUISettingsSecret := (lookup "v1" "Secret" $context.Release.Namespace (printf "%s" $values.existingUISettingsSecret)) -}}
+{{-   if $existingUISettingsSecret.data -}}
+{{-     $_ := set $result "existingUISettingsSecret" $existingUISettingsSecret.data -}}
+{{-   end -}}
+{{- end -}}
 {{- if $values.existingMetaSecret -}}
 {{-   $existingMetaSecret := (lookup "v1" "Secret" $context.Release.Namespace (printf "%s" $values.existingMetaSecret)) -}}
 {{-   if $existingMetaSecret.data -}}
@@ -645,6 +779,21 @@ metadata:
 {{-   $existingEnvSecret := (lookup "v1" "Secret" $context.Release.Namespace (printf "%s" $values.existingEnvSecret)) -}}
 {{-   if $existingEnvSecret.data -}}
 {{-     $_ := set $result "existingEnvSecret" $existingEnvSecret.data -}}
+{{-   end -}}
+{{- end -}}
+{{- /* The list values: one entry per Secret, keyed by name, so adding or removing a Secret changes the hash too */ -}}
+{{- range $listKey := list "existingPropertiesSecrets" "existingUISettingsSecrets" "existingMetaSecrets" "existingETCFilesSecrets" "existingETCBinariesSecrets" "existingYAMLFilesSecrets" "existingContextSetsSecrets" "existingEnvSecrets" -}}
+{{-   $collected := dict -}}
+{{-   range $name := (default list (get $values $listKey)) -}}
+{{-     if $name -}}
+{{-       $secret := (lookup "v1" "Secret" $context.Release.Namespace (toString $name)) -}}
+{{-       if $secret.data -}}
+{{-         $_ := set $collected (toString $name) $secret.data -}}
+{{-       end -}}
+{{-     end -}}
+{{-   end -}}
+{{-   if $collected -}}
+{{-     $_ := set $result $listKey $collected -}}
 {{-   end -}}
 {{- end -}}
 {{- if $values.redis.existingSecret -}}
@@ -1170,6 +1319,30 @@ Usage:
 {{- if eq (len $affinity) 0 -}}
 {{-   $affinity = .Nil -}}
 {{- end -}}
+{{- /* TopologySpreadConstraints: Either all type configs match, or overridden from Update Values or error */ -}}
+{{- $topologySpreadConstraints := list -}}
+{{- if $UpdateValues.topologySpreadConstraints -}}
+{{-    $topologySpreadConstraints = $UpdateValues.topologySpreadConstraints -}}
+{{- else -}}
+{{-   $selected := false -}}
+{{-   range $typeName, $typeValues := $ValuesCache -}}
+{{-      if $selected -}}
+{{-        if $typeValues.topologySpreadConstraints -}}
+{{-          if not (deepEqual $topologySpreadConstraints $typeValues.topologySpreadConstraints) -}}
+{{-            fail (printf "TopologySpreadConstraints for type %s does not match previous types" $typeName) -}}
+{{-          end -}}
+{{-        end -}}
+{{-      else -}}
+{{-        if $typeValues.topologySpreadConstraints -}}
+{{-          $topologySpreadConstraints = $typeValues.topologySpreadConstraints -}}
+{{-          $selected = true -}}
+{{-        end -}}
+{{-      end -}}
+{{-   end -}}
+{{- end -}}
+{{- if eq (len $topologySpreadConstraints) 0 -}}
+{{-   $topologySpreadConstraints = .Nil -}}
+{{- end -}}
 {{- /* Tolerations: Either sum from all type configs or overridden from Update Values */ -}}
 {{- $tolerations := list -}}
 {{- if $UpdateValues.tolerations -}}
@@ -1260,7 +1433,7 @@ Usage:
 {{- if eq (len $sidecars) 0 -}}
 {{-   $sidecars = .Nil -}}
 {{- end -}}
-{{- dict "ImagePullSecrets" $imagePullSecrets "NodeSelector" $nodeSelector "Affinity" $affinity "Tolerations" $tolerations "Containers" $containers "Sidecars" $sidecars "ExtraVolumes" $volumes | toYaml -}}
+{{- dict "ImagePullSecrets" $imagePullSecrets "NodeSelector" $nodeSelector "Affinity" $affinity "TopologySpreadConstraints" $topologySpreadConstraints "Tolerations" $tolerations "Containers" $containers "Sidecars" $sidecars "ExtraVolumes" $volumes | toYaml -}}
 {{- end -}}
 
 {{/*

@@ -957,7 +957,7 @@ Traefik Hub image:
 ```bash
 mkdir -p keys
 docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/keys:/keys" \
-  ghcr.io/traefik/traefik-hub:v3.21.7 \
+  ghcr.io/traefik/traefik-hub:v3.21.8 \
   keygen --name my-log --outputDir /keys
 ```
 
@@ -975,6 +975,10 @@ kubectl create secret generic transparency-logs-keys -n traefik \
 Then mount that `Secret` in the pod. With the `posix` driver, the tree also needs a writable volume:
 
 ```yaml
+# Transparency logs require JSON logs.
+log:
+  format: json
+
 hub:
   token: traefik-hub-license
   transparencyLogs:
@@ -1434,8 +1438,25 @@ and deploy Gateway API CRDs:
 
 ```sh
 # Install Gateway API CRDs from the Standard channel.
-kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.1/standard-install.yaml
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.1/standard-install.yaml
 ```
+
+For Proxy v3.8.0-rc.1, install Gateway API v1.7.0 instead and set `image.tag: v3.8.0-rc.1`.
+To watch only the GatewayClass created by the chart:
+
+```yaml
+image:
+  tag: v3.8.0-rc.1
+providers:
+  kubernetesGateway:
+    enabled: true
+    gatewayClass: traefik
+gatewayClass:
+  name: traefik
+```
+
+Do not combine this provider option with `providers.kubernetesGateway.labelSelector`.
+TCPRoute uses `gateway.networking.k8s.io/v1` and does not require `experimentalChannel` on Proxy v3.8.
 
 <details>
 
@@ -1994,7 +2015,7 @@ hub:
 deployment:
   additionalContainers:
     - name: mcp-traefik
-      image: traefik/mcp-server:v0.3.1
+      image: traefik/mcp-server:v0.6.0
       args:
         # Streamable HTTP, the transport spoken by the MCP Gateway.
         - "-mcp.address=:8090"

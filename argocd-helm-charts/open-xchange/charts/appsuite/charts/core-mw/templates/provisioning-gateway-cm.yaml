@@ -1,0 +1,96 @@
+{{- if (.Values.provisioningGateway).enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ox-common.names.fullname" . }}-provisioning-gateway
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "ox-common.labels.standard" . | nindent 4 }}
+data:
+  envoy.yaml: |
+    admin:
+      address:
+        socket_address: { address: 127.0.0.1, port_value: {{ .Values.provisioningGateway.adminPort }} }
+
+    static_resources:
+      listeners:
+      - name: provisioning_http
+        address:
+          socket_address: { address: 0.0.0.0, port_value: {{ .Values.provisioningGateway.port }} }
+        filter_chains:
+        {{- if .Values.provisioningGateway.tls.enabled }}
+        # Administrative credentials travel in an HTTP basic header, so the listener terminates TLS
+        # itself rather than trusting whatever happens to sit in front of it.
+        - transport_socket:
+            name: envoy.transport_sockets.tls
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+              common_tls_context:
+                tls_certificates:
+                  - certificate_chain:
+                      filename: {{ .Values.provisioningGateway.tls.mountPath }}/tls.crt
+                    private_key:
+                      filename: {{ .Values.provisioningGateway.tls.mountPath }}/tls.key
+          filters:
+        {{- else }}
+        - filters:
+        {{- end }}
+          - name: envoy.filters.network.http_connection_manager
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+              stat_prefix: provisioning
+              codec_type: AUTO
+              # A call sends nothing while the middleware works on it, so Envoy's default of five
+              # minutes would end every longer one regardless of the route timeout below.
+              stream_idle_timeout: {{ .Values.provisioningGateway.timeout }}
+              route_config:
+                name: local_route
+                virtual_hosts:
+                - name: provisioning
+                  domains: ["*"]
+                  routes:
+                  # The transcoder rewrites the path to the gRPC method before routing, so this
+                  # matches on that rather than on the HTTP paths from the annotations. Matching
+                  # the HTTP path here answers every request with 404.
+                  - match: { prefix: "/" }
+                    route:
+                      cluster: provisioning_grpc
+                      timeout: {{ .Values.provisioningGateway.timeout }}
+              http_filters:
+              - name: envoy.filters.http.grpc_json_transcoder
+                typed_config:
+                  "@type": type.googleapis.com/envoy.extensions.filters.http.grpc_json_transcoder.v3.GrpcJsonTranscoder
+                  proto_descriptor: {{ .Values.provisioningGateway.descriptorMountPath }}/provisioning.pb
+                  services:
+                  {{- range .Values.provisioningGateway.services }}
+                  - {{ . }}
+                  {{- end }}
+                  # Without this an error answers with an empty body and content-type
+                  # application/grpc; the message only reaches the client in the non-standard
+                  # grpc-message header. With it the body carries code, message and the typed
+                  # details including the exceptionId.
+                  convert_grpc_status: true
+                  print_options:
+                    add_whitespace: true
+              - name: envoy.filters.http.router
+                typed_config:
+                  "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+
+      clusters:
+      - name: provisioning_grpc
+        type: STATIC
+        connect_timeout: 5s
+        typed_extension_protocol_options:
+          envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+            "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+            explicit_http_config:
+              http2_protocol_options: {}
+        load_assignment:
+          cluster_name: provisioning_grpc
+          endpoints:
+          - lb_endpoints:
+            - endpoint:
+                address:
+                  # The middleware runs in the same pod, so this never leaves the network namespace
+                  socket_address: { address: 127.0.0.1, port_value: {{ .Values.provisioningGateway.grpcPort }} }
+{{- end -}}

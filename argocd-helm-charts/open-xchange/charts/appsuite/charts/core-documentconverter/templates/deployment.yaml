@@ -12,7 +12,7 @@ spec:
   template:
     metadata:
       annotations: {{ toYaml .Values.podAnnotations | nindent 8 }}
-        checksum/commonEnv: {{ include "ox-common.appsuite.commonEnv" . | sha256sum }}
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
       labels:
         {{- include "ox-common.labels.podLabels" . | nindent 8 }}
     spec: {{ include "ox-common.pods.podSpec" (dict "podRoot" .Values "global" $ "context" . ) | nindent 6 }}
@@ -37,9 +37,9 @@ spec:
                 fieldRef:
                     fieldPath: status.podIP
             - name: LO_URL_BLACKLIST_FILE
-              value: "/opt/open-xchange/documentconverter/etc/readerengine.blacklist"
+              value: "/opt/open-xchange/etc/readerengine.blacklist"
             - name: LO_URL_WHITELIST_FILE
-              value: "/opt/open-xchange/documentconverter/etc/readerengine.whitelist"
+              value: "/opt/open-xchange/etc/readerengine.whitelist"
             {{- if .Values.documentConverter }}
             - name: LO_URL_LINK_LIMIT
               value: {{ .Values.documentConverter.urlLinkLimit | default 200 | quote }}
@@ -53,9 +53,6 @@ spec:
             {{- if .Values.env }}
               {{- toYaml .Values.env | nindent 12 }}
             {{- end }}
-          envFrom:
-            - secretRef:
-                name: {{ .Release.Name }}-common-env
           ports:
             - name: http
               containerPort: 8008
@@ -96,26 +93,21 @@ spec:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
             - name: log-config
-              mountPath: /opt/open-xchange/documentconverter/etc/logback.xml
+              mountPath: /opt/open-xchange/etc/logback.xml
               subPath: logback.xml
             - name: dc-config
-              mountPath: /opt/open-xchange/documentconverter/etc/documentconverter.properties
+              mountPath: /opt/open-xchange/etc/documentconverter.properties
               subPath: documentconverter.properties
             - name: dc-logs
               mountPath: /var/log/open-xchange/documentconverter
             - name: dc-spool
               mountPath: /var/spool/open-xchange
             - name: dc-urlallow
-              mountPath: /opt/open-xchange/documentconverter/etc/readerengine.whitelist
+              mountPath: /opt/open-xchange/etc/readerengine.whitelist
               subPath: readerengine.whitelist
             - name: dc-urldeny
-              mountPath: /opt/open-xchange/documentconverter/etc/readerengine.blacklist
+              mountPath: /opt/open-xchange/etc/readerengine.blacklist
               subPath: readerengine.blacklist
-            {{- if (eq ( include "ox-common.java.ssl.enabled" . ) "true") }}
-            - name: java-ssl-secrets
-              mountPath: /opt/open-xchange/documentconverter/etc/security/
-              readOnly: true
-            {{- end }}
             {{- if .Values.persistence.enabled }}
             - name: pvc-dc-cache
               mountPath: {{ .Values.persistence.cacheDir.path }}
@@ -149,18 +141,6 @@ spec:
             items:
               - key: readerengine.blacklist
                 path: readerengine.blacklist
-        {{- if (eq ( include "ox-common.java.ssl.enabled" . ) "true") }}
-        - name: java-ssl-secrets
-          secret:
-            secretName: {{ include "ox-common.java.ssl.secretName" . }}
-            items:
-              - key: {{ include "ox-common.java.ssl.secret.keyStoreKey" . }}
-                path: java-ssl.ks
-              {{- if eq ( include "ox-common.java.ssl.useTrustStore" . ) "true" }}
-              - key: {{ include "ox-common.java.ssl.secret.trustStoreKey" . }}
-                path: java-ssl.ts
-              {{- end }}
-        {{- end }}
         {{- if .Values.persistence.enabled }}
         - name: pvc-dc-cache
           {{- if not (empty .Values.persistence.existingClaim) }}

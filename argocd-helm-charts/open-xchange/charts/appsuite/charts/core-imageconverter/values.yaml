@@ -24,16 +24,19 @@ fullnameOverride: ""
 podAnnotations:
   logging.open-xchange.com/format: "appsuite-json"
 
-podSecurityContext: {}
-  # fsGroup: 2000
+podSecurityContext:
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
 
-securityContext: {}
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65532
 
 service:
   type: ClusterIP
@@ -44,7 +47,7 @@ service:
 resources:
   requests:
     cpu: 500m
-    memory: 1000Mi
+    memory: 1536Mi
   limits:
     cpu: 4000m
     memory: 2000Mi
@@ -76,33 +79,33 @@ probe:
 
 remoteDebug:
   enabled: false
-  # port: 8105
+  port: 8105
 
 imageconverter:
-  targetFormats: []
-    # - "auto:200x150~cover"
-    # - "auto:400x300~cover"
-    # - "auto:600x400~cover"
-    # - "auto:1920x1080~contain"
-    # - "auto:1920x1080~cover"
-  preConvert: {}
-    # enabled: false
-  # maxParallelRequests: 512
-  # maxQueueLength: 128
-  # maxAsyncQueueLengthPercentage: 400
-  # processingTimeoutSeconds: 10
-  # imageUserComment: ""
+  targetFormats:
+    - "auto:200x150~cover"
+    - "auto:400x300~cover"
+    - "auto:600x400~cover"
+    - "auto:1920x1080~contain"
+    - "auto:1920x1080~cover"
+  preConvert:
+     enabled: false
+  maxParallelRequests: 512
+  maxQueueLength: 128
+  maxAsyncQueueLengthPercentage: 400
+  processingTimeoutSeconds: 10
+  imageUserComment: ""
   cache:
     remoteCache: {}
       # url: https://optional-cache-host:8001/cache or blank (explicitly: "" value) to disable usage of CacheService in case global.core-cacheservice.enabled=true
-    # maxEntries: 250000
-    # maxSizeMegaBytes: -1
-    # maxLifetimeSeconds: 2592000
-    # cleanupPeriodSeconds: 300
-    # maxLocalEntries: 1000
-    # maxLocalLifetimeSeconds: 3600
-    # localCleanupPeriodSeconds: 60
-  # jvmHeapSizeMB: 1024
+    maxEntries: 100000
+    maxSizeMegaBytes: -1
+    maxLifetimeSeconds: 2592000
+    cleanupPeriodSeconds: 300
+    maxLocalEntries: 1000
+    maxLocalLifetimeSeconds: 3600
+    localCleanupPeriodSeconds: 60
+  jvmHeapSizeMB: 1024
 
 logging:
   debug: true
@@ -132,7 +135,3 @@ extras:
   monitoring:
     # -- Whether monitoring resources should be created, e.g. a `ConfigMap` containing the Grafana dashboards.
     enabled: false
-
-remoteDebug:
-  enabled: false
-  port:

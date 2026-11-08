@@ -21,6 +21,9 @@ spec:
         {{- end }}
         checksum/specific-config: {{ include (print $.Template.BasePath "/compactor-configmap.yaml") . | sha256sum }}
         checksum/generic-config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with include "openobserve.secretChecksumAnnotation" . }}
+        {{- . | nindent 8 }}
+        {{- end }}
         {{- with .Values.auth.O2_AI_INTERNAL_SECRET }}
         checksum/o2-ai-internal-secret: {{ printf "%s-%s" $.Release.Name . | sha256sum }}
         {{- end }}

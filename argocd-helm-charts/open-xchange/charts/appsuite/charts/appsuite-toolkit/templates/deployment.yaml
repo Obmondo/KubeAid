@@ -24,6 +24,11 @@ spec:
           env:
             - name: MWCTL_IMAGE
               value: {{ include "ox-common.images.image" (dict "imageRoot" .Values.mwctl.image "global" $ "context" . ) }}
+          {{- if .Values.coreMwEnvSecret.enabled }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.coreMwEnvSecret.nameOverride | default (printf "%s-core-mw-secret-envvars" .Release.Name) }}
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
             

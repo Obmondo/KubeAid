@@ -1,7 +1,7 @@
 apiVersion: v2
-appVersion: 2.0.12
+appVersion: 2.0.13
 description: A social platform to enjoy and share music
 icon: https://funkwhale.audio/favicon.png
 name: funkwhale
 type: application
-version: 3.0.7
+version: 3.0.8

@@ -3,7 +3,7 @@
 {{ $context := . }}
 {{ $localSite := .Values.istio.segmentedRouting.localSite -}}
 {{- range .Values.istio.segmentedRouting.sites -}}
-{{- if ne $localSite .name }}
+{{- if and (ne $localSite .name) (not .destinationHost) }}
 apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
@@ -36,6 +36,14 @@ spec:
     tls:
       mode: SIMPLE
       sni: {{ .sni | quote }}
+      {{- with .tls }}
+      {{- with .caCertificates }}
+      caCertificates: {{ . | quote }}
+      {{- end }}
+      {{- with .insecureSkipVerify }}
+      insecureSkipVerify: {{ . }}
+      {{- end }}
+      {{- end }}
 ---
 {{- end -}}
 {{- end -}}

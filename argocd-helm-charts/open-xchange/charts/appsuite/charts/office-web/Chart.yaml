@@ -1,9 +1,9 @@
 apiVersion: v2
-appVersion: 8.48.0
+appVersion: 8.54.0
 dependencies:
 - name: ox-common
   repository: oci://registry.open-xchange.com/appsuite/charts
   version: 1.0.41
 name: office-web
 type: application
-version: 2.50.0
+version: 2.56.0

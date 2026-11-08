@@ -1,0 +1,13 @@
+- Bump `gotenberg` version `8.32.0` -> `8.34.0` (via `8.33.0`).
+- Fix incorrect indentation of `extraEnv` vars in `deployment.yaml` (rendered at 10 spaces instead of 12, causing a YAML parse error).
+- **Breaking upstream change**: LibreOffice now blocks content linked from untrusted locations during conversion (`BlockUntrustedRefererLinks`). Documents that pull in external `http(s)://` or local `file:///` linked resources no longer render them. This is unconditional upstream — there is no flag or environment variable to disable it. Embedded content is unaffected.
+- Add `logging.stdLevelCase` (`--log-std-level-case`) to set the case of the `level` field in standard-output logs — `lower` (default) or `upper`.
+- Add `pdfEngines.facturXEngines` (`--pdfengines-factur-x-engines`) to set the engines and their order for the new Factur-X / ZUGFeRD XMP metadata feature (default `qpdf`).
+- Add `pdfEngines.embedMetadataEngines` (`--pdfengines-embed-metadata-engines`) to set the engines and their order for the embed-metadata feature (default `qpdf`). This upstream flag predates 8.32.0 but was previously missing from the chart.
+- Upstream security fix: `IsPublicIP` now unwraps IPv4-mapped, 6to4, and Teredo IPv6 addresses and rejects them when the embedded IPv4 is non-public, closing a `denyPrivateIps` bypass.
+- Upstream security fix: caller-supplied output filenames (`Gotenberg-Output-Filename` header, `filename` form field) now strip both `/` and `\` path separators.
+- Upstream image fix: `ca-certificates` is now installed in the chromium-only image (`gotenberg/gotenberg-chromium`), fixing outbound TLS failures in that variant.
+- Upstream bug fixes (no chart-level config): Chromium pinning proxy no longer leaks on a failed start; lifecycle listeners register before navigation to avoid a network-idle stall; supervisor health probes are debounced against transient CDP latency; `downloadFrom` result merging is serialized to avoid a concurrent-map panic; CSV conversions no longer leak the upload's UUID as a page header; webhook async delivery preserves trace context.
+- Upstream feature (per-request, no chart config): owner-only encryption/permissions (`ownerPassword`), redesigned Factur-X / ZUGFeRD form fields, and a `deviceScaleFactor` screenshot field.
+- Bundled Chromium updated to `149.0.7827.102-1`.
+

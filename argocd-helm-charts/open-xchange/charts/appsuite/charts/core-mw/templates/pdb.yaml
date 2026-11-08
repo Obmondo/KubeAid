@@ -19,6 +19,9 @@ spec:
   {{- else }}
   {{- fail (printf "Either pdb.minAvailable or pdb.maxUnavailable must be set for type \"%s\"" $typeName) }}
   {{- end }}
+  {{- with $typePdb.unhealthyPodEvictionPolicy }}
+  unhealthyPodEvictionPolicy: {{ . }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "ox-common.labels.matchLabels" $globalContext | nindent 6 }}

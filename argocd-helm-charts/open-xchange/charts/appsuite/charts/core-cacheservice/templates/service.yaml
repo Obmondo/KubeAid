@@ -11,7 +11,7 @@ spec:
       targetPort: 8001
       protocol: TCP
       name: http
-    - port: 8000
+    - port: {{ .Values.service.portLiveness }}
       targetPort: 8000
       protocol: TCP
       name: httplive
@@ -19,7 +19,7 @@ spec:
     - port: {{ .Values.remoteDebug.port | default 8101 }}
       targetPort: {{ .Values.remoteDebug.port | default 8101 }}
       protocol: TCP
-      name: debug
+      name: httpdebug
     {{- end }}
   selector:
     {{- include "ox-common.labels.matchLabels" . | nindent 4 }}

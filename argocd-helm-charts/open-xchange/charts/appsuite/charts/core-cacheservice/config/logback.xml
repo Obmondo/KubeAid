@@ -11,13 +11,13 @@
   <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
     <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
       <layout class="com.openexchange.cacheservice.impl.logback.CacheServiceJsonLayout">
-         <jsonFormatter class="ch.qos.logback.contrib.jackson.JacksonJsonFormatter">
+         <jsonFormatter class="com.openexchange.cacheservice.impl.logback.Jackson3JsonFormatter">
            <prettyPrint>{{ .Values.logging.json.prettyPrint }}</prettyPrint>
          </jsonFormatter>
          <timestampFormat>yyyy-MM-dd'T'HH:mm:ss.SSSZ</timestampFormat>
          <timestampFormatTimezoneId>Etc/UTC</timestampFormatTimezoneId>
-         <includeReadableTimestamp>{{ ternary true false (.Values.logging.json.prettyPrint) }}</includeReadableTimestamp>
-         <includeLogLevelName>{{ ternary true false (.Values.logging.json.prettyPrint) }}</includeLogLevelName>
+         <includeReadableTimestamp>true</includeReadableTimestamp>
+         <includeLogLevelName>true</includeLogLevelName>
          <appendLineSeparator>true</appendLineSeparator>
        </layout>
     </encoder>
@@ -108,8 +108,6 @@
   <logger name="javax.jmdns" level="WARN"/>
   <logger name="org.glassfish.grizzly" level="WARN"/>
   <logger name="liquibase.ext.logging.slf4j.Slf4jLogger" level="WARN"/>
-
-  <logger name="com.openexchange.cacheservice" level="INFO" />
 
   <!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -->
   <!--                                 Logger                                  -->

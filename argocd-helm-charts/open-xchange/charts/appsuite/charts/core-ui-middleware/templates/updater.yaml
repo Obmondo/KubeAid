@@ -1,4 +1,11 @@
 {{- if not (and (eq (len .Values.redis.hosts) 1) (eq (index .Values.redis.hosts 0) "localhost:6379")) }}
+{{- /* The API token is mounted only where it is needed. Auto-discovery is the only
+     feature that calls the Kubernetes API, so without it no token is mounted
+     (CIS 5.1.6). An explicit automountServiceAccountToken value wins. */ -}}
+{{- $podRoot := deepCopy .Values -}}
+{{- if kindIs "invalid" .Values.automountServiceAccountToken -}}
+{{- $_ := set $podRoot "automountServiceAccountToken" .Values.k8sAutoDiscovery.enabled -}}
+{{- end -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -7,6 +14,8 @@ metadata:
     {{- include "ox-common.labels.standard" . | nindent 4 }}
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       {{- include "ox-common.labels.matchLabels" . | nindent 6 }}
@@ -15,7 +24,8 @@ spec:
       annotations: {{ toYaml .Values.podAnnotations | nindent 8 }}
       labels:
         {{- include "ox-common.labels.podLabels" . | nindent 8 }}
-    spec: {{ include "ox-common.pods.podSpec" (dict "podRoot" .Values "global" $ "context" . ) | nindent 6 }}
+        app.kubernetes.io/component: updater
+    spec: {{ include "ox-common.pods.podSpec" (dict "podRoot" $podRoot "global" $ "context" . ) | nindent 6 }}
       containers:
         - name: main
           {{- include "ox-common.containers.securityContext" (dict "podRoot" .Values "context" . "global" $) | nindent 10 }}
@@ -23,8 +33,12 @@ spec:
           command: ["/usr/bin/node", "src/updater.js"]
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
+            - name: K8S_AUTO_DISCOVERY
+              value: "{{ .Values.k8sAutoDiscovery.enabled }}"
             - name: PROPAGATE_UPGRADES
               value: {{ .Values.updater.propagateUpgrades | quote }}
+            - name: S3_MAX_PARALLEL_REQUESTS
+              value: {{ .Values.updater.s3MaxParallelRequests | quote }}
             - name: CACHE_TTL
               value: "{{ .Values.cacheTTL | int }}"
             - name: LOG_LEVEL
@@ -61,8 +75,8 @@ spec:
                   name: {{ include "core-ui-middleware.redisSecret" . }}
                   key: password
             {{- end }}
-            - name: REDIS_PREFIX
-              value: "{{ .Values.redis.prefix }}"
+            - name: KEY_PREFIX
+              value: "{{ .Values.redis.prefix | default .Values.keyPrefix }}"
             - name: REDIS_TLS_ENABLED
               value: "{{ .Values.redis.tls.enabled }}"
             {{- if .Values.redis.tls.enabled }}
@@ -72,6 +86,11 @@ spec:
                   name: {{ include "core-ui-middleware.redisSecret" . }}
                   key: ca.crt
             {{- end }}
+            - name: STORAGE_BACKEND
+              value: {{ include "core-ui-middleware.storageBackend" . | quote }}
+            {{- if eq (include "core-ui-middleware.storageBackend" .) "s3" }}
+            {{- include "core-ui-middleware.s3Env" . | nindent 12 }}
+            {{- end }}
           ports:
             - name: tcp-monitoring
               containerPort: 9090
@@ -80,14 +99,14 @@ spec:
           livenessProbe:
             httpGet:
               path: /live
-              port: 9000
+              port: 9090
             {{- omit .Values.probe.liveness "enabled" | toYaml | nindent 12 }}
           {{- end }}
           {{- if .Values.probe.readiness.enabled }}
           readinessProbe:
             httpGet:
                 path: /ready
-                port: 9000
+                port: 9090
             {{- omit .Values.probe.readiness "enabled" | toYaml | nindent 12 }}
           {{- end }}
           resources:

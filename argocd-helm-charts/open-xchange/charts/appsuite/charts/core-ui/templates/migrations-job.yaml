@@ -1,23 +1,29 @@
-{{- if include "core-ui.hasDatabases" . }}
+{{- if include "core-ui.dbEnabled" . }}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ printf "%s-migrations" (include "ox-common.names.fullname" .) | trunc 63 | trimSuffix "-" }}
+  # Rotate name per migration.jobId (fallback .Release.Revision) so each
+  # meaningful redeploy creates a new Job; Job.spec.template is immutable.
+  {{- $ident := .Values.migration.jobId | default (.Release.Revision | toString) }}
+  {{- $suffix := $ident | toString | sha256sum | trunc 8 }}
+  name: {{ printf "%s-migrations-%s" (include "ox-common.names.fullname" .) $suffix | trunc 63 | trimSuffix "-" }}
   labels:
     {{- include "ox-common.labels.standard" . | nindent 4 }}
-  annotations:
-    "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-weight": "-5"
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  {{- /* migration.annotations lets Argo CD callers mark the Job as a Sync hook (see values.yaml). */}}
+  {{- with .Values.migration.annotations }}
+  annotations: {{ toYaml . | nindent 4 }}
+  {{- end }}
 spec:
-  # 3 retries
   backoffLimit: 3
-  # keep the old pod for 1 minute; in case you want to check the log
-  ttlSecondsAfterFinished: 60
+  {{- /* Omitted when null so callers can opt out of Kubernetes TTL cleanup. */}}
+  {{- if not (kindIs "invalid" .Values.migration.ttlSecondsAfterFinished) }}
+  ttlSecondsAfterFinished: {{ .Values.migration.ttlSecondsAfterFinished }}
+  {{- end }}
   template:
     metadata:
       labels:
         {{- include "ox-common.labels.podLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migrations
     spec: {{ include "ox-common.pods.podSpec" (dict "podRoot" .Values "global" $ "context" . ) | nindent 6 }}
       restartPolicy: OnFailure
       containers:
@@ -25,7 +31,7 @@ spec:
           {{- include "ox-common.containers.securityContext" (dict "podRoot" .Values "global" $ "context" . ) | nindent 10 }}
           image: {{ include "ox-common.images.image" (dict "imageRoot" .Values.image "global" $ "context" . ) }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          args: ["server/migrate.js"]
+          args: ["server/migrations/job.js"]
           env:
             {{- include "core-ui.env" . | nindent 12 }}
           volumeMounts:

@@ -1,4 +1,4 @@
-{{- if and .Values.reportserver.enabled .Values.autoscaling.enabled  }}
+{{- if and .Values.reportserver.enabled .Values.autoscaling.reportserver.enabled }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -9,12 +9,12 @@ metadata:
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
-    kind: StatefulSet
+    kind: Deployment
     name: {{ include "openobserve.fullname" . }}-reportserver
   minReplicas: {{ .Values.autoscaling.reportserver.minReplicas }}
   maxReplicas: {{ .Values.autoscaling.reportserver.maxReplicas }}
   metrics:
-    {{- if .Values.autoscaling.targetCPUUtilizationPercentage }}
+    {{- if .Values.autoscaling.reportserver.targetCPUUtilizationPercentage }}
     - type: Resource
       resource:
         name: cpu

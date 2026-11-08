@@ -1,0 +1,135 @@
+{{- if and (or .Values.extras.monitoring.enabled .Values.global.extras.monitoring.enabled) .Values.extras.monitoring.alerts.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "ox-common.names.fullname" . }}-alerts
+  labels:
+    {{- include "ox-common.labels.standard" . | nindent 4 }}
+    {{- with .Values.extras.monitoring.alerts.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: {{ include "ox-common.names.fullname" . }}-live-change-streams
+      rules:
+        - alert: AppSuiteLiveChangeStreamsRejected
+          # A pod shutting down refuses streams for a few seconds only; refusals for 10 minutes mean a full pod or a session or
+          # token check that keeps failing
+          expr: |
+            sum by (namespace, pod) (
+              increase(appsuite_pns_sse_rejected_total{status="503", namespace="{{ .Release.Namespace }}"}[5m])
+            ) > 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Live change streams are refused by {{ "{{ $labels.pod }}" }}
+            description: >-
+              {{ "{{ $labels.pod }}" }} answered requests for live change streams with 503 for 10 minutes. Either it holds as many
+              streams as com.openexchange.pns.transport.sse.maxConnectionsPerNode allows, or sessions or tokens cannot be checked.
+    - name: {{ include "ox-common.names.fullname" . }}-mobile-api
+      rules:
+        - alert: AppSuiteMobileApiUnavailable
+          # 503 means a backend (mail server, token validation, Redis) could not be reached; apps retry, users wait
+          expr: |
+            sum by (namespace, pod) (
+              rate(appsuite_mobile_requests_seconds_count{status="503", namespace="{{ .Release.Namespace }}"}[5m])
+            )
+            /
+            sum by (namespace, pod) (
+              rate(appsuite_mobile_requests_seconds_count{namespace="{{ .Release.Namespace }}"}[5m])
+            ) > 0.05
+            and
+            sum by (namespace, pod) (
+              rate(appsuite_mobile_requests_seconds_count{namespace="{{ .Release.Namespace }}"}[5m])
+            ) > 0.1
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: The Mobile API answers more than 5% of requests of {{ "{{ $labels.pod }}" }} with 503
+            description: >-
+              For 10 minutes {{ "{{ $labels.pod }}" }} answered more than 5% of the Mobile API requests with 503. The problem codes
+              in appsuite_mobile_requests and the log name the backend that could not be reached.
+        - alert: AppSuiteMobileTokenValidationFailing
+          expr: |
+            sum by (namespace, pod) (
+              increase(appsuite_mobile_authentications_total{result="unavailable", namespace="{{ .Release.Namespace }}"}[5m])
+            ) > 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Mobile API tokens cannot be validated on {{ "{{ $labels.pod }}" }}
+            description: >-
+              For 10 minutes {{ "{{ $labels.pod }}" }} could not validate bearer tokens of the Mobile API: the database, or in mode idp
+              the identity provider, does not answer. Apps keep their tokens and retry.
+        - alert: AppSuiteMobileApiSlow
+          # Downloads, uploads and the event stream take as long as their content or the stream lasts, a batch as its entries
+          # together; they are left out
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum by (namespace, pod, le) (
+                rate(appsuite_mobile_requests_seconds_bucket{code="-", operation!~"GET /events|POST /uploads|POST /batch|GET /mail/messages/.+/(raw|attachments/.+)", namespace="{{ .Release.Namespace }}"}[5m])
+              )
+            ) > 1
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: The Mobile API of {{ "{{ $labels.pod }}" }} answers slowly
+            description: >-
+              For 15 minutes the 95th percentile of successful Mobile API requests of {{ "{{ $labels.pod }}" }} was above one second.
+              The dashboard's Mobile API row shows which operations are slow; usually the mail server is.
+        - alert: AppSuiteAccessTokenSignInsRateLimited
+          expr: |
+            sum by (namespace) (
+              increase(appsuite_accesstoken_signin_total{result="rate_limited", namespace="{{ .Release.Namespace }}"}[15m])
+            ) > 20
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Sign-ins for access tokens keep hitting the rate limit
+            description: >-
+              More than 20 sign-ins within 15 minutes were refused by com.openexchange.accesstoken.signin.rateLimit.*, for 15
+              minutes. Someone guesses passwords, or an app retries a failed sign-in in a loop; with DEBUG logging for
+              com.openexchange.accesstoken.json.signin the log names the logins.
+        - alert: AppSuitePushDeliveriesFailing
+          expr: |
+            sum by (namespace, transport) (
+              rate(appsuite_pns_deliveries_total{result=~"failed|rejected", namespace="{{ .Release.Namespace }}"}[15m])
+            )
+            /
+            sum by (namespace, transport) (
+              rate(appsuite_pns_deliveries_total{namespace="{{ .Release.Namespace }}"}[15m])
+            ) > 0.1
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: More than 10% of the pushes via {{ "{{ $labels.transport }}" }} fail
+            description: >-
+              For 15 minutes more than 10% of the notifications handed to {{ "{{ $labels.transport }}" }} failed or were refused, not
+              counting unknown or malformed device tokens or those of another app. Check the push credentials in pushClientConfig and
+              the reachability of the gateway.
+        - alert: AppSuitePushDevicesMismatched
+          expr: |
+            sum by (namespace, transport) (
+              rate(appsuite_pns_deliveries_total{result="device_mismatch", namespace="{{ .Release.Namespace }}"}[30m])
+            )
+            /
+            sum by (namespace, transport) (
+              rate(appsuite_pns_deliveries_total{namespace="{{ .Release.Namespace }}"}[30m])
+            ) > 0.5
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: Most pushes via {{ "{{ $labels.transport }}" }} go to device tokens of another app
+            description: >-
+              For 30 minutes more than half of the notifications handed to {{ "{{ $labels.transport }}" }} were refused because the
+              device token belongs to another app (APNs DeviceTokenNotForTopic, FCM SENDER_ID_MISMATCH). Check that the APNs topic or
+              the Firebase project in pushClientConfig matches the app. The subscriptions are kept.
+{{- end }}

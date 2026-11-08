@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/component: hami-device-plugin
     {{- include "hami-vgpu.labels" . | nindent 4 }}
     {{- if .Values.devicePlugin.service.labels }}  # Use devicePlugin instead of scheduler
-    {{ toYaml .Values.devicePlugin.service.labels | indent 4 }}
+    {{- toYaml .Values.devicePlugin.service.labels | nindent 4 }}
     {{- end }}
   {{- if .Values.devicePlugin.service.annotations }}  # Use devicePlugin instead of scheduler
   annotations: {{ toYaml .Values.devicePlugin.service.annotations | nindent 4 }}
@@ -18,7 +18,7 @@ spec:
   ports:
     - name: monitorport
       port: {{ .Values.devicePlugin.service.httpPort | default 31992 }}  # Default HTTP port is 31992
-      targetPort: 9394
+      targetPort: {{ last (splitList ":" .Values.devicePlugin.monitor.metricsBindAddress) | int }}
       {{- if eq (.Values.devicePlugin.service.type | default "NodePort") "NodePort" }}  # If type is NodePort, set nodePort
       nodePort: {{ .Values.devicePlugin.service.httpPort | default 31992 }}
       {{- end }}

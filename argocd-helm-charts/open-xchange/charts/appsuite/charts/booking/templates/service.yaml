@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ox-common.names.fullname" . }}
+  labels:
+    {{- include "ox-common.labels.standard" . | nindent 4 }}
+    {{- if .Values.uiProvider.enabled }}
+    # ui-service discovers this service and merges the plugin manifest
+    appsuite.ox.io/ui-provider: manifest
+    {{- end }}
+  {{- if .Values.uiProvider.enabled }}
+  annotations:
+    appsuite.ox.io/ui-base-path: {{ .Values.uiProvider.basePath }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      name: http
+  selector:
+    {{- include "ox-common.labels.matchLabels" . | nindent 4 }}

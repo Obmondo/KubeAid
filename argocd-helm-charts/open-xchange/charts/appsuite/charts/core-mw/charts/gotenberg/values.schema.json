@@ -156,17 +156,38 @@
         "bodyLimit": {
           "$ref": "#/$defs/helm-values.api.bodyLimit"
         },
+        "correlationIdHeader": {
+          "$ref": "#/$defs/helm-values.api.correlationIdHeader"
+        },
+        "disableDebugRouteTelemetry": {
+          "$ref": "#/$defs/helm-values.api.disableDebugRouteTelemetry"
+        },
         "disableDownloadFrom": {
           "$ref": "#/$defs/helm-values.api.disableDownloadFrom"
         },
         "disableHealthCheckLogging": {
           "$ref": "#/$defs/helm-values.api.disableHealthCheckLogging"
         },
+        "disableHealthCheckRouteTelemetry": {
+          "$ref": "#/$defs/helm-values.api.disableHealthCheckRouteTelemetry"
+        },
+        "disableRootRouteTelemetry": {
+          "$ref": "#/$defs/helm-values.api.disableRootRouteTelemetry"
+        },
+        "disableVersionRouteTelemetry": {
+          "$ref": "#/$defs/helm-values.api.disableVersionRouteTelemetry"
+        },
         "downloadFromAllowList": {
           "$ref": "#/$defs/helm-values.api.downloadFromAllowList"
         },
         "downloadFromDenyList": {
           "$ref": "#/$defs/helm-values.api.downloadFromDenyList"
+        },
+        "downloadFromDenyPrivateIps": {
+          "$ref": "#/$defs/helm-values.api.downloadFromDenyPrivateIps"
+        },
+        "downloadFromDenyPublicIps": {
+          "$ref": "#/$defs/helm-values.api.downloadFromDenyPublicIps"
         },
         "downloadFromMaxRetry": {
           "$ref": "#/$defs/helm-values.api.downloadFromMaxRetry"
@@ -218,13 +239,38 @@
       "type": "string",
       "default": ""
     },
+    "helm-values.api.correlationIdHeader": {
+      "description": "-- Set the header name to use for identifying requests (default \"Gotenberg-Trace\")",
+      "type": "string",
+      "default": ""
+    },
+    "helm-values.api.disableDebugRouteTelemetry": {
+      "description": "-- Disable telemetry on the debug route",
+      "type": "boolean",
+      "default": false
+    },
     "helm-values.api.disableDownloadFrom": {
       "description": "-- Disable the download from feature",
       "type": "boolean",
       "default": false
     },
     "helm-values.api.disableHealthCheckLogging": {
-      "description": "-- Disable health check logging",
+      "description": "-- (DEPRECATED) Disable health check route telemetry. Use disableHealthCheckRouteTelemetry instead.",
+      "type": "boolean",
+      "default": false
+    },
+    "helm-values.api.disableHealthCheckRouteTelemetry": {
+      "description": "-- Disable health check route telemetry. Note: upstream default changed to true in Gotenberg 8.29.0 (health check telemetry is disabled by default even without this flag).",
+      "type": "boolean",
+      "default": false
+    },
+    "helm-values.api.disableRootRouteTelemetry": {
+      "description": "-- Disable telemetry on the root route",
+      "type": "boolean",
+      "default": false
+    },
+    "helm-values.api.disableVersionRouteTelemetry": {
+      "description": "-- Disable telemetry on the version route",
       "type": "boolean",
       "default": false
     },
@@ -237,6 +283,16 @@
       "description": "-- Set the denied URLs for the download from feature using a regular expression",
       "type": "string",
       "default": ""
+    },
+    "helm-values.api.downloadFromDenyPrivateIps": {
+      "description": "-- Reject `downloadFrom` URLs resolving to a non-public IP (loopback, RFC1918, link-local, IPv6 unique-local). A URL matching `downloadFromAllowList` skips the IP-class check; a URL matching `downloadFromDenyList` is always rejected. Added in Gotenberg 8.32.0.",
+      "type": "boolean",
+      "default": false
+    },
+    "helm-values.api.downloadFromDenyPublicIps": {
+      "description": "-- Reject `downloadFrom` URLs resolving to a public IP. Setting both `downloadFromDenyPrivateIps` and `downloadFromDenyPublicIps` to true rejects every URL unless the allow-list matches. Added in Gotenberg 8.32.0.",
+      "type": "boolean",
+      "default": false
     },
     "helm-values.api.downloadFromMaxRetry": {
       "description": "-- Set the maximum number of retries for the download from feature (default 4)",
@@ -294,7 +350,7 @@
       "default": ""
     },
     "helm-values.api.traceHeader": {
-      "description": "-- Set the header name to use for identifying requests (default \"Gotenberg-Trace\")",
+      "description": "-- (DEPRECATED) Set the header name to use for identifying requests. Use correlationIdHeader instead.",
       "type": "string",
       "default": ""
     },
@@ -377,6 +433,12 @@
         "denyList": {
           "$ref": "#/$defs/helm-values.chromium.denyList"
         },
+        "denyPrivateIps": {
+          "$ref": "#/$defs/helm-values.chromium.denyPrivateIps"
+        },
+        "denyPublicIps": {
+          "$ref": "#/$defs/helm-values.chromium.denyPublicIps"
+        },
         "disableJavaScript": {
           "$ref": "#/$defs/helm-values.chromium.disableJavaScript"
         },
@@ -388,6 +450,9 @@
         },
         "hostResolverRules": {
           "$ref": "#/$defs/helm-values.chromium.hostResolverRules"
+        },
+        "idleShutdownTimeout": {
+          "$ref": "#/$defs/helm-values.chromium.idleShutdownTimeout"
         },
         "ignoreCertificateErrors": {
           "$ref": "#/$defs/helm-values.chromium.ignoreCertificateErrors"
@@ -448,6 +513,16 @@
       "type": "string",
       "default": ""
     },
+    "helm-values.chromium.denyPrivateIps": {
+      "description": "-- Reject Chromium navigations and sub-resources resolving to a non-public IP (loopback, RFC1918, link-local, IPv6 unique-local). A URL matching `allowList` skips the IP-class check; a URL matching `denyList` is always rejected. Added in Gotenberg 8.32.0. Skipped when `proxyServer` or `hostResolverRules` is set.",
+      "type": "boolean",
+      "default": false
+    },
+    "helm-values.chromium.denyPublicIps": {
+      "description": "-- Reject Chromium navigations and sub-resources resolving to a public IP. Setting both `denyPrivateIps` and `denyPublicIps` to true rejects every URL unless the allow-list matches. Added in Gotenberg 8.32.0.",
+      "type": "boolean",
+      "default": false
+    },
     "helm-values.chromium.disableJavaScript": {
       "description": "-- Disable JavaScript",
       "type": "boolean",
@@ -465,6 +540,11 @@
     },
     "helm-values.chromium.hostResolverRules": {
       "description": "-- Set custom mappings to the host resolver",
+      "type": "string",
+      "default": ""
+    },
+    "helm-values.chromium.idleShutdownTimeout": {
+      "description": "-- Duration after which idle Chromium browser processes are shut down (e.g., \"30s\"). Set to 0s or leave empty to disable (default 0s, disabled).",
       "type": "string",
       "default": ""
     },
@@ -509,7 +589,7 @@
       "default": true
     },
     "helm-values.extraEnv": {
-      "description": "-- List of extra environment variables for gotenberg container",
+      "description": "-- List of extra environment variables for gotenberg container.\nGotenberg 8.29.0+ supports OpenTelemetry via standard OTEL_* environment variables. See https://gotenberg.dev/docs/configuration for details.",
       "type": "array",
       "default": [],
       "items": {}
@@ -689,11 +769,26 @@
     "helm-values.libreOffice": {
       "type": "object",
       "properties": {
+        "allowList": {
+          "$ref": "#/$defs/helm-values.libreOffice.allowList"
+        },
         "autoStart": {
           "$ref": "#/$defs/helm-values.libreOffice.autoStart"
         },
+        "denyList": {
+          "$ref": "#/$defs/helm-values.libreOffice.denyList"
+        },
+        "denyPrivateIps": {
+          "$ref": "#/$defs/helm-values.libreOffice.denyPrivateIps"
+        },
+        "denyPublicIps": {
+          "$ref": "#/$defs/helm-values.libreOffice.denyPublicIps"
+        },
         "disableRoutes": {
           "$ref": "#/$defs/helm-values.libreOffice.disableRoutes"
+        },
+        "idleShutdownTimeout": {
+          "$ref": "#/$defs/helm-values.libreOffice.idleShutdownTimeout"
         },
         "maxQueueSize": {
           "$ref": "#/$defs/helm-values.libreOffice.maxQueueSize"
@@ -707,8 +802,28 @@
       },
       "additionalProperties": false
     },
+    "helm-values.libreOffice.allowList": {
+      "description": "-- Set the allowed URLs for LibreOffice outbound fetches (embedded external content in OOXML/RTF/ODF) using a regular expression. Added in Gotenberg 8.32.0.",
+      "type": "string",
+      "default": ""
+    },
     "helm-values.libreOffice.autoStart": {
       "description": "-- Automatically launch LibreOffce upon initialization if set to true; otherwise, LibreOffice will start at the time of the first conversion (default false)",
+      "type": "boolean",
+      "default": false
+    },
+    "helm-values.libreOffice.denyList": {
+      "description": "-- Set the denied URLs for LibreOffice outbound fetches using a regular expression. Added in Gotenberg 8.32.0.",
+      "type": "string",
+      "default": ""
+    },
+    "helm-values.libreOffice.denyPrivateIps": {
+      "description": "-- Reject LibreOffice outbound fetches resolving to a non-public IP (loopback, RFC1918, link-local, IPv6 unique-local). A URL matching `allowList` skips the IP-class check; a URL matching `denyList` is always rejected. Added in Gotenberg 8.32.0.",
+      "type": "boolean",
+      "default": false
+    },
+    "helm-values.libreOffice.denyPublicIps": {
+      "description": "-- Reject LibreOffice outbound fetches resolving to a public IP. Setting both `denyPrivateIps` and `denyPublicIps` to true rejects every URL unless the allow-list matches. Added in Gotenberg 8.32.0.",
       "type": "boolean",
       "default": false
     },
@@ -716,6 +831,11 @@
       "description": "-- Disable the routes",
       "type": "boolean",
       "default": false
+    },
+    "helm-values.libreOffice.idleShutdownTimeout": {
+      "description": "-- Duration after which idle LibreOffice processes are shut down (e.g., \"30s\"). Set to 0s or leave empty to disable (default 0s, disabled).",
+      "type": "string",
+      "default": ""
     },
     "helm-values.libreOffice.maxQueueSize": {
       "description": "-- Maximum request queue size for LibreOffice. Set to 0 to disable this feature.",
@@ -759,12 +879,21 @@
         },
         "level": {
           "$ref": "#/$defs/helm-values.logging.level"
+        },
+        "stdEnableGcpFields": {
+          "$ref": "#/$defs/helm-values.logging.stdEnableGcpFields"
+        },
+        "stdFormat": {
+          "$ref": "#/$defs/helm-values.logging.stdFormat"
+        },
+        "stdLevelCase": {
+          "$ref": "#/$defs/helm-values.logging.stdLevelCase"
         }
       },
       "additionalProperties": false
     },
     "helm-values.logging.enableGcpFields": {
-      "description": "-- Enable GCP log field mapping for Cloud Run",
+      "description": "-- (DEPRECATED) Enable GCP log field mapping for Cloud Run. Use stdEnableGcpFields instead.",
       "type": "boolean",
       "default": false
     },
@@ -779,12 +908,27 @@
       "default": ""
     },
     "helm-values.logging.format": {
-      "description": "-- Set log format - auto, json, or text (default \"auto\")",
+      "description": "-- (DEPRECATED) Set log format. Use stdFormat instead.",
       "type": "string",
       "default": ""
     },
     "helm-values.logging.level": {
       "description": "-- Set the log level - error, warn, info, or debug (default \"info\")",
+      "type": "string",
+      "default": ""
+    },
+    "helm-values.logging.stdEnableGcpFields": {
+      "description": "-- Enable GCP log standard output field mapping for Cloud Run",
+      "type": "boolean",
+      "default": false
+    },
+    "helm-values.logging.stdFormat": {
+      "description": "-- Set log standard output format - auto, json, or text (default \"auto\")",
+      "type": "string",
+      "default": ""
+    },
+    "helm-values.logging.stdLevelCase": {
+      "description": "-- Set the case of the `level` field in standard output - lower or upper (default \"lower\"). Added in Gotenberg 8.34.0.",
       "type": "string",
       "default": ""
     },
@@ -963,7 +1107,7 @@
       "default": 1
     },
     "helm-values.pdb.unhealthyPodEvictionPolicy": {
-      "description": "-- This is a beta feature, so it's not enabled by default."
+      "description": "-- Unhealthy pod eviction policy for the PDB (e.g., AlwaysAllow)"
     },
     "helm-values.pdfEngines": {
       "type": "object",
@@ -977,11 +1121,17 @@
         "embedEngines": {
           "$ref": "#/$defs/helm-values.pdfEngines.embedEngines"
         },
+        "embedMetadataEngines": {
+          "$ref": "#/$defs/helm-values.pdfEngines.embedMetadataEngines"
+        },
         "encryptEngines": {
           "$ref": "#/$defs/helm-values.pdfEngines.encryptEngines"
         },
         "engines": {
           "$ref": "#/$defs/helm-values.pdfEngines.engines"
+        },
+        "facturXEngines": {
+          "$ref": "#/$defs/helm-values.pdfEngines.facturXEngines"
         },
         "flattenEngines": {
           "$ref": "#/$defs/helm-values.pdfEngines.flattenEngines"
@@ -989,11 +1139,26 @@
         "mergeEngines": {
           "$ref": "#/$defs/helm-values.pdfEngines.mergeEngines"
         },
+        "readBookmarksEngines": {
+          "$ref": "#/$defs/helm-values.pdfEngines.readBookmarksEngines"
+        },
         "readMetadataEngines": {
           "$ref": "#/$defs/helm-values.pdfEngines.readMetadataEngines"
         },
+        "rotateEngines": {
+          "$ref": "#/$defs/helm-values.pdfEngines.rotateEngines"
+        },
         "splitEngines": {
           "$ref": "#/$defs/helm-values.pdfEngines.splitEngines"
+        },
+        "stampEngines": {
+          "$ref": "#/$defs/helm-values.pdfEngines.stampEngines"
+        },
+        "watermarkEngines": {
+          "$ref": "#/$defs/helm-values.pdfEngines.watermarkEngines"
+        },
+        "writeBookmarksEngines": {
+          "$ref": "#/$defs/helm-values.pdfEngines.writeBookmarksEngines"
         },
         "writeMetadataEngines": {
           "$ref": "#/$defs/helm-values.pdfEngines.writeMetadataEngines"
@@ -1016,6 +1181,11 @@
       "type": "string",
       "default": ""
     },
+    "helm-values.pdfEngines.embedMetadataEngines": {
+      "description": "-- Set the PDF engines and their order for the embed metadata feature (default qpdf)",
+      "type": "string",
+      "default": ""
+    },
     "helm-values.pdfEngines.encryptEngines": {
       "description": "-- Set the PDF engines and their order for the password protection feature (default qpdf,pdftk,pdfcpu)",
       "type": "string",
@@ -1023,6 +1193,11 @@
     },
     "helm-values.pdfEngines.engines": {
       "description": "-- (DEPRECATED) Set the PDF engines and their order. This flag was deprecated in Gotenberg 8.13.0 and its value is ignored. Use the per-feature engine flags instead (mergeEngines, splitEngines, flattenEngines, convertEngines, readMetadataEngines, writeMetadataEngines, encryptEngines, embedEngines).",
+      "type": "string",
+      "default": ""
+    },
+    "helm-values.pdfEngines.facturXEngines": {
+      "description": "-- Set the PDF engines and their order for the Factur-X XMP metadata feature (default qpdf). Added in Gotenberg 8.34.0.",
       "type": "string",
       "default": ""
     },
@@ -1036,13 +1211,38 @@
       "type": "string",
       "default": ""
     },
+    "helm-values.pdfEngines.readBookmarksEngines": {
+      "description": "-- Set the PDF engines and their order for the read bookmarks feature (default pdfcpu)",
+      "type": "string",
+      "default": ""
+    },
     "helm-values.pdfEngines.readMetadataEngines": {
       "description": "-- Set the PDF engines and their order for the read metadata feature (default exiftool)",
       "type": "string",
       "default": ""
     },
+    "helm-values.pdfEngines.rotateEngines": {
+      "description": "-- Set the PDF engines and their order for the rotate feature (default pdfcpu,pdftk)",
+      "type": "string",
+      "default": ""
+    },
     "helm-values.pdfEngines.splitEngines": {
       "description": "-- Set the PDF engines and their order for the split feature (default pdfcpu,qpdf,pdftk)",
+      "type": "string",
+      "default": ""
+    },
+    "helm-values.pdfEngines.stampEngines": {
+      "description": "-- Set the PDF engines and their order for the stamp feature (default pdfcpu,pdftk)",
+      "type": "string",
+      "default": ""
+    },
+    "helm-values.pdfEngines.watermarkEngines": {
+      "description": "-- Set the PDF engines and their order for the watermark feature (default pdfcpu,pdftk)",
+      "type": "string",
+      "default": ""
+    },
+    "helm-values.pdfEngines.writeBookmarksEngines": {
+      "description": "-- Set the PDF engines and their order for the write bookmarks feature (default pdfcpu,pdftk)",
       "type": "string",
       "default": ""
     },
@@ -1077,6 +1277,9 @@
         "disableCollect": {
           "$ref": "#/$defs/helm-values.prometheus.disableCollect"
         },
+        "disableRouteTelemetry": {
+          "$ref": "#/$defs/helm-values.prometheus.disableRouteTelemetry"
+        },
         "disableRouterLogging": {
           "$ref": "#/$defs/helm-values.prometheus.disableRouterLogging"
         },
@@ -1099,8 +1302,13 @@
       "type": "boolean",
       "default": false
     },
+    "helm-values.prometheus.disableRouteTelemetry": {
+      "description": "-- Disable route telemetry for the Prometheus metrics endpoint",
+      "type": "boolean",
+      "default": false
+    },
     "helm-values.prometheus.disableRouterLogging": {
-      "description": "-- Disable the route logging",
+      "description": "-- (DEPRECATED) Disable the route logging. Use disableRouteTelemetry instead.",
       "type": "boolean",
       "default": false
     },
@@ -1161,7 +1369,7 @@
       "default": {}
     },
     "helm-values.service.loadBalancerIP": {
-      "description": "-- Static IP address for LoadBalancer type service (optional)",
+      "description": "-- (DEPRECATED) Static IP address for LoadBalancer type service. Deprecated in Kubernetes 1.24, use provider-specific annotations instead.",
       "type": "string",
       "default": ""
     },
@@ -1309,6 +1517,12 @@
         "denyList": {
           "$ref": "#/$defs/helm-values.webhook.denyList"
         },
+        "denyPrivateIps": {
+          "$ref": "#/$defs/helm-values.webhook.denyPrivateIps"
+        },
+        "denyPublicIps": {
+          "$ref": "#/$defs/helm-values.webhook.denyPublicIps"
+        },
         "disable": {
           "$ref": "#/$defs/helm-values.webhook.disable"
         },
@@ -1334,7 +1548,7 @@
       "additionalProperties": false
     },
     "helm-values.webhook.allowList": {
-      "description": "-- Set the allowed URLs for the webhook feature using a regular expression",
+      "description": "-- Set the allowed URLs for the webhook feature using a regular expression. In Gotenberg 8.31.0+ this applies to both regular and error webhooks.",
       "type": "string",
       "default": ""
     },
@@ -1344,9 +1558,19 @@
       "default": ""
     },
     "helm-values.webhook.denyList": {
-      "description": "-- Set the denied URLs for the webhook feature using a regular expression",
+      "description": "-- Set the denied URLs for the webhook feature using a regular expression. In Gotenberg 8.31.0+ this applies to both regular and error webhooks. Note: 8.31.0's permissive-by-default revert means this defaults to empty again in 8.32.0+; opt into IP-class filtering via `denyPrivateIps` / `denyPublicIps`.",
       "type": "string",
       "default": ""
+    },
+    "helm-values.webhook.denyPrivateIps": {
+      "description": "-- Reject webhook URLs (success, error, events) resolving to a non-public IP (loopback, RFC1918, link-local, IPv6 unique-local). A URL matching `allowList` skips the IP-class check; a URL matching `denyList` is always rejected. Added in Gotenberg 8.32.0.",
+      "type": "boolean",
+      "default": false
+    },
+    "helm-values.webhook.denyPublicIps": {
+      "description": "-- Reject webhook URLs resolving to a public IP. Setting both `denyPrivateIps` and `denyPublicIps` to true rejects every URL unless the allow-list matches. Added in Gotenberg 8.32.0.",
+      "type": "boolean",
+      "default": false
     },
     "helm-values.webhook.disable": {
       "description": "-- Disable the webhook feature",
@@ -1359,12 +1583,12 @@
       "default": false
     },
     "helm-values.webhook.errorAllowList": {
-      "description": "-- Set the allowed URLs in case of an error for the webhook feature using a regular expression",
+      "description": "-- (DEPRECATED) Set the allowed URLs in case of an error for the webhook feature using a regular expression. Use `allowList` instead in Gotenberg 8.31.0+ — it now covers both regular and error webhooks.",
       "type": "string",
       "default": ""
     },
     "helm-values.webhook.errorDenyList": {
-      "description": "-- Set the denied URLs in case of an error for the webhook feature using a regular expression",
+      "description": "-- (DEPRECATED) Set the denied URLs in case of an error for the webhook feature using a regular expression. Use `denyList` instead in Gotenberg 8.31.0+ — it now covers both regular and error webhooks.",
       "type": "string",
       "default": ""
     },

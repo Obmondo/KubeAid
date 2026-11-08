@@ -49,6 +49,20 @@
 {{ include "appsuite.ingress.sticky" (dict "Name" "static-routes-webservices" "TLS" .Values.ingress.tls "Hosts" .Values.ingress.appsuite.hosts "Path" (dict "Path" "/webservices" "PathType" "Prefix" "Service" "core-mw-http-api"  "StickyDestination" (dict "Type" "cookie" "Name" "appsuite-core-mw-http-api-route") "PortNumber" 80 ) "Context" .) }}
 ---
 {{ end -}}
+{{- if and (get (get $routeConfig "rest-routes-scim") "enabled") (include "appsuite.scimEnabled" .) -}}
+{{ include "appsuite.ingress.sticky" (dict "Name" "rest-routes-scim" "TLS" .Values.ingress.tls "Hosts" .Values.ingress.appsuite.hosts "Path" (dict "Path" "/scim/" "PathType" "Prefix" "Service" "core-mw-admin"  "StickyDestination" (dict "Type" "cookie" "Name" "appsuite-core-mw-admin-route") "PortNumber" 80 ) "Context" .) }}
+---
+{{ end -}}
+{{- if and (get (get $routeConfig "rest-routes-mcp") "enabled") (include "appsuite.mcpEnabled" .) -}}
+{{- $mcpPaths := list (dict "Path" "/mcp" "PathType" "Prefix" "Service" "core-mw-http-api" "PortNumber" 80) (dict "Path" "/.well-known/oauth-protected-resource/mcp" "PathType" "Prefix" "Service" "core-mw-http-api" "PortNumber" 80) -}}
+{{ include "appsuite.ingress.plainIngress" (dict "Name" "rest-routes-mcp" "TLS" .Values.ingress.tls "Hosts" .Values.ingress.appsuite.hosts "Paths" $mcpPaths "Context" .) }}
+---
+{{ end -}}
+{{- if and (get (get $routeConfig "rest-routes-provisioning") "enabled") (include "appsuite.provisioningGatewayEnabled" .) -}}
+{{- $provisioningPaths := list (dict "Path" "/prov/" "PathType" "Prefix" "Service" "core-mw-provisioning-gateway" "PortNumber" (dig "provisioningGateway" "service" "port" 80 (get .Values "core-mw"))) -}}
+{{ include "appsuite.ingress.plainIngress" (dict "Name" "rest-routes-provisioning" "TLS" .Values.ingress.tls "Hosts" .Values.ingress.appsuite.hosts "Paths" $provisioningPaths "Context" .) }}
+---
+{{ end -}}
 {{- if (get (get $routeConfig "drive-client-windows-ox-route") "enabled") -}}
 {{ include "appsuite.ingress.rewrite" (dict "Name" "drive-client-windows-ox-route" "TLS" .Values.ingress.tls "Hosts" .Values.ingress.appsuite.hosts "Path" (dict "Path" "/api/drive/client/windows/ox/install" "PathType" "Prefix" "Service" "drive-client-windows-ox" "Rewrite" "/"  "PortNumber" 80 ) "Context" .) }}
 ---

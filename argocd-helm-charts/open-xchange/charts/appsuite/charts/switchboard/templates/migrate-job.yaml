@@ -2,13 +2,23 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "ox-common.names.fullname" . }}-migrate-{{ .Release.Revision }}
+  # Rotate name per migration.jobId (fallback .Release.Revision) so each
+  # meaningful redeploy creates a new Job; Job.spec.template is immutable.
+  {{- $ident := .Values.migration.jobId | default (.Release.Revision | toString) }}
+  {{- $suffix := $ident | toString | sha256sum | trunc 8 }}
+  name: {{ printf "%s-migrate-%s" (include "ox-common.names.fullname" .) $suffix | trunc 63 | trimSuffix "-" }}
   labels:
   {{- include "ox-common.labels.standard" . | nindent 4 }}
-  annotations:
-  {{ toYaml .Values.podAnnotations | nindent 4 }}
+  {{- /* migration.annotations lets Argo CD callers mark the Job as a Sync hook
+         (see values.yaml); podAnnotations are kept for backwards compatibility. */}}
+  {{- with merge (dict) (.Values.migration.annotations | default dict) (.Values.podAnnotations | default dict) }}
+  annotations: {{ toYaml . | nindent 4 }}
+  {{- end }}
 spec:
-  ttlSecondsAfterFinished: 600
+  {{- /* Omitted when null so callers can opt out of Kubernetes TTL cleanup. */}}
+  {{- if not (kindIs "invalid" .Values.migration.ttlSecondsAfterFinished) }}
+  ttlSecondsAfterFinished: {{ .Values.migration.ttlSecondsAfterFinished }}
+  {{- end }}
   template:
     metadata:
       annotations:
@@ -33,6 +43,8 @@ spec:
                 secretKeyRef:
                   name: {{ include "switchboard.mysqlSecret" . }}
                   key: MYSQL_HOST
+            - name: DB_SWITCHBOARD_PORT
+              value: {{ .Values.mysql.port | quote }}
             - name: DB_SWITCHBOARD_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -43,5 +55,17 @@ spec:
                 secretKeyRef:
                   name: {{ include "switchboard.mysqlSecret" . }}
                   key: MYSQL_USER
+            {{- if .Values.mysql.tls.enabled }}
+            - name: DB_SWITCHBOARD_SSL
+              value: "true"
+            - name: DB_SWITCHBOARD_SSL_REJECT_UNAUTHORIZED
+              value: {{ .Values.mysql.tls.rejectUnauthorized | quote }}
+            - name: DB_SWITCHBOARD_SSL_CA
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.mysql.tls.caSecretName | default (include "switchboard.mysqlSecret" .) }}
+                  key: {{ .Values.mysql.tls.caSecretKey | default "MYSQL_SSL_CA" }}
+                  optional: true
+            {{- end }}
       restartPolicy: OnFailure
 {{- end -}}

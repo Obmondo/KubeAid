@@ -1,19 +1,19 @@
 annotations:
   artifacthub.io/changes: |
+    - kind: fixed
+      description: "fix(service): reject removed service.type value"
+    - kind: fixed
+      description: "fix(providers): update CRD safeNaming to reflect warning language"
     - kind: added
-      description: "feat(ports): add http.maxHeaderValueCount value"
+      description: "feat: support traefik v3.8-rc1"
     - kind: added
-      description: "feat(hub): add ec2 sessionToken value"
-    - kind: added
-      description: "feat(hub): support traefik hub v3.20.20 and v3.21.7"
-    - kind: added
-      description: "feat(global): add aliasHeadersStrategy value"
-  traefik.io/hub-max-version: v3.21.7
+      description: "feat(hub): support traefik hub v3.21.8"
+  traefik.io/hub-max-version: v3.21.8
   traefik.io/hub-min-version: v3.19.3
-  traefik.io/proxy-max-version: v3.7.16
+  traefik.io/proxy-max-version: v3.7.17
   traefik.io/proxy-min-version: v3.6.0
 apiVersion: v2
-appVersion: v3.7.16
+appVersion: v3.7.17
 description: A Traefik based Kubernetes ingress controller
 home: https://traefik.io/
 icon: https://raw.githubusercontent.com/traefik/traefik/master/docs/content/assets/img/traefik.logo.png
@@ -33,4 +33,4 @@ sources:
 - https://github.com/traefik/traefik-helm-chart
 - https://github.com/traefik/traefik
 type: application
-version: 42.2.0
+version: 42.3.1

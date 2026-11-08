@@ -8,6 +8,9 @@
 {{- $kind := "StatefulSet" -}}
 {{- $root := . -}}
 {{- $env := .Values.extraEnv | default (list) }}
+{{- if kindIs "string" $env }}
+{{- $env = tpl $env . | fromYamlArray }}
+{{- end }}
 {{- if not .Values.persistence.enabled }}
 {{- $env = concat $env ( list ( dict "name" "K8S_STATEFULSET_PERSISTENCE_ENABLED" "value" "false" ) ) }}
 {{- end }}
@@ -57,7 +60,11 @@ spec:
       # Init containers
       #
       initContainers:
+      {{- if kindIs "string" .Values.extraInitContainers }}
       {{- tpl .Values.extraInitContainers . | nindent 6 }}
+      {{- else }}
+      {{- toYaml .Values.extraInitContainers | nindent 6 }}
+      {{- end }}
       {{- end }}
 
       # Allow up to 2 minutes for Postfix to flush / empty the queue  before shutting down the container
@@ -135,18 +142,24 @@ spec:
               mountPath: {{ .Values.mountSecret.path }}
               readOnly: true
             {{- end }}
-            {{- if .Values.extraVolumeMounts }}{{- toYaml .Values.extraVolumeMounts | nindent 12 }}{{ end }}
+            - name: tmp-volume-postfix
+              mountPath: /tmp
+            {{- if kindIs "string" .Values.extraVolumeMounts }}
+            {{- tpl .Values.extraVolumeMounts . | nindent 12 }}
+            {{- else if .Values.extraVolumeMounts }}
+            {{- toYaml .Values.extraVolumeMounts | nindent 12 }}
+            {{- end }}
           resources: {{ toYaml .Values.resources | nindent 12 }}
         {{- if .Values.metrics.enabled }}
         - name: exporter
           imagePullPolicy: Always
-          image: "{{ .Values.metrics.image.repository }}:{{ .Values.metrics.image.tag | default "latest" }}"
+          image: "{{ .Values.metrics.image.repository }}:{{ .Values.metrics.image.tag | default .Chart.AppVersion }}"
           ports:
             - containerPort: {{ .Values.metrics.port }}
               name: metrics
               protocol: TCP
           command:
-            - /bin/postfix_exporter
+            - /postfix_exporter
           args:
             - "--web.listen-address"
             - {{ print "0.0.0.0:" .Values.metrics.port | quote }}
@@ -157,7 +170,7 @@ spec:
             - "--postfix.showq_path"
             - {{ print "/var/spool/postfix/public/showq" | quote }}
           volumeMounts:
-            - name: tmp
+            - name: tmp-volume-metrics
               mountPath: /tmp
             - name: {{ $fullName | quote }}
               mountPath: /var/spool/postfix
@@ -182,7 +195,11 @@ spec:
           resources: {{ toYaml .Values.metrics.resources | nindent 12 }}
         {{- end }}
         {{- if .Values.extraContainers }}
+        {{- if kindIs "string" .Values.extraContainers }}
         {{- tpl .Values.extraContainers $root | nindent 8 }}
+        {{- else }}
+        {{- toYaml .Values.extraContainers | nindent 8 }}
+        {{- end }}
         {{- end }}
       {{- if .Values.dns.policy }}
       dnsPolicy: {{ .Values.dns.policy | quote }}
@@ -191,8 +208,16 @@ spec:
       dnsConfig: {{- toYaml (omit .Values.dns "policy") | nindent 8 }}
       {{- end }}
       volumes:
-        - name: tmp
-          emptyDir: {}
+        - name: tmp-volume-postfix
+          emptyDir:
+            medium: Memory
+            sizeLimit: 128Mi
+        {{- if .Values.metrics.enabled }}
+        - name: tmp-volume-metrics
+          emptyDir:
+            medium: Memory
+            sizeLimit: 128Mi
+        {{- end }}
         {{- if or .Values.certs.create .Values.certs.existingSecret }}
         - name: certs-init
           configMap:
@@ -206,8 +231,11 @@ spec:
         {{- if and .Values.persistence.enabled .Values.persistence.existingClaim }}
         - name: {{ $fullName }}
           persistentVolumeClaim:
-            {{- with .Values.persistence.existingClaim }}
+            {{- if .Values.persistence.existingClaim -}}{{- with .Values.persistence.existingClaim }}
             claimName: {{ tpl . $ }}
+            {{- end }}
+            {{- else }}
+            claimName: {{ $fullName }}
             {{- end }}
         {{- else if not .Values.persistence.enabled }}
         - name: {{ $fullName }}
@@ -227,7 +255,11 @@ spec:
             name: {{ print $fullName "-scripts" | quote }}
             defaultMode: 0777
         {{- end }}
-        {{- if .Values.extraVolumes }}{{- toYaml .Values.extraVolumes | nindent 8 }}{{ end }}
+        {{- if kindIs "string" .Values.extraVolumes }}
+        {{- tpl .Values.extraVolumes . | nindent 8 }}
+        {{- else if .Values.extraVolumes }}
+        {{- toYaml .Values.extraVolumes | nindent 8 }}
+        {{- end }}
   {{- if and .Values.persistence.enabled (not .Values.persistence.existingClaim) }}
   volumeClaimTemplates:
     - apiVersion: v1

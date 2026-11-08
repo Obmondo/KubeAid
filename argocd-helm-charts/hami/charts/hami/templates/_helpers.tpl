@@ -56,6 +56,14 @@ The app name for DevicePlugin
 {{- end -}}
 
 {{/*
+Whether HAMi-core is disabled for whole-GPU containers, as a quoted bool.
+Defaults to true; a plain `default true` pipe would swallow an explicit false.
+*/}}
+{{- define "hami-vgpu.disableHAMiCoreForWholeGPU" -}}
+{{- if or (not (hasKey .Values.devicePlugin.monitor "disableHAMiCoreForWholeGPU")) .Values.devicePlugin.monitor.disableHAMiCoreForWholeGPU -}}"true"{{- else -}}"false"{{- end -}}
+{{- end -}}
+
+{{/*
 The tls secret name for Scheduler
 */}}
 {{- define "hami-vgpu.scheduler.tls" -}}
@@ -150,24 +158,53 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{ include "hami.image" (dict "imageRoot" .Values.devicePlugin.monitor.image "global" .Values.global) }}
 {{- end -}}
 
-{{- define "hami.scheduler.patch.image" -}}
-{{ include "common.images.image" (dict "imageRoot" .Values.scheduler.patch.image "global" .Values.global) }}
-{{- end -}}
-
 {{- define "hami.scheduler.patch.new.image" -}}
 {{ include "common.images.image" (dict "imageRoot" .Values.scheduler.patch.imageNew "global" .Values.global) }}
 {{- end -}}
 
 {{- define "hami.scheduler.extender.imagePullSecrets" -}}
-{{ include "common.images.pullSecrets" (dict "images" (list .Values.scheduler.extender.image) "global" .Values.global) }}
+{{- $images := list .Values.scheduler.extender.image -}}
+{{- if .Values.scheduler.kubeScheduler.enabled -}}
+{{- $images = append $images .Values.scheduler.kubeScheduler.image -}}
+{{- end -}}
+{{ include "common.images.pullSecrets" (dict "images" $images "global" .Values.global) }}
 {{- end -}}
 
 {{- define "hami.devicePlugin.imagePullSecrets" -}}
 {{ include "common.images.pullSecrets" (dict "images" (list .Values.devicePlugin.image) "global" .Values.global) }}
 {{- end -}}
 
-{{- define "hami.scheduler.patch.imagePullSecrets" -}}
-{{ include "common.images.pullSecrets" (dict "images" (list .Values.scheduler.patch.image) "global" .Values.global) }}
+{{- define "hami.remotegpu.server.imagePullSecrets" -}}
+{{ include "common.images.pullSecrets" (dict "images" (list .Values.devices.remotegpu.server.image) "global" .Values.global) }}
+{{- end -}}
+
+{{/*
+With an auto-detected driver root, the device plugin loads NVML from the driver
+injected by the NVIDIA Container Toolkit. The host root is mounted only when a
+CDI device list strategy needs to walk the host driver layout. The strategy can
+also be overridden through extraArgs or extraEnvs, so check those too.
+*/}}
+{{- define "hami.devicePlugin.autoDriverRootHostMount" -}}
+{{- $strategies := list (toString .Values.devicePlugin.deviceListStrategy) -}}
+{{- $takeNext := false -}}
+{{- range .Values.devicePlugin.extraArgs -}}
+{{- $arg := toString . -}}
+{{- if $takeNext -}}
+{{- $strategies = append $strategies $arg -}}
+{{- end -}}
+{{- $takeNext = regexMatch "^--?device-list-strategy$" $arg -}}
+{{- if regexMatch "^--?device-list-strategy=" $arg -}}
+{{- $strategies = append $strategies $arg -}}
+{{- end -}}
+{{- end -}}
+{{- range .Values.devicePlugin.extraEnvs -}}
+{{- if eq (toString .name) "DEVICE_LIST_STRATEGY" -}}
+{{- $strategies = append $strategies (toString .value) -}}
+{{- end -}}
+{{- end -}}
+{{- if and (eq .Values.devicePlugin.nvidiaDriverRoot "auto") (contains "cdi-" (join "," $strategies)) -}}
+true
+{{- end -}}
 {{- end -}}
 
 {{- define "hami.scheduler.patch.new.imagePullSecrets" -}}
@@ -195,22 +232,22 @@ Returns a YAML list that can be used directly or converted to JSON via fromYaml 
 {{- define "hami-vgpu.scheduler.managedResources" -}}
 {{- $resources := list -}}
 {{/* Core NVIDIA resources */}}
-{{- $resources = append $resources (dict "name" .Values.resourceName "ignoredByScheduler" true) -}}
-{{- $resources = append $resources (dict "name" .Values.resourceMem "ignoredByScheduler" true) -}}
-{{- $resources = append $resources (dict "name" .Values.resourceCores "ignoredByScheduler" true) -}}
-{{- $resources = append $resources (dict "name" .Values.resourceMemPercentage "ignoredByScheduler" true) -}}
-{{- $resources = append $resources (dict "name" .Values.resourcePriority "ignoredByScheduler" true) -}}
+{{- $resources = append $resources (dict "name" .Values.devices.nvidia.resourceCountName "ignoredByScheduler" true) -}}
+{{- $resources = append $resources (dict "name" .Values.devices.nvidia.resourceMemoryName "ignoredByScheduler" true) -}}
+{{- $resources = append $resources (dict "name" .Values.devices.nvidia.resourceCoreName "ignoredByScheduler" true) -}}
+{{- $resources = append $resources (dict "name" .Values.devices.nvidia.resourceMemoryPercentageName "ignoredByScheduler" true) -}}
+{{- $resources = append $resources (dict "name" .Values.devices.nvidia.resourcePriorityName "ignoredByScheduler" true) -}}
 {{/* MLU resources */}}
-{{- $resources = append $resources (dict "name" .Values.mluResourceName "ignoredByScheduler" true) -}}
-{{/* DCU resources */}}
-{{- $resources = append $resources (dict "name" .Values.dcuResourceName "ignoredByScheduler" true) -}}
-{{- $resources = append $resources (dict "name" .Values.dcuResourceMem "ignoredByScheduler" true) -}}
-{{- $resources = append $resources (dict "name" .Values.dcuResourceCores "ignoredByScheduler" true) -}}
+{{- $resources = append $resources (dict "name" .Values.devices.cambricon.resourceCountName "ignoredByScheduler" true) -}}
+{{/* HCU resources */}}
+{{- $resources = append $resources (dict "name" .Values.devices.hygon.resourceCountName "ignoredByScheduler" true) -}}
+{{- $resources = append $resources (dict "name" .Values.devices.hygon.resourceMemoryName "ignoredByScheduler" true) -}}
+{{- $resources = append $resources (dict "name" .Values.devices.hygon.resourceCoreName "ignoredByScheduler" true) -}}
 {{/* Metax resources */}}
-{{- $resources = append $resources (dict "name" "metax-tech.com/gpu" "ignoredByScheduler" true) -}}
-{{- $resources = append $resources (dict "name" .Values.metaxResourceName "ignoredByScheduler" true) -}}
-{{- $resources = append $resources (dict "name" .Values.metaxResourceCore "ignoredByScheduler" true) -}}
-{{- $resources = append $resources (dict "name" .Values.metaxResourceMem "ignoredByScheduler" true) -}}
+{{- $resources = append $resources (dict "name" .Values.devices.metax.resourceCountName "ignoredByScheduler" true) -}}
+{{- $resources = append $resources (dict "name" .Values.devices.metax.resourceVCountName "ignoredByScheduler" true) -}}
+{{- $resources = append $resources (dict "name" .Values.devices.metax.resourceVCoreName "ignoredByScheduler" true) -}}
+{{- $resources = append $resources (dict "name" .Values.devices.metax.resourceVMemoryName "ignoredByScheduler" true) -}}
 {{/* Ascend resources */}}
 {{- if .Values.devices.ascend.enabled -}}
 {{- range .Values.devices.ascend.customresources -}}
@@ -225,13 +262,15 @@ Returns a YAML list that can be used directly or converted to JSON via fromYaml 
 {{- end -}}
 {{/* Enflame resources */}}
 {{- if .Values.devices.enflame.enabled -}}
-{{- range .Values.devices.enflame.customresources -}}
+{{- $standardResources := list .Values.devices.enflame.resourceNameDRSGCU .Values.devices.enflame.resourceNameGCUMemory .Values.devices.enflame.resourceNameGCUCore .Values.devices.enflame.resourceNameGCU -}}
+{{- range (concat $standardResources (.Values.devices.enflame.customresources | default (list)) | uniq) -}}
 {{- $resources = append $resources (dict "name" . "ignoredByScheduler" true) -}}
 {{- end -}}
 {{- end -}}
 {{/* Kunlun resources */}}
 {{- if .Values.devices.kunlun.enabled -}}
-{{- range .Values.devices.kunlun.customresources -}}
+{{- $standardResources := list .Values.devices.kunlun.resourceCountName .Values.devices.kunlun.resourceVCountName .Values.devices.kunlun.resourceVMemoryName -}}
+{{- range (concat $standardResources (.Values.devices.kunlun.customresources | default (list)) | uniq) -}}
 {{- $resources = append $resources (dict "name" . "ignoredByScheduler" true) -}}
 {{- end -}}
 {{- end -}}
@@ -247,19 +286,124 @@ Returns a YAML list that can be used directly or converted to JSON via fromYaml 
 {{- end -}}
 {{/* Vastai resources */}}
 {{- if .Values.devices.vastai.enabled -}}
-{{- range .Values.devices.vastai.customresources -}}
+{{- $standardResources := list .Values.devices.vastai.resourceCountName -}}
+{{- range (concat $standardResources (.Values.devices.vastai.customresources | default (list)) | uniq) -}}
 {{- $resources = append $resources (dict "name" . "ignoredByScheduler" true) -}}
 {{- end -}}
 {{- end -}}
 {{/* Biren resources */}}
 {{- if .Values.devices.biren.enabled -}}
-{{- range .Values.devices.biren.customresources -}}
+{{- $standardResources := list .Values.devices.biren.resourceCountName -}}
+{{- range (concat $standardResources (.Values.devices.biren.customresources | default (list)) | uniq) -}}
 {{- $resources = append $resources (dict "name" . "ignoredByScheduler" true) -}}
 {{- end -}}
 {{- end -}}
 {{/* AMD resources */}}
+{{- $resources = append $resources (dict "name" .Values.devices.amd.resourceMemoryPercentageName "ignoredByScheduler" true) -}}
 {{- range .Values.devices.amd.customresources -}}
 {{- $resources = append $resources (dict "name" . "ignoredByScheduler" true) -}}
 {{- end -}}
+{{/* Remote GPU (lupine) resources. A client pod requests these on a node that
+     owns no GPU, so ignoredByScheduler is what keeps that node a candidate:
+     kube-scheduler skips the node-fit check and leaves placement to the
+     extender, which still gets called because the resource is listed here.
+     Both names come straight from the values the device config uses, so
+     renaming a resource cannot leave it off this list and silently reinstate
+     the node-fit check that rejects every GPU-less node. */}}
+{{- if .Values.devices.remotegpu.enabled -}}
+{{- $resources = append $resources (dict "name" .Values.devices.remotegpu.resourceCountName "ignoredByScheduler" true) -}}
+{{- $resources = append $resources (dict "name" .Values.devices.remotegpu.resourceMemoryName "ignoredByScheduler" true) -}}
+{{- end -}}
 {{- toYaml $resources -}}
+{{- end -}}
+
+{{/* Resolve the Ascend default mode while accepting the released legacy core flag. */}}
+{{- define "hami-vgpu.ascendVnpuMode" -}}
+{{- $ascend := .Values.devices.ascend -}}
+{{- if and (hasKey $ascend "hamiVnpuCore") (not (kindIs "bool" $ascend.hamiVnpuCore)) -}}
+  {{- fail "devices.ascend.hamiVnpuCore must be a boolean; use devices.ascend.hamiVnpuMode instead" -}}
+{{- end -}}
+{{- $mode := "" -}}
+{{- if ne $ascend.hamiVnpuMode nil -}}
+  {{- if not (kindIs "string" $ascend.hamiVnpuMode) -}}
+    {{- fail "devices.ascend.hamiVnpuMode must be a string: template, hami-core (or hamiCore), or enpu" -}}
+  {{- end -}}
+  {{- $mode = lower (trim $ascend.hamiVnpuMode) -}}
+{{- end -}}
+{{- if eq $mode "" -}}
+  {{- $mode = ternary "hami-core" "template" ($ascend.hamiVnpuCore | default false) -}}
+{{- else if eq $mode "hamicore" -}}
+  {{- $mode = "hami-core" -}}
+{{- end -}}
+{{- if not (has $mode (list "template" "hami-core" "enpu")) -}}
+  {{- fail (printf "devices.ascend.hamiVnpuMode must be template, hami-core (or hamiCore), or enpu, got %q" $ascend.hamiVnpuMode) -}}
+{{- end -}}
+{{- $mode -}}
+{{- end -}}
+
+{{- define "hami-vgpu.validateValues" -}}
+{{/* Reject obsolete paths by presence, including explicit zero, false and empty values. */}}
+{{- $removedFields := dict
+  "resourceName" "devices.nvidia.resourceCountName"
+  "resourceMem" "devices.nvidia.resourceMemoryName"
+  "resourceMemPercentage" "devices.nvidia.resourceMemoryPercentageName"
+  "resourceCores" "devices.nvidia.resourceCoreName"
+  "resourcePriority" "devices.nvidia.resourcePriorityName"
+  "mluResourceName" "devices.cambricon.resourceCountName"
+  "mluResourceMem" "devices.cambricon.resourceMemoryName"
+  "mluResourceCores" "devices.cambricon.resourceCoreName"
+  "dcuResourceName" "devices.hygon.resourceCountName"
+  "dcuResourceMem" "devices.hygon.resourceMemoryName"
+  "dcuResourceCores" "devices.hygon.resourceCoreName"
+  "hcuResourceName" "devices.hygon.resourceCountName"
+  "hcuResourceMem" "devices.hygon.resourceMemoryName"
+  "hcuResourceCores" "devices.hygon.resourceCoreName"
+  "metaxResourceName" "devices.metax.resourceVCountName"
+  "metaxResourceCore" "devices.metax.resourceVCoreName"
+  "metaxResourceMem" "devices.metax.resourceVMemoryName"
+  "metaxsGPUTopologyAware" "devices.metax.sgpuTopologyAware"
+  "enflameResourceNameDRSGCU" "devices.enflame.resourceNameDRSGCU"
+  "enflameResourceNameGCUMemory" "devices.enflame.resourceNameGCUMemory"
+  "enflameResourceNameGCUCore" "devices.enflame.resourceNameGCUCore"
+  "kunlunResourceName" "devices.kunlun.resourceCountName"
+  "kunlunResourceVCountName" "devices.kunlun.resourceVCountName"
+  "kunlunResourceVMemoryName" "devices.kunlun.resourceVMemoryName"
+  "vastaiResourceName" "devices.vastai.resourceCountName"
+  "birenResourceName" "devices.biren.resourceCountName"
+  "devicePlugin.deviceSplitCount" "devices.nvidia.deviceSplitCount"
+  "devicePlugin.deviceMemoryScaling" "devices.nvidia.deviceMemoryScaling"
+  "devicePlugin.deviceCoreScaling" "devices.nvidia.deviceCoreScaling"
+  "devicePlugin.preConfiguredDeviceMemory" "devices.nvidia.preConfiguredDeviceMemory"
+  "devicePlugin.enableNumaTopology" "devices.nvidia.enableNumaTopology"
+  "devicePlugin.runtimeClassName" "devices.nvidia.runtimeClassName"
+  "devicePlugin.createRuntimeClass" "devices.nvidia.createRuntimeClass"
+  "devices.ascend.enpu" "devices.ascend.hamiVnpuMode (template, hami-core, or enpu)"
+  "scheduler.patch.image" "scheduler.patch.imageNew"
+-}}
+{{- $errors := list -}}
+{{- range $old, $new := $removedFields -}}
+  {{- $value := $.Values -}}
+  {{- $present := true -}}
+  {{- range $part := splitList "." $old -}}
+    {{- if not (and (kindIs "map" $value) (hasKey $value $part)) -}}
+      {{- $present = false -}}
+      {{- break -}}
+    {{- end -}}
+    {{- $value = index $value $part -}}
+  {{- end -}}
+  {{- if $present -}}
+    {{- $errors = append $errors (printf "%s has been removed; use %s instead" $old $new) -}}
+  {{- end -}}
+{{- end -}}
+{{- if $errors -}}
+  {{- fail (printf "Removed configuration fields:\n%s" (join "\n" $errors)) -}}
+{{- end -}}
+{{/* Validate values even when device-config.content overrides the generated config. */}}
+{{- $_ := include "hami-vgpu.ascendVnpuMode" . -}}
+{{- $count := .Values.devices.ascend.deviceSplitCount -}}
+{{- $integer := int64 $count -}}
+{{- $numeric := has (kindOf $count) (list "int" "int64" "float64") -}}
+{{- if not (and $numeric (gt $integer 0) (eq (float64 $count) (float64 $integer))) -}}
+  {{- fail "devices.ascend.deviceSplitCount must be a positive integer" -}}
+{{- end -}}
 {{- end -}}

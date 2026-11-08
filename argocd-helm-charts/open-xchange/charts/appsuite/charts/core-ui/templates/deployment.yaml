@@ -14,6 +14,7 @@ spec:
       annotations: {{ toYaml .Values.podAnnotations | nindent 8 }}
       labels:
         {{- include "ox-common.labels.podLabels" . | nindent 8 }}
+        app.kubernetes.io/component: server
     spec: {{ include "ox-common.pods.podSpec" (dict "podRoot" .Values "global" $ "context" . ) | nindent 6 }}
       containers:
         - name: main
@@ -27,20 +28,20 @@ spec:
               containerPort: {{ .Values.containerPort | default 8080 }}
               protocol: TCP
             - name: monitoring
-              containerPort: 9090
+              containerPort: {{ .Values.metricsPort | default 9090 }}
               protocol: TCP
           {{- if .Values.probe.liveness.enabled }}
           livenessProbe:
             httpGet:
               path: /live
-              port: 9090
+              port: {{ .Values.metricsPort | default 9090 }}
             {{- omit .Values.probe.liveness "enabled" | toYaml | nindent 12 }}
           {{- end }}
           {{- if .Values.probe.readiness.enabled }}
           readinessProbe:
             httpGet:
               path: /ready
-              port: 9090
+              port: {{ .Values.metricsPort | default 9090 }}
             {{- omit .Values.probe.readiness "enabled" | toYaml | nindent 12 }}
           {{- end }}
           resources:

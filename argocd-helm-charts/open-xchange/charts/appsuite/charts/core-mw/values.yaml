@@ -46,6 +46,8 @@ update:
   job:
     # -- The number of seconds after which a job is deleted automatically
     ttlSecondsAfterFinished: 86400 # 24hrs
+    # -- Whether the update job pod mounts the Kubernetes API token. The job does not call the Kubernetes API, so it defaults to false (CIS 5.1.6). Set to true only if a custom container needs API access.
+    automountServiceAccountToken: false
 
 # -- Reference to one or more secrets to be used when pulling images
 imagePullSecrets: []
@@ -103,10 +105,6 @@ restricted:
     # -- If enabled tries to mount drive restricted configuration
     enabled: true
 
-  mobileApiFacade:
-    # -- If enabled tries to mount mobile api facade configuration
-    enabled: true
-
 remoteDebug:
   # -- Whether Java Remote Debugging is enabled.
   enabled: false
@@ -134,6 +132,13 @@ enableInitialization: false
 
 # -- Whether to wait for configdb.
 enableDBConnectionCheck: true
+
+# -- Bounded readiness waits performed by the init container.
+initWait:
+  # -- How long to wait, in seconds, for the configdb to accept connections before failing the init container.
+  dbTimeout: 300
+  # -- How long to wait, in seconds, for the middleware to come up during initial bootstrapping before failing the init container.
+  middlewareTimeout: 300
 
 # -- Whether to use the old bash style init scripts. This is necessary if you want to use bash style hooks instead of go binaries.
 useLegacyBashScripts: true
@@ -163,7 +168,6 @@ features:
     # @default -- see `values.yaml`
     guard:
       - open-xchange-guard
-      - open-xchange-guard-backend-mailfilter
       - open-xchange-guard-backend-plugin
       - open-xchange-guard-file-storage
       - open-xchange-guard-s3-storage
@@ -199,6 +203,18 @@ features:
       - open-xchange-eas
     weakforced:
       - open-xchange-weakforced
+    # -- SCIM service provider definitions. Enabled on the `admin` role only; see `roles.admin.values`.
+    # @default -- see `values.yaml`
+    scim:
+      - open-xchange-scim
+    # -- MCP server definitions. Disabled by default; the endpoint also needs `com.openexchange.mcp.enabled`.
+    # @default -- see `values.yaml`
+    mcp:
+      - open-xchange-mcp
+    # -- Mobile API definitions. Disabled by default; the API also needs `com.openexchange.mobile.api.enabled`.
+    # @default -- see `values.yaml`
+    mobile-api:
+      - open-xchange-mobile-api
   # -- Choose whether to enable or disable features.
   # @default -- see `values.yaml`
   status:
@@ -208,6 +224,9 @@ features:
     omf-source: disabled
     usm-eas: disabled
     weakforced: disabled
+    scim: disabled
+    mcp: disabled
+    mobile-api: disabled
 
 # -- Packages
 # By default, all packages will be enabled. If a package is defined within a feature and that `feature` is disabled, the package will not be started UNLESS it is explicitly reactivated in this section.
@@ -286,7 +305,35 @@ resources:
     memory: 4096Mi
 
 javaOpts:
+  # -- Extra JVM options appended verbatim (env `JAVA_OPTS_OTHER`). (For Compact Object Headers or
+  # ZGC, prefer the `compactObjectHeaders`/`zgc` toggles below — not this field.)
   other: ""
+  # -- Enables Compact Object Headers (appends `-XX:+UseCompactObjectHeaders`, JEP 519): 8-byte
+  # object headers → less live heap and GC pressure. Applied even when `other` is overridden; not
+  # appended again if `other` already mentions the flag (e.g. an explicit
+  # `-XX:-UseCompactObjectHeaders` opt-out is left untouched).
+  compactObjectHeaders: true
+  # -- Use generational ZGC instead of the default G1 (appends `-XX:+UseZGC`; not appended again
+  # if `other` already mentions the flag). Opt-in: ZGC gives
+  # sub-ms, near-constant GC pauses, well-suited to the virtual-thread worker pool, but needs
+  # substantial native-memory headroom beyond the heap (off-heap generational structures plus
+  # socket/NIO direct buffers). Too little does NOT surface as an OOM — it shows up as failures to
+  # open IMAP/SMTP connections under load. A ~50% heap ratio alone is not enough at small limits: in
+  # CI, 4G heap on a 6G limit and 3G heap on a 6G limit both failed, while 4G heap on an 8G limit
+  # (~3-4G free) passed cleanly. Before enabling, size heap ≤ ~50% of resources.limits.memory AND
+  # leave several GB free (e.g. a 4G heap wants an ≥8G limit). Validate under load before rollout.
+  zgc: false
+  # -- Caps glibc malloc arenas via the `MALLOC_ARENA_MAX` env var to bound native memory.
+  # The many-threaded (virtual-thread) middleware otherwise retains ~1.2G in per-thread malloc
+  # arenas; "2" cuts that back — bringing ZGC's non-heap native down to G1 level and letting ZGC
+  # fit a 6G limit at a 4G heap (vs 8G uncapped). Benefits G1 too. Set to "" for the glibc default.
+  # Minor malloc-contention trade-off at very high concurrency. See SCR-1723.
+  mallocArenaMax: "2"
+  # -- ZGC only (ignored unless `zgc: true`): seconds of idle before unused heap is uncommitted to the
+  # OS (`-XX:ZUncommitDelay`; uncommit is on by default). Lower returns idle memory faster, at a
+  # page-fault cost on reload — useful for "pay per used memory" hosting. Empty = JVM default (300).
+  # e.g. "60". Note: this returns heap only, not glibc malloc arenas (see mallocArenaMax). See SCR-1723.
+  zgcUncommitDelay: ""
   server: ""
   network: ""
   memory:
@@ -410,7 +457,9 @@ probeHeaders: []
 ##   readUser: "openexchange"
 ##   readPassword: "readPassword"
 mysql:
-  # -- Name of an existing secret.
+  # -- Name of an existing, self-managed secret (in the release namespace) holding the configdb connection
+  # credentials. When set, the chart does *not* render its own MySQL secret and references this one instead.
+  # Unlike the other `existing*` secrets, this is not tracked by the `checksums.existingSecrets` annotation.
   existingSecret: ""
   # -- The database host.
   # *`(read/write connection)`*
@@ -463,7 +512,9 @@ mysql:
     readPassword: ""
 
 redis:
-  # -- Name of an existing secret with Redis properties.
+  # -- Name of an existing, self-managed secret (in the release namespace) holding Redis properties.
+  # When set, this *replaces* the chart-generated Redis properties secret.
+  # Content changes trigger a rolling restart when `checksums.existingSecrets` is enabled.
   existingSecret: ""
   #
   #  apiVersion: v1
@@ -629,7 +680,9 @@ secretPropertiesFiles: {}
 #    com.openexchange.some.specific.secret.prop: Some Value
 #    com.openexchange.some.specific.secret.prop2: Some Value
 
-# -- Name of an existing secret with properties
+# -- Name of an existing, self-managed secret (in the release namespace) holding additional properties.
+# Mounted *in addition to* `properties`/`secretProperties`/`propertiesFiles`/`secretPropertiesFiles`.
+# Content changes trigger a rolling restart when `checksums.existingSecrets` is enabled.
 existingPropertiesSecret: ""
 # 
 #  apiVersion: v1
@@ -640,6 +693,14 @@ existingPropertiesSecret: ""
 #        com.openexchange.foobar: "true"
 #
 #  Note: Add a prefix like '1001' that is higher than 1000 in order to override properties from .properties, .secretProperties, .propertiesFiles or .secretPropertiesFiles.
+
+# -- Names of further existing, self-managed secrets (in the release namespace) holding additional properties.
+# Same content format and mount location as `existingPropertiesSecret`, which stays supported and is mounted first.
+# All listed secrets share one directory, so their keys must be distinct; precedence is decided by the numeric file-name prefix, not by list order.
+# Content changes trigger a rolling restart when `checksums.existingSecrets` is enabled.
+existingPropertiesSecrets: []
+#  - my-first-properties
+#  - my-second-properties
 
 # -- UI settings
 uiSettings: {}
@@ -663,7 +724,9 @@ secretUISettingsFiles: {}
 #    io.ox/core//some/secret/specific/property: Some Value
 #    io.ox/core//some/secret/specific/property2: Some Value
 
-# -- Name of an existing secret with ui settings
+# -- Name of an existing, self-managed secret (in the release namespace) holding additional UI settings.
+# Mounted *in addition to* `uiSettings`/`secretUISettings`/`uiSettingsFiles`/`secretUISettingsFiles`.
+# Content changes trigger a rolling restart when `checksums.existingSecrets` is enabled.
 existingUISettingsSecret: ""
 #
 #  apiVersion: v1
@@ -675,6 +738,14 @@ existingUISettingsSecret: ""
 #
 #  Note: Add a prefix like '2001' that is higher than 2000 in order to override ui settings from .uiSettings, .secretUISettings, .secretUISettingsFiles or .secretUISettingsFiles.
 
+# -- Names of further existing, self-managed secrets (in the release namespace) holding additional UI settings.
+# Same content format and mount location as `existingUISettingsSecret`, which stays supported and is mounted first.
+# All listed secrets share one directory, so their keys must be distinct; precedence is decided by the numeric file-name prefix, not by list order.
+# Content changes trigger a rolling restart when `checksums.existingSecrets` is enabled.
+existingUISettingsSecrets: []
+#  - my-first-uisettings
+#  - my-second-uisettings
+
 # -- Meta
 meta: {}
 #  io.ox/core//design:
@@ -684,7 +755,8 @@ meta: {}
 #  io.ox/core//apps/quickLaunchCount:
 #    protected: false
 
-# -- Name of an existing secret with meta settings
+# -- Name of an existing, self-managed secret (in the release namespace) holding additional meta settings.
+# Mounted *in addition to* `meta`. Content changes trigger a rolling restart when `checksums.existingSecrets` is enabled.
 existingMetaSecret: ""
 #
 #  apiVersion: v1
@@ -694,6 +766,14 @@ existingMetaSecret: ""
 #      io.ox/core//someProp:
 #        protected: false
 #
+
+# -- Names of further existing, self-managed secrets (in the release namespace) holding additional meta settings.
+# Same content format and mount location as `existingMetaSecret`, which stays supported and is mounted first.
+# All listed secrets share one directory, so their keys must be distinct.
+# Content changes trigger a rolling restart when `checksums.existingSecrets` is enabled.
+existingMetaSecrets: []
+#  - my-first-meta
+#  - my-second-meta
 
 # -- Context sets
 contextSets: {}
@@ -707,7 +787,9 @@ secretContextSets: {}
 #    withTags: brand.com
 #    com.openexchange.google.secret_key_id: abc123
 
-# -- Name of an existing secret with context sets
+# -- Name of an existing, self-managed secret (in the release namespace) holding additional context sets.
+# Mounted *in addition to* `contextSets`/`secretContextSets`.
+# Content changes trigger a rolling restart when `checksums.existingSecrets` is enabled.
 existingContextSetsSecret: ""
 #
 #  apiVersion: v1
@@ -719,6 +801,14 @@ existingContextSetsSecret: ""
 #        com.openexchange.foobar: "true"
 #
 
+# -- Names of further existing, self-managed secrets (in the release namespace) holding additional context sets.
+# Same content format and mount location as `existingContextSetsSecret`, which stays supported and is mounted first.
+# All listed secrets share one directory, so their keys must be distinct.
+# Content changes trigger a rolling restart when `checksums.existingSecrets` is enabled.
+existingContextSetsSecrets: []
+#  - my-first-contextsets
+#  - my-second-contextsets
+
 asConfig:
   default:
     host: all
@@ -727,7 +817,9 @@ asConfig:
 #    host: myexchange.myhost.mytld
 #    someConfig: some overriding value
 
-# -- Name of an existing secret with as-config.yaml
+# -- Name of an existing, self-managed secret (in the release namespace) holding `as-config.yml`.
+# When set, this *replaces* the chart-rendered `asConfig` entirely (the `asConfig` value is then ignored).
+# Content changes trigger a rolling restart when `checksums.existingSecrets` is enabled.
 existingASConfigSecret: ""
 #
 #  apiVersion: v1
@@ -744,7 +836,9 @@ etcFiles: {}
 # -- Secret etc files
 secretETCFiles: {}
 
-# -- Name of an existing secret with files
+# -- Name of an existing, self-managed secret (in the release namespace) holding additional etc files.
+# Mounted *in addition to* `etcFiles`/`secretETCFiles`.
+# Content changes trigger a rolling restart when `checksums.existingSecrets` is enabled.
 existingETCFilesSecret: ""
 #
 #  apiVersion: v1
@@ -753,6 +847,14 @@ existingETCFilesSecret: ""
 #    example.txt: |
 #      This is an example file.
 #
+
+# -- Names of further existing, self-managed secrets (in the release namespace) holding additional etc files.
+# Same content format and mount location as `existingETCFilesSecret`, which stays supported and is mounted first.
+# All listed secrets share one directory, so their keys must be distinct.
+# Content changes trigger a rolling restart when `checksums.existingSecrets` is enabled.
+existingETCFilesSecrets: []
+#  - my-first-etcfiles
+#  - my-second-etcfiles
 
 # -- etc files
 etcBinaries: []
@@ -766,7 +868,9 @@ secretETCBinaries: []
 #     filename: something.bin
 #     b64Content: <base 64 encoded file content>
 
-# -- Name of an existing secret with binary files
+# -- Name of an existing, self-managed secret (in the release namespace) holding additional binary etc files.
+# Mounted *in addition to* `etcBinaries`/`secretETCBinaries`.
+# Content changes trigger a rolling restart when `checksums.existingSecrets` is enabled.
 existingETCBinariesSecret: ""
 #
 #  apiVersion: v1
@@ -774,6 +878,14 @@ existingETCBinariesSecret: ""
 #  stringData:
 #    example.bin: <base 64 encoded file content>
 #
+
+# -- Names of further existing, self-managed secrets (in the release namespace) holding additional binary etc files.
+# Same content format and mount location as `existingETCBinariesSecret`, which stays supported and is mounted first.
+# All listed secrets share one directory, so their keys must be distinct.
+# Content changes trigger a rolling restart when `checksums.existingSecrets` is enabled.
+existingETCBinariesSecrets: []
+#  - my-first-etcbinaries
+#  - my-second-etcbinaries
 
 # -- YAML files
 yamlFiles: {}
@@ -789,7 +901,9 @@ secretYAMLFiles: {}
 #  relative/path/to/yamlFile2:
 #    key: value
 
-# -- Name of an existing secret with yaml files
+# -- Name of an existing, self-managed secret (in the release namespace) holding additional YAML files.
+# Mounted *in addition to* `yamlFiles`/`secretYAMLFiles`.
+# Content changes trigger a rolling restart when `checksums.existingSecrets` is enabled.
 existingYAMLFilesSecret: ""
 #
 #  apiVersion: v1
@@ -799,6 +913,14 @@ existingYAMLFilesSecret: ""
 #      foo:
 #        bar: "true"
 #
+
+# -- Names of further existing, self-managed secrets (in the release namespace) holding additional YAML files.
+# Same content format and mount location as `existingYAMLFilesSecret`, which stays supported and is mounted first.
+# All listed secrets share one directory, so their keys must be distinct.
+# Content changes trigger a rolling restart when `checksums.existingSecrets` is enabled.
+existingYAMLFilesSecrets: []
+#  - my-first-yamlfiles
+#  - my-second-yamlfiles
 
 hooks:
   start: {}
@@ -831,6 +953,25 @@ pdb:
   minAvailable: ""
   # -- Maximum number or percentage of pods that can be unavailable. Mutually exclusive with minAvailable. Examples: 1, "25%"
   maxUnavailable: ""
+  # -- Policy for evicting unhealthy (not yet Ready) pods, rendered as `spec.unhealthyPodEvictionPolicy` (GA since Kubernetes 1.31). Leave empty to omit. Examples: "IfHealthyBudget", "AlwaysAllow"
+  unhealthyPodEvictionPolicy: ""
+
+# -- Horizontal Pod Autoscaler configuration. Rendered per scaling type. When enabled for a type, the Deployment's static `replicas` field is omitted so the HPA owns the replica count. Can be overridden per role/type like any other value.
+hpa:
+  # -- Whether a HorizontalPodAutoscaler should be created for the type
+  create: false
+  # -- Lower bound for the number of replicas
+  minReplicas: 1
+  # -- Upper bound for the number of replicas
+  maxReplicas: 4
+  # -- Target average CPU utilization (percentage). Leave empty to omit the CPU metric.
+  targetCPUUtilizationPercentage: 80
+  # -- Target average memory utilization (percentage). Leave empty to omit the memory metric.
+  targetMemoryUtilizationPercentage: ""
+  # -- Raw list of additional `spec.metrics` entries (verbatim). Use for custom/external metrics.
+  metrics: []
+  # -- Raw `spec.behavior` block (scale-up/scale-down policies), rendered verbatim. Leave empty to omit.
+  behavior: {}
 
 # -- Number of nodes
 replicas: 1
@@ -863,6 +1004,99 @@ defaultScaling:
 #      replicas: 1
 #      roles:
 #        - businessmobility
+# Provisioning gateway: an Envoy sidecar that serves the provisioning gRPC API over HTTP/JSON.
+# The descriptor set it transcodes with is copied out of the middleware image by an init container,
+# so gateway and server always describe the same API.
+provisioningGateway:
+  # -- Whether to run the provisioning HTTP/JSON gateway.
+  enabled: false
+  # -- The role whose pods carry the gateway. It talks to the middleware over the pod's loopback
+  # interface, so it has to sit next to a middleware that serves provisioning.
+  role: admin
+  # -- Port the gateway listens on inside the pod.
+  port: 8080
+  # -- Port of Envoy's own admin interface. Bound to loopback only.
+  adminPort: 9901
+  # -- Port the middleware's gRPC server listens on, i.e. `com.openexchange.grpc.server.port`.
+  grpcPort: 8066
+  # -- Where the descriptor set is mounted into the gateway container.
+  descriptorMountPath: /etc/provisioning
+  # -- How long a call may take before the gateway gives up and answers `504`. Giving up does not
+  # stop the call: the middleware completes it anyway, the caller just never learns the outcome.
+  # Some calls, deleting a context with much data for instance, run long, hence the generous
+  # default. Whatever sits in front of the gateway needs at least the same timeout. `0s` disables it.
+  timeout: 600s
+  # -- The gRPC services to expose. Only services listed here are reachable over HTTP, so this list
+  # is also the gateway's attack surface.
+  #
+  # The default is the set the SOAP provisioning interface already offers, so a caller can move off
+  # SOAP without losing an operation it had. Everything beyond that stays opt-in - notably the
+  # cluster maintenance services (`ExtendedUpdateTaskService`, `DBMigrationService`, `SchemaService`,
+  # `ContextRestoreService`, `ConsistencyService` and friends), which are not what a provisioning
+  # client needs and which include operations such as starting an update run.
+  #
+  # `MailCredentialAdminService` is opt-in too: it lists and releases the mail credentials the vault
+  # keeps for a user, e.g. for snoozed mail or permanent push, without revealing what they hold.
+  services:
+    - com.openexchange.grpc.provisioning.ContextService
+    - com.openexchange.grpc.provisioning.UserService
+    - com.openexchange.grpc.provisioning.GroupService
+    - com.openexchange.grpc.provisioning.ResourceService
+    - com.openexchange.grpc.provisioning.SharedAccountService
+    - com.openexchange.grpc.provisioning.SecondaryAccountService
+    - com.openexchange.grpc.provisioning.ResellerService
+    - com.openexchange.grpc.provisioning.DeputyPermissionService
+    # server, database, filestore and maintenance-reason registry - SOAP's OXUtilService
+    - com.openexchange.grpc.provisioning.UtilService
+    # the job/task management SOAP exposes as OXTaskMgmtService
+    - com.openexchange.grpc.provisioning.JobService
+    - com.openexchange.grpc.provisioning.UserCopyService
+    # the session management SOAP exposes as OXSessionService. Envoy filters by service, so this
+    # also opens ClearSessionStorage, which drops the whole session storage and has no SOAP
+    # counterpart - leave the service out where that is not wanted.
+    - com.openexchange.grpc.provisioning.SessiondService
+    # bearer tokens for scoped provisioning interfaces such as SCIM. Envoy filters by service, so
+    # this also opens the cross-context tokens (`/prov/v1/tokens`), which one credential uses to act
+    # in several contexts at once - only for an administrator standing above them, and only while
+    # `MASTER_ACCOUNT_OVERRIDE` is enabled. Leave the service out where that is not wanted.
+    - com.openexchange.grpc.provisioning.ProvisioningTokenService
+    # calendar maintenance: reassigns the organizer of an event after the previous organizer was
+    # deleted. Also without a SOAP counterpart, and an HTTP-only caller would otherwise have no way
+    # to reach it at all.
+    - com.openexchange.grpc.provisioning.ChronosService
+  image:
+    repository: envoyproxy/envoy
+    # -- A fixed tag on purpose. A floating one (`v1.31-latest`) makes the gateway a different
+    # binary from one pod restart to the next, which is not something to discover during an
+    # incident. Bump deliberately.
+    tag: v1.31.9
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+  tls:
+    # -- Whether the gateway terminates TLS itself. The endpoint carries administrative credentials
+    # in an HTTP basic header, so plain text is only defensible on a trusted, non-routable network.
+    enabled: false
+    # -- Name of an existing `kubernetes.io/tls` secret holding `tls.crt` and `tls.key`. Required
+    # when TLS is enabled; the chart does not generate a certificate.
+    existingSecret: ""
+    # -- Where the certificate and key are mounted into the gateway container.
+    mountPath: /etc/provisioning-tls
+  service:
+    # -- Service type for the gateway.
+    type: ClusterIP
+    # -- Service port. Set this to 443 when the gateway terminates TLS.
+    port: 80
+
+# -- List of extra init containers injected into `spec.initContainers`.
+# Use this to prepare volumes or run setup tasks before the middleware starts (e.g. copying a Java agent JAR).
+# OX supports the Helm injection mechanism; the behavior of third-party agents is outside OX support scope.
+extraInitContainers: []
+
 # -- List of extra sidecar containers
 extraContainers: []
 
@@ -886,6 +1120,16 @@ tolerations: []
 
 # -- Affinity for pod assignment
 affinity: {}
+
+# -- Topology spread constraints for pod assignment, rendered as `spec.topologySpreadConstraints`. Use to guarantee even pod spread across zones/nodes where preferred anti-affinity cannot. Example:
+# topologySpreadConstraints:
+#   - maxSkew: 1
+#     topologyKey: topology.kubernetes.io/zone
+#     whenUnsatisfiable: DoNotSchedule
+#     labelSelector:
+#       matchLabels:
+#         app.kubernetes.io/name: core-mw
+topologySpreadConstraints: []
 
 # -- Extra PodSpec definitions
 extraPodSpec: {}
@@ -915,6 +1159,10 @@ roles:
             targetPort: http
             protocol: TCP
             name: http
+    values:
+      features:
+        status:
+          scim: enabled
   documents:
     controller: "StatefulSet"
     statefulSetServiceName: "hazelcast-headless"
@@ -955,11 +1203,21 @@ extras:
   monitoring:
     # -- Whether monitoring resources should be created, e.g. a `ConfigMap` containing the Grafana dashboards.
     enabled: false
+    alerts:
+      # -- Whether to create a `PrometheusRule` with alerts, e.g. on refused live change streams. Needs monitoring enabled and the Prometheus Operator.
+      enabled: false
+      # -- Additional labels of the `PrometheusRule`, e.g. the one the Prometheus instance selects rules by.
+      labels: {}
 
 # -- Whether to create a shared secret containing common properties as environment variables (e.g. SESSIOND_ENCRYPTION_KEY)
 createCommonEnv: true
 
-# -- Name of an existing secret with environment variable that will be added to the container. Those env variable take precedence over the common and secret env vars, but not over extraEnv.
+# -- Name of an existing, self-managed secret (in the release namespace) whose keys are added as
+# environment variables to the containers (via `envFrom`). It is mounted after the common-env and
+# chart-generated env secrets and before any `existingEnvSecrets` entry, so on a duplicate key it takes
+# precedence over those two, but neither over a later `existingEnvSecrets` entry nor over `extraEnv`.
+# Note: this only affects the container environment; values the chart reads internally (e.g. `masterAdmin`)
+# are not changed by it. Content changes trigger a rolling restart when `checksums.existingSecrets` is enabled.
 existingEnvSecret: ""
 #
 #  apiVersion: v1
@@ -968,7 +1226,15 @@ existingEnvSecret: ""
 #    EXAMPLE: "true"
 #
 
+# -- Names of further existing, self-managed secrets (in the release namespace) whose keys are added as
+# environment variables, after `existingEnvSecret`, which stays supported. Later entries win on duplicate keys,
+# and `extraEnv` still wins over all of them. Content changes trigger a rolling restart when `checksums.existingSecrets` is enabled.
+existingEnvSecrets: []
+#  - my-first-env
+#  - my-second-env
+
 ## -- Configuration for DocumentConverter client
+
 documentConverterClient:
   cache:
     remoteCache: {}
@@ -981,9 +1247,28 @@ gotenberg:
   enabled: false
   image:
     repository: registry.open-xchange.com/appsuite-core-internal/3rdparty/gotenberg
-    tag: '8.27.0'
+    tag: '8.34.0'
   securityContext:
     readOnlyRootFilesystem: true
+  # -- Liveness probe of the `Gotenberg` container. The timing fields spell out the Kubernetes
+  # defaults, which cluster policies may require to be set explicitly.
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: http
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3
+    successThreshold: 1
+  # -- Readiness probe of the `Gotenberg` container. See `gotenberg.livenessProbe`.
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: http
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3
+    successThreshold: 1
   volumes:
     - name: tmp-volume
       emptyDir:
@@ -1009,4 +1294,4 @@ collabora-online:
   enabled: false
   image:
     repository: registry.open-xchange.com/appsuite-core-internal/3rdparty/collabora-online
-    tag: "25.04.9.2.1"
+    tag: "26.04.2.3.1"

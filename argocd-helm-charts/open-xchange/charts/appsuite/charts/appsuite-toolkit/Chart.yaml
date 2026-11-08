@@ -1,10 +1,10 @@
 apiVersion: v2
-appVersion: 1.16.3
+appVersion: 1.21.3
 dependencies:
 - name: ox-common
   repository: oci://registry.open-xchange.com/appsuite-core-internal/charts
-  version: 1.0.50
+  version: 1.0.52
 description: A Helm chart for deploying the appsuite-toolkit
 name: appsuite-toolkit
 type: application
-version: 1.16.3
+version: 1.21.3

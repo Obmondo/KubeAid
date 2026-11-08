@@ -1,0 +1,131 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ox-common.names.fullname" . }}
+  labels:
+    {{- include "ox-common.labels.standard" . | nindent 4 }}
+spec:
+  {{- /* left out under the HPA, which a sync would otherwise reset */}}
+  {{- if not .Values.hpa.create }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  {{- with .Values.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "ox-common.labels.matchLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ox-common.labels.podLabels" . | nindent 8 }}
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        io.ox.commit-sha: {{ (.Values.global).commitSha | default "unknown" | quote }}
+        checksum/config: {{ .Values.bookingConfig | toYaml | sha256sum | trunc 16 | quote }}
+        {{- if .Values.database.password }}
+        # roll the pods when the inline password changes (secretKeyRef alone
+        # doesn't change the pod spec)
+        checksum/db-password: {{ .Values.database.password | sha256sum | trunc 16 | quote }}
+        {{- end }}
+        {{- if .Values.freeBusy.password }}
+        checksum/freebusy-credentials: {{ printf "%s:%s" .Values.freeBusy.user .Values.freeBusy.password | sha256sum | trunc 16 | quote }}
+        {{- end }}
+        {{- if .Values.mailTemplates.files }}
+        # not strictly needed (the service watches the directory), but it
+        # keeps a template edit visible as a rollout like every other change
+        checksum/mail-templates: {{ .Values.mailTemplates.files | toYaml | sha256sum | trunc 16 | quote }}
+        {{- end }}
+        {{- if and .Values.extraCaCerts.certificates (not .Values.extraCaCerts.existingSecret) }}
+        checksum/extra-ca: {{ .Values.extraCaCerts.certificates | sha256sum | trunc 16 | quote }}
+        {{- end }}
+    spec: {{ include "ox-common.pods.podSpec" (dict "podRoot" .Values "global" $ "context" . ) | nindent 6 }}
+      automountServiceAccountToken: false
+      containers:
+        - name: booking
+          {{- include "ox-common.containers.securityContext" (dict "podRoot" .Values "context" . "global" $) | nindent 10 }}
+          image: {{ include "ox-common.images.image" (dict "imageRoot" .Values.image "global" $ "context" . ) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: metrics
+              containerPort: 9090
+          env:
+            - name: SQL_ENABLED
+              value: "true"
+            - name: DATABASES
+              value: booking
+            - name: DB_BOOKING_HOST
+              value: {{ .Values.database.host | quote }}
+            - name: DB_BOOKING_PORT
+              value: {{ .Values.database.port | quote }}
+            - name: DB_BOOKING_NAME
+              value: {{ .Values.database.name | quote }}
+            - name: DB_BOOKING_USER
+              value: {{ .Values.database.user | quote }}
+            - name: DB_BOOKING_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "booking.database.secretName" . | quote }}
+                  key: {{ include "booking.database.secretKey" . | quote }}
+            - name: APP_SUITE_API
+              value: {{ .Values.appSuiteApi | quote }}
+            - name: CONFIG_PATH
+              value: /app/config
+            {{- with (include "booking.freeBusy.secretName" .) }}
+            # calendar conflict checking (ADR-0013): the free/busy REST API's
+            # Basic-auth credentials, env-only so they never land in config.yaml
+            - name: FREEBUSY_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . | quote }}
+                  key: {{ include "booking.freeBusy.userKey" $ | quote }}
+            - name: FREEBUSY_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . | quote }}
+                  key: {{ include "booking.freeBusy.passwordKey" $ | quote }}
+            {{- end }}
+            {{- with (include "booking.extraCa.env" .) }}
+            {{- . | nindent 12 }}
+            {{- end }}
+            {{- range $key, $value := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+              readOnly: true
+            {{- if (include "booking.mailTemplates.configMapName" .) }}
+            # nested inside the config mount on purpose: the service reads
+            # overrides from $CONFIG_PATH/mail-templates
+            - name: mail-templates
+              mountPath: /app/config/mail-templates
+              readOnly: true
+            {{- end }}
+            {{- with (include "booking.extraCa.volumeMount" .) }}
+            {{- . | nindent 12 }}
+            {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "ox-common.names.fullname" . }}-config
+        {{- with (include "booking.mailTemplates.configMapName" .) }}
+        - name: mail-templates
+          configMap:
+            name: {{ . | quote }}
+        {{- end }}
+        {{- with (include "booking.extraCa.volume" .) }}
+        {{- . | nindent 8 }}
+        {{- end }}

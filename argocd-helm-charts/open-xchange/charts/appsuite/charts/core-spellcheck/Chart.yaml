@@ -1,5 +1,5 @@
 apiVersion: v2
-appVersion: 8.48.0
+appVersion: 8.54.0
 dependencies:
 - name: ox-common
   repository: oci://registry.open-xchange.com/appsuite/charts
@@ -7,4 +7,4 @@ dependencies:
 description: Spellcheck core Helm chart
 name: core-spellcheck
 type: application
-version: 2.46.0
+version: 2.52.0

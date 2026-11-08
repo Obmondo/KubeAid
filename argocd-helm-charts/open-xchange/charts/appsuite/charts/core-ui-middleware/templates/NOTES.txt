@@ -1,0 +1,41 @@
+{{- if .Values.redis.prefix }}
+###################################################################################
+# WARNING: DEPRECATED CONFIGURATION                                              #
+###################################################################################
+
+You are using the deprecated 'redis.prefix' configuration parameter.
+
+This parameter has been renamed to 'keyPrefix' (top-level) to better reflect
+that it's used for both Redis keys and S3 folder paths.
+
+Please update your values.yaml:
+
+  BEFORE:
+    redis:
+      prefix: {{ .Values.redis.prefix }}
+
+  AFTER:
+    keyPrefix: {{ .Values.redis.prefix }}
+
+See the migration guide in the chart README for more details.
+
+###################################################################################
+{{- end }}
+{{- if .Values.minio.enabled }}
+###################################################################################
+# WARNING: DEPRECATED CONFIGURATION                                              #
+###################################################################################
+
+The bundled MinIO sub-chart (minio.enabled) is deprecated and will be removed in
+a future release. It remains only as a development/testing convenience.
+
+For asset storage, use one of the supported storage backends (see ADR 0010):
+
+  * S3:    point 'storage.backend: s3' (or 'auto') at an external S3-compatible
+           endpoint via 's3.endpoint' and 's3.auth' (the in-cluster Garage
+           operator is the recommended provider for preview/test clusters).
+  * Redis: set 'storage.backend: redis' to store asset bytes in Redis, with no
+           S3 required.
+
+###################################################################################
+{{- end }}

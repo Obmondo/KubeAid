@@ -83,3 +83,58 @@ Create the name of the SeccompProfileDaemonSet service account to use
 {{- default "default" .Values.daemonSetServiceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Probe scheme (HTTP or HTTPS) for the coolwsd pods.
+An explicit probes.scheme wins. Otherwise the scheme is derived from coolwsd's
+ssl.enable in collabora.extra_params: ssl.enable=false means coolwsd serves
+plain HTTP, while anything else - an explicit ssl.enable=true, or no flag at
+all so coolwsd's built-in default of true applies - means it serves HTTPS.
+*/}}
+{{- define "collabora-online.probeScheme" -}}
+{{- if .Values.probes.scheme -}}
+{{- .Values.probes.scheme | upper -}}
+{{- else if .Values.collabora.extra_params | default "" | lower | contains "ssl.enable=false" -}}
+HTTP
+{{- else -}}
+HTTPS
+{{- end -}}
+{{- end }}
+
+{{/*
+Reverse proxy selector labels. The app.kubernetes.io/name here is distinct
+from the main one, so selectors that match the Collabora pods by
+app.kubernetes.io/name do not also match the reverse proxy. The COOL
+Controller watches deployments and pods by app.kubernetes.io/name set to its
+resourceName, so without a distinct name it would mistake the reverse proxy
+Deployment for a Collabora one.
+*/}}
+{{- define "collabora-online.reverseproxy.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "collabora-online.name" . }}-reverseproxy
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+Reverse proxy common labels.
+*/}}
+{{- define "collabora-online.reverseproxy.labels" -}}
+helm.sh/chart: {{ include "collabora-online.chart" . }}
+{{ include "collabora-online.reverseproxy.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end }}
+
+{{/*
+Name of the secret holding the WOPI proof key. Returns the generated secret
+name when automatic generation is on, otherwise the user-supplied
+proofKeysSecretRef. An empty result means no proof key is configured.
+*/}}
+{{- define "collabora-online.proofKeysSecretName" -}}
+{{- if .Values.collabora.proofKeyGeneration.enabled -}}
+{{- default (printf "%s-wopi-proof" (include "collabora-online.fullname" .)) .Values.collabora.proofKeyGeneration.secretName -}}
+{{- else -}}
+{{- .Values.collabora.proofKeysSecretRef -}}
+{{- end -}}
+{{- end -}}

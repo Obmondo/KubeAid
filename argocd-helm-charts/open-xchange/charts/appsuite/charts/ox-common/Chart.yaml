@@ -2,4 +2,4 @@ apiVersion: v2
 description: A Helm chart for Kubernetes
 name: ox-common
 type: library
-version: 1.0.50
+version: 1.0.52

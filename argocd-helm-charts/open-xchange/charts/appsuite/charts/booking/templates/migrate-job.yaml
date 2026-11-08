@@ -1,0 +1,86 @@
+{{- if .Values.migration.enabled }}
+{{- $jobId := .Values.migration.jobId | toString }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  {{- if .Values.migration.rotate }}
+  # Default: rotate the name per migration.jobId (fallback .Release.Revision)
+  # so each meaningful redeploy creates a new Job; Job.spec.template is
+  # immutable and a plain `helm upgrade` would otherwise be rejected. The
+  # identical pattern ships in teams, core-ui and switchboard (ADR-0009);
+  # completed Jobs are cleaned up by ttlSecondsAfterFinished (below).
+  {{- $ident := $jobId | default (.Release.Revision | toString) }}
+  name: {{ printf "%s-migrate-%s" (include "ox-common.names.fullname" .) (sha256sum $ident | trunc 8) | trunc 63 | trimSuffix "-" }}
+  {{- else }}
+  # ArgoCD opt-out (migration.rotate=false, set by this repo's argocd/
+  # manifests): under ArgoCD `helm template` pins Release.Revision to 1, so
+  # the suffix above would never rotate between syncs, and the TTL would
+  # delete the tracked Job leaving the app OutOfSync/Missing. Instead: stable
+  # name, delete+recreated on every sync via Replace/Force (annotation below).
+  # A stable name means Jobs never pile up — per-SHA naming left an orphaned
+  # Job per deploy that ArgoCD refused to prune, failing the sync with "N
+  # resources require pruning". Still a plain managed resource, NOT an ArgoCD
+  # hook, so no hook finalizer blocks namespace teardown. Migrations are
+  # idempotent (only pending ones run), so re-running on each sync is safe.
+  name: {{ printf "%s-migrate" (include "ox-common.names.fullname" .) | trunc 63 | trimSuffix "-" }}
+  annotations:
+    # Delete+recreate this single Job each sync (Job.spec.template is immutable).
+    argocd.argoproj.io/sync-options: Replace=true,Force=true
+  {{- end }}
+  labels:
+    {{- include "ox-common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: migration
+spec:
+  {{- if .Values.migration.rotate }}
+  ttlSecondsAfterFinished: {{ .Values.migration.ttlSecondsAfterFinished }}
+  {{- end }}
+  backoffLimit: 6
+  template:
+    metadata:
+      labels:
+        {{- include "ox-common.labels.podLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migration
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec: {{ include "ox-common.pods.podSpec" (dict "podRoot" .Values "global" $ "context" . ) | nindent 6 }}
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      containers:
+        - name: migrate
+          {{- include "ox-common.containers.securityContext" (dict "podRoot" .Values "context" . "global" $) | nindent 10 }}
+          image: {{ include "ox-common.images.image" (dict "imageRoot" .Values.image "global" $ "context" . ) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["node", "src/migrate.ts"]
+          workingDir: /app
+          resources:
+            {{- toYaml .Values.migration.resources | nindent 12 }}
+          env:
+            - name: DATABASES
+              value: booking
+            - name: DB_BOOKING_HOST
+              value: {{ .Values.database.host | quote }}
+            - name: DB_BOOKING_PORT
+              value: {{ .Values.database.port | quote }}
+            - name: DB_BOOKING_NAME
+              value: {{ .Values.database.name | quote }}
+            - name: DB_BOOKING_USER
+              value: {{ .Values.database.user | quote }}
+            - name: DB_BOOKING_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "booking.database.secretName" . | quote }}
+                  key: {{ include "booking.database.secretKey" . | quote }}
+            {{- with (include "booking.extraCa.env" .) }}
+            {{- . | nindent 12 }}
+            {{- end }}
+          {{- with (include "booking.extraCa.volumeMount" .) }}
+          volumeMounts:
+            {{- . | nindent 12 }}
+          {{- end }}
+      {{- with (include "booking.extraCa.volume" .) }}
+      volumes:
+        {{- . | nindent 8 }}
+      {{- end }}
+{{- end }}

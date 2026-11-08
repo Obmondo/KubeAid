@@ -273,7 +273,7 @@ In any case, your chart will support any of the input datastructures from above
 {{- $globalAuth := .context.Values.global.mysql.auth -}}
 {{- $localAuth := dict -}}
 {{- if .mysql.auth -}}
-{{- $localAuth = .auth -}}
+{{- $localAuth = .mysql.auth -}}
 {{- end -}}
 {{- $result = $localAuth.readUser | default $localAuth.user | default $localAuth.writeUser | default $globalAuth.readUser | default $globalAuth.user | default $globalAuth.writeUser -}}
 {{- end -}}

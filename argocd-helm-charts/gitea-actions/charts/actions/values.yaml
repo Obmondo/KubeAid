@@ -76,7 +76,7 @@ statefulset:
   runner:
     registry: "docker.gitea.com"
     repository: runner
-    tag: 2.0.1
+    tag: 3.0.2
     digest: ""
     pullPolicy: IfNotPresent
     fullOverride: ""
@@ -106,7 +106,7 @@ statefulset:
     uid: ""
     registry: "docker.io"
     repository: docker
-    tag: 29.5.2-dind
+    tag: 29.7.1-dind
     digest: ""
     pullPolicy: IfNotPresent
     fullOverride: ""

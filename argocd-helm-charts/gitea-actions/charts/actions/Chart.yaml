@@ -1,3 +1,6 @@
+annotations:
+  artifacthub.io/changes: |
+    []
 apiVersion: v2
 appVersion: 0.261.3
 description: Gitea Actions Helm chart for Kubernetes
@@ -19,4 +22,4 @@ sources:
 - https://gitea.com/gitea/helm-actions
 - https://gitea.com/gitea/runner
 type: application
-version: 0.1.2
+version: 0.1.3

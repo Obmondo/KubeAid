@@ -41,6 +41,12 @@ service:
   portHttps: 8011
   portLiveness: 8017
 
+# NOTE: when documentConverter.engine is "podman", every conversion engine container runs
+# inside this pod's cgroup - size the memory request/limit to also cover
+# documentConverter.jvmHeapSizeMB + processorCount x (maxVMemMB + engineContainerMemoryOverheadMB)
+# The engine image and podman's container storage also live in the pod's own (emptyDir) spool
+# volume, so ephemeral-storage must cover the engine image size as well - once for a shared
+# image store, or once per engine instance where only the "vfs" storage fallback is usable
 resources:
   requests:
     cpu: 2000m
@@ -81,6 +87,11 @@ remoteDebug:
   # port: 8108
 
 documentConverter:
+  # engine: default (one of: default, podman, cool)
+  # engineImage: OCI image to run the ReaderEngine (required if engine is podman)
+  # engineTcpPortBase: 8132 (only needed if engine is podman)
+  # engineContainerMemoryOverheadMB: 128 (only relevant if engine is podman)
+  # maxVMemMB: 2048 (maximum memory in MB a single conversion engine instance may allocate)
   # processorCount: 3
   # processingTimeoutSeconds: 60
   # jobQueueCountLimitHigh: 40

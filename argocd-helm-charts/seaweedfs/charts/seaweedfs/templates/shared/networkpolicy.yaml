@@ -161,13 +161,14 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: {{ include "seaweedfs.componentName" (list $ ($target.name | default $component)) }}
-  namespace: {{ $.Release.Namespace }}
+  namespace: {{ include "seaweedfs.namespace" $ | quote }}
   labels:
     app.kubernetes.io/name: {{ include "seaweedfs.name" $ | quote }}
     helm.sh/chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
     app.kubernetes.io/managed-by: {{ $.Release.Service | quote }}
     app.kubernetes.io/instance: {{ $.Release.Name | quote }}
     app.kubernetes.io/component: {{ $component | quote }}
+    {{- with include "seaweedfs.commonLabels" $ }}{{ . | nindent 4 }}{{ end }}
 {{- if $target.hook }}
   annotations:
     {{- /* Only before-hook-creation: the policy has to outlive the Job it

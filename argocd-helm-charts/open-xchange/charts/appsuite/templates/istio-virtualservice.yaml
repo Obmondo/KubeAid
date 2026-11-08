@@ -94,7 +94,7 @@ spec:
         {{- end }}
         {{- range $val.matchRegex }}
         - uri:
-            regex: {{ $val.matchRegex | quote }}
+            regex: {{ . | quote }}
         {{- end }}
       {{- if $val.redirect }}
       redirect:
@@ -149,6 +149,27 @@ spec:
             host: "{{ include "appsuite.fullnameFromComponent" (dict "Context" $ "Component" "drive-client-windows-ox") }}.{{ .Release.Namespace }}.svc.cluster.local"
             port:
               number: 80
+      {{- if $services.headers }}
+      headers:
+        request:
+          set:
+            host: {{ $services.headers.request.set.host | quote }}
+            x-host: {{ index $services.headers.request.set "x-host" | quote }}
+      {{- end }}
+      {{- if not (empty $extraRouteProperties) }}
+      {{- $extraRouteProperties | toYaml | nindent 6 }}
+      {{- end }}
+    {{- end }}
+    {{- if and (get .Values "bookingservice") (get .Values "bookingservice").enabled }}
+    - name: "booking-route"
+      match:
+        - uri:
+            prefix: "/booking"
+      route:
+        - destination:
+            host: "{{ include "appsuite.fullnameFromComponent" (dict "Context" $ "Component" "bookingservice") }}.{{ .Release.Namespace }}.svc.cluster.local"
+            port:
+              number: {{ default 80 (index .Values "bookingservice" "service" "port") }}
       {{- if $services.headers }}
       headers:
         request:
@@ -293,6 +314,71 @@ spec:
             host: "{{ include "appsuite.fullnameFromComponent" (dict "Context" $ "Component" "core-mw") }}-admin.{{ .Release.Namespace }}.svc.cluster.local"
             port:
               number: {{ default 80 (index .Values "core-mw" "istio" "virtualServices" "destinationPort") }}
+      {{- if $services.headers }}
+      headers:
+        request:
+          set:
+            host: {{ $services.headers.request.set.host | quote }}
+            x-host: {{ index $services.headers.request.set "x-host" | quote }}
+      {{- end }}
+      {{- if not (empty $extraRouteProperties) }}
+      {{- $extraRouteProperties | toYaml | nindent 6 }}
+      {{- end }}
+    {{- end }}
+    {{- if include "appsuite.scimEnabled" . }}
+    - name: "scim-routes"
+      match:
+        - uri:
+            prefix: "/scim/"
+      route:
+        - destination:
+            host: "{{ include "appsuite.fullnameFromComponent" (dict "Context" $ "Component" "core-mw") }}-admin.{{ .Release.Namespace }}.svc.cluster.local"
+            port:
+              number: {{ default 80 (index .Values "core-mw" "istio" "virtualServices" "destinationPort") }}
+      {{- if $services.headers }}
+      headers:
+        request:
+          set:
+            host: {{ $services.headers.request.set.host | quote }}
+            x-host: {{ index $services.headers.request.set "x-host" | quote }}
+      {{- end }}
+      {{- if not (empty $extraRouteProperties) }}
+      {{- $extraRouteProperties | toYaml | nindent 6 }}
+      {{- end }}
+    {{- end }}
+    {{- if include "appsuite.mcpEnabled" . }}
+    - name: "mcp-routes"
+      match:
+        - uri:
+            prefix: "/mcp"
+        - uri:
+            prefix: "/.well-known/oauth-protected-resource/mcp"
+      route:
+        - destination:
+            host: "{{ include "appsuite.fullnameFromComponent" (dict "Context" $ "Component" "core-mw") }}-http-api.{{ .Release.Namespace }}.svc.cluster.local"
+            port:
+              number: {{ default 80 (index .Values "core-mw" "istio" "virtualServices" "destinationPort") }}
+      {{- if $services.headers }}
+      headers:
+        request:
+          set:
+            host: {{ $services.headers.request.set.host | quote }}
+            x-host: {{ index $services.headers.request.set "x-host" | quote }}
+      {{- end }}
+      {{- if not (empty $extraRouteProperties) }}
+      {{- $extraRouteProperties | toYaml | nindent 6 }}
+      {{- end }}
+    {{- end }}
+    {{- if include "appsuite.provisioningGatewayEnabled" . }}
+    - name: "provisioning-gateway-routes"
+      match:
+        - uri:
+            prefix: "/prov/"
+      route:
+        - destination:
+            host: "{{ include "appsuite.fullnameFromComponent" (dict "Context" $ "Component" "core-mw") }}-provisioning-gateway.{{ .Release.Namespace }}.svc.cluster.local"
+            port:
+              number: {{ dig "provisioningGateway" "service" "port" 80 (get .Values "core-mw") }}
       {{- if $services.headers }}
       headers:
         request:
@@ -481,14 +567,14 @@ spec:
     - name: "core-ui-api-route"
       match:
         - uri:
-            prefix: "{{ $appRoot }}/ui"
+            prefix: "{{ $appRoot }}/ui/"
       route:
         - destination:
             host: "{{ include "appsuite.fullnameFromComponent" (dict "Context" $ "Component" "core-ui") }}.{{ .Release.Namespace }}.svc.cluster.local"
             port:
               number: 80
       rewrite:
-        uri: /ui
+        uri: /ui/
       {{- if $services.headers }}
       headers:
         request:

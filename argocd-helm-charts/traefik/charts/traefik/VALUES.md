@@ -1,6 +1,6 @@
 # traefik
 
-![Version: 42.2.0](https://img.shields.io/badge/Version-42.2.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v3.7.16](https://img.shields.io/badge/AppVersion-v3.7.16-informational?style=flat-square)
+![Version: 42.3.1](https://img.shields.io/badge/Version-42.3.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v3.7.17](https://img.shields.io/badge/AppVersion-v3.7.17-informational?style=flat-square)
 
 A Traefik based Kubernetes ingress controller
 
@@ -123,8 +123,8 @@ Kubernetes: `>=1.30.0-0`
 | gateway.defaultScope | string | `nil` | Configure this Gateway as a [Default Gateway](https://kubernetes.io/blog/2025/11/06/gateway-api-v1-4/#introducing-default-gateways) by setting the `defaultScope` field (e.g. `All` or `Namespace`). |
 | gateway.enabled | bool | `true` | When providers.kubernetesGateway.enabled, deploy a default gateway |
 | gateway.infrastructure | object | `{}` | [Infrastructure](https://kubernetes.io/blog/2023/11/28/gateway-api-ga/#gateway-infrastructure-labels) |
-| gateway.listeners.web.hostname | string | `""` | Optional hostname. See [Hostname](https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io/v1.Hostname) |
-| gateway.listeners.web.namespacePolicy | object | `nil` | Routes are restricted to namespace of the gateway [by default](https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io/v1.FromNamespaces |
+| gateway.listeners.web.hostname | string | `""` | Optional hostname. See [Hostname](https://gateway-api.sigs.k8s.io/reference/api-spec/1.6/spec/#hostname) |
+| gateway.listeners.web.namespacePolicy | object | `nil` | Routes are restricted to namespace of the gateway [by default](https://gateway-api.sigs.k8s.io/reference/api-spec/1.6/spec/#fromnamespaces) |
 | gateway.listeners.web.port | int | `8000` | Port is the network port. Multiple listeners may use the same port, subject to the Listener compatibility rules. The port must match a port declared in ports section. |
 | gateway.listeners.web.protocol | string | `"HTTP"` |  |
 | gateway.name | string | `""` | Set a custom name to gateway |
@@ -502,13 +502,14 @@ Kubernetes: `>=1.30.0-0`
 | providers.kubernetesCRD.labelSelector | string | `""` | See [upstream documentation](https://doc.traefik.io/traefik/reference/install-configuration/providers/kubernetes/kubernetes-ingress/#opt-providers-kubernetesIngress-labelselector) |
 | providers.kubernetesCRD.namespaces | list | `[]` | Array of namespaces to watch. If left empty, Traefik watches all namespaces. . When using `rbac.namespaced`, it will watch helm release namespace and namespaces listed in this array. |
 | providers.kubernetesCRD.nativeLBByDefault | bool | `false` | Defines whether to use Native Kubernetes load-balancing mode by default. |
-| providers.kubernetesCRD.safeNaming | bool | `false` | Enables collision-safe naming. ⚠️ It can be breaking, see [upstream documentation](https://doc.traefik.io/traefik/reference/install-configuration/providers/kubernetes/kubernetes-crd/#safenaming). Requires traefik v3.7.11+. |
+| providers.kubernetesCRD.safeNaming | bool | `nil` | Enables collision-safe naming. Unset: Traefik default (logs a warning).  `false`: Explicitly opt out of safe naming (suppresses warning). `true`: Opt in to safe naming. ⚠️ It can be breaking, see [upstream documentation](https://doc.traefik.io/traefik/reference/install-configuration/providers/kubernetes/kubernetes-crd/#safenaming). Requires traefik v3.7.11+. |
 | providers.kubernetesGateway.burst | int | `nil` | Maximum burst of requests to the Kubernetes API server (v3.7.3+). Defaults to 100. |
 | providers.kubernetesGateway.crossProviderNamespaces | list | `[]` | List of namespaces from which Gateway API routes are allowed to declare TraefikService backendRef references. Requires traefik v3.7.1+. |
 | providers.kubernetesGateway.enabled | bool | `false` | Enable Traefik Gateway provider for Gateway API |
-| providers.kubernetesGateway.experimentalChannel | bool | `false` | Toggles support for the Experimental Channel resources (Gateway API release channels documentation). This option currently enables support for TCPRoute and TLSRoute. |
+| providers.kubernetesGateway.experimentalChannel | bool | `false` | Toggles support for Experimental Channel resources. Required for TCPRoute before Proxy v3.8 and TLSRoute before v3.7. |
+| providers.kubernetesGateway.gatewayClass | string | `""` | Name of the GatewayClass to watch (v3.8+) Defaults to the class created by this chart when gatewayClass.enabled is true and labelSelector is not set. Cannot be used with labelSelector. |
 | providers.kubernetesGateway.gateways | list | `[]` | Scopes the provider to specific Gateways, as a list of `name` and `namespace` (defaults to the release namespace) (v3.7.14+). If left empty, Traefik processes all Gateways. |
-| providers.kubernetesGateway.labelSelector | string | `""` | A label selector can be defined to filter on specific GatewayClass objects only. |
+| providers.kubernetesGateway.labelSelector | string | `""` | A label selector can be defined to filter on specific GatewayClass objects only. Deprecated in Proxy v3.8 in favor of gatewayClass; the two options are mutually exclusive. |
 | providers.kubernetesGateway.namespaces | list | `[]` | Array of namespaces to watch. If left empty, Traefik watches all namespaces. kubernetesGateway provider requires ClusterRole and as a consequence `rbac.namespaced` is not supported. |
 | providers.kubernetesGateway.nativeLBByDefault | bool | `false` | Defines whether to use Native Kubernetes load-balancing mode by default. |
 | providers.kubernetesGateway.qps | int | `nil` | Maximum QPS to the Kubernetes API server. A negative value disables client-side ratelimiting (v3.7.3+). Defaults to 50. |

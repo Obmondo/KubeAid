@@ -12,29 +12,102 @@ spec:
   template:
     metadata:
       annotations: {{ toYaml .Values.podAnnotations | nindent 8 }}
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
       labels:
         {{- include "ox-common.labels.podLabels" . | nindent 8 }}
     spec: {{ include "ox-common.pods.podSpec" (dict "podRoot" .Values "global" $ "context" . ) | nindent 6 }}
+      {{- if .Values.serviceAccount }}
+      serviceAccountName: {{ include "core-cacheservice.serviceAccountName" . }}
+      {{- end }}
+      {{- if .Values.cacheService.mysql.auth.rootPassword }}
+      initContainers:
+        - name: init-mysql-database
+          image: mysql:9.7
+          {{- include "ox-common.containers.securityContext" (dict "podRoot" .Values "context" . "global" $) | nindent 10 }}
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          env:
+            - name: MYSQL_HOST
+              value: {{ (include "ox-common.mysql.host" (dict "mysql" .Values.cacheService.mysql "context" . "global" $)) | quote }}
+            - name: MYSQL_PORT
+              value: {{ (include "ox-common.mysql.port" (dict "mysql" .Values.cacheService.mysql "context" . "global" $)) | quote }}
+            - name: MYSQL_DATABASE
+              value: {{ (include "ox-common.mysql.database" (dict "mysql" .Values.cacheService.mysql "context" . "global" $)) | quote }}
+            - name: MYSQL_USER
+              value: {{ .Values.cacheService.mysql.auth.user | quote }}
+            - name: MYSQL_PASSWORD
+              value: {{ .Values.cacheService.mysql.auth.password | quote }}
+            - name: MYSQL_ROOT_PASSWORD
+              value: {{ .Values.cacheService.mysql.auth.rootPassword | quote }}
+          command:
+            - sh
+            - -c
+            - |
+              set -euo pipefail
+
+              # Wait for MySQL/MariaDB server to be ready
+              until mysqladmin ping --host="${MYSQL_HOST}" --port="${MYSQL_PORT}" --user="${MYSQL_USER}" --password="${MYSQL_PASSWORD}" --silent; do
+                echo "Waiting for MySQL/MariaDB server to be ready..."
+                sleep 1
+              done
+
+              # create empty CacheService database schema if it does not exist yet and DB server root password is given;
+              # if root password is not given the admin needs to create the shema by herself before service is able to run
+              if [ -n "${MYSQL_ROOT_PASSWORD}" ]; then
+                echo "MySQL/MariaDB server is up. Checking or creating CacheService database schema ${MYSQL_DATABASE}..."
+
+                # Check if database exists before creating to avoid race conditions in multiple init containers
+                DB_EXISTS=$(mysql --host="${MYSQL_HOST}" --port="${MYSQL_PORT}" --user=root --password="${MYSQL_ROOT_PASSWORD}" -N -e \
+                  "SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='${MYSQL_DATABASE}';")
+
+                if [ -z "$DB_EXISTS" ]; then
+                  mysql --host="${MYSQL_HOST}" --port="${MYSQL_PORT}" --user=root --password="${MYSQL_ROOT_PASSWORD}" -N -e \
+                    "CREATE DATABASE IF NOT EXISTS \`${MYSQL_DATABASE}\` DEFAULT CHARACTER SET utf8mb4 DEFAULT COLLATE utf8mb4_unicode_ci;"
+
+                  echo "Database '${MYSQL_DATABASE}' created successfully."
+                else
+                  echo "Database '${MYSQL_DATABASE}' already exists."
+                fi
+              fi
+      {{- end }}
       containers:
         - name: main
-          securityContext: {{ toYaml .Values.securityContext | nindent 12 }}
+          {{- include "ox-common.containers.securityContext" (dict "podRoot" .Values "context" . "global" $) | nindent 10 }}
           image: {{ include "ox-common.images.image" (dict "imageRoot" .Values.image "global" $ "context" . ) }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --spring.profiles.active=prod
+            - --spring.config.additional-location=file:/opt/open-xchange/etc/cacheservice.properties
+            - --spring.config.import=optional:configtree:/opt/open-xchange/etc/secrets/
+            - --logging.config=/opt/open-xchange/etc/logback.xml
           env:
-            {{- if .Values.cacheService }}
             - name: CS_JVM_HEAP_SIZE_MB
-              value: {{ .Values.cacheService.jvmHeapSizeMB | default "768" | quote }}
-            {{- end }}
+              value: {{ (.Values.cacheService).jvmHeapSizeMB | default "768" | quote }}
             - name: RELEASE_NAMESPACE
-              value: {{ .Release.Name | quote }}
-            - name: POD_IP
-              valueFrom:
-                fieldRef:
-                    fieldPath: status.podIP
+              value: {{ .Release.Namespace | quote }}
+            {{- $javaOpts := list
+                "-Duser.timezone=UTC"
+                "-Dliquibase.secureParsing=false"
+                "-XX:+UseG1GC"
+                "-XX:MaxGCPauseMillis=200"
+                "-XX:+AlwaysPreTouch"
+                "-Xms$(CS_JVM_HEAP_SIZE_MB)m"
+                "-Xmx$(CS_JVM_HEAP_SIZE_MB)m"
+                "-XshowSettings:vm"
+            }}
             {{- if .Values.remoteDebug.enabled }}
-            - name: JAVA_DEBUG_OPTIONS
-              value: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:{{ .Values.remoteDebug.port | default 8101 }}"
+            {{- $javaOpts = append $javaOpts (printf "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:%v" (.Values.remoteDebug.port | default 8101)) }}
             {{- end }}
+            {{- if (.Values.cacheService).javaOptions }}
+            {{- $javaOpts = concat $javaOpts .Values.cacheService.javaOptions }}
+            {{- end }}
+            - name: JDK_JAVA_OPTIONS
+              value: {{ join " " $javaOpts | quote }}
             {{- if .Values.env }}
               {{- toYaml .Values.env | nindent 12 }}
             {{- end }}
@@ -46,7 +119,7 @@ spec:
               containerPort: 8000
               protocol: TCP
             {{- if .Values.remoteDebug.enabled }}
-            - name: debug
+            - name: httpdebug
               containerPort: {{ .Values.remoteDebug.port | default 8101 }}
               protocol: TCP
             {{- end }}
@@ -74,90 +147,47 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
-            {{- if .Values.cacheService.mysql.keystore.clientCertificateKeyStore }}
-            - name: db-clientstore
-              mountPath: /opt/open-xchange/etc/ox-sql-clientstore
-              subPath: ox-sql-clientstore
-            {{- end }}
-            {{- if .Values.cacheService.mysql.keystore.trustCertificateKeyStore }}
-            - name: db-truststore
-              mountPath: /opt/open-xchange/etc/ox-sql-truststore
-              subPath: ox-sql-truststore
-            {{- end }}
-            - name: log-config
-              mountPath: /opt/open-xchange/cacheservice/etc/logback.xml
-              subPath: logback.xml
             - name: cacheservice-config
-              mountPath: /opt/open-xchange/cacheservice/etc/cacheservice.properties
+              mountPath: /opt/open-xchange/etc/cacheservice.properties
               subPath: cacheservice.properties
+            - name: cacheservice-config
+              mountPath: /opt/open-xchange/etc/logback.xml
+              subPath: logback.xml
             {{- if .Values.existingPropertiesSecret }}
             - name: cacheservice-secrets-config
-              mountPath: /opt/open-xchange/cacheservice/etc/secrets
+              mountPath: /opt/open-xchange/etc/secrets
               readOnly: true
             {{- end }}
-            - name: cacheservice-logs
+            - name: cacheservice-log
               mountPath: {{ .Values.logging.logDir }}
             - name: cacheservice-spool
               mountPath: /var/spool/open-xchange
+            - name: tmp
+              mountPath: /tmp
           {{- if .Values.persistence.enabled }}
             - name: cacheservice-fileitem
               mountPath: {{ ternary .Values.persistence.fileItemStore.path "/var/spool/open-xchange/cacheservice" (and .Values.persistence.enabled (not (empty .Values.persistence.fileItemStore.path))) }}
           {{- end }}
-          {{- if (eq ( include "ox-common.java.ssl.enabled" . ) "true") }}
-            - name: java-ssl-secrets
-              mountPath: /opt/open-xchange/cacheservice/etc/security/
-              readOnly: true
-          {{- end }}
       volumes:
-        {{- if .Values.cacheService.mysql.keystore.clientCertificateKeyStore }}
-        - name: db-clientstore
-          configMap:
-            name: {{ include "core-cacheservice.keystore" . }}
-            items:
-              - key: ox-sql-clientstore
-                path: ox-sql-clientstore
-        {{- end }}
-        {{- if .Values.cacheService.mysql.keystore.trustCertificateKeyStore }}
-        - name: db-truststore
-          configMap:
-            name: {{ include "core-cacheservice.keystore" . }}
-            items:
-              - key: ox-sql-truststore
-                path: ox-sql-truststore
-        {{- end }}
-        - name: log-config
-          configMap:
-            name: {{ include "core-cacheservice.configmap" . }}
-            items:
-              - key: logback.xml
-                path: logback.xml
         - name: cacheservice-config
           configMap:
             name: {{ include "core-cacheservice.configmap" . }}
             items:
               - key: cacheservice.properties
                 path: cacheservice.properties
+              - key: logback.xml
+                path: logback.xml
         {{- if .Values.existingPropertiesSecret }}
         - name: cacheservice-secrets-config
           secret:
             secretName: {{ .Values.existingPropertiesSecret }}
         {{- end }}
-        - name: cacheservice-logs
+        - name: cacheservice-log
           emptyDir: {}
         - name: cacheservice-spool
           emptyDir: {}
-        {{- if (eq ( include "ox-common.java.ssl.enabled" . ) "true") }}
-        - name: java-ssl-secrets
-          secret:
-            secretName: {{ include "ox-common.java.ssl.secretName" . }}
-            items:
-              - key: {{ include "ox-common.java.ssl.secret.keyStoreKey" . }}
-                path: java-ssl.ks
-              {{- if eq ( include "ox-common.java.ssl.useTrustStore" . ) "true" }}
-              - key: {{ include "ox-common.java.ssl.secret.trustStoreKey" . }}
-                path: java-ssl.ts
-              {{- end }}
-        {{- end }}
+        - name: tmp
+          emptyDir: {}
         {{- if .Values.persistence.enabled }}
         - name: cacheservice-fileitem
         {{- if not (empty .Values.persistence.existingClaim) }}

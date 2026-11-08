@@ -4,7 +4,7 @@
 # Declare variables to be passed into your templates.
 
 image:
-  repository: collabora/code
+  repository: docker.io/collabora/code
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
@@ -51,12 +51,39 @@ collabora:
   username: admin
   env: []
 
-  # name of a secret that holds the WOPI proof keys for Collabora
-  # How to generate this secret:
-  # 1. ssh-keygen -t rsa -N "" -m PEM -f proof_key
-  # 2. kubectl create secret generic <name-of-the-secret> --from-file=proof_key --from-file=proof_key.pub
-  # finally set proofKeysSecretRef to the name of the secret
+  # Name of a pre-existing secret holding the WOPI proof key. Used only when
+  # proofKeyGeneration.enabled is false. The secret must contain the private
+  # key under "proof_key" (a PEM RSA key) and may also contain "proof_key.pub".
+  # coolwsd reads only the private "proof_key"; the public file is mounted for
+  # completeness but is not read by the server.
+  # To create it by hand:
+  #   openssl genrsa -out proof_key 4096
+  #   openssl rsa -in proof_key -pubout -out proof_key.pub
+  #   kubectl create secret generic <name> --from-file=proof_key --from-file=proof_key.pub
   proofKeysSecretRef: ""
+
+  # Let the chart generate and manage the WOPI proof key. On first install a
+  # 4096-bit RSA private key is created and stored in a secret that Helm owns;
+  # on later upgrades the existing key is read back and kept unchanged, so it
+  # stays stable across all replicas. When enabled, proofKeysSecretRef is
+  # ignored.
+  #
+  # Because the secret belongs to the release, "helm uninstall" deletes it. A
+  # secret you create yourself and point to through proofKeysSecretRef is left
+  # in place instead.
+  #
+  # This is meant for installs driven by the helm command line. Keeping the key
+  # stable relies on reading the existing secret back from the live cluster.
+  # Tools that render the chart with "helm template" without live cluster
+  # access, such as Argo CD and Flux, do not perform that read, so every render
+  # generates a fresh key. That shows up as a permanent difference on the
+  # secret and can rotate the key on each sync, which breaks WOPI proof
+  # validation. In a GitOps setup, create the secret yourself and set
+  # proofKeysSecretRef instead of enabling generation here.
+  proofKeyGeneration:
+    enabled: false
+    # Name of the secret to create. Defaults to "<release>-wopi-proof".
+    secretName: ""
 
   # Provide custom coolwsd configuration files here.
   # Note: Content provided will override the default files (coolkitconfig.xcu, coolwsd.xml)
@@ -141,7 +168,7 @@ podLabels: {}
 podSecurityContext: {}
 #  fsGroup: 2000
 
-# https://github.com/CollaboraOnline/online/blob/master/docker/cool-seccomp-profile.json
+# https://github.com/CollaboraOnline/online/blob/main/docker/cool-seccomp-profile.json
 # use DaemonSet to install seccomp profile to node's /var/lib/kubelet/seccomp directory
 # once this option is enabled you can set following securityContext to use cool-seccomp-profile
 # securityContext:
@@ -197,10 +224,17 @@ deployment:
     securityContext: {}
 
 probes:
+  # Scheme the kubelet uses to reach the coolwsd probe endpoint.
+  # Leave blank to derive it automatically from collabora.extra_params:
+  # ssl.enable=false serves plain HTTP, anything else (ssl.enable=true, or the
+  # flag absent so coolwsd's built-in default of true applies) serves HTTPS.
+  # Set this to HTTP or HTTPS only to override the derived value.
+  scheme: ""
   startup:
     enabled: true
     failureThreshold: 30
     periodSeconds: 3
+    path: /
 
   readiness:
     enabled: true
@@ -209,6 +243,7 @@ probes:
     timeoutSeconds: 30
     successThreshold: 1
     failureThreshold: 2
+    path: /
   liveness:
     enabled: true
     initialDelaySeconds: 0
@@ -216,6 +251,7 @@ probes:
     timeoutSeconds: 30
     successThreshold: 1
     failureThreshold: 4
+    path: /
 
 route:
   # -- enable an HTTPRoute resource for collabora.
@@ -427,6 +463,119 @@ nginxDeny:
     #    hosts:
     #      - chart-example.local
 
+# An in-namespace nginx reverse proxy that load-balances across the Collabora
+# Online replicas with per-document affinity. Use it where you cannot install a
+# cluster ingress controller (for example OpenShift, where you front this with
+# the default Router through an OpenShift Route). nginx hashes on a request
+# parameter so every request for one document reaches the same pod.
+reverseProxy:
+  enabled: false
+
+  # nginx-unprivileged listens on 8080 and runs as a non-root user, so it
+  # passes restrictive pod security such as OpenShift restricted-v2 unchanged.
+  image:
+    repository: nginxinc/nginx-unprivileged
+    tag: stable
+    pullPolicy: IfNotPresent
+
+  replicaCount: 1
+  containerPort: 8080
+
+  # The request parameter nginx hashes on to pin a document to one pod. Use
+  # "WOPISrc" for a standalone multi-replica setup (affinity with no extra
+  # components), or "RouteToken" when running with the COOL Controller.
+  hashParam: WOPISrc
+
+  # Port the Collabora pods listen on. Defaults to deployment.containerPort.
+  upstreamPort: 9980
+
+  # How long nginx keeps a proxied connection open. Editing sessions are
+  # long-lived WebSockets, so this is large.
+  proxyTimeout: "3600s"
+
+  # COOL Controller integration. When enabled, nginx also proxies /controller
+  # to the controller service. This is for the client-facing routeToken
+  # endpoint (indirection_endpoint.url), so it can live under the same external
+  # host as the documents. It is useful on OpenShift, where the controller has
+  # no ingress controller to expose it otherwise. Set hashParam to RouteToken
+  # alongside this.
+  # The controller's monitor WebSocket does NOT need this: point each COOL
+  # pod's monitors.monitor straight at the controller Service over cluster DNS
+  # (ws://<controller-service>:9000/controller/ws), which avoids an extra hop.
+  controller:
+    enabled: false
+    # host:port of the cool-controller service, for example
+    # cool-controller.collabora.svc.cluster.local:9000
+    upstream: ""
+
+  # Replace the whole generated nginx.conf. Leave empty to use the generated
+  # one. Only needed for cases the knobs above do not cover.
+  nginxConfigOverride: ""
+
+  # Open-source nginx resolves the upstream pod IPs only when it starts or
+  # reloads. This sidecar watches the Collabora EndpointSlices (a namespaced
+  # Role) and reloads nginx only when the pod set changes, so the upstream
+  # tracks live pods after a restart, scale or reinstall. It needs a shared
+  # process namespace so it can signal the nginx master. Disable it on clusters
+  # that forbid shareProcessNamespace, then reload nginx by hand after pod
+  # changes with kubectl rollout restart.
+  endpointReloader:
+    enabled: true
+    # Needs kubectl, a shell and kill. alpine/k8s has all three.
+    image:
+      repository: alpine/k8s
+      tag: "1.31.1"
+      pullPolicy: IfNotPresent
+
+  podAnnotations: []
+
+  # No runAsUser is pinned, so OpenShift assigns one from the namespace range.
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
+
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  service:
+    type: ClusterIP
+    port: 8080
+
+  # OpenShift entry point: a route.openshift.io/v1 Route to the proxy Service.
+  # The timeout annotation keeps long-lived WebSockets from being cut.
+  route:
+    enabled: false
+    host: ""
+    annotations:
+      haproxy.router.openshift.io/timeout: "3600s"
+    tls: {}
+    #  termination: edge
+    #  insecureEdgeTerminationPolicy: Redirect
+
+  # Standard Ingress to the proxy Service, for non-OpenShift clusters.
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: chart-example.local
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+    tls: []
+
 dynamicConfig:
   enabled: false
   logging:
@@ -492,6 +641,9 @@ dynamicConfig:
   containerPort: 80
 
   probes:
+    # Scheme used by the kubelet to reach the dynamicConfig probe endpoint.
+    # Set to HTTPS when the dynamicConfig pod terminates SSL itself.
+    scheme: HTTP
     startup:
       enabled: true
       failureThreshold: 30
@@ -541,6 +693,8 @@ trusted_certs_install:
   enabled: false
   trusted_certs: []
 
+priorityClassName: ""
+
 nodeSelector: {}
 
 tolerations: []
@@ -552,3 +706,10 @@ extraVolumes: []
 
 # Optionally specify an extra list of additional volumeMounts.
 extraVolumeMounts: []
+
+# Optionally specify a list of extra Kubernetes manifests to deploy with the
+# release. Each entry is rendered through tpl, so values may reference release
+# data. Use this to add provider-specific routing objects (for example an
+# APISIX ApisixRoute) without the chart needing explicit support for that
+# provider.
+extraObjects: []

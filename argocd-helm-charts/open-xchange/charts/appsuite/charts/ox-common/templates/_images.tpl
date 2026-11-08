@@ -7,7 +7,8 @@ The registry can be set globally as global.imageRegistry. Tag defaults to the Ch
 {{- define "ox-common.images.image" -}}
 {{- $registryName := .imageRoot.registry | default .global.Values.defaultRegistry -}}
 {{- $repositoryName := .imageRoot.repository -}}
-{{- $tag := .imageRoot.tag | toString -}}
+{{- /* `default ""` so an absent tag key becomes "" rather than the string "<nil>", which would defeat the AppVersion fallback below */ -}}
+{{- $tag := .imageRoot.tag | default "" | toString -}}
 {{- if and .context (eq $tag "") -}}
     {{- $tag = .context.Chart.AppVersion -}}
 {{ end }}

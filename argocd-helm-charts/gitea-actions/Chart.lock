@@ -1,6 +1,6 @@
 dependencies:
 - name: actions
   repository: https://dl.gitea.com/charts
-  version: 0.1.2
-digest: sha256:4fab37183a04deed5babe6a22ece6466a91f9c39ef63efe9bd498a25554a24ba
-generated: "2026-10-15T15:59:02.710841649+05:30"
+  version: 0.1.3
+digest: sha256:2ecbbaed2c2e06fcdd3f83e33bec138f775f22f97d6ff138b8d886ef2112174c
+generated: "2026-11-08T09:48:32.183833519Z"

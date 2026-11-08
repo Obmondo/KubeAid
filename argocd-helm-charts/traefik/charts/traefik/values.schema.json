@@ -600,11 +600,11 @@
                             "type": "object",
                             "properties": {
                                 "hostname": {
-                                    "description": "Optional hostname. See [Hostname](https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io/v1.Hostname)",
+                                    "description": "Optional hostname. See [Hostname](https://gateway-api.sigs.k8s.io/reference/api-spec/1.6/spec/#hostname)",
                                     "type": "string"
                                 },
                                 "namespacePolicy": {
-                                    "description": "Routes are restricted to namespace of the gateway [by default](https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io/v1.FromNamespaces",
+                                    "description": "Routes are restricted to namespace of the gateway [by default](https://gateway-api.sigs.k8s.io/reference/api-spec/1.6/spec/#fromnamespaces)",
                                     "type": [
                                         "object",
                                         "null"
@@ -2859,8 +2859,11 @@
                             "type": "boolean"
                         },
                         "safeNaming": {
-                            "description": "Enables collision-safe naming. ⚠️ It can be breaking, see [upstream documentation](https://doc.traefik.io/traefik/reference/install-configuration/providers/kubernetes/kubernetes-crd/#safenaming). Requires traefik v3.7.11+.",
-                            "type": "boolean"
+                            "description": "Enables collision-safe naming. Unset: Traefik default (logs a warning).  `false`: Explicitly opt out of safe naming (suppresses warning). `true`: Opt in to safe naming. ⚠️ It can be breaking, see [upstream documentation](https://doc.traefik.io/traefik/reference/install-configuration/providers/kubernetes/kubernetes-crd/#safenaming). Requires traefik v3.7.11+.",
+                            "type": [
+                                "boolean",
+                                "null"
+                            ]
                         }
                     },
                     "additionalProperties": false
@@ -2884,15 +2887,19 @@
                             "type": "boolean"
                         },
                         "experimentalChannel": {
-                            "description": "Toggles support for the Experimental Channel resources (Gateway API release channels documentation). This option currently enables support for TCPRoute and TLSRoute.",
+                            "description": "Toggles support for Experimental Channel resources. Required for TCPRoute before Proxy v3.8 and TLSRoute before v3.7.",
                             "type": "boolean"
+                        },
+                        "gatewayClass": {
+                            "description": "Name of the GatewayClass to watch (v3.8+) Defaults to the class created by this chart when gatewayClass.enabled is true and labelSelector is not set. Cannot be used with labelSelector.",
+                            "type": "string"
                         },
                         "gateways": {
                             "description": "Scopes the provider to specific Gateways, as a list of `name` and `namespace` (defaults to the release namespace) (v3.7.14+). If left empty, Traefik processes all Gateways.",
                             "type": "array"
                         },
                         "labelSelector": {
-                            "description": "A label selector can be defined to filter on specific GatewayClass objects only.",
+                            "description": "A label selector can be defined to filter on specific GatewayClass objects only. Deprecated in Proxy v3.8 in favor of gatewayClass; the two options are mutually exclusive.",
                             "type": "string"
                         },
                         "namespaces": {
@@ -3352,7 +3359,34 @@
             "properties": {
                 "additionalServices": {
                     "description": "Can be used to create multiple Service. See EXAMPLES.md for more details.",
-                    "type": "object"
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                            "annotations": {
+                                "type": "object"
+                            },
+                            "annotationsTCP": {
+                                "type": "object"
+                            },
+                            "annotationsUDP": {
+                                "type": "object"
+                            },
+                            "enabled": {
+                                "type": "boolean"
+                            },
+                            "labels": {
+                                "type": "object"
+                            },
+                            "single": {
+                                "type": "boolean"
+                            },
+                            "spec": {
+                                "type": "object"
+                            }
+                        },
+                        "additionalProperties": false
+                    }
                 },
                 "annotations": {
                     "description": "Additional annotations applied to both TCP and UDP services (e.g. for cloud provider specific config)",
@@ -3393,7 +3427,8 @@
                         }
                     }
                 }
-            }
+            },
+            "additionalProperties": false
         },
         "serviceAccount": {
             "description": "The service account the pods will use to interact with the Kubernetes API",

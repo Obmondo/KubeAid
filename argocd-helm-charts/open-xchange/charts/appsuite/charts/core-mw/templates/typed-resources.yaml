@@ -35,11 +35,23 @@ spec:
   serviceName: {{ include "ox-common.names.fullname" $globalContext }}-{{ $statefulSetServiceName | default $typeName }}
   {{- include "core-mw.statefulSetProperties" $globalContext | nindent 2 }}
   {{- end }}
+  {{- if not (($values.hpa).create) }}
   replicas: {{ $typeConfig.replicas }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "ox-common.labels.matchLabels" $globalContext | nindent 6 }}
-  {{- if $values.rolloutStrategy }}
+  {{- if and $values.rolloutStrategy (eq $controller "StatefulSet") }}
+  {{- /* A StatefulSet knows no "Recreate" and no "maxSurge"; such a strategy keeps the StatefulSet default */}}
+  {{- if has $values.rolloutStrategy.type (list "RollingUpdate" "OnDelete") }}
+  updateStrategy:
+    type: {{ $values.rolloutStrategy.type }}
+  {{- $rollingUpdate := pick ($values.rolloutStrategy.rollingUpdate | default dict) "maxUnavailable" "partition" }}
+  {{- if (and (eq $values.rolloutStrategy.type "RollingUpdate") $rollingUpdate) }}
+    rollingUpdate: {{ $rollingUpdate | toYaml | nindent 6 }}
+  {{- end }}
+  {{- end }}
+  {{- else if $values.rolloutStrategy }}
   strategy:
     type: {{ $values.rolloutStrategy.type }}
   {{- if (and (eq $values.rolloutStrategy.type "RollingUpdate") $values.rolloutStrategy.rollingUpdate) }}
@@ -72,15 +84,24 @@ spec:
         ox.io/compression: "true"
         {{- end }}
     spec: {{- include "ox-common.pods.podSpec" (dict "podRoot" $values "global" $) | nindent 6 }}
+      {{- with $values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       priorityClassName: {{ $values.priorityClassName | quote }}
       terminationGracePeriodSeconds: {{ $values.terminationGracePeriodSeconds }}
       {{- $initContainerEnabled := include "core-mw.init.enabled" $values -}}
-      {{ if eq $initContainerEnabled "true" }}
+      {{- $hasExtraInitContainers := and $values.extraInitContainers (gt (len $values.extraInitContainers) 0) -}}
+      {{- if or (eq $initContainerEnabled "true") $hasExtraInitContainers }}
       initContainers:
+      {{- if eq $initContainerEnabled "true" }}
         - name: init-middleware
           image: {{ include "ox-common.images.image" (dict "imageRoot" $values.image "global" $ "context" $globalContext) }}
           imagePullPolicy: {{ $values.image.pullPolicy }}
           securityContext: {{ toYaml $values.securityContext | nindent 12 }}
+          # A restart leaves only the latest attempt in the container log; the pod
+          # status keeps the reason across restarts.
+          terminationMessagePolicy: FallbackToLogsOnError
           command:
             {{- if not $values.useLegacyBashScripts }}
             - "/opt/open-xchange/go/init"
@@ -88,12 +109,9 @@ spec:
             - "/bin/bash"
             - "-c"
             - |
+{{ $globalContext.Files.Get "files/init-waits.sh" | indent 14 }}
               {{- if (or $values.enableInitialization $values.enableDBConnectionCheck) }}
-              echo -n "Waiting for the MySQL Server to be ready ... "
-              while ! nc -z -w 5 "${MYSQL_HOST}" "${MYSQL_PORT}" > /dev/null 2>&1; do
-                  : 
-              done
-              echo "The MySQL Server is up & running"
+              wait_for_db
               {{- end }}
               {{- if $values.javaOpts.debug.heapdump.enabled }}
               echo "Creating heapdump directory ... "
@@ -116,24 +134,25 @@ spec:
                         --mysql-root-passwd "${MYSQL_ROOT_PASSWORD}" \
                         --mysql-args="${MYSQL_ARGS}"
                 fi
+                # Apply the configuration first: doing this after the override
+                # below would render hazelcast.properties again and restore the
+                # cluster join mode, which this instance must not use. The
+                # override has to use the same property name the configuration
+                # renders, and has to be renamed along with it.
+                /entrypoint.sh true
                 ox_props set --property com.openexchange.hazelcast.network.join --value empty
-                /entrypoint.sh /opt/open-xchange/sbin/open-xchange-cloud &
-                while true; do
-                    STATUS=$(curl -sLI -w '%{http_code}' http://localhost:8009/health -o /dev/null)
-                    if [ $STATUS -eq 200 ]; then
-                        echo "Middleware is up & running"
-                        break
-                    else
-                        echo "Middleware health status: $STATUS"
-                    fi
-                    sleep 5
-                done
+                /opt/open-xchange/sbin/open-xchange-cloud &
+                wait_for_middleware
               else
                 exit 1
               fi
               {{- end }}
             {{- end }}
           env:
+            - name: INIT_DB_WAIT_TIMEOUT
+              value: {{ $values.initWait.dbTimeout | quote }}
+            - name: INIT_MW_WAIT_TIMEOUT
+              value: {{ $values.initWait.middlewareTimeout | quote }}
             {{- if not $values.useLegacyBashScripts }}
             - name: INIT_ENABLE_DBINIT
               value: {{ $values.enableInitialization | quote }}
@@ -169,6 +188,8 @@ spec:
             {{- end }}
             {{ include "core-mw.volumeMounts" $context | nindent 12 }}
       {{- end }}
+        {{ include "core-mw.extraInitContainers" $context | nindent 8 }}
+      {{- end }}
       containers:
         - name: {{ $globalContext.Chart.Name }}
           image: {{ include "ox-common.images.image" (dict "imageRoot" $values.image "global" $ "context" $globalContext) }}
@@ -188,10 +209,14 @@ spec:
           {{- end }}
           {{- if $values.probe.liveness.enabled }}
           livenessProbe:
-            initialDelaySeconds: {{ $values.probe.liveness.initialDelaySeconds }}
+            {{- with $values.probe.liveness.initialDelaySeconds }}
+            initialDelaySeconds: {{ . }}
+            {{- end }}
             periodSeconds: {{ $values.probe.liveness.periodSeconds }}
             failureThreshold: {{ $values.probe.liveness.failureThreshold }}
-            timeoutSeconds: {{ $values.probe.liveness.timeoutSeconds }}
+            {{- with $values.probe.liveness.timeoutSeconds }}
+            timeoutSeconds: {{ . }}
+            {{- end }}
             httpGet:
               path: {{ $values.probe.liveness.httpGet.path }}
               port: {{ $values.probe.liveness.httpGet.port }}
@@ -203,10 +228,14 @@ spec:
           {{- end }}
           {{- if $values.probe.startup.enabled }}
           startupProbe:
-            initialDelaySeconds: {{ $values.probe.startup.initialDelaySeconds }}
+            {{- with $values.probe.startup.initialDelaySeconds }}
+            initialDelaySeconds: {{ . }}
+            {{- end }}
             periodSeconds: {{ $values.probe.startup.periodSeconds }}
             failureThreshold: {{ $values.probe.startup.failureThreshold }}
-            timeoutSeconds: {{ $values.probe.startup.timeoutSeconds }}
+            {{- with $values.probe.startup.timeoutSeconds }}
+            timeoutSeconds: {{ . }}
+            {{- end }}
             httpGet:
               path: {{ $values.probe.startup.httpGet.path }}
               port: {{ $values.probe.startup.httpGet.port }}
@@ -218,10 +247,14 @@ spec:
           {{- end }}
           {{- if $values.probe.readiness.enabled }}
           readinessProbe:
-            initialDelaySeconds: {{ $values.probe.readiness.initialDelaySeconds }}
+            {{- with $values.probe.readiness.initialDelaySeconds }}
+            initialDelaySeconds: {{ . }}
+            {{- end }}
             periodSeconds: {{ $values.probe.readiness.periodSeconds }}
             failureThreshold: {{ $values.probe.readiness.failureThreshold }}
-            timeoutSeconds: {{ $values.probe.readiness.timeoutSeconds }}
+            {{- with $values.probe.readiness.timeoutSeconds }}
+            timeoutSeconds: {{ . }}
+            {{- end }}
             httpGet:
               path: {{ $values.probe.readiness.httpGet.path }}
               port: {{ $values.probe.readiness.httpGet.port }}
@@ -268,9 +301,21 @@ spec:
             - name: JAVA_OPTS_NET
               value: "{{ $context.Values.javaOpts.network }}"
             {{- end }}
-            {{- if not (empty $values.javaOpts.other) }}
+            {{- if $values.javaOpts.mallocArenaMax }}
+            - name: MALLOC_ARENA_MAX
+              value: "{{ $values.javaOpts.mallocArenaMax }}"
+            {{- end }}
+            {{- $otherOpts := default "" $values.javaOpts.other }}
+            {{- if and $values.javaOpts.compactObjectHeaders (not (contains "UseCompactObjectHeaders" $otherOpts)) }}
+            {{-   $otherOpts = printf "-XX:+UseCompactObjectHeaders %s" $otherOpts | trim }}
+            {{- end }}
+            {{- if $values.javaOpts.zgc }}
+            {{-   if not (contains "UseZGC" $otherOpts) }}{{ $otherOpts = printf "%s -XX:+UseZGC" $otherOpts | trim }}{{- end }}
+            {{-   if and $values.javaOpts.zgcUncommitDelay (not (contains "ZUncommitDelay" $otherOpts)) }}{{ $otherOpts = printf "%s -XX:ZUncommitDelay=%s" $otherOpts $values.javaOpts.zgcUncommitDelay | trim }}{{- end }}
+            {{- end }}
+            {{- if not (empty $otherOpts) }}
             - name: JAVA_OPTS_OTHER
-              value: "{{ $values.javaOpts.other }}"
+              value: "{{ $otherOpts }}"
             {{- end }}
             {{- if and $values.configuration.businessmobility.logging.debug.enabled (get $roleMap "businessmobility") }}
             - name: EAS_DEBUG
@@ -313,11 +358,6 @@ spec:
               mountPath: /opt/open-xchange/etc/pushClientConfig/drive-mobile-android
               readOnly: true
             {{- end }}
-            {{- if $values.restricted.mobileApiFacade.enabled }}
-            - name: mobile-api-facade-restricted-config
-              mountPath: /opt/open-xchange/etc/pushClientConfig/mobile-api-facade-restricted-config.yaml
-              readOnly: true
-            {{- end }}
         {{ include "core-mw.containers" $context | nindent 8 }}
       volumes:
         {{ include "core-mw.volumes" $context | nindent 8 }}
@@ -357,10 +397,6 @@ spec:
           secret:
             secretName: drive-restricted-fcm-keystore
             optional: true
-        - name: mobile-api-facade-restricted-config
-          secret:
-            secretName: mobile-api-facade-restricted-config
-            optional: true
 ---
 {{   end -}}
 {{ else -}}
@@ -383,6 +419,8 @@ spec:
     {{- end }}
     spec:
       restartPolicy: Never
+      serviceAccountName: {{ include "core-mw.serviceAccountName" $globalContext }}
+      automountServiceAccountToken: {{ $globalContext.Values.update.job.automountServiceAccountToken }}
       {{- with $globalUpgradeConfig.ImagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -445,9 +483,21 @@ spec:
             - name: JAVA_OPTS_NET
               value: "{{ $context.Values.javaOpts.network }}"
             {{- end }}
-            {{- if not (empty $context.Values.javaOpts.other) }}
+            {{- if $context.Values.javaOpts.mallocArenaMax }}
+            - name: MALLOC_ARENA_MAX
+              value: "{{ $context.Values.javaOpts.mallocArenaMax }}"
+            {{- end }}
+            {{- $otherOpts := default "" $context.Values.javaOpts.other }}
+            {{- if and $context.Values.javaOpts.compactObjectHeaders (not (contains "UseCompactObjectHeaders" $otherOpts)) }}
+            {{-   $otherOpts = printf "-XX:+UseCompactObjectHeaders %s" $otherOpts | trim }}
+            {{- end }}
+            {{- if $context.Values.javaOpts.zgc }}
+            {{-   if not (contains "UseZGC" $otherOpts) }}{{ $otherOpts = printf "%s -XX:+UseZGC" $otherOpts | trim }}{{- end }}
+            {{-   if and $context.Values.javaOpts.zgcUncommitDelay (not (contains "ZUncommitDelay" $otherOpts)) }}{{ $otherOpts = printf "%s -XX:ZUncommitDelay=%s" $otherOpts $context.Values.javaOpts.zgcUncommitDelay | trim }}{{- end }}
+            {{- end }}
+            {{- if not (empty $otherOpts) }}
             - name: JAVA_OPTS_OTHER
-              value: "{{ $context.Values.javaOpts.other }}"
+              value: "{{ $otherOpts }}"
             {{- end }}
           envFrom:
             - secretRef:
@@ -469,11 +519,6 @@ spec:
             {{- if $context.Values.restricted.drive.enabled }}
             - name: drive-restricted-config
               mountPath: /opt/open-xchange/etc/pushClientConfig/drive-restricted-config.yaml
-              readOnly: true
-            {{- end }}
-            {{- if $context.Values.restricted.mobileApiFacade.enabled }}
-            - name: mobile-api-facade-restricted-config
-              mountPath: /opt/open-xchange/etc/pushClientConfig/mobile-api-facade-restricted-config.yaml
               readOnly: true
             {{- end }}
       {{- end -}}
@@ -523,10 +568,6 @@ spec:
           secret:
             secretName: drive-restricted-config
             optional: true
-        - name: mobile-api-facade-restricted-config
-          secret:
-            secretName: mobile-api-facade-restricted-config
-            optional: true
         {{ with $globalUpgradeConfig.ExtraVolumes -}}
         {{ toYaml . | nindent 8 }}
         {{- end }}
@@ -536,6 +577,10 @@ spec:
       {{- end }}
       {{- with $globalUpgradeConfig.Affinity }}
       affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $globalUpgradeConfig.TopologySpreadConstraints }}
+      topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- with $globalUpgradeConfig.Tolerations }}

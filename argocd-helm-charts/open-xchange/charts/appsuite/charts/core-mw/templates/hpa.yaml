@@ -1,0 +1,59 @@
+{{- $globalContext := . -}}
+{{- $scaling := (include "core-mw.scaling" . | fromYaml) -}}
+{{- if not $globalContext.Values.update.enabled -}}
+{{-   range $typeName, $typeConfig := $scaling -}}
+{{-     $values := (include "core-mw.computeValuesFor" (dict "Context" $globalContext "Roles" $typeConfig.roles "TypeConfig" $typeConfig "TypeName" $typeName) | fromYaml) -}}
+{{-     $typeHpa := $values.hpa -}}
+{{-     if $typeHpa.create -}}
+{{-       $controller := "Deployment" -}}
+{{-       range $role := $typeConfig.roles -}}
+{{-         if (get $globalContext.Values.roles $role) -}}
+{{-           if (eq "StatefulSet" (get (get $globalContext.Values.roles $role) "controller")) -}}
+{{-             $controller = "StatefulSet" -}}
+{{-           end -}}
+{{-         end -}}
+{{-       end -}}
+{{-       if and (not $typeHpa.targetCPUUtilizationPercentage) (not $typeHpa.targetMemoryUtilizationPercentage) (not $typeHpa.metrics) -}}
+{{-         fail (printf "At least one of hpa.targetCPUUtilizationPercentage, hpa.targetMemoryUtilizationPercentage or hpa.metrics must be set for type \"%s\"" $typeName) -}}
+{{-       end -}}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "ox-common.names.fullname" $globalContext }}-{{ $typeName }}
+  labels:
+    {{- include "ox-common.labels.standard" $globalContext | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: {{ $controller }}
+    name: {{ include "ox-common.names.fullname" $globalContext }}-{{ $typeName }}
+  minReplicas: {{ $typeHpa.minReplicas }}
+  maxReplicas: {{ $typeHpa.maxReplicas }}
+  metrics:
+    {{- if $typeHpa.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $typeHpa.targetCPUUtilizationPercentage }}
+    {{- end }}
+    {{- if $typeHpa.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ $typeHpa.targetMemoryUtilizationPercentage }}
+    {{- end }}
+    {{- with $typeHpa.metrics }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with $typeHpa.behavior }}
+  behavior:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+---
+{{-     end -}}
+{{-   end -}}
+{{- end -}}
