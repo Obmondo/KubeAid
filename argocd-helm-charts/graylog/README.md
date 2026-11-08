@@ -94,8 +94,12 @@ Graylog needs to connect to MongoDB to store configs. This chart uses the MongoD
 add a database by creating an object of `kind: MongoDBCommunity`.
 
 The object also tells the operator to create a separate `graylog` database
-and a `graylog-user` with `readWrite` permissions. It expects a secret `graylog-user-password`
+and a `graylog-user` with the `readWrite` and `dbAdmin` roles. It expects a secret `graylog-user-password`
 containing the password which will be used by graylog client later.
+
+Graylog 7.2 needs `dbAdmin`: at startup it runs `collMod` on `cluster_events`, which fails with `Unauthorized`
+without it. Helm replaces lists instead of merging them, so if you override `global.mongodb.users`, repeat the whole
+user with both roles.
 
 The connection string for the graylog client is generated and kept in a secret
 called `mongodb-replica-set-graylog-graylog-user`. The string is of the form :
@@ -145,44 +149,99 @@ kubectl create secret generic graylog-es-svc -n graylog --from-literal=url='http
 
 ## Upgrade Instruction
 
-Graylog and OpenSearch are both under active development. This means that new versions are released
-frequently. This guide will help you upgrade your Graylog and OpenSearch installation to the
-latest version.
+> [!CAUTION]
+> Upgrade Graylog one minor version at a time (6.3 → 7.0 → 7.1 → 7.2) and MongoDB one major version at a time
+> (5.0 → 6.0 → 7.0), each at its latest patch. Skipping a version can break Graylog's database migrations. Check
+> every step against the compatibility matrix in
+> [Graylog's upgrade guide](https://go2docs.graylog.org/current/upgrading_graylog/upgrading_graylog.html).
 
-* Check the graylog interoperability chart to see which version of Graylog is compatible with the
-version of OpenSearch and mongodb you are upgrading to.
-https://go2docs.graylog.org/5-0/planning_your_deployment/planning_your_upgrade_to_opensearch.htm
+Tested path: Graylog 6.3.1 → 7.2.1, MongoDB 5.0.14 → 7.0.45 and OpenSearch 2.19.2 → 3.7.0. Go in the order below,
+one version per sync, and check the pods and logs after each sync.
+
+### Before you start
+
+* Back up MongoDB. With `global.mongodb.logicalbackup.enabled`, run the backup job:
+
+    ```bash
+    kubectl create job --from=cronjob/mongodb-replica-set-backup manual-backup -n graylog
+    ```
+
+* Set the PVs to `Retain` and check that no PVC is already being deleted. A PVC deleted while its pod runs stays
+  `Terminating` until the next restart. The upgrade restart then finishes the delete, and the pod comes back on an
+  empty disk. With the default `Delete` policy, the old disk is gone too.
+
+    ```bash
+    kubectl -n graylog get pvc -o jsonpath='{range .items[*]}{.spec.volumeName}{"\n"}{end}' \
+      | xargs -I{} kubectl patch pv {} -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'
+    kubectl -n graylog get pvc -o custom-columns=NAME:.metadata.name,DELETING:.metadata.deletionTimestamp   # DELETING must be <none>
+    ```
 
 ### 1. Upgrading MongoDB
 
-* Take a backup of the mongodb by running the backup job manually.
+Graylog 7.0 needs MongoDB 7.0 or newer, so MongoDB goes first.
+
+* Set `global.mongodb.version` to the latest patch of the next major version, sync, and wait until every member runs
+  it.
+* Raise `featureCompatibilityVersion` to the new major version before the next step. The operator keeps the old
+  value after an upgrade, and this chart doesn't set it:
 
     ```bash
-    kubectl create job --from=cronjob/mongodb-backup manual-backup -n graylog
+    kubectl -n graylog patch mongodbcommunity mongodb-replica-set --type merge -p '{"spec":{"featureCompatibilityVersion":"6.0"}}'
     ```
-
-* In the graylog application Sync the mongodb-community crd changes first as the MongoDb v5.0
-  is not compatible with graylog v4.3.9.
-* Expect graylog to go down during the upgrade process.
 
 ### 2. Upgrading Graylog
 
-* Sync the graylog application in the argocd.
-* Wait for the graylog pods to be in running state.
-* Check the logs
-* Check the graylog UI for any errors.
+Pin `graylog.graylog.image.tag` to the latest patch of the next minor version, then sync.
+
+* 7.0: only the leader, `graylog-0`, runs the database migrations, but the StatefulSet updates the highest pod first.
+  With TCP inputs, a follower on 7.0 fails with `Couldn't deserialize value (encrypted_value and salt must be strings
+  and cannot be missing)` until the leader has migrated. Move the leader to 7.0, then delete any follower that still
+  fails:
+
+    ```bash
+    # Without an explicit partition, the StatefulSet recreates graylog-0 on the old version.
+    kubectl -n graylog patch sts graylog --type merge -p '{"spec":{"updateStrategy":{"rollingUpdate":{"partition":0}}}}'
+    kubectl -n graylog delete pod graylog-0
+    ```
+
+* 7.1 ends all sessions, so everyone has to log in again.
+* 7.2 needs the `dbAdmin` role on the `graylog` database (see [Connecting MongoDB](#connecting-mongodb)).
 
 ### 3. Upgrading OpenSearch
 
-* Take a snapshot
+OpenSearch goes last. Graylog 7.2 supports OpenSearch up to 3.7.x, and the opensearch chart defaults to a newer
+version, so pin the image in the opensearch values:
+
+```yaml
+opensearch:
+  image:
+    tag: "3.7.0"
+```
+
+OpenSearch can't be downgraded. With `backup.enable` set in the opensearch values, take a snapshot first:
+
+```bash
+kubectl create job --from=cronjob/opensearch-s3-snapshot-create manual-snapshot -n graylog
+```
+
+1. Pause message processing on every Graylog node (System → Nodes → More actions). Messages then wait in the
+   journal instead of failing to index while OpenSearch restarts.
+2. From an OpenSearch pod, restrict shard allocation to primaries and flush:
 
     ```bash
-    kubectl create job --from=cronjob/opensearch-s3-snapshot-create manual-snapshot -n graylog
+    curl -X PUT localhost:9200/_cluster/settings -H 'Content-Type: application/json' -d '{"persistent":{"cluster.routing.allocation.enable":"primaries"}}'
+    curl -X POST localhost:9200/_flush
     ```
 
-* Sync the opensearch application in the argocd.
-* Wait for the opensearch pods to be in running state.
-* opensearch cluster are not downgradable, so please restore it from snapshot (look at opensearch helm chart readme)
+3. Sync the opensearch application and wait until every pod runs the new version. During a major upgrade, a node
+   still on the old version drops out of the cluster until it's upgraded. This is expected.
+4. Re-enable allocation, then restart Graylog. Graylog has to be restarted after a major OpenSearch upgrade, and the
+   restart also resumes processing:
+
+    ```bash
+    curl -X PUT localhost:9200/_cluster/settings -H 'Content-Type: application/json' -d '{"persistent":{"cluster.routing.allocation.enable":null}}'
+    kubectl -n graylog rollout restart sts/graylog
+    ```
 
 ## Backup and Restore (source -> target migration runbook)
 

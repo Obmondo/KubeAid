@@ -79,7 +79,7 @@ global:
     instanceName: "mongodb-replica-set"
     serviceAccountName: "mongodb-database"
     replicas: 2
-    version: "7.0.28"
+    version: "7.0.45"
     database: "graylog"
     user: "graylog-user"
     dataVolume:
@@ -94,6 +94,9 @@ global:
         roles:
           - db: graylog
             name: readWrite
+          # Graylog 7.2 runs collMod at startup, which needs dbAdmin.
+          - db: graylog
+            name: dbAdmin
         scramCredentialsSecretName: mongodb-replica-set
     resources:
       requests:
