@@ -209,16 +209,11 @@ Pin `graylog.graylog.image.tag` to the latest patch of the next minor version, t
 
 ### 3. Upgrading OpenSearch
 
-OpenSearch goes last. Graylog 7.2 supports OpenSearch up to 3.7.x, and the opensearch chart defaults to a newer
-version, so pin the image in the opensearch values:
+OpenSearch goes last. Graylog 7.2 supports OpenSearch up to 3.7.x, so the opensearch chart pins 3.7.0
+(`opensearch.image.tag`). A cluster that already runs a newer version must set its own tag, because OpenSearch
+can't be downgraded.
 
-```yaml
-opensearch:
-  image:
-    tag: "3.7.0"
-```
-
-OpenSearch can't be downgraded. With `backup.enable` set in the opensearch values, take a snapshot first:
+With `backup.enable` set in the opensearch values, take a snapshot first:
 
 ```bash
 kubectl create job --from=cronjob/opensearch-s3-snapshot-create manual-snapshot -n graylog
