@@ -286,6 +286,14 @@ Both `ClientDefaultScopes` list their scopes in the Composition itself: `email`,
 built-ins (`acr`, `basic`, `web-origins`, `roles`) for the confidential client, the same plus the `api`
 and `groups` scopes for the public one.
 
+The confidential client also gets Keycloak's built-in `kc-admin-api` scope. Since Keycloak 26.8.2 the
+Admin REST API answers 401 to any token whose audience that scope does not set, however many
+`realm-management` roles it carries, and Keycloak only assigns it to `admin-cli` and
+`security-admin-console` on its own. Without it NetBird's IdP manager cannot list the realm's users and
+the dashboard keeps loading after a successful Keycloak login. The same applies to the client
+`providers.keycloak` itself logs in with: give it `kc-admin-api` by hand when you create it, or the
+provider fails every reconcile with `GET /admin/serverinfo: 401`.
+
 Scopes carrying groups **propagated from another IdP** are the exception, because Keycloak rejects a
 default scope that does not exist in the realm and which ones exist differs per cluster. They are named in
 the XR's `dashboardClient.propagatedGroupScopes` and **appended** to the public client's list — a patch

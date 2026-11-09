@@ -7,6 +7,6 @@ dependencies:
   version: 4.6.0
 - name: compositions
   repository: file://charts/compositions
-  version: 1.0.0
-digest: sha256:2999783223dfae4f3c1b7665400cb3d5a5d0f1e8a19c57cad8258593ea4f4e88
-generated: "2026-10-29T01:40:14.648843+01:00"
+  version: 1.0.1
+digest: sha256:6c270655da65e891d6767f35a7b0b6a80adb6b92b70c15847707197a570fab90
+generated: "2026-11-09T11:07:44.273457+01:00"
