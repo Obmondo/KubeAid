@@ -39,6 +39,7 @@ Problem-oriented guides for a running cluster:
 | [Backup Exporter](./guides/backup-exporter.md) | Alerting on Velero, PostgreSQL, MongoDB and Sealed Secrets backups |
 | [Node Reboot](./operations/node-reboot.md) | Safe node maintenance |
 | [Node Disk Repair](./operations/fixing-a-k8s-node-disk.md) | Replace and fix corrupted node disks |
+| [Hetzner Bare Metal K8s Upgrade](./operations/hetzner-bare-metal-k8s-upgrade.md) | Upgrade Kubernetes without losing Ceph or ZFS data while servers are reinstalled |
 | [ArgoCD Apps Service Window](./operations/argocd-apps-service-window.md) | Service windows and stakeholder communication for app updates |
 | [Update KubeAid ArgoCD Apps](./operations/update-kubeaid-argocd-apps.md) | Rolling KubeAid application updates to a cluster |
 | [CI/CD Setup](./guides/ci-cd-setup.md) | Pipeline configuration |
