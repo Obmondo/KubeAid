@@ -19,6 +19,13 @@ mwctl:
     # Overrides the image tag whose default is the chart appVersion.
     tag: "latest"
 
+# Mount the core-mw generated env secret (<release>-core-mw-secret-envvars)
+# into the toolkit pod. Requires core-mw in the same release/namespace.
+coreMwEnvSecret:
+  enabled: false
+  # Override the secret name, e.g. when core-mw uses fullnameOverride.
+  nameOverride: ""
+
 imagePullSecrets: []
 
 podAnnotations: {}

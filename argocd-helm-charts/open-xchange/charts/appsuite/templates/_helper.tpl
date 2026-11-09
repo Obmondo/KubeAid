@@ -61,6 +61,7 @@ Usage:
 {{- $appRoot := .AppRoot -}}
 {{- $paths := .Paths -}}
 {{- $port := .Port -}}
+{{- $headerName := (($context.Values.istio).segmentedRouting).headerName | default "x-ox-segment" -}}
 {{- range .Sites -}}
 {{- $name := .name -}}
 {{- if ne $localSite .name }}
@@ -70,12 +71,16 @@ Usage:
     - uri:
         prefix: {{ . | replace "%%APP_ROOT%%" $appRoot | quote }}
       headers:
-        x-ox-segment: 
+        {{ $headerName }}:
           exact: {{ $name | quote }}
 {{- end }}
   route:
     - destination:
+        {{- if .destinationHost }}
+        host: {{ .destinationHost }}
+        {{- else }}
         host: {{ $name | lower }}.{{ include "ox-common.names.fullname" $context }}.svc.cluster.local
+        {{- end }}
         port:
           number: {{ $port | default 443 }}
 {{- end }}
@@ -118,4 +123,36 @@ Gets the fullname from a given component.
 {{- $componentChart := index $context.Subcharts $component "Chart" -}}
 {{- $componentRelease := index $context.Subcharts $component "Release" -}}
 {{ include "ox-common.names.fullname" (dict "Values" $componentValues "Chart" $componentChart "Release" $componentRelease) }}
+{{- end -}}
+
+{{/*
+Whether the core-mw admin role serves the SCIM endpoint: the status of feature "scim" on that role,
+else the global one. Yields "true" or nothing.
+*/}}
+{{- define "appsuite.scimEnabled" -}}
+{{- $coreMw := get .Values "core-mw" | default dict -}}
+{{- if and $coreMw.enabled (eq "enabled" (dig "roles" "admin" "values" "features" "status" "scim" (dig "features" "status" "scim" "disabled" $coreMw) $coreMw)) -}}
+true
+{{- end -}}
+{{- end -}}
+
+{{/*
+Whether the core-mw http-api role serves the MCP endpoint: the status of feature "mcp" on that role,
+else the global one. Yields "true" or nothing.
+*/}}
+{{- define "appsuite.mcpEnabled" -}}
+{{- $coreMw := get .Values "core-mw" | default dict -}}
+{{- if and $coreMw.enabled (eq "enabled" (dig "roles" "http-api" "values" "features" "status" "mcp" (dig "features" "status" "mcp" "disabled" $coreMw) $coreMw)) -}}
+true
+{{- end -}}
+{{- end -}}
+
+{{/*
+Whether core-mw runs the provisioning HTTP gateway. Yields "true" or nothing.
+*/}}
+{{- define "appsuite.provisioningGatewayEnabled" -}}
+{{- $coreMw := get .Values "core-mw" | default dict -}}
+{{- if and $coreMw.enabled (dig "provisioningGateway" "enabled" false $coreMw) -}}
+true
+{{- end -}}
 {{- end -}}

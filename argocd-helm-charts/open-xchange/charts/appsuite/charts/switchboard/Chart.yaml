@@ -1,10 +1,10 @@
 apiVersion: v2
-appVersion: 5.3.2
+appVersion: 5.4.3
 dependencies:
 - name: ox-common
   repository: oci://registry.open-xchange.com/appsuite-core-internal/charts
-  version: ~1.0.38
+  version: 1.0.52
 description: A Helm chart for deploying the switchboard service
 name: switchboard
 type: application
-version: 5.7.5
+version: 5.8.17

@@ -6,5 +6,5 @@ dependencies:
     version: 1.1.0
     repository: file://../kubeaid-addons
   - name: appsuite
-    version: 8.48.481
+    version: 8.54.1446
     repository: oci://registry.open-xchange.com/appsuite/charts

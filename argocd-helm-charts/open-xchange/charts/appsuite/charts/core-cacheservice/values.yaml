@@ -1,4 +1,4 @@
-# Default values for core-imageconverter.
+# Default values for core-cacheservice.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
@@ -21,31 +21,49 @@ imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
+## ServiceAccount to run the service pods with. Only needed to associate the pods with an AWS IAM
+## role, which in turn is only needed when an S3 object store below is configured with
+## credentialsSource "iam". While left unset, the pods keep using the namespace default
+## ServiceAccount and no ServiceAccount is created by this chart.
+# serviceAccount:
+#   ## Whether this chart should create the ServiceAccount. Set to false to reference an
+#   ## already existing one by name instead.
+#   create: true
+#   ## Name of the ServiceAccount, defaults to the fullname of the release.
+#   name: ""
+#   ## Annotations to associate the ServiceAccount with an AWS IAM role, e.g. for EKS IRSA.
+#   annotations: {}
+#     # eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/core-cacheservice
+
 podAnnotations:
   logging.open-xchange.com/format: "appsuite-json"
 
-podSecurityContext: {}
-  # fsGroup: 2000
+podSecurityContext:
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
 
-securityContext: {}
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65532
 
 service:
   type: ClusterIP
   port: 8001
+  portLiveness: 8000
 
 resources:
   requests:
     cpu: 250m
-    memory: 750Mi
+    memory: 1024Mi
   limits:
     cpu: 4000m
-    memory: 2000Mi
+    memory: 2048Mi
 
 nodeSelector: {}
 
@@ -61,7 +79,6 @@ probe:
 
   readiness:
     enabled: true
-    initialDelaySeconds: 30
     periodSeconds: 5
     failureThreshold: 2
     timeoutSeconds: 5
@@ -71,15 +88,17 @@ probe:
     initialDelaySeconds: 30
     periodSeconds: 10
     failureThreshold: 30
+    timeoutSeconds: 5
 
 # existingPropertiesSecret: ""
 
-# basicAuthLogin: ""
-# basicAuthPassword: ""
+basicAuth:
+  user: ""
+  password: ""
 
 remoteDebug:
   enabled: false
-  # port: 8101
+  port: 8101
 
 cacheService:
   mysql:
@@ -90,67 +109,64 @@ cacheService:
       user: ""
       password: ""
       rootPassword: ""
-    connectionPool: {}
-      # connectTimeoutMilliseconds: 2000
-      # maxLifetimeMilliseconds: 600000
-      # idleTimeoutMilliseconds: 300000
-      # maxPoolSize: 10
-      # minPoolIdleSize: 5
-    keystore: {}
-      # If the keystore(base64 encoded) is set it can be used as follows: "clientCertificateKeyStoreUrl: file:/opt/open-xchange/etc/ox-sql-clientstore"
-      # clientCertificateKeyStore:
-      # If the keystore(base64 encoded) is set it can be used as follows: "trustCertificateKeyStoreUrl: file:/opt/open-xchange/etc/ox-sql-truststore"
-      # trustCertificateKeyStore:
-    properties: []
-      # - name: useUnicode
-      #   value: true
-      # - name: characterEncoding
-      #   value: UTF-8
-      # - name: autoReconnect
-      #   value: false
-      # - name: useServerPrepStmts
-      #   value: true
-      # - name: useTimezone
-      #   value: true
-      # - name: serverTimezone
-      #   value: UTC
-      # - name: connectTimeout
-      #   value: 10000
-      # - name: socketTimeout
-      #   value: 300000
-      # - name: prepStmtCacheSize
-      #   value: 250
-      # - name: prepStmtCacheSqlLimit
-      #   value: 4096
-      # - name: cachePrepStmts
-      #   value: true
-      # - name: useSSL
-      #   value: false
-      # - name: requireSSL
-      #   value: false
-      # - name: verifyServerCertificate
-      #   value: false
-      # - name: enabledTLSProtocols
-      #   value: TLSv1,TLSv1.1,TLSv1.2,TLSv1.3
-      # - name: clientCertificateKeyStoreUrl
-      #   value:
-      # - name: clientCertificateKeyStorePassword
-      #   value:
-      # - name: clientCertificateKeyStoreType
-      #   value:
-      # - name: trustCertificateKeyStoreUrl
-      #   value:
-      # - name: trustCertificateKeyStorePassword
-      #   value:
-      # - name: trustCertificateKeyStoreType
-      #   value:
+    connectionPool:
+      connectTimeoutMilliseconds: 2000
+      maxLifetimeMilliseconds: 600000
+      idleTimeoutMilliseconds: 300000
+      maxPoolSize: 20
+      minPoolIdleSize: 5
+    properties:
+      - name: useUnicode
+        value: true
+      - name: characterEncoding
+        value: UTF-8
+      - name: autoReconnect
+        value: false
+      - name: useServerPrepStmts
+        value: true
+      - name: useTimezone
+        value: true
+      - name: serverTimezone
+        value: UTC
+      - name: connectTimeout
+        value: 10000
+      - name: socketTimeout
+        value: 300000
+      - name: prepStmtCacheSize
+        value: 250
+      - name: prepStmtCacheSqlLimit
+        value: 4096
+      - name: cachePrepStmts
+        value: true
+      - name: useSSL
+        value: false
+      - name: requireSSL
+        value: false
+      - name: verifyServerCertificate
+        value: false
+      - name: enabledTLSProtocols
+        value: TLSv1,TLSv1.1,TLSv1.2,TLSv1.3
+      - name: clientCertificateKeyStoreUrl
+        value:
+      - name: clientCertificateKeyStorePassword
+        value:
+      - name: clientCertificateKeyStoreType
+        value:
+      - name: trustCertificateKeyStoreUrl
+        value:
+      - name: trustCertificateKeyStorePassword
+        value:
+      - name: trustCertificateKeyStoreType
+        value:
   s3ObjectStores: []
     # - id: 1
     #   endpoint: ""
     #   region: "eu-central-1"
     #   bucketName: "cacheservice"
+    #   credentialsSource: "standard"  # "standard" or "iam"; accessKey/secretKey are not needed for "iam"
     #   accessKey: ""
     #   secretKey: ""
+    #   pathStyleAccess: "auto"  # "auto", "true" (always path style) or "false" (always virtual host style)
     #   trace: false
   sproxydObjectStores: []
     # - id: 1
@@ -159,13 +175,17 @@ cacheService:
   fileStores: []
     # - id: 1
     #   path: "/var/spool/open-xchange/cacheservice"
-  cacheDefaults: {}
-    # maxEntries: 100000
-    # maxSizeMegaBytes: -1
-    # maxLifetimeSeconds: 2592000
-    # cleanupPeriodSeconds: 300
-    # minCleanupRuntimeSeconds: 0
-  # jvmHeapSizeMB: 768
+  cacheDefaults:
+    maxEntries: 100000
+    maxSizeMegaBytes: -1
+    maxLifetimeSeconds: 2592000
+    cleanupPeriodSeconds: 300
+    minCleanupRuntimeSeconds: 0
+  maxParallelRequests: 50
+  cleanupBatchSize: 1000
+  jvmHeapSizeMB: 768
+  # -- Extra JVM flags appended to JDK_JAVA_OPTIONS (e.g. GC tuning), on top of the remote-debug agent flag when enabled.
+  javaOptions: []
 
 logging:
   debug: true
@@ -224,9 +244,5 @@ persistence:
 
 extras:
   monitoring:
-     # -- Whether monitoring resources should be created, e.g. a `ConfigMap` containing the Grafana dashboards.
+    # -- Whether monitoring resources should be created, e.g. a `ConfigMap` containing the Grafana dashboards.
     enabled: false
-
-remoteDebug:
-  enabled: false
-  port:

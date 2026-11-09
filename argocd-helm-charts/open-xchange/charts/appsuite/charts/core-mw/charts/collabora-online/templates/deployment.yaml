@@ -69,18 +69,18 @@ spec:
           {{- if .Values.probes.startup.enabled }}
           startupProbe:
             httpGet:
-              path: /
+              path: {{ .Values.probes.startup.path }}
               port: {{ .Values.deployment.containerPort }}
-              scheme: HTTP
+              scheme: {{ include "collabora-online.probeScheme" . }}
             failureThreshold: {{ .Values.probes.startup.failureThreshold }}
             periodSeconds: {{ .Values.probes.startup.periodSeconds }}
           {{- end }}
           {{- if .Values.probes.liveness.enabled }}
           livenessProbe:
             httpGet:
-              path: /
+              path: {{ .Values.probes.liveness.path }}
               port: {{ .Values.deployment.containerPort }}
-              scheme: HTTP
+              scheme: {{ include "collabora-online.probeScheme" . }}
             initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
             periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
             timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
@@ -90,9 +90,9 @@ spec:
           {{- if .Values.probes.readiness.enabled }}
           readinessProbe:
             httpGet:
-              path: /
+              path: {{ .Values.probes.readiness.path }}
               port: {{ .Values.deployment.containerPort }}
-              scheme: HTTP
+              scheme: {{ include "collabora-online.probeScheme" . }}
             initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
             periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
             timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
@@ -142,13 +142,15 @@ spec:
               mountPath: /etc/coolwsd/coolwsd.xml
               subPath: coolwsd.xml
             {{- end }}
-            {{- if .Values.collabora.proofKeysSecretRef }}
+            {{- if (include "collabora-online.proofKeysSecretName" .) }}
             - name: wopi-proof
               mountPath: /etc/coolwsd/proof_key
               subPath: proof_key
+            {{- if not .Values.collabora.proofKeyGeneration.enabled }}
             - name: wopi-proof
               mountPath: /etc/coolwsd/proof_key.pub
               subPath: proof_key.pub
+            {{- end }}
             {{- end }}
             {{- if .Values.deployment.customFonts.enabled }}
             - name: custom-fonts
@@ -161,6 +163,9 @@ spec:
             {{- if .Values.extraVolumeMounts }}
             {{- .Values.extraVolumeMounts | toYaml | nindent 12 }}
             {{- end }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . | quote }}
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -190,10 +195,10 @@ spec:
                 path: coolwsd.xml
               {{- end }}
         {{- end }}
-        {{- if .Values.collabora.proofKeysSecretRef }}
+        {{- if (include "collabora-online.proofKeysSecretName" .) }}
         - name: wopi-proof
           secret:
-            secretName: {{ .Values.collabora.proofKeysSecretRef | quote }}
+            secretName: {{ include "collabora-online.proofKeysSecretName" . | quote }}
         {{- end }}
         {{- if .Values.deployment.customFonts.enabled }}
         - name: custom-fonts

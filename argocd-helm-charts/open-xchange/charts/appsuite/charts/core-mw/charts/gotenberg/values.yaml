@@ -56,7 +56,7 @@ service:
   port: 80
   # -- Annotations to add to the service
   annotations: {}
-  # -- Static IP address for LoadBalancer type service (optional)
+  # -- (DEPRECATED) Static IP address for LoadBalancer type service. Deprecated in Kubernetes 1.24, use provider-specific annotations instead.
   loadBalancerIP: ""
 
 # Strategy is utilized to configure the desired upgrade approach and
@@ -136,7 +136,7 @@ pdb:
   create: false
   minAvailable: 1
   maxUnavailable: ""
-  # -- This is a beta feature, so it's not enabled by default.
+  # -- Unhealthy pod eviction policy for the PDB (e.g., AlwaysAllow)
   unhealthyPodEvictionPolicy:
 
 nodeSelector: {}
@@ -157,10 +157,18 @@ volumeMounts: []
 #  - name: tmp-volume
 #    mountPath: /tmp
 
-# -- List of extra environment variables for gotenberg container
+# -- List of extra environment variables for gotenberg container.
+# Gotenberg 8.29.0+ supports OpenTelemetry via standard OTEL_* environment variables.
+# See https://gotenberg.dev/docs/configuration for details.
 extraEnv: []
-#  - name: FOO
-#    value: bar
+#  - name: OTEL_EXPORTER_OTLP_ENDPOINT
+#    value: "http://otel-collector:4317"
+#  - name: OTEL_TRACES_EXPORTER
+#    value: "otlp"
+#  - name: OTEL_METRICS_EXPORTER
+#    value: "otlp"
+#  - name: OTEL_LOGS_EXPORTER
+#    value: "otlp"
 
 # -- List of init containers for the gotenberg pod
 initContainers: []
@@ -228,10 +236,14 @@ api:
   bodyLimit: ""
   # -- Set the root path of the API - for service discovery via URL paths (default "/")
   rootPath: ""
-  # -- Set the header name to use for identifying requests (default "Gotenberg-Trace")
+  # -- (DEPRECATED) Set the header name to use for identifying requests. Use correlationIdHeader instead.
   traceHeader: ""
-  # -- Disable health check logging
+  # -- Set the header name to use for identifying requests (default "Gotenberg-Trace")
+  correlationIdHeader: ""
+  # -- (DEPRECATED) Disable health check route telemetry. Use disableHealthCheckRouteTelemetry instead.
   disableHealthCheckLogging: false
+  # -- Disable health check route telemetry. Note: upstream default changed to true in Gotenberg 8.29.0 (health check telemetry is disabled by default even without this flag).
+  disableHealthCheckRouteTelemetry: false
   # -- Enable debug route for debugging purposes
   enableDebugRoute: false
   # -- Set the maximum duration to wait for the API to start
@@ -252,10 +264,20 @@ api:
   downloadFromAllowList: ""
   # -- Set the denied URLs for the download from feature using a regular expression
   downloadFromDenyList: ""
+  # -- Reject `downloadFrom` URLs resolving to a non-public IP (loopback, RFC1918, link-local, IPv6 unique-local). A URL matching `downloadFromAllowList` skips the IP-class check; a URL matching `downloadFromDenyList` is always rejected. Added in Gotenberg 8.32.0.
+  downloadFromDenyPrivateIps: false
+  # -- Reject `downloadFrom` URLs resolving to a public IP. Setting both `downloadFromDenyPrivateIps` and `downloadFromDenyPublicIps` to true rejects every URL unless the allow-list matches. Added in Gotenberg 8.32.0.
+  downloadFromDenyPublicIps: false
   # -- Set the maximum number of retries for the download from feature (default 4)
   downloadFromMaxRetry: 4
   # -- Disable the download from feature
   disableDownloadFrom: false
+  # -- Disable telemetry on the root route
+  disableRootRouteTelemetry: false
+  # -- Disable telemetry on the debug route
+  disableDebugRouteTelemetry: false
+  # -- Disable telemetry on the version route
+  disableVersionRouteTelemetry: false
 
 # The Chromium module interacts with the Chromium browser to convert HTML documents to PDF.
 # https://gotenberg.dev/docs/configuration#chromium
@@ -276,6 +298,10 @@ chromium:
   allowList: ""
   # -- Set the denied URLs for Chromium using a regular expression (default "^file:///[^tmp].*")
   denyList: ""
+  # -- Reject Chromium navigations and sub-resources resolving to a non-public IP (loopback, RFC1918, link-local, IPv6 unique-local). A URL matching `allowList` skips the IP-class check; a URL matching `denyList` is always rejected. Added in Gotenberg 8.32.0. Skipped when `proxyServer` or `hostResolverRules` is set.
+  denyPrivateIps: false
+  # -- Reject Chromium navigations and sub-resources resolving to a public IP. Setting both `denyPrivateIps` and `denyPublicIps` to true rejects every URL unless the allow-list matches. Added in Gotenberg 8.32.0.
+  denyPublicIps: false
   # -- Ignore the certificate errors
   ignoreCertificateErrors: false
   # -- Don't enforce the same-origin policy
@@ -296,6 +322,8 @@ chromium:
   clearCookies: false
   # -- Maximum request queue size for Chromium. Set to 0 to disable this feature.
   maxQueueSize: 0
+  # -- Duration after which idle Chromium browser processes are shut down (e.g., "30s"). Set to 0s or leave empty to disable (default 0s, disabled).
+  idleShutdownTimeout: ""
 
 # The LibreOffice module interacts with LibreOffice to convert documents to PDF, thanks to unoconv.
 # https://gotenberg.dev/docs/configuration#libreoffice
@@ -310,6 +338,16 @@ libreOffice:
   disableRoutes: false
   # -- Maximum request queue size for LibreOffice. Set to 0 to disable this feature.
   maxQueueSize: 0
+  # -- Duration after which idle LibreOffice processes are shut down (e.g., "30s"). Set to 0s or leave empty to disable (default 0s, disabled).
+  idleShutdownTimeout: ""
+  # -- Set the allowed URLs for LibreOffice outbound fetches (embedded external content in OOXML/RTF/ODF) using a regular expression. Added in Gotenberg 8.32.0.
+  allowList: ""
+  # -- Set the denied URLs for LibreOffice outbound fetches using a regular expression. Added in Gotenberg 8.32.0.
+  denyList: ""
+  # -- Reject LibreOffice outbound fetches resolving to a non-public IP (loopback, RFC1918, link-local, IPv6 unique-local). A URL matching `allowList` skips the IP-class check; a URL matching `denyList` is always rejected. Added in Gotenberg 8.32.0.
+  denyPrivateIps: false
+  # -- Reject LibreOffice outbound fetches resolving to a public IP. Setting both `denyPrivateIps` and `denyPublicIps` to true rejects every URL unless the allow-list matches. Added in Gotenberg 8.32.0.
+  denyPublicIps: false
 
 # The PDF Engines module gathers all engines that can manipulate PDF files.
 # https://gotenberg.dev/docs/configuration#pdf-engines
@@ -332,6 +370,20 @@ pdfEngines:
   encryptEngines: ""
   # -- Set the PDF engines and their order for the file embedding feature (default pdfcpu)
   embedEngines: ""
+  # -- Set the PDF engines and their order for the embed metadata feature (default qpdf)
+  embedMetadataEngines: ""
+  # -- Set the PDF engines and their order for the watermark feature (default pdfcpu,pdftk)
+  watermarkEngines: ""
+  # -- Set the PDF engines and their order for the stamp feature (default pdfcpu,pdftk)
+  stampEngines: ""
+  # -- Set the PDF engines and their order for the rotate feature (default pdfcpu,pdftk)
+  rotateEngines: ""
+  # -- Set the PDF engines and their order for the read bookmarks feature (default pdfcpu)
+  readBookmarksEngines: ""
+  # -- Set the PDF engines and their order for the write bookmarks feature (default pdfcpu,pdftk)
+  writeBookmarksEngines: ""
+  # -- Set the PDF engines and their order for the Factur-X XMP metadata feature (default qpdf). Added in Gotenberg 8.34.0.
+  facturXEngines: ""
   # -- Disable the routes
   disableRoutes: false
 
@@ -341,13 +393,17 @@ pdfEngines:
 webhook:
   # -- Enable synchronous mode for the webhook feature
   enableSyncMode: false
-  # -- Set the allowed URLs for the webhook feature using a regular expression
+  # -- Set the allowed URLs for the webhook feature using a regular expression. In Gotenberg 8.31.0+ this applies to both regular and error webhooks.
   allowList: ""
-  # -- Set the denied URLs for the webhook feature using a regular expression
+  # -- Set the denied URLs for the webhook feature using a regular expression. In Gotenberg 8.31.0+ this applies to both regular and error webhooks. Note: 8.31.0's permissive-by-default revert means this defaults to empty again in 8.32.0+; opt into IP-class filtering via `denyPrivateIps` / `denyPublicIps`.
   denyList: ""
-  # -- Set the allowed URLs in case of an error for the webhook feature using a regular expression
+  # -- Reject webhook URLs (success, error, events) resolving to a non-public IP (loopback, RFC1918, link-local, IPv6 unique-local). A URL matching `allowList` skips the IP-class check; a URL matching `denyList` is always rejected. Added in Gotenberg 8.32.0.
+  denyPrivateIps: false
+  # -- Reject webhook URLs resolving to a public IP. Setting both `denyPrivateIps` and `denyPublicIps` to true rejects every URL unless the allow-list matches. Added in Gotenberg 8.32.0.
+  denyPublicIps: false
+  # -- (DEPRECATED) Set the allowed URLs in case of an error for the webhook feature using a regular expression. Use `allowList` instead in Gotenberg 8.31.0+ — it now covers both regular and error webhooks.
   errorAllowList: ""
-  # -- Set the denied URLs in case of an error for the webhook feature using a regular expression
+  # -- (DEPRECATED) Set the denied URLs in case of an error for the webhook feature using a regular expression. Use `denyList` instead in Gotenberg 8.31.0+ — it now covers both regular and error webhooks.
   errorDenyList: ""
   # -- Set the maximum number of retries for the webhook feature (default 4)
   maxRetry: ""
@@ -371,20 +427,28 @@ prometheus:
   metricsPath: ""
   # -- Disable the collect of metrics
   disableCollect: false
-  # -- Disable the route logging
+  # -- (DEPRECATED) Disable the route logging. Use disableRouteTelemetry instead.
   disableRouterLogging: false
+  # -- Disable route telemetry for the Prometheus metrics endpoint
+  disableRouteTelemetry: false
 
 # The Logging module provides a logger to Gotenberg.
 # https://gotenberg.dev/docs/configuration#logging
 logging:
-  # -- Set log format - auto, json, or text (default "auto")
+  # -- (DEPRECATED) Set log format. Use stdFormat instead.
   format: ""
+  # -- Set log standard output format - auto, json, or text (default "auto")
+  stdFormat: ""
+  # -- Set the case of the `level` field in standard output - lower or upper (default "lower"). Added in Gotenberg 8.34.0.
+  stdLevelCase: ""
   # -- Set the log level - error, warn, info, or debug (default "info")
   level: ""
   # -- Prepend a specified prefix to each field in the logs
   fieldsPrefix: ""
-  # -- Enable GCP log field mapping for Cloud Run
+  # -- (DEPRECATED) Enable GCP log field mapping for Cloud Run. Use stdEnableGcpFields instead.
   enableGcpFields: false
+  # -- Enable GCP log standard output field mapping for Cloud Run
+  stdEnableGcpFields: false
   # -- Enable GCP severity field mapping
   enableGcpSeverity: false
 

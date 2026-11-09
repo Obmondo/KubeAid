@@ -1,57 +1,100 @@
-# Default values for core-ui-middleware.
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
+# =============================================================================
+# GLOBAL CONFIGURATION
+# =============================================================================
 
 global:
   extras:
     monitoring:
+      # Enable Prometheus ServiceMonitor (requires prometheus-operator)
       enabled: false
 
-replicaCount: 1
-
+# Default container registry for all images
 defaultRegistry: registry.open-xchange.com
 
-bindAddr: "::"
-containerPort: 8080
+# =============================================================================
+# DEPLOYMENT CONFIGURATION
+# =============================================================================
 
+# Number of UI middleware replicas (typically overridden by autoscaling)
+replicaCount: 1
+
+# Container image configuration
 image:
   repository: "appsuite-core-internal/core-ui-middleware"
   pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
   tag: ""
 
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
+
+# Optional overrides for Kubernetes resource names
+# Examples:
+#   redisSecret: "my-custom-redis-secret"
 overrides: {}
-#  redisSecret: ""
+
+# =============================================================================
+# POD CONFIGURATION
+# =============================================================================
 
 podAnnotations:
+  # Configure logging format for Open-Xchange log aggregation
   logging.open-xchange.com/format: "appsuite-json"
 
+# Security context for the entire pod
 podSecurityContext: {}
 
+# Default pod security context (applied if podSecurityContext is empty)
 defaultPodSecurityContext:
   runAsNonRoot: true
-  runAsUser: 1000
-  runAsGroup: 1000
+  runAsUser: 65532
+  runAsGroup: 65532
 
+# Security context for the container
 securityContext: {}
 
+# Default container security context (applied if securityContext is empty)
 defaultSecurityContext:
   runAsNonRoot: true
-  runAsUser: 1000
-  runAsGroup: 1000
+  runAsUser: 65532
+  runAsGroup: 65532
   allowPrivilegeEscalation: false
   readOnlyRootFilesystem: true
   capabilities:
     drop:
       - ALL
 
+# Run the pods under a dedicated ServiceAccount rather than the namespace
+# default one (CIS 5.1.5). Set the top-level serviceAccountName to use an
+# account you manage yourself; that suppresses the one created here and the
+# Role is bound to yours instead.
+serviceAccount:
+  create: true
+  # defaults to the chart fullname
+  name: ""
+  annotations: {}
+  # ServiceAccount-level default for pods that do not state their own
+  automountServiceAccountToken: false
+
+# Pod-level token automount. When unset, the token is mounted only where it is
+# actually needed, which is when k8sAutoDiscovery is enabled: that is the only
+# feature of this service that calls the Kubernetes API (CIS 5.1.6). Set this
+# explicitly to override that coupling.
+# automountServiceAccountToken: false
+
+# =============================================================================
+# SERVICE CONFIGURATION
+# =============================================================================
+
 service:
   type: ClusterIP
   port: 80
 
+# =============================================================================
+# RESOURCE MANAGEMENT
+# =============================================================================
+
+# Main UI middleware container resources
 resources:
   # We recommend to always specify resources after actually measuring the values under
   # production-like circumstances.
@@ -62,17 +105,7 @@ resources:
     cpu: 500m
     memory: 196Mi
 
-coreServiceURL: ""
-updater:
-  propagateUpgrades: true
-  resources:
-    # We recommend to not define a cpu limit for this pod. This pod runs compression of many files in a short time frame.
-    limits:
-      memory: 768Mi
-    requests:
-      cpu: 100m
-      memory: 196Mi
-
+# Horizontal Pod Autoscaler configuration
 autoscaling:
   enabled: false
   minReplicas: 1
@@ -80,16 +113,53 @@ autoscaling:
   targetCPUUtilizationPercentage: 80
   targetMemoryUtilizationPercentage: 80
 
+# =============================================================================
+# SCHEDULING & PLACEMENT
+# =============================================================================
+
+# Node selector for pod scheduling
 nodeSelector: {}
 
+# Tolerations for pod scheduling
 tolerations: []
 
+# Affinity rules for pod scheduling
 affinity: {}
+
+# PodDisruptionBudget for the serving pods. The updater is a singleton and is
+# deliberately not covered. Opt-in, because a PDB only constrains voluntary
+# evictions such as node drains and cluster autoscaler consolidation: it does
+# not govern rolling updates, HPA scale-down or node failures. Needs at least
+# two serving replicas to protect anything. Same values contract as the core-mw
+# chart, so one umbrella values file configures both the same way.
+pdb:
+  # Whether a PodDisruptionBudget should be created
+  create: false
+  # Minimum number or percentage of pods that must be available. Mutually
+  # exclusive with maxUnavailable. Examples: 1, "50%"
+  minAvailable: ""
+  # Maximum number or percentage of pods that can be unavailable. Mutually
+  # exclusive with minAvailable. Usually the better choice: it stays correct
+  # when replicaCount or the autoscaling range changes, and on a single replica
+  # it degrades to "always evictable" instead of blocking node drains forever.
+  # Examples: 1, "25%"
+  maxUnavailable: ""
+  # Policy for evicting unhealthy (not yet Ready) pods, rendered as
+  # `spec.unhealthyPodEvictionPolicy` (GA since Kubernetes 1.31). Leave empty to
+  # omit. "AlwaysAllow" stops an unhealthy pod blocking a node drain
+  # indefinitely and only ever permits more eviction, never less.
+  # Examples: "IfHealthyBudget", "AlwaysAllow"
+  unhealthyPodEvictionPolicy: ""
+
+# =============================================================================
+# HEALTH PROBES
+# =============================================================================
 
 probe:
   liveness:
     enabled: true
     periodSeconds: 10
+    # Higher threshold to handle startup cache warming and S3 operations
     failureThreshold: 15
 
   readiness:
@@ -99,37 +169,246 @@ probe:
     failureThreshold: 2
     timeoutSeconds: 5
 
-cacheTTL: 30000
-logLevel: info
+# =============================================================================
+# UI MIDDLEWARE CONFIGURATION
+# =============================================================================
+
+# Network binding address for the Fastify server ("::" = IPv4 and IPv6)
+bindAddr: "::"
+
+# Container port for the UI middleware service
+containerPort: 8080
+
+# REQUIRED: List of UI service base URLs to aggregate manifests from
+# Example:
+#   baseUrls:
+#     - https://ui-core.example.com
+#     - https://ui-documents.example.com
+#     - https://ui-guard.example.com
 baseUrls: []
+
+# URL of the core middleware service (used for inter-service communication)
+# Leave empty if not using core middleware integration
+coreServiceURL: ""
+
+# Log level (trace, debug, info, warn, error, fatal)
+logLevel: info
+
+# =============================================================================
+# CACHING & PERFORMANCE
+# =============================================================================
+
+# Cache TTL for manifest and file content in milliseconds (default: 30 seconds)
+cacheTTL: 30000
+
+# Enable external cache mode (disables in-memory file caching)
+# When true, only Redis/S3 are used for caching (reduces memory usage)
+externalCache:
+  enabled: false
+
+# =============================================================================
+# COMPRESSION CONFIGURATION
+# =============================================================================
+
+# Minimum file size (in bytes) to enable gzip compression
+# Files smaller than this will not be compressed (overhead not worth it)
 compressFileSize: 600
+
+# MIME types that should be compressed
+# Space-separated list of content types eligible for gzip compression
 compressFileTypes: application/javascript application/json application/x-javascript application/xml application/xml+rss text/css text/html text/javascript text/plain text/xml image/svg+xml
+
+# =============================================================================
+# PERFORMANCE MONITORING
+# =============================================================================
+
+# Threshold in milliseconds for logging slow HTTP requests
+# Requests exceeding this duration will be logged at WARN level
 slowRequestThreshold: 4000
+
+# =============================================================================
+# KEY PREFIX CONFIGURATION
+# =============================================================================
+
+# Prefix for all Redis keys and S3 folder paths
+# This allows multiple UI middleware instances to share the same Redis/S3
+# while keeping their data isolated
+keyPrefix: ui-service
+
+# =============================================================================
+# STORAGE BACKEND SELECTION
+# =============================================================================
+
+# Where asset bytes (manifests, JS, CSS, assets) are stored. See ADR 0010.
+#   auto  - Derive the backend from whether S3 is configured (default). The
+#           backend is 's3' when an S3 endpoint or the internal MinIO is
+#           configured, and 'redis' otherwise. This keeps an unchanged 2.x
+#           values file (no S3) running on the Redis cache after an upgrade.
+#   s3    - Force S3-compatible object storage (requires the s3.* settings).
+#   redis - Force Redis storage for asset bytes (compatibility mode; Redis
+#           memory then scales with total asset volume across retained versions).
+# Redis is required either way for version coordination and pub/sub.
+storage:
+  backend: auto
+
+# =============================================================================
+# REDIS CONFIGURATION
+# =============================================================================
+
+redis:
+  # Redis deployment mode: 'standalone', 'sentinel', or 'cluster'
+  mode: 'standalone'
+
+  # Redis host(s) - format depends on mode:
+  #   standalone: ["host:port"]
+  #   sentinel:   ["sentinel1:port", "sentinel2:port", ...]
+  #   cluster:    ["node1:port", "node2:port", ...]
+  hosts:
+    - localhost:6379
+
+  # Redis database number (0-15, only used in standalone/sentinel modes)
+  db: 0
+
+  # Sentinel master ID (only used when mode: 'sentinel')
+  sentinelMasterId: "mymaster"
+
+  # TLS configuration for Redis connections
+  tls:
+    enabled: false
+    # PEM-encoded CA certificate (leave empty to use system CA bundle)
+    ca: ""
+
+  # Redis authentication
+  auth:
+    enabled: false
+    # Username for Redis 6+ ACL (leave empty for default user)
+    username: ""
+    # Password for Redis authentication
+    password: ""
+
+  # DEPRECATED: Use top-level 'keyPrefix' instead
+  # This field is kept for backwards compatibility and will be removed in a future version
+  prefix: ""
+
+  # Development-only: Redis sidecar container
+  # WARNING: This does not scale beyond a single pod and should only be used for local development
+  sidecar:
+    image: redis:latest
+
+# =============================================================================
+# S3 STORAGE CONFIGURATION
+# =============================================================================
+
+s3:
+  # Automatically create the S3 bucket on startup if it doesn't exist
+  createBucket: false
+
+  # S3 endpoint URL
+  # Leave empty to use the internal MinIO service (minio.enabled: true)
+  # For external S3: https://s3.amazonaws.com
+  # For external MinIO: http://minio.example.com:9000
+  endpoint: ''
+
+  # S3 bucket name for storing UI files and manifests
+  bucketName: 'ui-service'
+
+  # S3 authentication credentials
+  auth:
+    # NOTE: auth is completely ignored when using internal MinIO (minio.enabled: true)
+
+    # Name of existing Kubernetes secret containing S3 credentials
+    # If set, 'user' and 'password' fields are ignored
+    existingSecret: ''
+
+    # Secret key names within the existing secret
+    userSecretKey: 'access'
+    passwordSecretKey: 'secret'
+
+    # S3 access key ID (only used if existingSecret is empty)
+    user: ''
+
+    # S3 secret access key (only used if existingSecret is empty)
+    password: ''
+
+# =============================================================================
+# MINIO SUB-CHART CONFIGURATION
+# =============================================================================
+#
+# DEPRECATED: the bundled MinIO sub-chart is deprecated and will be removed in a
+# future release. It remains only as a development/testing convenience. For real
+# storage, point s3.endpoint at an external S3-compatible service (the in-cluster
+# Garage operator is recommended for preview/test clusters) or use the Redis
+# storage backend (storage.backend: redis). See ADR 0010.
+
+minio:
+  # Enable internal MinIO deployment (for development/testing)
+  # When true, an S3-compatible MinIO instance is deployed alongside the UI
+  # middleware and the storage backend auto-resolves to S3 (see ADR 0010).
+  # Opt-in: leave disabled (and configure no s3.endpoint) to run on the Redis
+  # storage backend, which is also what an unchanged 2.x values file gets.
+  enabled: false
+
+  # Disable MinIO web UI (not needed for headless operation)
+  disableWebUI: true
+
+  # MinIO authentication
+  # If not set, a password will be autogenerated
+  # RECOMMENDED: Set explicitly to avoid issues with future Helm upgrades
+  # auth:
+  #   rootPassword: ''
+
+  # MinIO resource requirements
+  # Note: MinIO in standalone mode requests 2GB memory by default
+  # In practice, it can work with less (e.g., 256Mi), adjust based on your needs
+  resources:
+    limits:
+      memory: 2.5Gi
+    requests:
+      cpu: 500m
+      memory: 2Gi
+
+  # For additional MinIO configuration options, see:
+  # https://github.com/bitnami/charts/tree/main/bitnami/minio
+
+# =============================================================================
+# VERSION UPDATER CONFIGURATION
+# =============================================================================
+
+updater:
+  # Enable automatic propagation of UI version updates across all replicas
+  # When false, version updates must be manually triggered
+  propagateUpgrades: true
+
+  # Maximum number of parallel S3 upload requests during version updates
+  # Higher values speed up updates but increase memory usage and S3 load
+  s3MaxParallelRequests: 20
+
+  # Resource requirements for the updater job container
+  resources:
+    # Note: We recommend NOT defining a CPU limit for this pod
+    # The updater performs CPU-intensive compression of many files in a short timeframe
+    limits:
+      memory: 768Mi
+    requests:
+      cpu: 100m
+      memory: 196Mi
+
+# =============================================================================
+# KUBERNETES AUTO-DISCOVERY
+# =============================================================================
+
+# Automatically discover UI services in the same namespace
+# Services must have the label: appsuite.ox.io/ui-provider: manifest
+# Optional annotation for custom base path: appsuite.ox.io/ui-base-path: "/"
+k8sAutoDiscovery:
+  enabled: true
+
+# =============================================================================
+# MONITORING & OBSERVABILITY
+# =============================================================================
 
 extras:
   monitoring:
+    # Enable Prometheus metrics endpoint and ServiceMonitor
+    # Requires prometheus-operator to be installed in the cluster
     enabled: false
-
-# override main container command
-command:
-  - "/usr/bin/node"
-  - "src/index.js"
-
-redis:
-  mode: 'standalone' # Other values: sentinel, cluster
-  hosts:
-    - localhost:6379
-  db: 0
-  sentinelMasterId: "mymaster"
-  tls:
-    enabled: false
-    ca: ""
-  auth:
-    enabled: false
-    username: ""
-    password: ""
-  prefix: ui-middleware
-  # This is only used for development. A sidecar container is started in the pod.
-  # Note: This does not scale!
-  sidecar:
-    image: redis:latest

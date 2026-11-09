@@ -64,7 +64,7 @@ spec:
             httpGet:
               path: /
               port: {{ .Values.deployment.containerPort }}
-              scheme: HTTP
+              scheme: {{ include "collabora-online.probeScheme" . }}
             failureThreshold: {{ .Values.probes.startup.failureThreshold }}
             periodSeconds: {{ .Values.probes.startup.periodSeconds }}
           {{- end }}
@@ -73,7 +73,7 @@ spec:
             httpGet:
               path: /
               port: {{ .Values.deployment.containerPort }}
-              scheme: HTTP
+              scheme: {{ include "collabora-online.probeScheme" . }}
             initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
             periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
             timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
@@ -85,7 +85,7 @@ spec:
             httpGet:
               path: /
               port: {{ .Values.deployment.containerPort }}
-              scheme: HTTP
+              scheme: {{ include "collabora-online.probeScheme" . }}
             initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
             periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
             timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
@@ -125,6 +125,19 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            {{- if (include "collabora-online.proofKeysSecretName" .) }}
+            - name: wopi-proof
+              mountPath: /etc/coolwsd/proof_key
+              subPath: proof_key
+            {{- if not .Values.collabora.proofKeyGeneration.enabled }}
+            - name: wopi-proof
+              mountPath: /etc/coolwsd/proof_key.pub
+              subPath: proof_key.pub
+            {{- end }}
+            {{- end }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . | quote }}
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -140,4 +153,9 @@ spec:
       volumes:
         - name: tmp
           emptyDir: {}
+        {{- if (include "collabora-online.proofKeysSecretName" .) }}
+        - name: wopi-proof
+          secret:
+            secretName: {{ include "collabora-online.proofKeysSecretName" . | quote }}
+        {{- end }}
 {{- end }}

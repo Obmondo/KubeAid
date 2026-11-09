@@ -6,6 +6,8 @@ metadata:
   labels:
     {{- include "openobserve.labels" . | nindent 4 }}
 data:
+  {{- /* Credentials live in the chart Secret. The keys below wrapped in "if .Values.externalSecret.enabled" */}}
+  {{- /* stay here only in that mode, because the chart Secret isn't mounted then; the external Secret overrides them. */}}
   ZO_APP_NAME: "{{ .Values.config.ZO_APP_NAME }}"
   ZO_CLUSTER_NAME: "{{ .Values.config.ZO_CLUSTER_NAME }}"
   ZO_INSTANCE_NAME: "{{ .Values.config.ZO_INSTANCE_NAME }}"
@@ -19,7 +21,9 @@ data:
   ZO_REPORT_SERVER_URL: "{{ .Values.config.ZO_REPORT_SERVER_URL }}"
   {{- end }}
   ZO_REPORT_USER_NAME: "{{ .Values.config.ZO_REPORT_USER_NAME }}"
+  {{- if .Values.externalSecret.enabled }}
   ZO_REPORT_USER_PASSWORD: "{{ .Values.config.ZO_REPORT_USER_PASSWORD }}"
+  {{- end }}
   ZO_REPORT_SERVER_SKIP_TLS_VERIFY: "{{ .Values.config.ZO_REPORT_SERVER_SKIP_TLS_VERIFY }}"
   ZO_CHROME_SLEEP_SECS: "{{ .Values.config.ZO_CHROME_SLEEP_SECS }}"
   ZO_CHROME_NO_SANDBOX: "{{ .Values.config.ZO_CHROME_NO_SANDBOX }}"
@@ -30,7 +34,9 @@ data:
   {{- end }}
   ZO_NATS_PREFIX: "{{ .Values.config.ZO_NATS_PREFIX }}"
   ZO_NATS_USER: "{{ .Values.config.ZO_NATS_USER }}"
+  {{- if .Values.externalSecret.enabled }}
   ZO_NATS_PASSWORD: "{{ .Values.config.ZO_NATS_PASSWORD }}"
+  {{- end }}
   ZO_NATS_REPLICAS: "{{ .Values.config.ZO_NATS_REPLICAS }}"
   ZO_NATS_QUEUE_MAX_AGE: "{{ .Values.config.ZO_NATS_QUEUE_MAX_AGE }}"
   ZO_NATS_QUEUE_MAX_SIZE: "{{ .Values.config.ZO_NATS_QUEUE_MAX_SIZE }}"
@@ -54,7 +60,9 @@ data:
   ZO_GRPC_CHANNEL_CACHE_DISABLED: "{{ .Values.config.ZO_GRPC_CHANNEL_CACHE_DISABLED }}"
   ZO_GRPC_ORG_HEADER_KEY: "{{ .Values.config.ZO_GRPC_ORG_HEADER_KEY }}"
   ZO_GRPC_STREAM_HEADER_KEY: "{{ .Values.config.ZO_GRPC_STREAM_HEADER_KEY }}"
+  {{- if .Values.externalSecret.enabled }}
   ZO_INTERNAL_GRPC_TOKEN: "{{ .Values.config.ZO_INTERNAL_GRPC_TOKEN }}"
+  {{- end }}
   ZO_DATA_DIR: "{{ .Values.config.ZO_DATA_DIR }}"
   ZO_DATA_DB_DIR: "{{ .Values.config.ZO_DATA_DB_DIR }}"
   ZO_DATA_WAL_DIR: "{{ .Values.config.ZO_DATA_WAL_DIR }}"
@@ -219,7 +227,9 @@ data:
   ZO_USAGE_REPORTING_ENABLED: "{{ .Values.config.ZO_USAGE_REPORTING_ENABLED }}"
   ZO_USAGE_REPORTING_MODE: "{{ .Values.config.ZO_USAGE_REPORTING_MODE }}"
   ZO_USAGE_REPORTING_URL: "{{ .Values.config.ZO_USAGE_REPORTING_URL }}"
+  {{- if .Values.externalSecret.enabled }}
   ZO_USAGE_REPORTING_CREDS: "{{ .Values.config.ZO_USAGE_REPORTING_CREDS }}"
+  {{- end }}
   ZO_USAGE_ORG: "{{ .Values.config.ZO_USAGE_ORG }}"
   ZO_USAGE_BATCH_SIZE: "{{ .Values.config.ZO_USAGE_BATCH_SIZE }}"
   ZO_PRINT_KEY_CONFIG: "{{ .Values.config.ZO_PRINT_KEY_CONFIG }}"
@@ -256,7 +266,9 @@ data:
   O2_OPENFGA_BASE_URL: "http://{{ include "openobserve.fullname" . }}-openfga.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}:8080"
   O2_DEX_ENABLED: "{{ .Values.enterprise.dex.enabled }}"
   O2_DEX_CLIENT_ID: "{{ (index .Values.enterprise.dex.config.staticClients 0).id }}"
+  {{- if and .Values.externalSecret.enabled .Values.enterprise.enabled .Values.enterprise.dex.enabled }}
   O2_DEX_CLIENT_SECRET: "{{ (index .Values.enterprise.dex.config.staticClients 0).secret }}"
+  {{- end }}
   O2_DEX_REDIRECT_URL: "{{index  (index .Values.enterprise.dex.config.staticClients 0).redirectURIs 0 }}"
   O2_DEX_BASE_URL: "{{ .Values.enterprise.dex.config.issuer }}"
   O2_CALLBACK_URL: "{{ .Values.enterprise.dex.parameters.O2_CALLBACK_URL }}"
@@ -283,7 +295,9 @@ data:
   O2_SUPER_CLUSTER_ENABLED: "{{ .Values.enterprise.parameters.O2_SUPER_CLUSTER_ENABLED }}"
   O2_SUPER_CLUSTER_PUBLIC_ADDR: "{{ .Values.enterprise.parameters.O2_SUPER_CLUSTER_PUBLIC_ADDR }}"
   O2_SUPER_CLUSTER_PUBLIC_PORT: "{{ .Values.enterprise.parameters.O2_SUPER_CLUSTER_PUBLIC_PORT }}"
+  {{- if .Values.externalSecret.enabled }}
   O2_SUPER_CLUSTER_GRPC_TOKEN: "{{ .Values.enterprise.parameters.O2_SUPER_CLUSTER_GRPC_TOKEN }}"
+  {{- end }}
   O2_SEARCH_GROUP_CPU_LIMIT_ENABLED: "{{ .Values.enterprise.parameters.O2_SEARCH_GROUP_CPU_LIMIT_ENABLED }}"
   O2_SEARCH_GROUP_DYNAMIC_RESOURCE: "{{ .Values.enterprise.parameters.O2_SEARCH_GROUP_DYNAMIC_RESOURCE }}"
   O2_SEARCH_GROUP_LONG_MAX_CPU: "{{ .Values.enterprise.parameters.O2_SEARCH_GROUP_LONG_MAX_CPU }}"
@@ -430,7 +444,9 @@ data:
 {{- end }}
   # Alerts — composite / charts / eval (introduced in v1.0.1)
   ZO_ALERT_CHART_ENABLED: "{{ .Values.config.ZO_ALERT_CHART_ENABLED }}"
+  {{- if .Values.externalSecret.enabled }}
   ZO_ALERT_CHART_SIGNING_KEY: "{{ .Values.config.ZO_ALERT_CHART_SIGNING_KEY }}"
+  {{- end }}
   ZO_ALERT_COMPOSITE_WRITES_ENABLED: "{{ .Values.config.ZO_ALERT_COMPOSITE_WRITES_ENABLED }}"
   ZO_ALERT_COMPOSITE_DEBOUNCE_SECS: "{{ .Values.config.ZO_ALERT_COMPOSITE_DEBOUNCE_SECS }}"
   ZO_ALERT_COMPOSITE_STALE_K: "{{ .Values.config.ZO_ALERT_COMPOSITE_STALE_K }}"

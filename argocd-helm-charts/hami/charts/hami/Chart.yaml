@@ -1,10 +1,10 @@
 apiVersion: v2
-appVersion: 2.10.0
+appVersion: 2.11.0
 description: Heterogeneous AI Computing Virtualization Middleware
 keywords:
 - vgpu
 - gpu
-kubeVersion: '>= 1.18.0-0'
+kubeVersion: '>= 1.23.0-0'
 maintainers:
 - email: archlitchi@gmail.com
   name: limengxuan
@@ -14,4 +14,4 @@ name: hami
 sources:
 - https://github.com/Project-HAMi/HAMi
 type: application
-version: 2.10.0
+version: 2.11.0

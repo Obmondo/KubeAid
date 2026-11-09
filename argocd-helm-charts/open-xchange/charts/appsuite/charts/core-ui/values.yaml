@@ -38,6 +38,19 @@ defaultSecurityContext:
     drop:
       - ALL
 
+# Run the pods under a dedicated ServiceAccount rather than the namespace
+# default one (CIS 5.1.5), and mount no API token (CIS 5.1.6).
+serviceAccount:
+  create: true
+  # defaults to the chart fullname
+  name: ""
+  annotations: {}
+  automountServiceAccountToken: false
+
+# Pod-level token automount. Leave false unless a workload of this chart needs
+# to talk to the Kubernetes API.
+automountServiceAccountToken: false
+
 service:
   type: ClusterIP
   port: 80
@@ -76,15 +89,41 @@ nodeSelector: {}
 tolerations: []
 affinity: {}
 
+# Extra PodSpec definitions
+extraPodSpec: {}
+
+# PodDisruptionBudget for the server pods. Opt-in, because a PDB only constrains
+# voluntary evictions (node drains, cluster autoscaler consolidation): it does
+# not govern rolling updates, HPA scale-down or node failures. Needs
+# replicaCount >= 2 to protect anything. Same values contract as the core-mw
+# chart, so one umbrella values file configures both the same way.
+pdb:
+  # Whether a PodDisruptionBudget should be created
+  create: false
+  # Minimum number or percentage of pods that must be available. Mutually
+  # exclusive with maxUnavailable. Examples: 1, "50%"
+  minAvailable: ""
+  # Maximum number or percentage of pods that can be unavailable. Mutually
+  # exclusive with minAvailable. Usually the better choice: it stays correct
+  # when replicaCount changes, and on a single replica it degrades to "always
+  # evictable" instead of blocking node drains forever. Examples: 1, "25%"
+  maxUnavailable: ""
+  # Policy for evicting unhealthy (not yet Ready) pods, rendered as
+  # `spec.unhealthyPodEvictionPolicy` (GA since Kubernetes 1.31). Leave empty to
+  # omit. "AlwaysAllow" stops an unhealthy pod blocking a node drain
+  # indefinitely and only ever permits more eviction, never less.
+  # Examples: "IfHealthyBudget", "AlwaysAllow"
+  unhealthyPodEvictionPolicy: ""
+
 probe:
   liveness:
-    enabled: false
+    enabled: true
     periodSeconds: 10
     failureThreshold: 15
 
   readiness:
-    enabled: false
-    initialDelaySeconds: 30
+    enabled: true
+    initialDelaySeconds: 1
     periodSeconds: 5
     failureThreshold: 2
     timeoutSeconds: 5
@@ -103,6 +142,9 @@ hostname: ''
 origins: '*'
 logLevel: 'info'
 exposeApiDocs: false
+# Mounts the env-gated /v1/debug/* fixtures in the BFF (Basic-Auth phishing e2e carrier). Keep false
+# in production; enabled only on preview deployments so the e2e regression test can run.
+enableDebugRoutes: false
 commitSha: ''
 
 jwks:
@@ -125,8 +167,46 @@ appsuite:
   api: ""
   appId: "core-ui"
 
+# Outbound proxy for requests to remote hosts (one-click unsubscribe, BIMI logos and certificates).
+# The server tunnels via CONNECT to the IP address it has resolved and validated itself.
+proxy:
+  # e.g. "http://user:password@proxy.example.com:3128"
+  https: ""
+  # comma-separated hosts/domains that bypass the proxy, e.g. "localhost,.corp.example"
+  noProxy: ""
+
 overrides:
-  dbSecret: 'core-ui-db-secret'
+  # Renames the Secret this chart creates from `databases.*` below. The default
+  # name is not release-prefixed, so two core-ui releases in one namespace need
+  # this to avoid colliding. To read a Secret this chart does NOT create, use
+  # db.existingSecret instead, which takes precedence and leaves this value
+  # without effect.
+  dbSecret: ''
+
+# Where the database credentials come from. Two ways in:
+#
+#  1. Leave existingSecret empty and fill in databases.<name>.* below. The chart
+#     creates "core-ui-db-secret" from those plaintext values.
+#  2. Set existingSecret to a Secret you manage yourself, for example one an
+#     External Secrets Operator ExternalSecret writes. The chart creates no
+#     Secret and reads the keys listed under existingSecretKeys. No databases.*
+#     entry is needed, same as jwks.existingSecret above.
+#
+# Rotating the content of an existing Secret does not restart the pods, because
+# secretKeyRef env vars only resolve at pod start. Roll the Deployment after a
+# rotation.
+db:
+  existingSecret: ''
+  # Key names to read inside existingSecret. The defaults are the keys the chart
+  # writes into its own Secret, so a Secret that copies those names needs no
+  # mapping here.
+  existingSecretKeys:
+    databases: DATABASES
+    bimiHost: DB_BIMI_HOST
+    bimiPort: DB_BIMI_PORT
+    bimiName: DB_BIMI_NAME
+    bimiUser: DB_BIMI_USER
+    bimiPassword: DB_BIMI_PASSWORD
 
 # only used with bitnami chart (for preview/testing systems)
 mysql:
@@ -139,6 +219,26 @@ mysql:
 databases:
   # add DBs here
 
+migration:
+  # Rotation token for the migrations Job name suffix; falls back to .Release.Revision.
+  jobId: ''
+  # Seconds to keep the finished Job before Kubernetes deletes it; null omits the field.
+  ttlSecondsAfterFinished: 60
+  # Extra annotations on the Job (metadata, not the Pod). Under Argo CD auto-sync a
+  # plain Job loops: the TTL deletes it, self-heal sees it missing and recreates it,
+  # and the migration re-runs every backoff interval. Without auto-sync the missing
+  # Job leaves the Application OutOfSync. Argo callers should make it a hook instead,
+  # so it is excluded from sync status and rotated on every sync:
+  #   argocd.argoproj.io/hook: Sync
+  #   argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+  annotations: {}
+
 config:
   features:
     bimi: false
+
+# name of an existing ConfigMap containing managed mail signatures/templates
+# and signature design HTML templates with policy. If not set, the
+# /ui/v1/assets/mail/{signatures,templates,designs} routes return empty lists.
+mailAssets:
+  configMapName: ""

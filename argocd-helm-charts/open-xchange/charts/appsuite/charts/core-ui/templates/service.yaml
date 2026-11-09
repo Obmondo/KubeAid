@@ -18,3 +18,4 @@ spec:
       name: monitoring
   selector:
     {{- include "ox-common.labels.matchLabels" . | nindent 4 }}
+    app.kubernetes.io/component: server

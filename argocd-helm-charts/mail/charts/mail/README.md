@@ -7,7 +7,7 @@ Feel free to pick your favourite distro.
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=bokysan/docker-postfix&type=date&legend=top-left)](https://www.star-history.com/#bokysan/docker-postfix&type=date&legend=top-left)
+[![Star History Chart](https://star-history.dera.page/svg?repos=bokysan/docker-postfix&type=date&legend=top-left)](https://star-history.dera.page/#bokysan/docker-postfix&type=date&legend=top-left)
 
 ## Table of contents
 
@@ -16,6 +16,8 @@ Feel free to pick your favourite distro.
   - [Description](#description)
   - [TL;DR](#tldr)
   - [Updates](#updates)
+    - [v6.0.0](#v600)
+    - [v5.0.0](#v500)
     - [v4.0.0](#v400)
     - [v3.0.0](#v300)
   - [Architectures](#architectures)
@@ -46,9 +48,12 @@ Feel free to pick your favourite distro.
         - [The `noop` filter](#the-noop-filter)
         - [Writing your own filters](#writing-your-own-filters)
     - [DKIM / DomainKeys](#dkim--domainkeys)
+      - [Choosing the DKIM backend (`DKIM_BACKEND`)](#choosing-the-dkim-backend-dkim_backend)
+      - [Migrating from OpenDKIM to rspamd](#migrating-from-opendkim-to-rspamd)
       - [Supplying your own DKIM keys](#supplying-your-own-dkim-keys)
       - [Auto-generating the DKIM selectors through the image](#auto-generating-the-dkim-selectors-through-the-image)
       - [Changing the DKIM selector](#changing-the-dkim-selector)
+      - [Overriding specific rspamd settings](#overriding-specific-rspamd-settings)
       - [Overriding specific OpenDKIM settings](#overriding-specific-opendkim-settings)
       - [Verifying your DKIM setup](#verifying-your-dkim-setup)
     - [Docker Secrets / Kubernetes secrets](#docker-secrets--kubernetes-secrets)
@@ -85,6 +90,8 @@ To run the container, do the following:
 
 ```shell script
 docker run --rm --name postfix -e "ALLOWED_SENDER_DOMAINS=example.com" -p 1587:587 boky/postfix
+# or
+docker run --rm --name postfix -e "ALLOWED_SENDER_DOMAINS=example.com" -p 1587:587 ghcr.io/bokysan/postfix
 ```
 
 or
@@ -92,9 +99,11 @@ or
 ```shell script
 helm repo add bokysan https://bokysan.github.io/docker-postfix/
 helm upgrade --install --set persistence.enabled=false --set config.general.ALLOW_EMPTY_SENDER_DOMAINS=yes mail bokysan/mail
+# or, using the OCI registry:
+helm upgrade --install --set persistence.enabled=false --set config.general.ALLOW_EMPTY_SENDER_DOMAINS=yes mail oci://ghcr.io/bokysan/charts/mail
 ```
 
-You can also find this image at [ArtifactHub](https://artifacthub.io/packages/helm/docker-postfix/mail).
+You can also find the Helm chart at [ArtifactHub](https://artifacthub.io/packages/helm/docker-postfix/mail).
 
 
 You can now send emails by using `localhost:1587` (on Docker) as your SMTP server address. Note that if you haven't configured your domain
@@ -122,13 +131,52 @@ by ISPs, already occupied by other services, and in general should only be used 
 
 ## Updates
 
+### v6.0.0
+
+#### DKIM signing
+
+**The default DKIM backend has changed from [OpenDKIM](http://opendkim.org/) to [rspamd](https://rspamd.com/).**
+
+For most users this transition is automatic and requires no action:
+
+- On first startup with the new default, any DKIM keys found under `/etc/opendkim/keys`
+  are **automatically imported** into rspamd (see [DKIM / DomainKeys](#dkim--domainkeys)).
+  Your existing keys are _copied_ (not moved), so nothing is lost and you can switch back.
+- rspamd signs using `relaxed/relaxed` canonicalization. Your published DNS records
+  remain valid -- there is no need to regenerate keys or update DNS.
+- Postfix is now wired to rspamd's milter (`inet:localhost:11332`) instead of OpenDKIM's
+  (`inet:localhost:8891`).
+
+If you are not ready to migrate, set `DKIM_BACKEND=opendkim` to keep using OpenDKIM.
+**OpenDKIM is deprecated** and will be removed in a future major release, so please plan
+your migration.
+
+If you run the image with a **read-only root filesystem**, note that rspamd needs two
+writable paths: `/etc/rspamd` and `/var/lib/rspamd`. Mount them (e.g. as `emptyDir` /
+`tmpfs`) -- see the [read-only image](#helm-chart) examples.
+
+Custom rspamd settings are configured with `RSPAMD_<file>__<key>` environment variables
+(see [Overriding specific rspamd settings](#overriding-specific-rspamd-settings)).
+
+#### Helm chart validation
+
+helm chart now includes validation through `values.schema.json`.
+
+#### Version alignment
+
+`v` versions of helm charts have been dropped. SemVer-s are now more aligned with the standard.
+
+#### Bugfixes
+
+Better support for read-only root images, `postfix-exporter` has been migrated to [Hsn723's version](https://github.com/Hsn723/postfix_exporter) which is more current and being kept up to date.
+
 ### v5.0.0
 
 Image has been updated to [Debian Trixie](https://www.debian.org/releases/trixie/) and with that `linux/mips64le` is gone. To prevent
 failures during upgrade, major version has been bumped. New versions of go do not provide images for `linux/arm/v5` and it's not really
-supported that wall on Debian any more, so this architecture is dropped as well.
+supported that well on Debian any more, so this architecture is dropped as well.
 
-Several other fixes went into this release as well.
+Several other fixes went into this release as well. Full list is available on the [releases](https://github.com/bokysan/docker-postfix/releases/tag/v5.0.0) page.
 
 ### v4.0.0
 
@@ -144,7 +192,7 @@ Several potentially "surprising" changes went into this issue and hence warrant 
 - **[`master`](https://github.com/bokysan/docker-postfix/tree/master/) branch now builds images called [`edge`](https://hub.docker.com/r/boky/postfix/tags?page=1&name=edge)**. 
   `latest` images are built from the last tag. We've had several issues with people using the `latest` tag
   and reporting problems. You can now rely on `latest` being the latest stable release.
-- Image now builds its own version of [postfix-exporter](https://github.com/kumina/postfix_exporter) and relies on this
+- Image now builds its own version of [postfix-exporter](https://github.com/Hsn723/postfix_exporter) and relies on this
   third-party project. Checkout is from master branch, based
   on specific SHA commit id. The same hash is used for master and tags.
 - **Architecture galore!** With the addition of debian images, we now support support more architectures than ever. The list includes:
@@ -289,39 +337,20 @@ Define relay host TLS connection level. See [smtp_tls_security_level](http://www
 
 This level defines how the postfix will connect to your upstream server.
 
-#### `XOAUTH2_CLIENT_ID`, `XOAUTH2_SECRET`, `XOAUTH2_INITIAL_ACCESS_TOKEN`, `XOAUTH2_INITIAL_REFRESH_TOKEN` and `XOAUTH2_TOKEN_ENDPOINT`
+#### SASL configuration
 
 > Note: These parameters are used when `RELAYHOST` and `RELAYHOST_USERNAME` are provided.
 
 These parameters allow you to configure a relayhost that requires (or recommends) the [XOAuth2 authentication method](https://github.com/tarickb/sasl-xoauth2) (e.g. GMail).
 
-- `XOAUTH2_CLIENT_ID` and  `XOAUTH2_SECRET` are the [OAuth2 client credentials](#oauth2-client-credentials-gmail).
-- `XOAUTH2_INITIAL_ACCESS_TOKEN` and `XOAUTH2_INITIAL_REFRESH_TOKEN` are the [initial access token and refresh tokens](#obtain-initial-access-token-gmail).
-- `XOAUTH2_TOKEN_ENDPOINT` is mandatory for Microsoft 365 use, sasl-xoauth2 will use Gmail URL if it is not provided.
-   These values are only  required to initialize the token file `/var/spool/postfix/xoauth2-tokens/$RELAYHOST_USERNAME`.
-
-Example:
-
-```shell script
-docker run --rm --name pruebas-postfix \
-    -e RELAYHOST="[smtp.gmail.com]:587" \
-    -e RELAYHOST_USERNAME="<put.your.account>@gmail.com" \
-    -e POSTFIX_smtp_tls_security_level="encrypt" \
-    -e XOAUTH2_CLIENT_ID="<put_your_oauth2_client_id>" \
-    -e XOAUTH2_SECRET="<put_your_oauth2_secret>" \
-    -e ALLOW_EMPTY_SENDER_DOMAINS="true" \
-    -e XOAUTH2_INITIAL_ACCESS_TOKEN="<put_your_acess_token>" \
-    -e XOAUTH2_INITIAL_REFRESH_TOKEN="<put_your_refresh_token>" \
-    boky/postfix
-```
-
-Next sections describe how to obtain these values.
+Please check the documentation of [SASL-XOAuth2](https://github.com/tarickb/sasl-xoauth2) for how this is expected to be configured. You will need to get at least OAuth2
+credentials. Next sections describe how to obtain these values.
 
 ##### OAuth2 Client Credentials (GMail)
 
 Visit the [Google API Console](https://console.developers.google.com/) to obtain OAuth 2 credentials (a client ID and client secret) for an "Installed application" application type.
 
-Save the client ID and secret and use them to initialize `XOAUTH2_CLIENT_ID` and  `XOAUTH2_SECRET` respectively.
+Save the client ID and secret and use them to according to SASL-XOauth2 documentation.
 
 We'll also need these credentials in the next step.
 
@@ -329,12 +358,7 @@ We'll also need these credentials in the next step.
 
 Use the [Gmail OAuth2 developer tools](https://github.com/google/gmail-oauth2-tools/) to obtain an OAuth token by following the [Creating and Authorizing an OAuth Token](https://github.com/google/gmail-oauth2-tools/wiki/OAuth2DotPyRunThrough#creating-and-authorizing-an-oauth-token) instructions.
 
-Save the resulting tokens and use them to initialize `XOAUTH2_INITIAL_ACCESS_TOKEN` and `XOAUTH2_INITIAL_REFRESH_TOKEN`.
-
-##### Debug XOAuth2 issues
-
-If you have XOAuth2 authentication issues you can enable XOAuth2 debug message setting `XOAUTH2_SYSLOG_ON_FAILURE` to `"yes"` (default: `"no"`). If you need a more detailed
-log trace about XOAuth2 you can set `XOAUTH2_FULL_TRACE` to `"yes"` (default: `"no"`).
+Save the resulting tokens and use them to initialize SASL.
 
 #### `MASQUERADED_DOMAINS`
 
@@ -434,9 +458,9 @@ Enable the filter by setting `ANONYMIZE_EMAILS=smart`.
 
 The is enabled by setting the value to `on`, `true`, `1`, `default` or `smart`. The filter will take an educated guess at how to best mask the emails, specifically:
 
-- It will leave the first and the last letter of the local part (if the local part is one letter long it gets repeated atht beggining and the end)
+- It will leave the first and the last letter of the local part (if the local part is one letter long it gets repeated at the beginning and the end)
 - If the local part is in quotes, it will remove the quotes (Warning: if the email starts with a space, this might look weird in logs)
-- It will replace all the letters inbetween with **ONE** asterisk, even if there are none
+- It will replace all the letters in between with **ONE** asterisk, even if there are none
 - It will replace everything but a TLD with a star
 - Address-style domains will see the number replaced with stars
 
@@ -514,11 +538,58 @@ also install your own Python package -- the script will automatically pick up th
 **This image is equipped with support for DKIM.** If you want to use DKIM you will need to generate DKIM keys. These can
 be either generated automatically, or you can supply them yourself.
 
+The DKIM signing is performed by one of two backends -- [rspamd](https://rspamd.com/) (the default since `v6.0.0`) or
+[OpenDKIM](http://opendkim.org/) (deprecated). Both share the same keys and the same options below, so switching between
+them requires no changes to your keys or DNS records.
+
 The DKIM supports the following options:
 
+- `DKIM_BACKEND` = Which DKIM backend to use: `rspamd` (default) or `opendkim`.
 - `DKIM_SELECTOR` = Override the default DKIM selector (by default "mail").
 - `DKIM_AUTOGENERATE` = Set to non-empty value (e.g. `true` or `1`) to have the server auto-generate domain keys.
-- `OPENDKIM_<any_dkim_setting>` = Provide any additional OpenDKIM setting.
+- `RSPAMD_<file>__<key>` = Provide any additional rspamd setting (see [below](#overriding-specific-rspamd-settings)).
+- `OPENDKIM_<any_dkim_setting>` = Provide any additional OpenDKIM setting (only used with the `opendkim` backend).
+
+#### Choosing the DKIM backend (`DKIM_BACKEND`)
+
+Since `v6.0.0` the default backend is **rspamd**. rspamd runs as a milter (`inet:localhost:11332`) and, in this image,
+is configured purely for **outbound DKIM signing** -- it never rejects or greylists your outgoing mail (see
+`/etc/rspamd/local.d/actions.conf`). Additional outbound checks such as rate limiting are shipped but disabled; enabling
+them requires an external Redis instance.
+
+To keep using the (deprecated) OpenDKIM backend, set `DKIM_BACKEND=opendkim`:
+
+```shell script
+docker run --rm --name postfix -e DKIM_BACKEND=opendkim -e "ALLOWED_SENDER_DOMAINS=example.org" -v /host/keys:/etc/opendkim/keys -p 1587:587 boky/postfix
+```
+
+> **Note:** OpenDKIM is deprecated and will be removed in a future major release. Please migrate to rspamd.
+
+**Architecture note:** rspamd is not built for every architecture (for example, it is missing on Debian
+`linux/s390x`). On such images rspamd is simply not installed, and the container **automatically falls back to the
+OpenDKIM backend** -- even if `DKIM_BACKEND=rspamd` is requested (a warning is logged). All other architectures
+(`amd64`, `arm64`, ...) ship rspamd as the default.
+
+If you run the image with a **read-only root filesystem** and use the rspamd backend, make sure `/etc/rspamd` and
+`/var/lib/rspamd` are writable (mount them as `tmpfs` / `emptyDir`). rspamd stores its DKIM keys under
+`/var/lib/rspamd/dkim`.
+
+#### Migrating from OpenDKIM to rspamd
+
+Migration is automatic. On the first startup with the rspamd backend:
+
+1. If `/var/lib/rspamd/dkim` has no keys yet **and** `/etc/opendkim/keys` contains keys, each key is **copied** into
+   `/var/lib/rspamd/dkim/<domain>.<selector>.key` (the selector is resolved with the same `DKIM_SELECTOR` logic).
+   The originals in `/etc/opendkim/keys` are left untouched, so you can switch back to `DKIM_BACKEND=opendkim` at any time.
+2. rspamd signs using `relaxed/relaxed` canonicalization. Your published DNS TXT records **remain valid** -- you do not
+   need to regenerate keys or update DNS.
+3. A handful of mappable `OPENDKIM_*` settings are translated on a best-effort basis (e.g. `OPENDKIM_SignHeaders` ->
+   rspamd `sign_headers`). Settings without a direct equivalent are logged with a warning so you can act on them.
+
+The import only runs when rspamd has no keys of its own yet, so it is safe across restarts. To force a fresh import,
+empty the `/var/lib/rspamd/dkim` directory.
+
+After switching, [verify your DKIM setup](#verifying-your-dkim-setup) to confirm signatures are produced as expected.
 
 #### Supplying your own DKIM keys
 
@@ -575,7 +646,27 @@ This means:
 - use `blah` for `example.com` domain
 - use `foo` if no domain matches
 
+#### Overriding specific rspamd settings
+
+When using the rspamd backend, any setting can be overridden with `RSPAMD_<file>__<key>` environment variables. These are
+written into `/etc/rspamd/local.d/<file>.conf` as `<key> = <value>;` -- following rspamd's
+[local.d override mechanism](https://rspamd.com/doc/faq.html#what-are-the-locald-and-overrided-directories). The part
+before the double underscore (`__`) is the file name; the part after is the key. For example:
+
+```shell script
+# writes `use_esld = false;` into /etc/rspamd/local.d/dkim_signing.conf
+RSPAMD_dkim_signing__use_esld=false
+```
+
+Specifying no content (empty variable) removes that key from the file.
+
+For nested UCL structures, or for `.inc` files whose names contain a hyphen (e.g. `worker-proxy.inc`), the environment
+variable syntax is not sufficient -- mount your own file into `/etc/rspamd/local.d/` (or `/etc/rspamd/override.d/`)
+instead. `/etc/rspamd` is a volume, so your mounts and generated files survive restarts.
+
 #### Overriding specific OpenDKIM settings
+
+> These settings only apply when `DKIM_BACKEND=opendkim`.
 
 Any OpenDKIM [configuration option](http://opendkim.org/opendkim.conf.5.html) can be overriden using `OPENDKIM_<name>`
 environment variables, e.g. `OPENDKIM_RequireSafeKeys=yes`. Specifying no content (empty variable) will remove that
@@ -585,6 +676,10 @@ variable from OpenDKIM config.
 
 I strongly suggest using a service such as [dkimvalidator](https://dkimvalidator.com/) to make sure your keys are set up
 properly and your DNS server is serving them with the correct records.
+
+That confirms the keys. To also see whether DMARC lines up and which folder the message reached, send one to
+[Email Spam Tester](https://email-spam-tester.com/): it reports inbox, spam or Promotions at Gmail, Outlook, Yahoo
+and other providers from a single send.
 
 ### Docker Secrets / Kubernetes secrets
 
@@ -609,7 +704,7 @@ and `XOAUTH2_INITIAL_REFRESH_TOKEN`.
 ## Helm chart
 
 This image comes with its own helm chart. The chart versions are aligned with the releases of the image. Charts are hosted
-through this repository.
+through this repository and also published as an OCI artifact to the GitHub Container Registry.
 
 To install the image, simply do the following:
 
@@ -618,18 +713,25 @@ helm repo add bokysan https://bokysan.github.io/docker-postfix/
 helm upgrade --install --set persistence.enabled=false --set config.general.ALLOWED_SENDER_DOMAINS=example.com mail bokysan/mail
 ```
 
+or, using the OCI registry:
+
+```shell script
+helm upgrade --install --set persistence.enabled=false --set config.general.ALLOWED_SENDER_DOMAINS=example.com mail oci://ghcr.io/bokysan/charts/mail
+```
+
 Chart configuration is as follows:
 
 | Property | Default value | Description |
 |----------|---------------|-------------|
 | `replicaCount` | `1` | How many replicas to start |
-| `image.repository` | `boky/postfix` | This docker image repository |
+| `image.repository` | `ghcr.io/bokysan/postfix` | This docker image repository |
 | `image.tag` | *empty* | Docker image tag, by default uses Chart's `AppVersion` |
 | `image.pullPolicy` | `IfNotPresent` | [Pull policy](https://kubernetes.io/docs/concepts/containers/images/#updating-images) for the image |
 | `imagePullSecrets` | `[]` | Pull secrets, if neccessary |
 | `nameOverride` | `""` | Override the helm chart name |
 | `fullnameOverride` | `""` | Override the helm full deployment name |
 | `serviceAccount.create` | `true` | Specifies whether a service account should be created |
+| `serviceAccount.labels` | `{}` | Labels to add to the service account |
 | `serviceAccount.annotations` | `{}` | Annotations to add to the service account |
 | `serviceAccount.name` | `""` | The name of the service account to use. If not set and create is true, a name is generated using the fullname template |
 | `service.type` | `ClusterIP` | How is the server exposed |
@@ -638,8 +740,12 @@ Chart configuration is as follows:
 | `service.annotations` | `{}` | Additional service annotations |
 | `service.spec` | `{}` | Additional service specifications |
 | `service.nodePort` | *empty* | Use a specific `nodePort` |
-| `service.nodeIP` | *empty* | Use a specific `nodeIP` |
+| `service.appprotocol` | _empty_ | Set `appProtocol` on the SMTP port (Kubernetes >= 1.20), e.g. `smtp` |
+| `service.externalIPs` | `[]` | Route traffic arriving at these (node) IPs to the service. |
 | `service.externalTrafficPolicy` | *empty* | Set `loadbalancer` [External traffic policy](https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/#preserving-the-client-source-ip) |
+| `headlessService.enabled` | `true` | Create the headless service required by the `StatefulSet` |
+| `headlessService.labels` | `{}` | Additional headless service labels |
+| `headlessService.annotations` | `{}` | Additional headless service annotations |
 | `resources` | `{}` | [Pod resources](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/) |
 | `autoscaling.enabled` | `false` | Set to `true` to enable [Horisontal Pod Autoscaler](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/) |
 | `autoscaling.minReplicas` | `1` | Minimum number of replicas |
@@ -648,16 +754,19 @@ Chart configuration is as follows:
 | `autoscaling.targetMemoryUtilizationPercentage` | `""` | When to scale up |
 | `autoscaling.labels` | `{}` | Additional HPA labels |
 | `autoscaling.annotations` | `{}` | Additional HPA annotations |
+| `autoscaling.behavior` | `{}` | [Configurable scaling behavior](https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/#configurable-scaling-behavior) |
 | `nodeSelector` | `{}` | Standard Kubernetes stuff |
 | `tolerations` | `[]` | Standard Kubernetes stuff |
 | `affinity` | `{}` | Standard Kubernetes stuff |
+| `schedulerName` | `""` | Use a specific [scheduler](https://kubernetes.io/docs/tasks/extend-kubernetes/configure-multiple-schedulers/) for the pod |
+| `priorityClassName` | `""` | Set the pod's [priority class](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/) |
 | `certs.create` | `false` | Auto generate TLS certificates for Postfix |
 | `certs.existingSecret` | `""` | Existing secret containing the TLS certificates for Postfix |
-| `extraVolumes` | `[]` | Append any extra volumes to the pod |
-| `extraVolumeMounts` | `[]` | Append any extra volume mounts to the postfix container |
-| `extraInitContainers` | `[]` | Execute any extra init containers on startup |
-| `extraEnv` | `[]` | Add any extra environment variables to the container |
-| `extraContainers` | `[]` | Add extra containers |
+| `extraVolumes` | `[]` | Append any extra volumes to the pod. Either a YAML array or a template string (rendered with `tpl`) |
+| `extraVolumeMounts` | `[]` | Append any extra volume mounts to the postfix container. Either a YAML array or a template string (rendered with `tpl`) |
+| `extraInitContainers` | `[]` | Execute any extra init containers on startup. Either a YAML array or a template string (rendered with `tpl`) |
+| `extraEnv` | `[]` | Add any extra environment variables to the container. Either a YAML array or a template string (rendered with `tpl`) |
+| `extraContainers` | `[]` | Add extra containers. Either a YAML array or a template string (rendered with `tpl`) |
 | `deployment.labels` | `{}` | Additional labels for the statefulset |
 | `deployment.annotations` | `{}` | Additional annotations for the statefulset |
 | `pod.securityContext` | `{}` | Pods's [security context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/) |
@@ -666,7 +775,8 @@ Chart configuration is as follows:
 | `container.postfix.securityContext` | `{}` | Containers's [security context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/) |
 | `config.general` | `{}` | Key-value list of general configuration options, e.g. `TZ: "Europe/London"` |
 | `config.postfix` | `{}` | Key-value list of general postfix options, e.g. `myhostname: "demo"` |
-| `config.opendkim` | `{}` | Key-value list of general OpenDKIM options, e.g. `RequireSafeKeys: "yes"` |
+| `config.opendkim` | `{}` | Key-value list of general OpenDKIM options, e.g. `RequireSafeKeys: "yes"` (when `config.general.DKIM_BACKEND` is `opendkim`) |
+| `config.rspamd` | `{}` | Key-value list of rspamd options using the `<file>__<key>` convention, e.g. `dkim_signing__use_esld: "false"` (when `config.general.DKIM_BACKEND` is empty of `rspamd`) |
 | `secret` | `{}` | Key-value list of environment variables to be shared with Postfix / OpenDKIM as secrets |
 | `existingSecret` | `""` | A reference to an existing opaque secret. Secret is mounted and exposed as environment variables in the pod |
 | `mountSecret.enabled` | `false` | Create a folder with contents of the secret in the pod's container |
@@ -680,6 +790,28 @@ Chart configuration is as follows:
 | `recreateOnRedeploy` | `true` | Restart Pods on every helm deployment, to prevent issues with stale configuration(s). |
 | `preStopSleepSeconds` | `0` | Wait for all existing connections to terminate before shutting the container down. See #245 for mode details. |
 | `terminationGracePeriodSeconds` | `120` | Override the timeout for the pod to shutdown |
+| `dns.policy` | `""` | Pod [DNS policy](https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy), e.g. `None` |
+| `dns.nameservers` | `[]` | Custom DNS nameservers for the pod |
+| `dns.searches` | `[]` | Custom DNS search domains for the pod |
+| `dns.options` | `[]` | Custom DNS options for the pod |
+| `readinessProbe` | _see `values.yaml`_ | Override the pod's [readiness probe](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/) |
+| `livenessProbe` | _see `values.yaml`_ | Override the pod's liveness probe |
+| `startupProbe` | _see `values.yaml`_ | Override the pod's startup probe |
+| `lifecycle.postStart` | `{}` | Add a [`postStart` lifecycle handler](https://kubernetes.io/docs/tasks/configure-pod-container/attach-handler-lifecycle-event/) to the postfix container |
+| `metrics.enabled` | `false` | Enable the Prometheus metrics exporter sidecar. See [Metrics](#metrics) below |
+| `metrics.image.repository` | `boky/postfix-exporter` | Metrics exporter image |
+| `metrics.image.tag` | _empty_ | Metrics exporter image tag, by default uses Chart's `AppVersion` |
+| `metrics.port` | `9154` | Port of the metrics exporter |
+| `metrics.path` | `/metrics` | HTTP path of the metrics exporter |
+| `metrics.maillog` | `/var/log/mail.log` | Log file consumed by the exporter. Do not override `POSTFIX_maillog_file` when metrics are enabled |
+| `metrics.logrotate.enabled` | `true` | Enable logrotate for the mail log |
+| `metrics.logrotate.logrotate.conf` | _see `values.yaml`_ | Contents of the logrotate configuration |
+| `metrics.resources` | `{}` | Resources for the metrics exporter container |
+| `metrics.service.labels` | `{}` | Additional metrics service labels |
+| `metrics.service.annotations` | `{}` | Additional metrics service annotations |
+| `metrics.serviceMonitor.enabled` | `false` | Create a Prometheus operator `ServiceMonitor` |
+| `metrics.serviceMonitor.labels` | `{}` | Additional `ServiceMonitor` labels |
+| `metrics.serviceMonitor.annotations` | `{}` | Additional `ServiceMonitor` annotations |
 
 ### Metrics
 
@@ -855,7 +987,7 @@ Getting all of this to work properly is not a small feat:
 There are may other project offering similar functionality. The aim of this project, however, is:
 
 * to make it as simple as possible to run the relay, without going too much into postfix configuration details
-* to make the image as small as possible (hence basing on Alpine linux)
+* to make the image as small as possible
 * to make the image and the corresponding code testable
 
 The other projects are, in completely random order:

@@ -13,9 +13,6 @@ data:
       {{- if (index .Values "office-web" "enabled") }}
       - http://{{ include "appsuite.fullnameFromComponent" (dict "Context" $ "Component" "office-web") }}/manifest.json
       {{- end }}
-      {{- if (index .Values "core-guidedtours" "enabled") }}
-      - http://{{ include "appsuite.fullnameFromComponent" (dict "Context" $ "Component" "core-guidedtours") }}/manifest.json
-      {{- end }}
       {{- if (index .Values "guard-ui" "enabled") }}
       - http://{{ include "appsuite.fullnameFromComponent" (dict "Context" $ "Component" "guard-ui") }}/manifest.json
       {{- end }}

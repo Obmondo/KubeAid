@@ -238,7 +238,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "appsuite_sessions_total{\n  client=\"all\",\n  namespace=\"$namespace\",\n  pod=~\"$pod\"\n}\n",
+                     "expr": "appsuite_sessions{\n  client=\"all\",\n  namespace=\"$namespace\",\n  pod=~\"$pod\"\n}\n",
                      "legendFormat": "Total"
                   },
                   {
@@ -246,7 +246,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "appsuite_sessions_active_total{\n  client=\"all\",\n  namespace=\"$namespace\",\n  pod=~\"$pod\"\n}\n",
+                     "expr": "appsuite_sessions_active{\n  client=\"all\",\n  namespace=\"$namespace\",\n  pod=~\"$pod\"\n}\n",
                      "legendFormat": "Active"
                   },
                   {
@@ -254,7 +254,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "appsuite_sessions_short_term_total{\n  client=\"all\",\n  namespace=\"$namespace\",\n  pod=~\"$pod\"\n}\n",
+                     "expr": "appsuite_sessions_short_term{\n  client=\"all\",\n  namespace=\"$namespace\",\n  pod=~\"$pod\"\n}\n",
                      "legendFormat": "Short Term"
                   },
                   {
@@ -262,7 +262,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "appsuite_sessions_long_term_total{\n  client=\"all\",\n  namespace=\"$namespace\",\n  pod=~\"$pod\"\n}\n",
+                     "expr": "appsuite_sessions_long_term{\n  client=\"all\",\n  namespace=\"$namespace\",\n  pod=~\"$pod\"\n}\n",
                      "legendFormat": "Long Term"
                   }
                ],
@@ -425,7 +425,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "appsuite_redis_connections_num_total{\n  pod=~\"$pod\",\n  namespace=~\"$namespace\",\n  name=\"redis-pool\"\n}\n",
+                     "expr": "appsuite_redis_connections_num{\n  pod=~\"$pod\",\n  namespace=~\"$namespace\",\n  name=\"redis-pool\"\n}\n",
                      "legendFormat": "Total"
                   }
                ],
@@ -496,7 +496,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "appsuite_redis_cache_connections_num_total{\n  pod=~\"$pod\",\n  namespace=~\"$namespace\",\n  name=\"redis-cache-pool\"\n}\n",
+                     "expr": "appsuite_redis_cache_connections_num{\n  pod=~\"$pod\",\n  namespace=~\"$namespace\",\n  name=\"redis-cache-pool\"\n}\n",
                      "legendFormat": "Total"
                   }
                ],
@@ -934,7 +934,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "appsuite_mysql_connections_total{class=\"configdb\",pod=~\"$pod\",type=\"read\"}\n",
+                     "expr": "appsuite_mysql_connections{class=\"configdb\",pod=~\"$pod\",type=\"read\"}\n",
                      "legendFormat": "Pooled"
                   },
                   {
@@ -1005,7 +1005,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "appsuite_mysql_connections_total{class=\"configdb\",pod=~\"$pod\",type=\"write\"}\n",
+                     "expr": "appsuite_mysql_connections{class=\"configdb\",pod=~\"$pod\",type=\"write\"}\n",
                      "legendFormat": "Pooled"
                   },
                   {
@@ -1076,7 +1076,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "appsuite_mysql_connections_total{\n  class=~\"userdb\",\n  pod=~\"$pod\",\n  pool=~\"$dbpool\"\n}\n",
+                     "expr": "appsuite_mysql_connections{\n  class=~\"userdb\",\n  pod=~\"$pod\",\n  pool=~\"$dbpool\"\n}\n",
                      "legendFormat": "Pooled (Type: {{type}}, Pool: {{pool}})\n"
                   },
                   {
@@ -1661,7 +1661,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "sum(\n  rate(\n    appsuite_restapi_requests_seconds_count{\n      status=~\"OK\",\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "expr": "sum(\n  rate(\n    appsuite_restapi_requests_seconds_count{\n      status=~\"2..\",\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
                      "legendFormat": "OK"
                   },
                   {
@@ -1669,7 +1669,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "sum(\n  rate(\n    appsuite_restapi_requests_seconds_count{\n      status!~\"OK\",\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "expr": "sum(\n  rate(\n    appsuite_restapi_requests_seconds_count{\n      status!~\"2..\",\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
                      "legendFormat": "KO"
                   }
                ],
@@ -2746,6 +2746,1159 @@
             "x": 0,
             "y": 24
          },
+         "id": 49,
+         "panels": [
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "min": 0,
+                     "unit": "cps"
+                  },
+                  "overrides": [
+                     {
+                        "matcher": {
+                           "id": "byName",
+                           "options": "OK"
+                        },
+                        "properties": [
+                           {
+                              "id": "color",
+                              "value": {
+                                 "fixedColor": "dark-green",
+                                 "mode": "fixed"
+                              }
+                           }
+                        ]
+                     },
+                     {
+                        "matcher": {
+                           "id": "byName",
+                           "options": "KO"
+                        },
+                        "properties": [
+                           {
+                              "id": "color",
+                              "value": {
+                                 "fixedColor": "dark-red",
+                                 "mode": "fixed"
+                              }
+                           }
+                        ]
+                     },
+                     {
+                        "matcher": {
+                           "id": "byName",
+                           "options": "Total"
+                        },
+                        "properties": [
+                           {
+                              "id": "color",
+                              "value": {
+                                 "fixedColor": "dark-yellow",
+                                 "mode": "fixed"
+                              }
+                           }
+                        ]
+                     }
+                  ]
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 50,
+               "interval": "1m",
+               "options": {
+                  "tooltip": {
+                     "mode": "multi",
+                     "sort": "desc"
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum(\n  rate(\n    appsuite_restapi_requests_seconds_count{\n      path=~\"/scim/.*\",\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "Total"
+                  },
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum(\n  rate(\n    appsuite_restapi_requests_seconds_count{\n      path=~\"/scim/.*\",\n      status=~\"2..\",\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "OK"
+                  },
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum(\n  rate(\n    appsuite_restapi_requests_seconds_count{\n      path=~\"/scim/.*\",\n      status!~\"2..\",\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "KO"
+                  }
+               ],
+               "title": "Requests (per-second)",
+               "type": "timeseries"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "min": 0,
+                     "unit": "cps"
+                  },
+                  "overrides": []
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 0
+               },
+               "id": 51,
+               "interval": "1m",
+               "options": {
+                  "tooltip": {
+                     "mode": "multi",
+                     "sort": "desc"
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum by (scheme) (\n  rate(\n    appsuite_scim_authentications_total{\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "{{scheme}}"
+                  }
+               ],
+               "title": "Authentications (per-second)",
+               "type": "timeseries"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "min": 0,
+                     "unit": "cps"
+                  },
+                  "overrides": []
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 0
+               },
+               "id": 52,
+               "interval": "1m",
+               "options": {
+                  "tooltip": {
+                     "mode": "multi",
+                     "sort": "desc"
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum by (result) (\n  rate(\n    appsuite_scim_authentications_total{\n      result!=\"accepted\",\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "{{result}}"
+                  }
+               ],
+               "title": "Refused Authentications (per-second)",
+               "type": "timeseries"
+            }
+         ],
+         "title": "SCIM",
+         "type": "row"
+      },
+      {
+         "collapsed": true,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 25
+         },
+         "id": 53,
+         "panels": [
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "min": 0,
+                     "unit": "cps"
+                  },
+                  "overrides": [
+                     {
+                        "matcher": {
+                           "id": "byName",
+                           "options": "OK"
+                        },
+                        "properties": [
+                           {
+                              "id": "color",
+                              "value": {
+                                 "fixedColor": "dark-green",
+                                 "mode": "fixed"
+                              }
+                           }
+                        ]
+                     },
+                     {
+                        "matcher": {
+                           "id": "byName",
+                           "options": "KO"
+                        },
+                        "properties": [
+                           {
+                              "id": "color",
+                              "value": {
+                                 "fixedColor": "dark-red",
+                                 "mode": "fixed"
+                              }
+                           }
+                        ]
+                     },
+                     {
+                        "matcher": {
+                           "id": "byName",
+                           "options": "Total"
+                        },
+                        "properties": [
+                           {
+                              "id": "color",
+                              "value": {
+                                 "fixedColor": "dark-yellow",
+                                 "mode": "fixed"
+                              }
+                           }
+                        ]
+                     }
+                  ]
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 54,
+               "interval": "1m",
+               "options": {
+                  "tooltip": {
+                     "mode": "multi",
+                     "sort": "desc"
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum(\n  rate(\n    appsuite_mcp_requests_total{\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "Total"
+                  },
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum(\n  rate(\n    appsuite_mcp_requests_total{\n      status=~\"2..\",\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "OK"
+                  },
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum(\n  rate(\n    appsuite_mcp_requests_total{\n      status!~\"2..\",\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "KO"
+                  }
+               ],
+               "title": "Requests (per-second)",
+               "type": "timeseries"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "min": 0,
+                     "unit": "cps"
+                  },
+                  "overrides": []
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 0
+               },
+               "id": 55,
+               "interval": "1m",
+               "options": {
+                  "tooltip": {
+                     "mode": "multi",
+                     "sort": "desc"
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum by (tool) (\n  rate(\n    appsuite_mcp_tool_calls_seconds_count{\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "{{tool}}"
+                  }
+               ],
+               "title": "Tool Calls (per-second)",
+               "type": "timeseries"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "min": 0,
+                     "unit": "cps"
+                  },
+                  "overrides": []
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 0
+               },
+               "id": 56,
+               "interval": "1m",
+               "options": {
+                  "tooltip": {
+                     "mode": "multi",
+                     "sort": "desc"
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum by (outcome) (\n  rate(\n    appsuite_mcp_tool_calls_seconds_count{\n      outcome!=\"ok\",\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "{{outcome}}"
+                  }
+               ],
+               "title": "Failed Tool Calls (per-second)",
+               "type": "timeseries"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "min": 0,
+                     "unit": "s"
+                  },
+                  "overrides": []
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 8
+               },
+               "id": 57,
+               "interval": "1m",
+               "options": {
+                  "tooltip": {
+                     "mode": "multi",
+                     "sort": "desc"
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum by (tool) (\n  rate(\n    appsuite_mcp_tool_calls_seconds_sum{\n      outcome=\"ok\",\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n/\nsum by (tool) (\n  rate(\n    appsuite_mcp_tool_calls_seconds_count{\n      outcome=\"ok\",\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "{{tool}}"
+                  }
+               ],
+               "title": "Tool Call Duration (average)",
+               "type": "timeseries"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "min": 0,
+                     "unit": "cps"
+                  },
+                  "overrides": []
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 8
+               },
+               "id": 58,
+               "interval": "1m",
+               "options": {
+                  "tooltip": {
+                     "mode": "multi",
+                     "sort": "desc"
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum by (kind) (\n  rate(\n    appsuite_mcp_authentications_total{\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "{{kind}}"
+                  }
+               ],
+               "title": "Authentications (per-second)",
+               "type": "timeseries"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "min": 0,
+                     "unit": "cps"
+                  },
+                  "overrides": []
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 8
+               },
+               "id": 59,
+               "interval": "1m",
+               "options": {
+                  "tooltip": {
+                     "mode": "multi",
+                     "sort": "desc"
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum by (kind, result) (\n  rate(\n    appsuite_mcp_authentications_total{\n      result!=\"accepted\",\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "{{kind}} {{result}}"
+                  }
+               ],
+               "title": "Refused Authentications (per-second)",
+               "type": "timeseries"
+            }
+         ],
+         "title": "MCP",
+         "type": "row"
+      },
+      {
+         "collapsed": true,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 26
+         },
+         "id": 73,
+         "panels": [
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "min": 0,
+                     "unit": "cps"
+                  },
+                  "overrides": [
+                     {
+                        "matcher": {
+                           "id": "byName",
+                           "options": "OK"
+                        },
+                        "properties": [
+                           {
+                              "id": "color",
+                              "value": {
+                                 "fixedColor": "dark-green",
+                                 "mode": "fixed"
+                              }
+                           }
+                        ]
+                     },
+                     {
+                        "matcher": {
+                           "id": "byName",
+                           "options": "KO"
+                        },
+                        "properties": [
+                           {
+                              "id": "color",
+                              "value": {
+                                 "fixedColor": "dark-red",
+                                 "mode": "fixed"
+                              }
+                           }
+                        ]
+                     },
+                     {
+                        "matcher": {
+                           "id": "byName",
+                           "options": "Total"
+                        },
+                        "properties": [
+                           {
+                              "id": "color",
+                              "value": {
+                                 "fixedColor": "dark-yellow",
+                                 "mode": "fixed"
+                              }
+                           }
+                        ]
+                     }
+                  ]
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 67,
+               "interval": "1m",
+               "options": {
+                  "tooltip": {
+                     "mode": "multi",
+                     "sort": "desc"
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum(\n  rate(\n    appsuite_mobile_requests_seconds_count{\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "Total"
+                  },
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum(\n  rate(\n    appsuite_mobile_requests_seconds_count{\n      status=~\"[23]..\",\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "OK"
+                  },
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum(\n  rate(\n    appsuite_mobile_requests_seconds_count{\n      status!~\"[23]..\",\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "KO"
+                  }
+               ],
+               "title": "Requests (per-second)",
+               "type": "timeseries"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "min": 0,
+                     "unit": "cps"
+                  },
+                  "overrides": [ ]
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 0
+               },
+               "id": 68,
+               "interval": "1m",
+               "options": {
+                  "tooltip": {
+                     "mode": "multi",
+                     "sort": "desc"
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum by (operation) (\n  rate(\n    appsuite_mobile_requests_seconds_count{\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "{{operation}}"
+                  }
+               ],
+               "title": "Requests by Operation (per-second)",
+               "type": "timeseries"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "min": 0,
+                     "unit": "cps"
+                  },
+                  "overrides": [ ]
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 0
+               },
+               "id": 69,
+               "interval": "1m",
+               "options": {
+                  "tooltip": {
+                     "mode": "multi",
+                     "sort": "desc"
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum by (code) (\n  rate(\n    appsuite_mobile_requests_seconds_count{\n      code!=\"-\",\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "{{code}}"
+                  }
+               ],
+               "title": "Problems by Code (per-second)",
+               "type": "timeseries"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "min": 0,
+                     "unit": "s"
+                  },
+                  "overrides": [ ]
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 8
+               },
+               "id": 70,
+               "interval": "1m",
+               "options": {
+                  "tooltip": {
+                     "mode": "multi",
+                     "sort": "desc"
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum by (operation) (\n  rate(\n    appsuite_mobile_requests_seconds_sum{\n      code=\"-\",\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n/\nsum by (operation) (\n  rate(\n    appsuite_mobile_requests_seconds_count{\n      code=\"-\",\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "{{operation}}"
+                  }
+               ],
+               "title": "Request Duration (average)",
+               "type": "timeseries"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "min": 0,
+                     "unit": "cps"
+                  },
+                  "overrides": [ ]
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 8
+               },
+               "id": 71,
+               "interval": "1m",
+               "options": {
+                  "tooltip": {
+                     "mode": "multi",
+                     "sort": "desc"
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum by (mode) (\n  rate(\n    appsuite_mobile_authentications_total{\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "{{mode}}"
+                  }
+               ],
+               "title": "Authentications (per-second)",
+               "type": "timeseries"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "min": 0,
+                     "unit": "cps"
+                  },
+                  "overrides": [ ]
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 8
+               },
+               "id": 72,
+               "interval": "1m",
+               "options": {
+                  "tooltip": {
+                     "mode": "multi",
+                     "sort": "desc"
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum by (mode, result) (\n  rate(\n    appsuite_mobile_authentications_total{\n      result!=\"accepted\",\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "{{mode}} {{result}}"
+                  }
+               ],
+               "title": "Refused Authentications (per-second)",
+               "type": "timeseries"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "min": 0,
+                     "unit": "cps"
+                  },
+                  "overrides": [ ]
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 16
+               },
+               "id": 74,
+               "interval": "1m",
+               "options": {
+                  "tooltip": {
+                     "mode": "multi",
+                     "sort": "desc"
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum by (transport, result) (\n  rate(\n    appsuite_mobile_push_messages_total{\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "{{transport}} {{result}}"
+                  }
+               ],
+               "title": "Push Messages (per-second)",
+               "type": "timeseries"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "min": 0,
+                     "unit": "s"
+                  },
+                  "overrides": [ ]
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 16
+               },
+               "id": 75,
+               "interval": "1m",
+               "options": {
+                  "tooltip": {
+                     "mode": "multi",
+                     "sort": "desc"
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "histogram_quantile(\n  0.95,\n  sum by (operation, le) (\n    rate(\n      appsuite_mobile_requests_seconds_bucket{\n        code=\"-\",\n        operation!~\"GET /events\",\n        pod=~\"$pod\"\n      }[$__rate_interval]\n    )\n  )\n)\n",
+                     "legendFormat": "{{operation}}"
+                  }
+               ],
+               "title": "Request Duration (95th percentile)",
+               "type": "timeseries"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "min": 0,
+                     "unit": "percentunit",
+                     "max": 1
+                  },
+                  "overrides": [ ]
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 16
+               },
+               "id": 76,
+               "interval": "1m",
+               "options": {
+                  "tooltip": {
+                     "mode": "multi",
+                     "sort": "desc"
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum(\n  rate(\n    appsuite_mobile_requests_seconds_count{\n      status=\"503\",\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n/\nsum(\n  rate(\n    appsuite_mobile_requests_seconds_count{\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "503"
+                  }
+               ],
+               "title": "Service Unavailable (share of requests)",
+               "type": "timeseries"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "min": 0,
+                     "unit": "cps"
+                  },
+                  "overrides": [ ]
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 24
+               },
+               "id": 77,
+               "interval": "1m",
+               "options": {
+                  "tooltip": {
+                     "mode": "multi",
+                     "sort": "desc"
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum by (action, result) (\n  rate(\n    appsuite_accesstoken_signin_total{\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "{{action}} {{result}}"
+                  }
+               ],
+               "title": "Sign-ins (per-second)",
+               "type": "timeseries"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "min": 0,
+                     "unit": "cps"
+                  },
+                  "overrides": [ ]
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 24
+               },
+               "id": 78,
+               "interval": "1m",
+               "options": {
+                  "tooltip": {
+                     "mode": "multi",
+                     "sort": "desc"
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum by (transport, result) (\n  rate(\n    appsuite_pns_deliveries_total{\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "{{transport}} {{result}}"
+                  }
+               ],
+               "title": "Push Deliveries (per-second)",
+               "type": "timeseries"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "min": 0,
+                     "unit": "short"
+                  },
+                  "overrides": [ ]
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 24
+               },
+               "id": 79,
+               "interval": "1m",
+               "options": {
+                  "tooltip": {
+                     "mode": "multi",
+                     "sort": "desc"
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum by (pod) (\n  appsuite_pns_sse_streams{\n    pod=~\"$pod\"\n  }\n)\n",
+                     "legendFormat": "{{pod}}"
+                  }
+               ],
+               "title": "Open Event Streams",
+               "type": "timeseries"
+            }
+         ],
+         "title": "Mobile API",
+         "type": "row"
+      },
+      {
+         "collapsed": true,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 27
+         },
          "id": 47,
          "panels": [
             {
@@ -2857,6 +4010,290 @@
          ],
          "title": "IMAP",
          "type": "row"
+      },
+      {
+         "collapsed": true,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 28
+         },
+         "id": 60,
+         "panels": [
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "description": "Live change streams open per pod. A pod takes at most com.openexchange.pns.transport.sse.maxConnectionsPerNode, 5000 by default.",
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "min": 0,
+                     "unit": "short"
+                  },
+                  "overrides": []
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 61,
+               "interval": "1m",
+               "options": {
+                  "tooltip": {
+                     "mode": "multi",
+                     "sort": "desc"
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum by (pod) (\n  appsuite_pns_sse_streams{\n    pod=~\"$pod\"\n  }\n)\n",
+                     "legendFormat": "{{pod}}"
+                  }
+               ],
+               "title": "Open Streams",
+               "type": "timeseries"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "description": "Streams opened, by how they were authenticated: session or bearer token.",
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "min": 0,
+                     "unit": "cps"
+                  },
+                  "overrides": []
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 0
+               },
+               "id": 62,
+               "interval": "1m",
+               "options": {
+                  "tooltip": {
+                     "mode": "multi",
+                     "sort": "desc"
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum by (auth) (\n  rate(\n    appsuite_pns_sse_opened_total{\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "{{auth}}"
+                  }
+               ],
+               "title": "Opened (per-second)",
+               "type": "timeseries"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "description": "Streams closed, by reason. A peak of shutdown is a pod going away; lifetime is spread over the last fifth of the maximum lifetime.",
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "min": 0,
+                     "unit": "cps"
+                  },
+                  "overrides": []
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 0
+               },
+               "id": 63,
+               "interval": "1m",
+               "options": {
+                  "tooltip": {
+                     "mode": "multi",
+                     "sort": "desc"
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum by (reason) (\n  rate(\n    appsuite_pns_sse_closed_total{\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "{{reason}}"
+                  }
+               ],
+               "title": "Closed (per-second)",
+               "type": "timeseries"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "description": "Requests for a stream that were refused, by HTTP status. 503 means the node is full or shuts down, or a session or token could not be checked.",
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "min": 0,
+                     "unit": "cps"
+                  },
+                  "overrides": []
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 8
+               },
+               "id": 64,
+               "interval": "1m",
+               "options": {
+                  "tooltip": {
+                     "mode": "multi",
+                     "sort": "desc"
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum by (status) (\n  rate(\n    appsuite_pns_sse_rejected_total{\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "{{status}}"
+                  }
+               ],
+               "title": "Rejected (per-second)",
+               "type": "timeseries"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "description": "Events queued for the streams, by type.",
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "min": 0,
+                     "unit": "cps"
+                  },
+                  "overrides": []
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 8
+               },
+               "id": 65,
+               "interval": "1m",
+               "options": {
+                  "tooltip": {
+                     "mode": "multi",
+                     "sort": "desc"
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum by (type) (\n  rate(\n    appsuite_pns_sse_events_total{\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "{{type}}"
+                  }
+               ],
+               "title": "Events (per-second)",
+               "type": "timeseries"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "description": "Streams that dropped events because their client did not read them; such a client gets a resync.",
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "min": 0,
+                     "unit": "cps"
+                  },
+                  "overrides": []
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 8
+               },
+               "id": 66,
+               "interval": "1m",
+               "options": {
+                  "tooltip": {
+                     "mode": "multi",
+                     "sort": "desc"
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum(\n  rate(\n    appsuite_pns_sse_overflows_total{\n      pod=~\"$pod\"\n    }[$__rate_interval]\n  )\n)\n",
+                     "legendFormat": "Overflows"
+                  }
+               ],
+               "title": "Overflows (per-second)",
+               "type": "timeseries"
+            }
+         ],
+         "title": "Live Change Streams",
+         "type": "row"
       }
    ],
    "refresh": "1m",
@@ -2915,7 +4352,7 @@
             },
             "includeAll": true,
             "name": "dbpool",
-            "query": "label_values(appsuite_mysql_connections_total{namespace=\"$namespace\"}, pool)",
+            "query": "label_values(appsuite_mysql_connections{namespace=\"$namespace\"}, pool)",
             "regex": "([0-9]+)",
             "sort": 3,
             "type": "query"

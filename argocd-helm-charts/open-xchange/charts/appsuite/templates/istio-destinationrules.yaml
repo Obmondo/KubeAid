@@ -17,12 +17,27 @@ spec:
     {{- if ((((.Values).istio).destinationRules).appsuite).tls }}
     tls: {{ toYaml .Values.istio.destinationRules.appsuite.tls | nindent 6 }}
     {{- end }}
+    {{- if ((((.Values).istio).destinationRules).appsuite).outlierDetection }}
+    outlierDetection: {{ toYaml .Values.istio.destinationRules.appsuite.outlierDetection | nindent 6 }}
+    {{- end }}
     loadBalancer:
       consistentHash:
         httpCookie:
           name: {{ $fullname }}-http-api-route
           path: /
           ttl: 720h # 30 days
+{{- if and (include "appsuite.provisioningGatewayEnabled" .) ((((.Values).istio).destinationRules).appsuite).tls }}
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: {{ $fullname }}-provisioning-gateway-route
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  host: {{ $fullname }}-provisioning-gateway.{{ .Release.Namespace }}.svc.cluster.local
+  trafficPolicy:
+    tls: {{ toYaml .Values.istio.destinationRules.appsuite.tls | nindent 6 }}
+{{- end }}
 ---
 apiVersion: networking.istio.io/v1
 kind: DestinationRule
@@ -34,6 +49,9 @@ spec:
   trafficPolicy:
     {{- if ((((.Values).istio).destinationRules).dav).tls }}
     tls: {{ toYaml .Values.istio.destinationRules.dav.tls | nindent 6 }}
+    {{- end }}
+    {{- if ((((.Values).istio).destinationRules).dav).outlierDetection }}
+    outlierDetection: {{ toYaml .Values.istio.destinationRules.dav.outlierDetection | nindent 6 }}
     {{- end }}
     loadBalancer:
       consistentHash:
@@ -50,6 +68,9 @@ spec:
   trafficPolicy:
     {{- if ((((.Values).istio).destinationRules).businessmobility).tls }}
     tls: {{ toYaml .Values.istio.destinationRules.businessmobility.tls | nindent 6 }}
+    {{- end }}
+    {{- if ((((.Values).istio).destinationRules).businessmobility).outlierDetection }}
+    outlierDetection: {{ toYaml .Values.istio.destinationRules.businessmobility.outlierDetection | nindent 6 }}
     {{- end }}
     loadBalancer:
       consistentHash:

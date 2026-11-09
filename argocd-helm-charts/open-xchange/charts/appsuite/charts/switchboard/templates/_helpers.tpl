@@ -1,63 +1,3 @@
-{{/*
-Expand the name of the chart.
-*/}}
-{{- define "switchboard.name" -}}
-{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
-{{- end }}
-
-{{/*
-Create a default fully qualified app name.
-We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
-If release name contains chart name it will be used as a full name.
-*/}}
-{{- define "switchboard.fullname" -}}
-{{- if .Values.fullnameOverride }}
-{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
-{{- else }}
-{{- $name := default .Chart.Name .Values.nameOverride }}
-{{- if contains $name .Release.Name }}
-{{- .Release.Name | trunc 63 | trimSuffix "-" }}
-{{- else }}
-{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
-{{- end }}
-{{- end }}
-{{- end }}
-
-{{/*
-Create chart name and version as used by the chart label.
-*/}}
-{{- define "switchboard.chart" -}}
-{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
-{{- end }}
-
-{{/*
-Common labels
-*/}}
-{{- define "switchboard.labels" -}}
-helm.sh/chart: {{ include "switchboard.chart" . }}
-{{ include "switchboard.selectorLabels" . }}
-{{- if .Chart.AppVersion }}
-app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
-{{- end }}
-app.kubernetes.io/managed-by: {{ .Release.Service }}
-{{- end }}
-
-{{/*
-Selector labels
-*/}}
-{{- define "switchboard.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "switchboard.name" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
-{{- end }}
-
-{{- define "switchboard.redisHost" -}}
-{{- if .Values.redis.host -}}
-{{- .Values.redis.host -}}
-{{- else -}}
-{{- printf "%s-%s" .Release.Name "switchboard-redis" | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-{{- end -}}
-
 {{- define "switchboard.appsuiteSecret" -}}
 {{- if .Values.overrides.appsuiteSecret -}}
 {{- .Values.overrides.appsuiteSecret -}}
@@ -107,6 +47,8 @@ app.kubernetes.io/instance: {{ .Release.Name }}
   value: {{ .Values.logLevel | quote }}
 - name: LOG_JSON
   value: {{ .Values.logJson | quote }}
+- name: PRESENCE_TTL_SECONDS
+  value: {{ .Values.presence.ttlSeconds | int64 | quote }}
 - name: AS_API_SECRET
   valueFrom:
     secretKeyRef:
@@ -195,6 +137,8 @@ app.kubernetes.io/instance: {{ .Release.Name }}
     secretKeyRef:
       name: {{ include "switchboard.mysqlSecret" . }}
       key: MYSQL_HOST
+- name: DB_SWITCHBOARD_PORT
+  value: {{ .Values.mysql.port | quote }}
 - name: DB_SWITCHBOARD_PASSWORD
   valueFrom:
     secretKeyRef:
@@ -205,6 +149,18 @@ app.kubernetes.io/instance: {{ .Release.Name }}
     secretKeyRef:
       name: {{ include "switchboard.mysqlSecret" . }}
       key: MYSQL_USER
+{{- if .Values.mysql.tls.enabled }}
+- name: DB_SWITCHBOARD_SSL
+  value: "true"
+- name: DB_SWITCHBOARD_SSL_REJECT_UNAUTHORIZED
+  value: {{ .Values.mysql.tls.rejectUnauthorized | quote }}
+- name: DB_SWITCHBOARD_SSL_CA
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.mysql.tls.caSecretName | default (include "switchboard.mysqlSecret" .) }}
+      key: {{ .Values.mysql.tls.caSecretKey | default "MYSQL_SSL_CA" }}
+      optional: true
+{{- end }}
 {{- end }}
 - name: VAPID_ENABLED
   value: {{ .Values.vapid.enabled | quote }}

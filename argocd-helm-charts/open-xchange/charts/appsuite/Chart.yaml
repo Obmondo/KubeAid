@@ -1,63 +1,64 @@
 apiVersion: v2
-appVersion: 8.48.0
+appVersion: 8.54.0
 dependencies:
 - name: ox-common
   repository: oci://registry.open-xchange.com/appsuite-core-internal/charts
-  version: 1.0.50
+  version: 1.0.52
+- alias: bookingservice
+  condition: bookingservice.enabled, global.bookingservice.enabled
+  name: booking
+  repository: oci://registry.open-xchange.com/appsuite-core-internal/charts
+  version: 0.7.1
 - condition: core-mw.enabled, global.core-mw.enabled
   name: core-mw
   repository: oci://registry.open-xchange.com/appsuite-core-internal/charts
   tags:
   - preUpdate
-  version: 6.19.7
+  version: 6.25.26
 - condition: core-cacheservice.enabled, global.core-cacheservice.enabled
   name: core-cacheservice
   repository: oci://registry.open-xchange.com/appsuite-core-internal/charts
-  version: 1.46.1
+  version: 1.52.1
 - condition: core-documentconverter.enabled, global.core-documentconverter.enabled
   name: core-documentconverter
   repository: oci://registry.open-xchange.com/appsuite-core-internal/charts
-  version: 2.46.1
+  version: 2.52.3
 - condition: core-documents-collaboration.enabled, global.core-documents-collaboration.enabled
   name: core-documents-collaboration
   repository: oci://registry.open-xchange.com/appsuite-core-internal/charts
-  version: 2.46.0
+  version: 2.52.0
 - condition: core-imageconverter.enabled, global.core-imageconverter.enabled
   name: core-imageconverter
   repository: oci://registry.open-xchange.com/appsuite-core-internal/charts
-  version: 2.47.1
+  version: 2.53.1
 - condition: core-spellcheck.enabled, global.core-spellcheck.enabled
   name: core-spellcheck
   repository: oci://registry.open-xchange.com/appsuite-core-internal/charts
-  version: 2.46.0
+  version: 2.52.0
 - condition: core-ui.enabled, global.core-ui.enabled
   name: core-ui
   repository: oci://registry.open-xchange.com/appsuite-core-internal/charts
-  version: 3.4.5
+  version: 3.10.9
 - condition: core-ui-middleware.enabled, global.core-ui-middleware.enabled
   name: core-ui-middleware
   repository: oci://registry.open-xchange.com/appsuite-core-internal/charts
-  version: 3.4.4
-- condition: core-guidedtours.enabled, global.core-guidedtours.enabled
-  name: core-guidedtours
-  repository: oci://registry.open-xchange.com/appsuite-core-internal/charts
-  version: 2.8.3
+  version: 4.4.8
 - condition: core-user-guide.enabled, global.core-user-guide.enabled
   name: core-user-guide
   repository: oci://registry.open-xchange.com/appsuite-core-internal/charts
-  version: 2.48.0
+  version: 2.54.0
 - condition: office-web.enabled, global.office-web.enabled
   name: office-web
   repository: oci://registry.open-xchange.com/appsuite-core-internal/charts
-  version: 2.50.0
+  version: 2.56.0
 - condition: office-user-guide.enabled, global.office-user-guide.enabled
   name: office-user-guide
   repository: oci://registry.open-xchange.com/appsuite-core-internal/charts
-  version: 2.49.0
+  version: 2.55.0
 - condition: guard-ui.enabled, global.guard-ui.enabled
   name: guard-ui
   repository: oci://registry.open-xchange.com/appsuite-core-internal/charts
-  version: 2.48.0
+  version: 2.54.0
 - condition: core-drive-help.enabled, global.core-drive-help.enabled
   name: core-drive-help
   repository: oci://registry.open-xchange.com/appsuite-core-internal/charts
@@ -65,12 +66,12 @@ dependencies:
 - condition: appsuite-toolkit.enabled, global.appsuite-toolkit.enabled
   name: appsuite-toolkit
   repository: oci://registry.open-xchange.com/appsuite-core-internal/charts
-  version: 1.16.3
+  version: 1.21.3
 - condition: switchboard.enabled, global.switchboard.enabled
   name: switchboard
   repository: oci://registry.open-xchange.com/appsuite-core-internal/charts
-  version: 5.7.5
+  version: 5.8.17
 description: A Helm chart for setting up AppSuite services on Kubernetes
 name: appsuite
 type: application
-version: 8.48.481
+version: 8.54.1446

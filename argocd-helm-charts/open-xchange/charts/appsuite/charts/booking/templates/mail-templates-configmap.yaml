@@ -1,0 +1,17 @@
+{{- if .Values.mailTemplates.files }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ printf "%s-mail-templates" (include "ox-common.names.fullname" .) | trunc 63 | trimSuffix "-" }}
+  labels:
+    {{- include "ox-common.labels.standard" . | nindent 4 }}
+data:
+  # One key per Liquid file, mounted at $CONFIG_PATH/mail-templates. The
+  # service watches that directory, so an edit here applies without a
+  # restart; a file that fails to parse is logged and the previous version
+  # keeps serving.
+  {{- range $name, $content := .Values.mailTemplates.files }}
+  {{ $name | quote }}: |
+    {{- $content | nindent 4 }}
+  {{- end }}
+{{- end }}

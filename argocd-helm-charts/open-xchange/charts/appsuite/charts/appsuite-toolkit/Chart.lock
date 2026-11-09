@@ -1,6 +1,6 @@
 dependencies:
 - name: ox-common
   repository: oci://registry.open-xchange.com/appsuite-core-internal/charts
-  version: 1.0.50
-digest: sha256:4f2e9c2b77bd5d4351167802b48a184e4ae0add24f41dce1bb6bbb1ed00b4467
-generated: "2026-03-08T15:20:36.468471492Z"
+  version: 1.0.52
+digest: sha256:2ca1aaf68fa2e2b5373fae4dd92ab612fdaf53f4cf94fe5c4747d20f08470d09
+generated: "2026-09-24T14:04:59.406852759Z"

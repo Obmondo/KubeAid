@@ -1,9 +1,23 @@
 annotations:
   artifacthub.io/changes: |
     - kind: changed
-      description: Bump Gotenberg version 8.26.0 to 8.27.0
+      description: Bump Gotenberg version 8.32.0 to 8.34.0
+    - kind: fixed
+      description: "Fix incorrect indentation of extraEnv vars in deployment.yaml that caused a YAML parse error"
+    - kind: changed
+      description: "Breaking upstream change: LibreOffice now blocks content linked from untrusted locations (external http(s):// and local file:/// links no longer resolve during conversion). Unconditional upstream - no flag to disable. Embedded content is unaffected."
     - kind: added
-      description: Add support for --chromium-max-concurrency flag
+      description: Add logging.stdLevelCase (--log-std-level-case) to set the case of the level field in standard-output logs - lower (default) or upper
+    - kind: added
+      description: Add pdfEngines.facturXEngines (--pdfengines-factur-x-engines) for the new Factur-X / ZUGFeRD XMP metadata feature
+    - kind: added
+      description: Add pdfEngines.embedMetadataEngines (--pdfengines-embed-metadata-engines) for the embed-metadata feature (upstream flag that was previously missing from the chart)
+    - kind: fixed
+      description: "Upstream security fix: IsPublicIP now unwraps IPv4-mapped, 6to4, and Teredo IPv6 addresses and rejects embedded non-public IPv4, closing a denyPrivateIps bypass"
+    - kind: fixed
+      description: "Upstream security fix: caller-supplied output filenames now strip both / and \\ path separators"
+    - kind: fixed
+      description: "Upstream: ca-certificates installed in the chromium-only image, fixing outbound TLS failures in that variant"
   artifacthub.io/links: |
     - name: Projects Homepage
       url: https://gotenberg.dev/
@@ -14,7 +28,7 @@ annotations:
     - name: Chart's Changelog
       url: https://github.com/MaikuMori/helm-charts/blob/master/charts/gotenberg/CHANGELOG.md
 apiVersion: v2
-appVersion: 8.27.0
+appVersion: 8.34.0
 description: A Helm chart for Gotenberg
 icon: https://user-images.githubusercontent.com/8983173/130322857-185831e2-f041-46eb-a17f-0a69d066c4e5.png
 keywords:
@@ -29,4 +43,4 @@ sources:
 - https://github.com/gotenberg/gotenberg
 - https://github.com/MaikuMori/helm-charts/tree/master/charts/gotenberg
 type: application
-version: 1.18.0
+version: 1.22.0

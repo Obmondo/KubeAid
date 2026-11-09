@@ -509,8 +509,8 @@
            {{- with .Values.providers.kubernetesCRD.defaultTLSResourcesNamespace }}
           - "--providers.kubernetescrd.defaultTLSResourcesNamespace={{ . }}"
            {{- end }}
-           {{- if .Values.providers.kubernetesCRD.safeNaming }}
-          - "--providers.kubernetescrd.safeNaming=true"
+           {{- if ne .Values.providers.kubernetesCRD.safeNaming nil }}
+          - "--providers.kubernetescrd.safeNaming={{ .Values.providers.kubernetesCRD.safeNaming }}"
            {{- end }}
            {{- if .Values.providers.kubernetesCRD.allowExternalNameServices }}
           - "--providers.kubernetescrd.allowExternalNameServices=true"
@@ -607,6 +607,13 @@
             {{- end }}
             {{- with .labelSelector }}
           - "--providers.kubernetesgateway.labelSelector={{ . }}"
+            {{- end }}
+            {{- $gatewayClass := .gatewayClass }}
+            {{- if and (not $gatewayClass) $.Values.gatewayClass.enabled (not .labelSelector) (semverCompare ">=v3.8.0-0" $version) }}
+              {{- $gatewayClass = default "traefik" $.Values.gatewayClass.name }}
+            {{- end }}
+            {{- with $gatewayClass }}
+          - "--providers.kubernetesgateway.gatewayClass={{ . }}"
             {{- end }}
             {{- range $idx, $gateway := .gateways }}
           - "--providers.kubernetesgateway.gateways[{{ $idx }}].name={{ $gateway.name }}"

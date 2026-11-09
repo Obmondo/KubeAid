@@ -356,6 +356,134 @@ In current state of COOL remoteconfigurl for [Remote/DynamicConfiguration](https
 
 ---
 
+## In-namespace reverse proxy (OpenShift or clusters without an ingress controller)
+
+Collabora Online needs session affinity: every request for one document must
+reach the same pod. The usual way to get this is an ingress controller that
+hashes on a request parameter. On clusters where you cannot install an ingress
+controller (for example OpenShift, where the cluster ingress is the built-in
+Router and you only have namespaced rights), the chart can instead deploy a
+small nginx reverse proxy inside your namespace. nginx hashes on a request
+parameter and load-balances across the Collabora replicas, and you front it
+with whatever entry point your cluster already gives you (an OpenShift Route,
+or a plain Service).
+
+Enable it with `reverseProxy.enabled=true`. It creates:
+
+- an nginx deployment (the unprivileged image, so it passes OpenShift
+  `restricted-v2` with no extra grants),
+- a `ClusterIP` Service for the proxy,
+- a headless Service that resolves to the individual Collabora pods (nginx
+  hashes across these),
+- a reloader sidecar that watches the Collabora EndpointSlices and reloads
+  nginx when the pod set changes, so the upstream tracks live pods after a
+  restart or scale. It uses a namespaced Role only. Disable it with
+  `reverseProxy.endpointReloader.enabled=false` on clusters that forbid a
+  shared process namespace, then reload nginx by hand after pod changes.
+
+`reverseProxy.hashParam` chooses what nginx hashes on. The default `WOPISrc`
+gives correct per-document affinity for a standalone multi-replica deployment
+with no extra components. Set it to `RouteToken` and turn on
+`reverseProxy.controller.enabled` (with `reverseProxy.controller.upstream`
+pointing at the COOL Controller service) when running with the COOL Controller.
+
+`reverseProxy.controller.enabled` only proxies the client-facing routeToken
+endpoint (`/controller`), so it can share the documents' external host. The
+controller's monitor WebSocket does not go through the proxy: point each COOL
+pod's `monitors.monitor` straight at the controller Service over cluster DNS.
+
+### OpenShift quickstart
+
+This serves Collabora through the default OpenShift Router, with the proxy
+doing the load balancing. The Collabora pods run under `restricted-v2`, so the
+per-document jail is turned off and its working paths move under `/tmp`.
+
+``` bash
+helm install collabora-online collabora/collabora-online -n collabora \
+  --set replicaCount=3 \
+  --set 'collabora.aliasgroups[0].host=https://your-wopi-host' \
+  --set 'securityContext.runAsNonRoot=true' \
+  --set 'securityContext.seccompProfile.type=RuntimeDefault' \
+  --set 'securityContext.capabilities.drop[0]=ALL' \
+  --set 'collabora.extra_params=--o:ssl.enable=false --o:ssl.termination=false --o:security.capabilities=false --o:child_root_path=/tmp/coolwsd-child-roots --o:cache_files.path=/tmp/coolwsd-cache' \
+  --set reverseProxy.enabled=true \
+  --set reverseProxy.route.enabled=true \
+  --set reverseProxy.route.host=cool.apps.example.com
+```
+
+The Collabora `child_root_path` and `cache_files.path` need writable emptyDir
+mounts under `/tmp`. Add them with `extraVolumes` and `extraVolumeMounts`.
+
+### Wiring with the COOL Controller
+
+With the controller, hash on `RouteToken`, enable the `/controller` proxy, and
+split the two controller URLs in the Collabora config. The client-facing
+`indirection_endpoint.url` goes through the proxy's `/controller` on the
+documents' host. The `monitors.monitor` WebSocket goes straight to the
+controller Service in-cluster, so it does not pass through nginx.
+
+``` yaml
+reverseProxy:
+  enabled: true
+  hashParam: RouteToken
+  controller:
+    enabled: true
+    upstream: cool-controller.collabora.svc.cluster.local:9000
+  route:
+    enabled: true
+    host: cool.apps.example.com
+
+collabora:
+  extra_params: >-
+    --o:ssl.enable=false
+    --o:ssl.termination=false
+    --o:indirection_endpoint.url=http://cool.apps.example.com/controller/routeToken
+    --o:monitors.monitor[0]=ws://cool-controller.collabora.svc.cluster.local:9000/controller/ws
+    --o:monitors.monitor[0][@retryInterval]=5
+```
+
+`indirection_endpoint.url` (client-facing) uses the external host and the
+proxy's `/controller`. `monitors.monitor` (in-cluster) uses the controller
+Service directly.
+
+---
+
+## Extra objects
+
+The chart templates routing objects for the providers it supports directly: a
+standard `Ingress`, a Gateway API `HTTPRoute` (or an OpenShift `Route`), and
+the in-namespace reverse proxy. If your cluster uses a different gateway, you
+can deploy its objects through `extraObjects` instead of waiting for the chart
+to add explicit support for that gateway.
+
+`extraObjects` is a list of arbitrary Kubernetes manifests. The chart renders
+each one as-is into the release, so they are installed, upgraded and uninstalled
+along with everything else. Each entry is passed through `tpl`, so you can
+reference release values such as the release name or the service port.
+
+For example, to route Collabora through Apache APISIX, add its `ApisixRoute`
+custom resource:
+
+``` yaml
+extraObjects:
+  - apiVersion: apisix.apache.org/v2
+    kind: ApisixRoute
+    metadata:
+      name: '{{ include "collabora-online.fullname" . }}'
+    spec:
+      http:
+        - name: collabora
+          match:
+            hosts: ["office.example.com"]
+            paths: ["/*"]
+          backends:
+            - serviceName: '{{ include "collabora-online.fullname" . }}'
+              servicePort: '{{ .Values.service.port }}'
+```
+
+The same approach works for any other gateway (Traefik, Istio, Kong, ...): put
+its objects in `extraObjects` and they are deployed with the release.
+
 ## Useful commands to check what is happening
 
 Where is this pods, are they ready?

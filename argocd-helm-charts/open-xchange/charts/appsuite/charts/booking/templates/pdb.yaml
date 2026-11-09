@@ -1,0 +1,23 @@
+{{- if .Values.pdb.create }}
+{{- $pdb := .Values.pdb }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "ox-common.names.fullname" . }}
+  labels:
+    {{- include "ox-common.labels.standard" . | nindent 4 }}
+spec:
+  {{- if and (not (kindIs "invalid" $pdb.minAvailable)) (ne (toString $pdb.minAvailable) "") }}
+  minAvailable: {{ $pdb.minAvailable }}
+  {{- else if and (not (kindIs "invalid" $pdb.maxUnavailable)) (ne (toString $pdb.maxUnavailable) "") }}
+  maxUnavailable: {{ $pdb.maxUnavailable }}
+  {{- else }}
+  {{- fail "Either pdb.minAvailable or pdb.maxUnavailable must be set" }}
+  {{- end }}
+  {{- with $pdb.unhealthyPodEvictionPolicy }}
+  unhealthyPodEvictionPolicy: {{ . }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "ox-common.labels.matchLabels" . | nindent 6 }}
+{{- end }}

@@ -1,0 +1,10 @@
+apiVersion: v2
+appVersion: 0.7.1
+dependencies:
+- name: ox-common
+  repository: oci://registry.open-xchange.com/appsuite-core-internal/charts
+  version: ~1.0.33
+description: Appointment Polls microservice for OX App Suite
+name: booking
+type: application
+version: 0.7.1

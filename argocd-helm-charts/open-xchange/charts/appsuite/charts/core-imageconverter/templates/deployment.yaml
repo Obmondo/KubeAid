@@ -12,40 +12,46 @@ spec:
   template:
     metadata:
       annotations: {{ toYaml .Values.podAnnotations | nindent 8 }}
-        checksum/commonEnv: {{ include "ox-common.appsuite.commonEnv" . | sha256sum }}
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
       labels:
         {{- include "ox-common.labels.podLabels" . | nindent 8 }}
     spec: {{ include "ox-common.pods.podSpec" (dict "podRoot" .Values "global" $ "context" . ) | nindent 6 }}
       containers:
         - name: main
-          securityContext: {{ toYaml .Values.securityContext | nindent 12 }}
+          {{- include "ox-common.containers.securityContext" (dict "podRoot" .Values "context" . "global" $) | nindent 10 }}
           image: {{ include "ox-common.images.image" (dict "imageRoot" .Values.image "global" $ "context" . ) }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --spring.profiles.active=prod
+            - --spring.config.additional-location=file:/opt/open-xchange/etc/imageconverter.properties
+            - --logging.config=/opt/open-xchange/etc/logback.xml
           env:
             {{- if .Values.logging.root.json }}
             - name: CONSOLELOG
               value: "/dev/tty"
             {{- end }}
-            {{- if .Values.imageconverter }}
             - name: IC_JVM_HEAP_SIZE_MB
-              value: {{ .Values.imageconverter.jvmHeapSizeMB | default "1024" | quote }}
-            {{- end }}
+              value: {{ (.Values.imageconverter).jvmHeapSizeMB | default "1024" | quote }}
             - name: RELEASE_NAMESPACE
               value: {{ .Release.Name | quote }}
             - name: POD_IP
               valueFrom:
                 fieldRef:
                     fieldPath: status.podIP
+            {{- $javaOpts := list
+                "-Duser.timezone=UTC"
+                "-XshowSettings:vm"
+                "-Xms$(IC_JVM_HEAP_SIZE_MB)m"
+                "-Xmx$(IC_JVM_HEAP_SIZE_MB)m"
+            }}
             {{- if .Values.remoteDebug.enabled }}
-            - name: JAVA_DEBUG_OPTIONS
-              value: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:{{ .Values.remoteDebug.port | default 8105 }}"
+            {{- $javaOpts = append $javaOpts (printf "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:%v" (.Values.remoteDebug.port | default 8105)) }}
             {{- end }}
+            - name: JDK_JAVA_OPTIONS
+              value: {{ join " " $javaOpts | quote }}
             {{- if .Values.env }}
               {{- toYaml .Values.env | nindent 12 }}
             {{- end }}
-          envFrom:
-            - secretRef:
-                name: {{ .Release.Name }}-common-env
           ports:
             - name: http
               containerPort: 8005
@@ -82,30 +88,30 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
-            - name: log-config
-              mountPath: /opt/open-xchange/imageconverter/etc/logback.xml
-              subPath: logback.xml
-            - name: ic-config
-              mountPath: /opt/open-xchange/imageconverter/etc/imageconverter.properties
+            - name: imageconverter-config
+              mountPath: /opt/open-xchange/etc/imageconverter.properties
               subPath: imageconverter.properties
-            - name: ic-logs
+            - name: imageconverter-config
+              mountPath: /opt/open-xchange/etc/logback.xml
+              subPath: logback.xml
+            - name: imageconverter-logs
               mountPath: {{ .Values.logging.logDir }}
-            - name: ic-spool
+            - name: imageconverter-spool
               mountPath: /var/spool/open-xchange
+            - name: tmp
+              mountPath: /tmp
       volumes:
-        - name: log-config
-          configMap:
-            name: {{ include "core-imageconverter.configmap" . }}
-            items:
-              - key: logback.xml
-                path: logback.xml
-        - name: ic-config
+        - name: imageconverter-config
           configMap:
             name: {{ include "core-imageconverter.configmap" . }}
             items:
               - key: imageconverter.properties
                 path: imageconverter.properties
-        - name: ic-logs
+              - key: logback.xml
+                path: logback.xml
+        - name: imageconverter-logs
           emptyDir: {}
-        - name: ic-spool
+        - name: imageconverter-spool
+          emptyDir: {}
+        - name: tmp
           emptyDir: {}

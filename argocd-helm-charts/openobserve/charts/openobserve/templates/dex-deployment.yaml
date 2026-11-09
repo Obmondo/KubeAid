@@ -15,10 +15,15 @@ spec:
       {{- include "openobserve.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- with .Values.podAnnotations.dex }}
       annotations:
+        {{- with .Values.podAnnotations.dex }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
+        # Dex reads its config only at start-up; restart it when the config changes.
+        checksum/dex-config: {{ (include (print $.Template.BasePath "/dex-secret.yaml") . | fromYaml).stringData | toJson | sha256sum }}
+        {{- with include "openobserve.secretChecksumAnnotation" . }}
+        {{- . | nindent 8 }}
+        {{- end }}
       labels:
         {{- include "openobserve.selectorLabels" . | nindent 8 }}
         app: dex
@@ -40,10 +45,13 @@ spec:
             - containerPort: 5556
               name: http
           {{- if .Values.probes.dex.enabled }}
+          {{- /* Dex serves /healthz on its web port (5556) under the issuer path, e.g. /dex/healthz. */}}
+          {{- /* /healthz also checks Dex's storage (the Kubernetes API), so only readiness uses it; */}}
+          {{- /* liveness and startup just check that Dex is listening, so an API blip doesn't restart it. */}}
+          {{- $healthz := printf "%s/healthz" ((urlParse (.Values.enterprise.dex.config.issuer | default "")).path | trimSuffix "/") }}
           livenessProbe:
-            httpGet:
-              path: /healthz
-              port: {{ .Values.config.ZO_HTTP_PORT }}
+            tcpSocket:
+              port: http
             initialDelaySeconds: {{ .Values.probes.dex.config.livenessProbe.initialDelaySeconds | default 10 }}
             periodSeconds: {{ .Values.probes.dex.config.livenessProbe.periodSeconds | default 10 }}
             timeoutSeconds: {{ .Values.probes.dex.config.livenessProbe.timeoutSeconds | default 10 }}
@@ -52,17 +60,16 @@ spec:
             terminationGracePeriodSeconds: {{ .Values.probes.dex.config.livenessProbe.terminationGracePeriodSeconds | default 30 }}
           readinessProbe:
             httpGet:
-              path: /healthz
-              port: {{ .Values.config.ZO_HTTP_PORT }}
+              path: {{ $healthz }}
+              port: http
             initialDelaySeconds: {{ .Values.probes.dex.config.readinessProbe.initialDelaySeconds | default 10 }}
             periodSeconds: {{ .Values.probes.dex.config.readinessProbe.periodSeconds | default 10 }}
             timeoutSeconds: {{ .Values.probes.dex.config.readinessProbe.timeoutSeconds | default 10 }}
             successThreshold: {{ .Values.probes.dex.config.readinessProbe.successThreshold | default 1 }}
             failureThreshold: {{ .Values.probes.dex.config.readinessProbe.failureThreshold | default 3 }}
           startupProbe:
-            httpGet:
-              path: /healthz
-              port: {{ .Values.config.ZO_HTTP_PORT }}
+            tcpSocket:
+              port: http
             initialDelaySeconds: {{ .Values.probes.dex.config.startupProbe.initialDelaySeconds | default 10 }}
             periodSeconds: {{ .Values.probes.dex.config.startupProbe.periodSeconds | default 10 }}
             timeoutSeconds: {{ .Values.probes.dex.config.startupProbe.timeoutSeconds | default 10 }}
@@ -89,8 +96,8 @@ spec:
             {{- end }}
       volumes:
         - name: config
-          configMap:
-            name: {{ include "openobserve.fullname" . }}-dex
+          secret:
+            secretName: {{ include "openobserve.fullname" . }}-dex
         {{- with .Values.enterprise.dex.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

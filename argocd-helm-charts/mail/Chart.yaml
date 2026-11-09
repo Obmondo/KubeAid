@@ -3,5 +3,5 @@ name: mail
 version: 3.4.0
 dependencies:
   - name: mail
-    version: "5.1.0"
+    version: "5.2.1"
     repository: https://bokysan.github.io/docker-postfix/

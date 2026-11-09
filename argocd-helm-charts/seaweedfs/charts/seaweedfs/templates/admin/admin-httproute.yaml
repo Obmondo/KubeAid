@@ -3,7 +3,7 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: {{ include "seaweedfs.componentName" (list . "admin") }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "seaweedfs.namespace" . | quote }}
   {{- with .Values.admin.httpRoute.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -17,6 +17,7 @@ metadata:
     {{- with .Values.admin.httpRoute.labels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
+    {{- with include "seaweedfs.commonLabels" (dict "context" $ "exclude" $.Values.admin.httpRoute.labels) }}{{ . | nindent 4 }}{{ end }}
 spec:
   {{- with .Values.admin.httpRoute.parentRefs }}
   parentRefs:
@@ -35,7 +36,7 @@ spec:
         - group: ""
           kind: Service
           name: {{ include "seaweedfs.componentName" (list $ "admin") }}
-          namespace: {{ $.Release.Namespace }}
+          namespace: {{ include "seaweedfs.namespace" $ | quote }}
           port: {{ $.Values.admin.port }}
           weight: 1
         {{- end }}

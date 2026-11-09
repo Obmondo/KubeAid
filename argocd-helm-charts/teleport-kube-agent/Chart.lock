@@ -1,6 +1,6 @@
 dependencies:
 - name: teleport-kube-agent
   repository: https://charts.releases.teleport.dev
-  version: 18.11.8
-digest: sha256:5ef040ce136d0d3e3a5212cb1477c27cdd54db0c90ef1ba17aa952b1cb0a8cf5
-generated: "2026-11-02T04:38:25.466180353Z"
+  version: 18.11.9
+digest: sha256:827c6fd969136e296877ad73f895c37140c4a41e84261304993811b4bd310c7b
+generated: "2026-11-08T10:06:43.000348788Z"

@@ -1,0 +1,19 @@
+{{- if (.Values.provisioningGateway).enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ox-common.names.fullname" . }}-provisioning-gateway
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "ox-common.labels.standard" . | nindent 4 }}
+spec:
+  type: {{ .Values.provisioningGateway.service.type }}
+  selector:
+    {{- include "ox-common.labels.matchLabels" . | nindent 4 }}
+    roles.middleware.open-xchange.com/{{ .Values.provisioningGateway.role }}: "true"
+  ports:
+    - name: provisioning
+      port: {{ .Values.provisioningGateway.service.port }}
+      protocol: TCP
+      targetPort: provisioning
+{{- end -}}

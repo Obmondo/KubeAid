@@ -27,14 +27,20 @@ spec:
             - name: http
               containerPort: {{ .Values.containerPort }}
               protocol: TCP
+          {{- if .Values.probe.liveness.enabled }}
           livenessProbe:
             httpGet:
               path: /
               port: http
+            {{- omit .Values.probe.liveness "enabled" | toYaml | nindent 12 }}
+          {{- end }}
+          {{- if .Values.probe.readiness.enabled }}
           readinessProbe:
             httpGet:
               path: /
               port: http
+            {{- omit .Values.probe.readiness "enabled" | toYaml | nindent 12 }}
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:

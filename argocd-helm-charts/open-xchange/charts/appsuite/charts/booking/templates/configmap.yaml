@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ox-common.names.fullname" . }}-config
+  labels:
+    {{- include "ox-common.labels.standard" . | nindent 4 }}
+data:
+  # Hot-reloaded by the service (SDK config registry watches CONFIG_PATH)
+  config.yaml: |
+    {{- .Values.bookingConfig | toYaml | nindent 4 }}

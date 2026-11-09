@@ -33,7 +33,7 @@ type: Opaque
 data:
   certfile: {{ required "A certificate file is required to enable SSL for OpenSSL services! Use --set-file global.openssl.certFile=<path to certificate file>" (include "ox-common.openssl.certFile" . ) | b64enc }}
   keyfile: {{ required "A key file is required to enable SSL for OpenSSL services! Use --set-file global.openssl.keyFile=<path to key file>" (include "ox-common.openssl.keyFile" . ) | b64enc }}
-  keyfile-password: {{ required "A key file password is required for OpenSSL services!" (include "ox-common.openssl.keyFilePassword" . ) | b64enc }}
+  keyfile-password: {{ required "A key file password is required for OpenSSL services!" (include "ox-common.openssl.keyPassword" . ) | b64enc }}
 {{- end -}}
 
 {{/*

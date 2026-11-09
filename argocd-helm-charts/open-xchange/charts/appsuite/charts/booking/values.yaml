@@ -1,0 +1,260 @@
+replicaCount: 2
+
+# HorizontalPodAutoscaler, same contract as core-mw. While created, the Deployment
+# carries no replicas field, so a sync never resets what the HPA scaled to.
+hpa:
+  create: false
+  minReplicas: 1
+  maxReplicas: 3
+  # Target average CPU utilization (percentage of requests); empty omits it
+  targetCPUUtilizationPercentage: 80
+  # Target average memory utilization (percentage of requests); empty omits it
+  targetMemoryUtilizationPercentage: ""
+  # Additional spec.metrics entries, verbatim (custom or external metrics)
+  metrics: []
+  # spec.behavior (scale-up/scale-down policies), verbatim; empty omits it
+  behavior: {}
+
+# Surge before stopping: the new pod has to pass readiness before an old one
+# goes, so a rollout never drops below the current replica count, even at 1.
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 1
+
+# PodDisruptionBudget for voluntary evictions (node drains, cluster autoscaler
+# consolidation), same contract as core-ui and core-mw.
+pdb:
+  create: false
+  # Number or percentage; takes precedence over maxUnavailable when set
+  minAvailable: ""
+  # Defaults to 1 so a single replica stays drainable instead of blocking forever
+  maxUnavailable: 1
+  # Rendered as spec.unhealthyPodEvictionPolicy (Kubernetes 1.31+); empty omits it.
+  # "AlwaysAllow" lets a drain evict pods that never became ready.
+  unhealthyPodEvictionPolicy: ""
+
+# Registry prepended to image.repository; override per-image via
+# image.registry or globally via global.imageRegistry (ox-common semantics)
+defaultRegistry: registry.open-xchange.com
+
+image:
+  registry: ""
+  repository: appsuite-core-internal/booking
+  # "" deploys the chart's appVersion, the image of this release
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# Merged with global.imagePullSecrets (ox-common semantics) — needed when
+# pulling the image from a registry requiring auth
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Tells the cluster log collector how to parse the pod's stdout (the SDK
+# logs structured JSON)
+podAnnotations:
+  logging.open-xchange.com/format: "appsuite-json"
+
+# Pod/container security contexts follow the ox-common pattern: an explicit
+# securityContext wins; otherwise the default*SecurityContext applies while
+# global.useDefaultSecurityContext is true (enabled below, so the hardened
+# defaults hold out of the box).
+podSecurityContext: {}
+
+defaultPodSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+
+securityContext: {}
+
+# Hardened container security context, applied to the app and the migrate
+# job. readOnlyRootFilesystem needs no writable mounts: the app reads config
+# from the configmap volume, logs to stdout and writes nothing to disk.
+# Explicit numeric UID/GID: Kubernetes refuses to start a container with
+# runAsNonRoot: true if the image only declares USER by name ("nonroot"),
+# because it can't statically verify the name maps to a non-root user.
+# Wolfi's nonroot is 65532:65532.
+defaultSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+
+global:
+  # Deployed commit — annotation change triggers a pod rollout (hindsight pattern)
+  commitSha: ""
+  useDefaultSecurityContext: true
+
+service:
+  type: ClusterIP
+  port: 80
+
+# App Suite UI plugin discovery (ui-service scans for the label and
+# fetches meta.json/manifest.json below the base path)
+uiProvider:
+  enabled: true
+  basePath: /booking/plugin
+
+# App Suite middleware HTTP API base (the client appends /user/me etc.)
+appSuiteApi: http://core-mw-http-api/api
+
+database:
+  host: mariadb
+  port: 3306
+  name: bookingdb
+  user: booking
+  # Inline password, legacy-subchart style: when set, the chart renders it
+  # into a chart-owned Secret and wires the app and migration job to it,
+  # taking precedence over existingSecret. For clusters where an operator or
+  # External Secrets manages the credential, leave this empty and use
+  # existingSecret below.
+  password: ""
+  # password from this secret (created by the preview chart's MariaDB or ESO);
+  # used while database.password is empty
+  existingSecret: booking-db
+  existingSecretKey: password
+
+# Calendar conflict checking (ADR-0013): the HTTP Basic credentials for the
+# calendar's administrative free/busy REST API, i.e. the middleware's
+# com.openexchange.rest.services.basic-auth.login / .password. The endpoint's
+# address goes into bookingConfig.freeBusy below; the credentials never touch
+# config.yaml and reach the service as FREEBUSY_USER/FREEBUSY_PASS.
+#
+# Same two ways as database.password above: inline values are rendered into a
+# chart-owned Secret and take precedence, an externally managed Secret (ESO, an
+# operator) is referenced through existingSecret. Note that both halves come
+# from one Secret — the middleware generates the login, so it is as much a
+# credential as the password. Nothing set = the REST source stays unconfigured
+# (see bookingConfig.freeBusyURL for the deprecated fallback).
+freeBusy:
+  user: ""
+  password: ""
+  existingSecret: ""
+  existingSecretUserKey: login
+  existingSecretPasswordKey: password
+
+# Extra CA certificates for outbound TLS, e.g. an MTA behind an internal CA;
+# same contract as ai-service. The bundle is mounted read-only and
+# NODE_EXTRA_CA_CERTS points at it, adding to Node's trust store with
+# verification left on. Applies to the app and the migration job.
+#
+#  1. certificates: inline PEM bundle; the chart creates the Secret and rolls
+#     the pods when it changes.
+#  2. existingSecret: a Secret you manage (cert-manager, external-secrets,
+#     kubectl); takes precedence. Node reads the file at process start only,
+#     so roll the Deployment after a rotation.
+extraCaCerts:
+  existingSecret: ""
+  key: "ca.crt"
+  certificates: ""
+
+# Database migration job — a plain managed Job (not a hook). By default it
+# keeps a stable name and is delete+recreated each ArgoCD sync via
+# Replace/Force; see templates/migrate-job.yaml.
+migration:
+  enabled: true
+  # Name rotation (the default, identical to teams/core-ui/switchboard): the
+  # Job name gets a sha256-truncated suffix derived from jobId, falling back
+  # to .Release.Revision, so every helm upgrade creates a fresh Job and never
+  # hits the immutable Job.spec.template error — no wiring needed for plain
+  # helm, helmfile or stack-chart consumers. Set false for ArgoCD-managed
+  # deployments (this repo's argocd/ manifests do): helm template pins
+  # Release.Revision to 1 (the name would never rotate) and the TTL cleanup
+  # below would leave the tracked Job Missing/OutOfSync; the Job then keeps a
+  # stable name with Replace/Force sync options instead.
+  rotate: true
+  # Optional explicit rotation token overriding the revision fallback, e.g. a
+  # CI job id so a pipeline retry re-runs the migration on an ephemeral dev
+  # database. Ignored when rotate is false.
+  jobId: ""
+  # Cleanup for rotated Jobs (60 matches teams/core-ui/switchboard); only
+  # applied when rotation is active — a stable-name Job must persist for
+  # ArgoCD's resource tracking.
+  ttlSecondsAfterFinished: 60
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+env:
+  LOG_LEVEL: info
+  ORIGINS: "*"
+  RATE_LIMIT_PUBLIC_MAX: "60"
+
+# Mail template overrides (Liquid). Defaults ship with the image; a file set
+# here replaces the shipped one of the same name. Mounted at
+# $CONFIG_PATH/mail-templates, which the service watches, so an edit applies
+# without a restart. Naming: <template>.<locale>.<part>.liquid, with part one
+# of subject, txt, html.
+#
+# Two ways, as with the credentials above: inline files win and are rendered
+# into a chart-owned ConfigMap, otherwise an externally managed one is
+# referenced (e.g. built by CI from a directory of files). Neither set = no
+# volume is mounted and the shipped defaults serve.
+mailTemplates:
+  files: {}
+  #  booking-confirmation.en.subject.liquid: |
+  #    Your appointment with {{ ownerName }}
+  #  booking-confirmation.en.txt.liquid: |
+  #    Hello {{ bookerName }}, see you on {{ startsAt }}.
+  existingConfigMap: ""
+
+# Contents of the hot-reloaded config.yaml (flat keys, see src/config.ts)
+bookingConfig: {}
+#  pollBaseURL: https://example.com/booking/poll
+#  # origins links are derived from while pollBaseURL/bookingBaseURL are unset
+#  linkOrigins:
+#    - https://example.com
+#  maxPolls: 20
+#  # calendar conflict checking (ADR-0013): the calendar's administrative
+#  # free/busy REST API (App Suite 8.52+). The middleware's REST base address
+#  # without the endpoint path; in-cluster where both run together, but the
+#  # endpoint is authenticated, so a published address is fine too. Its
+#  # Basic-auth credentials come from the freeBusy Secret above, never from here.
+#  freeBusy:
+#    baseURL: http://core-mw-http-api
+#  # DEPRECATED interim source for a middleware older than 8.52, used only while
+#  # freeBusy above is unconfigured; needs the middleware properties
+#  # com.openexchange.calendar.enableInternetFreeBusy and
+#  # com.openexchange.calendar.publishInternetFreeBusy, and answers
+#  # unauthenticated — keep it in-cluster
+#  freeBusyURL: https://mw.example.com/servlet/webdav.freebusy
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 512Mi
+
+livenessProbe:
+  httpGet:
+    path: /live
+    port: 9090
+  initialDelaySeconds: 10
+  periodSeconds: 30
+
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 9090
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

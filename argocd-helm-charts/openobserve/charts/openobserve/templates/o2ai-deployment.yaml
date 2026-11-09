@@ -28,6 +28,9 @@ spec:
         role: o2ai
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/o2ai-configmap.yaml") . | sha256sum }}
+        {{- with include "openobserve.secretChecksumAnnotation" . }}
+        {{- . | nindent 8 }}
+        {{- end }}
         {{- with .Values.auth.O2_AI_INTERNAL_SECRET }}
         checksum/o2-ai-internal-secret: {{ printf "%s-%s" $.Release.Name . | sha256sum }}
         {{- end }}

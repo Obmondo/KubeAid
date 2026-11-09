@@ -74,6 +74,17 @@ global:
       #     name: seaweedfs-signing-key
       #     key: signingKey
 
+# Deploy every namespaced object into this existing namespace instead of the
+# release one. Changing it on an installed release moves regular namespaced
+# objects only: claims and the data behind them are left behind or deleted,
+# hook resources stay in the old namespace, and the generated S3 and DB
+# Secrets are not recreated — migrate claims, copy the Secrets, and clean up
+# the old hook resources by hand first. The default hostPath storage is
+# node-local as well: stop the old workloads and plan the hostPath data
+# migration, or the new pods can come up empty on other nodes or share the
+# same directories concurrently.
+namespaceOverride: ""
+
 image:
   registry: ""
   repository: ""
@@ -1812,6 +1823,10 @@ worker:
     limits:
       cpu: "2"
       memory: "2Gi"
+
+  # Resources for the worker-lance sidecar. Falls back to worker.resources if unset.
+  lanceResources: {}
+
   tolerations: ""
   nodeSelector: ""
   priorityClassName: ""
@@ -2224,6 +2239,9 @@ certificates:
     # seaweedfs-master-cert, seaweedfs-filer-cert, etc. Can see any statefulset definition to see secret names
     enabled: false
 
+# Labels added to the metadata of every object, except pods and volumeClaimTemplates.
+# A map, or a template string rendering to one.
+commonLabels: {}
 # Labels to be added to all the created pods
 podLabels: {}
 # Annotations to be added to all the created pods

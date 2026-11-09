@@ -15,13 +15,14 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: {{ include "seaweedfs.componentName" (list . "admin") }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "seaweedfs.namespace" . | quote }}
   labels:
     app.kubernetes.io/name: {{ template "seaweedfs.name" . }}
     helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/component: admin
+    {{- with include "seaweedfs.commonLabels" $ }}{{ . | nindent 4 }}{{ end }}
 {{- if .Values.admin.annotations }}
   annotations:
     {{- toYaml .Values.admin.annotations | nindent 4 }}
@@ -138,9 +139,11 @@ spec:
             - name: {{ $key }}
             {{- if kindIs "string" $value }}
               value: {{ tpl $value $ | quote }}
-            {{- else }}
+            {{- else if kindIs "map" $value }}
               valueFrom:
                 {{ toYaml $value | nindent 16 | trim }}
+            {{- else if not (kindIs "invalid" $value) }}
+              value: {{ toJson $value | quote }}
             {{- end -}}
             {{- end }}
             {{- $secretExtraEnvironmentVars := .Values.admin.secretExtraEnvironmentVars }}
@@ -183,7 +186,7 @@ spec:
               {{- else if .Values.global.seaweedfs.masterServer }}
               -masters={{ .Values.global.seaweedfs.masterServer }} \
               {{- else }}
-              -masters={{ range $index := until (.Values.master.replicas | int) }}${SEAWEEDFS_FULLNAME}-master-{{ $index }}.${SEAWEEDFS_FULLNAME}-master.{{ $.Release.Namespace }}:{{ $.Values.master.port }}{{ if lt $index (sub ($.Values.master.replicas | int) 1) }},{{ end }}{{ end }} \
+              -masters={{ range $index := until (.Values.master.replicas | int) }}${SEAWEEDFS_FULLNAME}-master-{{ $index }}.${SEAWEEDFS_FULLNAME}-master.{{ include "seaweedfs.namespace" $ }}:{{ $.Values.master.port }}{{ if lt $index (sub ($.Values.master.replicas | int) 1) }},{{ end }}{{ end }} \
               {{- end }}
               {{- if $urlPrefix }}
               -urlPrefix={{ $urlPrefix }} \

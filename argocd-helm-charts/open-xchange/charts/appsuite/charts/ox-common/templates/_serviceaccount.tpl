@@ -42,3 +42,32 @@ default
 {{- end }}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Renders a dedicated ServiceAccount resource when `serviceAccount.create` is `true`, so a chart no longer has to fall back to the namespace default ServiceAccount (CIS 5.1.5).
+Honours `serviceAccount.annotations` and, at the ServiceAccount level, `serviceAccount.automountServiceAccountToken`.
+
+Example (chart's templates/serviceaccount.yaml):
+{{ include "ox-common.serviceaccount.resource" (dict "podRoot" .Values "context" . "global" $) }}
+*/}}
+{{- define "ox-common.serviceaccount.resource" -}}
+{{- $podRoot := .podRoot -}}
+{{- $context := .context -}}
+{{- $global := .global -}}
+{{- if and (eq (include "ox-common.serviceaccount.create" (dict "podRoot" $podRoot)) "true") (not $podRoot.serviceAccountName) -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "ox-common.serviceaccount.name" (dict "podRoot" $podRoot "context" $context "global" $global) }}
+  namespace: {{ $context.Release.Namespace }}
+  labels:
+    {{- include "ox-common.labels.standard" $context | nindent 4 }}
+  {{- with ($podRoot.serviceAccount).annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- if not (kindIs "invalid" ($podRoot.serviceAccount).automountServiceAccountToken) }}
+automountServiceAccountToken: {{ ($podRoot.serviceAccount).automountServiceAccountToken }}
+{{- end }}
+{{- end -}}
+{{- end -}}

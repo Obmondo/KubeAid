@@ -29,4 +29,4 @@ name: openobserve-collector
 sources:
 - https://github.com/openobserve/openobserve-helm-chart
 type: application
-version: 0.8.2
+version: 0.8.3

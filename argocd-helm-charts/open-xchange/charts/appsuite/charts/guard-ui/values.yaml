@@ -57,4 +57,19 @@ tolerations: []
 
 affinity: {}
 
+# Values are the ones Kubernetes fills in when a probe omits them, so the
+# rendered manifest states what the pods already run with.
+probe:
+  liveness:
+    enabled: true
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3
+
+  readiness:
+    enabled: true
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3
+
 containerPort: 8080

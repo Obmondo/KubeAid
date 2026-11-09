@@ -54,21 +54,48 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{ default "core-ui-jwks-secret" .Values.jwks.existingSecret }}
 {{- end -}}
 
+{{/*
+Name of the Secret holding the database credentials: the consumer's own when
+db.existingSecret is set, otherwise the one this chart creates, whose name
+overrides.dbSecret may change.
+*/}}
+{{- define "core-ui.dbSecret" -}}
+{{ .Values.db.existingSecret | default .Values.overrides.dbSecret | default "core-ui-db-secret" }}
+{{- end -}}
+
+{{/*
+Non-empty when core-ui talks to a database, either because databases.* is
+configured or because a Secret was handed to it.
+*/}}
+{{- define "core-ui.dbEnabled" -}}
+{{- if or (include "core-ui.hasDatabases" .) .Values.db.existingSecret }}true{{ end }}
+{{- end -}}
+
 {{- define "core-ui.env" -}}
 - name: BIND_ADDR
   value: {{ .Values.bindAddr | default "::" | quote }}
 - name: PORT
   value: {{ .Values.containerPort | default 8080 | quote }}
 - name: METRICS_PORT
-  value: {{ .Values.metricsPost | default 9090 | quote }}
+  value: {{ .Values.metricsPort | default 9090 | quote }}
 - name: LOG_LEVEL
   value: {{ .Values.logLevel | quote }}
 - name: ORIGINS
   value: {{ .Values.origins | quote }}
 - name: EXPOSE_API_DOCS
   value: {{ .Values.exposeApiDocs | quote }}
+- name: ENABLE_DEBUG_ROUTES
+  value: {{ .Values.enableDebugRoutes | default false | quote }}
 - name: CONFIG_PATH
   value: "/app/config"
+{{- with .Values.proxy.https }}
+- name: HTTPS_PROXY
+  value: {{ . | quote }}
+{{- end }}
+{{- with .Values.proxy.noProxy }}
+- name: NO_PROXY
+  value: {{ . | quote }}
+{{- end }}
 - name: JWKS_CERT_PATH
   value: "/app/jwks-cert"
 - name: JWKS_ENABLED
@@ -89,37 +116,39 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 - name: APP_SUITE_APP_ID
   value: {{ .Values.appsuite.appId | quote }}
 {{- end -}}
-{{- if and .Values.databases (gt (len .Values.databases) 0) }}
+{{- if include "core-ui.dbEnabled" . }}
+{{- $secret := include "core-ui.dbSecret" . }}
+{{- $keys := .Values.db.existingSecretKeys | default dict }}
 - name: DATABASES
   valueFrom:
     secretKeyRef:
-      name: {{ .Values.overrides.dbSecret | quote }}
-      key: DATABASES
+      name: {{ $secret | quote }}
+      key: {{ $keys.databases | default "DATABASES" }}
 - name: DB_BIMI_HOST
   valueFrom:
     secretKeyRef:
-      name: {{ .Values.overrides.dbSecret | quote }}
-      key: DB_BIMI_HOST
+      name: {{ $secret | quote }}
+      key: {{ $keys.bimiHost | default "DB_BIMI_HOST" }}
 - name: DB_BIMI_PORT
   valueFrom:
     secretKeyRef:
-      name: {{ .Values.overrides.dbSecret | quote }}
-      key: DB_BIMI_PORT
+      name: {{ $secret | quote }}
+      key: {{ $keys.bimiPort | default "DB_BIMI_PORT" }}
 - name: DB_BIMI_NAME
   valueFrom:
     secretKeyRef:
-      name: {{ .Values.overrides.dbSecret | quote }}
-      key: DB_BIMI_NAME
+      name: {{ $secret | quote }}
+      key: {{ $keys.bimiName | default "DB_BIMI_NAME" }}
 - name: DB_BIMI_USER
   valueFrom:
     secretKeyRef:
-      name: {{ .Values.overrides.dbSecret | quote }}
-      key: DB_BIMI_USER
+      name: {{ $secret | quote }}
+      key: {{ $keys.bimiUser | default "DB_BIMI_USER" }}
 - name: DB_BIMI_PASSWORD
   valueFrom:
     secretKeyRef:
-      name: {{ .Values.overrides.dbSecret | quote }}
-      key: DB_BIMI_PASSWORD
+      name: {{ $secret | quote }}
+      key: {{ $keys.bimiPassword | default "DB_BIMI_PASSWORD" }}
 {{- end -}}
 {{- end -}}
 
@@ -132,6 +161,11 @@ app.kubernetes.io/instance: {{ .Release.Name }}
   secret:
     secretName: {{ include "core-ui.jwksSecret" . }}
 {{- end }}
+{{- if and .Values.mailAssets .Values.mailAssets.configMapName }}
+- name: mail-assets
+  configMap:
+    name: {{ .Values.mailAssets.configMapName | quote }}
+{{- end }}
 {{- end -}}
 
 {{- define "core-ui.volumeMounts" -}}
@@ -141,6 +175,11 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if .Values.jwks.enabled }}
 - name: jwks-cert
   mountPath: /app/jwks-cert
+  readOnly: true
+{{- end }}
+{{- if and .Values.mailAssets .Values.mailAssets.configMapName }}
+- name: mail-assets
+  mountPath: /etc/mail-assets
   readOnly: true
 {{- end }}
 {{- end -}}

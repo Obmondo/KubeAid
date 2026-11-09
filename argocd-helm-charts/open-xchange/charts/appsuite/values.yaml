@@ -54,6 +54,7 @@ istio:
   segmentedRouting:
     enabled: false
     localSite: ''
+    headerName: x-ox-segment
     sites: []
     appsuitePaths:
     - "/api"
@@ -70,6 +71,9 @@ istio:
     - "/realtime"
     - "/infostore"
     - "/webservices"
+    - "/scim/"
+    - "/prov/"
+    - "/mcp"
     davPaths:
     - "/"
     businessmobilityPaths:
@@ -143,6 +147,18 @@ ingress:
       annotations: {}
       annotationMode: Add
     static-routes-webservices:
+      enabled: true
+      annotations: {}
+      annotationMode: Add
+    rest-routes-scim:
+      enabled: true
+      annotations: {}
+      annotationMode: Add
+    rest-routes-mcp:
+      enabled: true
+      annotations: {}
+      annotationMode: Add
+    rest-routes-provisioning:
       enabled: true
       annotations: {}
       annotationMode: Add
@@ -311,22 +327,22 @@ core-mw:
   createCommonEnv: false
   image:
     repository: appsuite/middleware
-    tag: 8.48.86
+    tag: 8.54.351
   update:
     image:
       repository: appsuite/middleware
-      tag: 8.48.86
+      tag: 8.54.351
     defaultRegistry: registry.open-xchange.com
     podAnnotations:
-      commit.open-xchange.com/core: e3210c94e5f482edd01c8ba14db1a355aa307929
-      commit.open-xchange.com/guard: bfd97ca54526c90a3b0a3af75605f2a810f76262
-      commit.open-xchange.com/office: d6ac1d69f55a79a0991951471a83239122bf2915
-      commit.open-xchange.com/weakforced: 7a3d63dfece8ba3fbfec8b9f2e0e60e47567d4bf
+      commit.open-xchange.com/core: 3180700f2a585faddaf0e78d9be4434ccb3b6883
+      commit.open-xchange.com/guard: '0491c00acbc50820a30ce8df2d0635b20bf4e5ee'
+      commit.open-xchange.com/office: a0cb89e569debd0dd3697ba7e883b89f8fa36a94
+      commit.open-xchange.com/weakforced: 0217347f6782d930f031518bcba3b56b9d649a0f
   podAnnotations:
-    commit.open-xchange.com/core: e3210c94e5f482edd01c8ba14db1a355aa307929
-    commit.open-xchange.com/guard: bfd97ca54526c90a3b0a3af75605f2a810f76262
-    commit.open-xchange.com/office: d6ac1d69f55a79a0991951471a83239122bf2915
-    commit.open-xchange.com/weakforced: 7a3d63dfece8ba3fbfec8b9f2e0e60e47567d4bf
+    commit.open-xchange.com/core: 3180700f2a585faddaf0e78d9be4434ccb3b6883
+    commit.open-xchange.com/guard: '0491c00acbc50820a30ce8df2d0635b20bf4e5ee'
+    commit.open-xchange.com/office: a0cb89e569debd0dd3697ba7e883b89f8fa36a94
+    commit.open-xchange.com/weakforced: 0217347f6782d930f031518bcba3b56b9d649a0f
   defaultRegistry: registry.open-xchange.com
   packages:
     status:
@@ -347,108 +363,116 @@ core-mw:
       repository: registry.open-xchange.com/appsuite/collabora-online@sha256
       tag: '0686d50956c3ef1baa44f91165186fcbe1663f98f298010058f12e39f6abab40'
     podAnnotations: {}
+bookingservice:
+  enabled: false
+  image:
+    repository: appsuite/booking
+    tag: 0.7.1
+  defaultRegistry: registry.open-xchange.com
+  booking:
+    mysql:
+      host: ''
+      database: bookingdb
+      auth:
+        user: ''
+        password: ''
+    poll: {}
+  podAnnotations:
+    commit.open-xchange.com/booking: e0db1225ea58a8878cc1de00ca96a38f0a528eb0
 core-user-guide:
   enabled: true
   image:
     repository: appsuite/core-user-guide
-    tag: 8.48.2468440163
+    tag: 8.54.2976350491
   podAnnotations:
-    commit.open-xchange.com/user-guide: 3f1e304bd3c88efbc078f782a3c38794c7061855
+    commit.open-xchange.com/user-guide: c4c5d342748b4eba0ff29a148a640c7325a45a2c
   defaultRegistry: registry.open-xchange.com
 core-cacheservice:
   enabled: true
   image:
     repository: appsuite/cacheservice
-    tag: 8.48.2120
+    tag: 8.54.2245
   podAnnotations:
-    commit.open-xchange.com/cacheservice: 4a412b688870d53be7f80a3a3a00609d0b8963da
+    commit.open-xchange.com/cacheservice: 385a026b705f89b441299eb9140be7debb1faf4f
   defaultRegistry: registry.open-xchange.com
 core-documentconverter:
   enabled: true
   createCommonEnv: false
   image:
     repository: appsuite/documentconverter
-    tag: 8.48.2083
+    tag: 8.54.2197
   podAnnotations:
-    commit.open-xchange.com/documentconverter: c0ea90926f408851836d5f1fa879fa7ef148c001
+    commit.open-xchange.com/documentconverter: d6655396836a7b8bbfee922f79b3224d48958fd2
   defaultRegistry: registry.open-xchange.com
 core-documents-collaboration:
   enabled: true
   image:
     repository: appsuite/documents-collaboration
-    tag: 8.48.705
+    tag: 8.54.2941331832
   podAnnotations:
-    commit.open-xchange.com/documents-collaboration: f46ee71fad0536b9ce3d73868ce02db3d3887cfb
+    commit.open-xchange.com/documents-collaboration: 15114f7dacf65b8dcd1f3f5cb4987a91b76245cb
   defaultRegistry: registry.open-xchange.com
 core-imageconverter:
   enabled: true
   createCommonEnv: false
   image:
     repository: appsuite/imageconverter
-    tag: 8.48.2582
+    tag: 8.54.2628
   podAnnotations:
-    commit.open-xchange.com/imageconverter: 1a6b681a9a8c19c752aa66accc35133c8ee97e36
+    commit.open-xchange.com/imageconverter: 7eb236d9182e4a851769c6472e67d5d86611d07b
   defaultRegistry: registry.open-xchange.com
 core-spellcheck:
   enabled: true
   image:
     repository: appsuite/spellcheck
-    tag: 8.48.1023
+    tag: 8.54.2941332537
   podAnnotations:
-    commit.open-xchange.com/spellcheck: 44069c90db1a839b2a47e4af037b515083ea2ad7
+    commit.open-xchange.com/spellchecker: 94fd9064ab84e8a5ba4e7d32c3bae639a083282a
   defaultRegistry: registry.open-xchange.com
 office-web:
   enabled: true
   image:
     repository: appsuite/office-web
-    tag: 8.48.1797343
+    tag: 8.54.3025972031
   podAnnotations:
-    commit.open-xchange.com/office-web: 935e3f1989873a1dc21a845313aaeedee734f9fc
+    commit.open-xchange.com/office-web: 1fd5a1c33a1c458189191baff5d8510e77ab89c6
   defaultRegistry: registry.open-xchange.com
 office-user-guide:
   enabled: true
   image:
     repository: appsuite/office-user-guide
-    tag: 8.48.1797342
+    tag: 8.54.2981028808
   podAnnotations:
-    commit.open-xchange.com/office-user-guide: 777947e971e21130932828185551e03360689a43
+    commit.open-xchange.com/user-guide: 78241d449c471e834a6603dd893c1c3fae305db0
   defaultRegistry: registry.open-xchange.com
 core-ui:
   enabled: true
   image:
     repository: appsuite/core-ui
-    tag: 8.48.5
+    tag: 8.54.5
   podAnnotations:
-    commit.open-xchange.com/ui: 7b488939a506d64b7201c5b0b690d1b678dbd590
+    commit.open-xchange.com/ui: 1f9071ad12b72a54fa5a252fd1013a6c2eb01793
   defaultRegistry: registry.open-xchange.com
 core-ui-middleware:
   enabled: true
   image:
     repository: appsuite/core-ui-middleware
-    tag: 2.3.3
+    tag: 3.1.4
   podAnnotations:
-    commit.open-xchange.com/ui-service: d7e243e044b79f20cf1ff2ca46203538c89094e5
+    commit.open-xchange.com/ui-service: 7f7418de1762cd04a07d7cb9eb200625d539d11a
   existingConfigMap: "{{ .Release.Name }}-core-ui-middleware"
   defaultRegistry: registry.open-xchange.com
   redis:
     enabled: false
 extraUIManifestURLs: []
 overridableExtraUIManifestURLs: {}
-core-guidedtours:
-  enabled: true
-  image:
-    repository: appsuite/core-guidedtours
-    tag: 8.7.4
-  podAnnotations:
-    commit.open-xchange.com/guidedtours: 64d52474a6695de59c48ec792ba06760615e7ae9
-  defaultRegistry: registry.open-xchange.com
 guard-ui:
   enabled: true
   image:
     repository: appsuite/guard-ui
-    tag: 8.48.0
+    tag: 8.54.0
   podAnnotations:
-    commit.open-xchange.com/guard-ui: 99b5ab7144f5ecc3a036f7563f05146dea27837d
+    commit.open-xchange.com/guard-ui: 07150bc83e172266c0c1e119596d301a9d10a939
   defaultRegistry: registry.open-xchange.com
 core-drive-help:
   enabled: true
@@ -462,9 +486,9 @@ switchboard:
   enabled: true
   image:
     repository: appsuite/switchboard
-    tag: 5.3.2
+    tag: 5.4.3
   podAnnotations:
-    commit.open-xchange.com/switchboard: ea2b152ed4cdf499cb7071d1fda6c1ab9fd32478
+    commit.open-xchange.com/switchboard: 3801888ae660c009292961729c0cf013f1acdc98
   defaultRegistry: registry.open-xchange.com
 extras:
   monitoring:
@@ -489,13 +513,13 @@ appsuite-toolkit:
   defaultRegistry: registry.open-xchange.com
   image:
     repository: appsuite/appsuite-toolkit
-    tag: 1.16.1781328
+    tag: 1.21.2120356
   mwctl:
     image:
       repository: appsuite/middleware-debug
-      tag: 2.0.1868825
+      tag: 2.0.2878450660
     defaultRegistry: registry.open-xchange.com
     podAnnotations:
-      commit.open-xchange.com/middleware-debug: add5352b6ac00aea6e59f9d26e8403a7ca415982
+      commit.open-xchange.com/middleware-debug: '0860746e67ad764e715c072aa8e1b6e1c4198ca8'
   podAnnotations:
-    commit.open-xchange.com/appsuite-toolkit: 017faad1450f3fe6593778fdcf45ad0a46138dab
+    commit.open-xchange.com/appsuite-toolkit: e45e82a9c459e486cede223ba14b24133c660025

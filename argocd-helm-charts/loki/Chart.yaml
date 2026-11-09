@@ -28,6 +28,6 @@ dependencies:
   # bin/manage-helm-chart.sh applied .helm-prune afterwards. Without it the minio
   # subchart we do not ship comes back.
   - name: loki
-    version: "20.2.1"
+    version: "21.0.0"
     repository: "oci://ghcr.io/grafana-community/helm-charts"
     condition: loki.enabled

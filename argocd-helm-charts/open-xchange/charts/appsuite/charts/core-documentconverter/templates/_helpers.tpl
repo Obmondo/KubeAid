@@ -38,7 +38,7 @@ KeyStore
 {{- end -}}
 
 {{/*
-Provides the coolUrl that is used for conversions if useCool is true
+Provides the coolUrl that is used for conversions if documentConverter.engine is "cool"
 */}}
 {{- define "core-documentconverter.coolUrl" -}}
 {{- printf "http://%s-collabora-online.%s.svc.cluster.local:9980" .Release.Name .Release.Namespace }}

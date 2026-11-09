@@ -1,10 +1,14 @@
 apiVersion: v2
-appVersion: 2.3.3
+appVersion: 3.1.4
 dependencies:
 - name: ox-common
   repository: oci://registry.open-xchange.com/appsuite-core-internal/charts
-  version: ~1.0.38
+  version: 1.0.52
+- condition: minio.enabled
+  name: minio
+  repository: oci://registry-1.docker.io/bitnamicharts
+  version: ~14.7.15
 description: Helm chart for core ui middleware
 name: core-ui-middleware
 type: application
-version: 3.4.4
+version: 4.4.8

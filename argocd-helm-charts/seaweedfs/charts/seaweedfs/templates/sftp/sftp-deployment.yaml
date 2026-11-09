@@ -4,13 +4,14 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "seaweedfs.fullname" . }}-sftp
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "seaweedfs.namespace" . | quote }}
   labels:
     app.kubernetes.io/name: {{ template "seaweedfs.name" . }}
     helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/component: sftp
+    {{- with include "seaweedfs.commonLabels" $ }}{{ . | nindent 4 }}{{ end }}
 {{- if .Values.sftp.annotations }}
   annotations:
     {{- toYaml .Values.sftp.annotations | nindent 4 }}
@@ -101,9 +102,11 @@ spec:
             - name: {{ $key }}
             {{- if kindIs "string" $value }}
               value: {{ tpl $value $ | quote }}
-            {{- else }}
+            {{- else if kindIs "map" $value }}
               valueFrom:
                 {{ toYaml $value | nindent 16 | trim }}
+            {{- else if not (kindIs "invalid" $value) }}
+              value: {{ toJson $value | quote }}
             {{- end -}}
             {{- end }}
           command:
@@ -168,7 +171,7 @@ spec:
               -key.file=/usr/local/share/ca-certificates/client/tls.key \
               {{- end }}
               -userStoreFile=/etc/sw/seaweedfs_sftp_config \
-              -filer={{ include "seaweedfs.componentName" (list . "filer-client") }}.{{ .Release.Namespace }}:{{ .Values.filer.port }}
+              -filer={{ include "seaweedfs.componentName" (list . "filer-client") }}.{{ include "seaweedfs.namespace" . }}:{{ .Values.filer.port }}
           volumeMounts:
             {{- include "seaweedfs.tmpDirVolumeMount" (list . .Values.sftp.containerSecurityContext (tpl (.Values.sftp.extraVolumeMounts | default "") .) (tpl (.Values.sftp.extraVolumes | default "") .)) | nindent 12 }}
             {{- if or (eq .Values.sftp.logs.type "hostPath") (eq .Values.sftp.logs.type "emptyDir") }}

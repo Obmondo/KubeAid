@@ -177,12 +177,31 @@ Configuring webpush on the switchboard requires a database to store the client's
         enabled: true
         existingSecret: ""
         host: ""
+        port: 3306
         database: ""
         connections: 10
         auth:
           user: ""
           password: ""
 ```
+
+To connect to the database via TLS, enable `mysql.tls`:
+
+```yaml
+    switchboard:
+      mysql:
+        enabled: true
+        # ...
+        tls:
+          enabled: true
+          ca: |
+            -----BEGIN CERTIFICATE-----
+            ...
+            -----END CERTIFICATE-----
+          rejectUnauthorized: true
+```
+
+When `mysql.existingSecret` is used, place the CA PEM under the `MYSQL_SSL_CA` key in that secret instead of setting `mysql.tls.ca`. The CA is optional — if omitted, the system trust store is used. Setting `rejectUnauthorized: false` disables certificate verification and should only be used in development.
 
 The configured database must be accessible from the switchboard deployment, and the database user must have the following permissions:
 
@@ -194,9 +213,15 @@ GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, CREATE ROUTINE, ALTER ROUTI
 FLUSH PRIVILEGES;
 ```
 
-Furthermore you also need to genereate and configure a [VAPID key pair](https://datatracker.ietf.org/doc/html/rfc8292) and a VAPID subject (typically a :mailto address or contact page) for the switchboard to send the notifications.
+Furthermore you also need to generate and configure a [VAPID key pair](https://datatracker.ietf.org/doc/html/rfc8292) and a VAPID subject (typically a :mailto address or contact page) for the switchboard to send the notifications.
 
-You can generate VAPID keys with the help of a running switchboard pod:
+You can generate VAPID keys on any machine with Node.js, no running switchboard needed:
+
+```shell
+npx web-push generate-vapid-keys --json
+```
+
+If a switchboard pod is already running, you can also use that:
 
 ```shell
 kubectl -n YOUR_NAMESPACE exec deployments/switchboard -- /usr/bin/node -e "console.log(require('web-push').generateVAPIDKeys())"
@@ -295,26 +320,32 @@ Usually 365d should be a decent value.
 
 | Parameter                                    | Description                                                                                                 | Default                                                         |
 | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `image.repository`                           | The image to be used for the deployment                                                                     | `registry.open-xchange.com/core/switchboard`                    |
+| `image.repository`                           | The image to be used for the deployment                                                                     | `appsuite-core-internal/switchboard`                             |
 | `image.pullPolicy`                           | The imagePullPolicy for the deployment                                                                      | `IfNotPresent`                                                  |
 | `image.tag`                                  | The image tag, defaults to app version                                                                      | `""`                                                            |
 | `bindAddr`                                   | IP address to listen for connections                                                                        | `"::"`                                                          |
-| `hostname`                                   | hostname for the switchboard deployment                                                                     | `""`                                                            |
 | `origins`                                    | Allowed origins for CORS                                                                                    | `*`                                                             |
 | `logLevel`                                   | specify log level for service                                                                               | `"info"`                                                        |
 | `logJson`                                    | log in JSON format                                                                                          | `false`                                                         |
+| `presence.ttlSeconds`                        | Seconds a user's presence keys stay in Redis after the last update (renewed on every update). Lower on environments with disposable users | `2592000`                                                       |
 | `appsuite.apiSecret`                         | application id when using token login, one of `com.openexchange.tokenlogin.applications`              | `""`                                                            |
 | `appsuite.webhookSecret`                     | shared secret to secure the webhook, same as `core-mw.webhooks.yml.switchboard.webhookSecret`               | `""`                                                            |
 | `appsuite.signatureSecret`                   | shared secret to verify webhook call signatures, same as `core-mw.webhooks.yml.switchboard.signatureSecret` | `""`                                                            |
 | `appsuiteSecret.enabled`                     | Generate App Suite related secret, see `overrides.appsuiteSecret`                                           | `true`                                                          |
 | `httpProxy`                                 | Proxy settings to be used for outgoing requests (e.g. web push)                                              | `""`                                                            |
-| `ingress.enabled`                            | Generate ingress resource                                                                                   | `false`                                                         |
-| `ingress.annotations`                        | Map of key-value pairs that will be added as annotations to the ingress resource                            | `{}`                                                            |
-| `overrides.name`                             | Name of the chart                                                                                           | `"switchboard"`                                                 |
-| `overrides.fullname`                         | Full name of the chart installation                                                                         | `"RELEASE-NAME-switchboard"`                                    |
 | `overrides.appsuiteSecret`                   | Prefix of the appsuite secret                                                                                | `"RELEASE-NAME-appsuite"`                                       |
 | `overrides.jwtSecret`                        | Prefix of the jwt secret                                                                                     | `"RELEASE-NAME-jwt"`                                            |
-| `redis.hosts`                                | Redis hosts as list                                                                                         | `["localhost:6379"]`                                            |
+| `serviceAccount.create`                      | Create a dedicated ServiceAccount instead of running on the namespace `default` one (CIS 5.1.5)              | `true`                                                          |
+| `serviceAccount.name`                        | Name of the created ServiceAccount, defaults to the chart fullname                                          | `""`                                                            |
+| `serviceAccount.annotations`                 | Annotations for the ServiceAccount, e.g. to bind a cloud IAM role                                           | `{}`                                                            |
+| `serviceAccount.automountServiceAccountToken` | ServiceAccount-level token automount, applies to pods that do not state their own                          | `false`                                                         |
+| `serviceAccountName`                         | Use a ServiceAccount you manage yourself; suppresses the one created by this chart                          | unset                                                           |
+| `automountServiceAccountToken`               | Pod-level token automount, wins over the ServiceAccount-level setting. Switchboard needs no Kubernetes API access | `false`                                                    |
+| `pdb.create`                                 | Create a PodDisruptionBudget limiting voluntary evictions (node drains, autoscaler consolidation). Needs at least two replicas to protect anything | `false` |
+| `pdb.minAvailable`                           | Minimum number or percentage of pods that must be available. Mutually exclusive with `pdb.maxUnavailable`    | `""`                                                            |
+| `pdb.maxUnavailable`                         | Maximum number or percentage of pods that can be unavailable. Mutually exclusive with `pdb.minAvailable`     | `""`                                                            |
+| `pdb.unhealthyPodEvictionPolicy`             | Rendered as `spec.unhealthyPodEvictionPolicy` (Kubernetes >= 1.31). Empty omits it. `AlwaysAllow` stops an unhealthy pod blocking a node drain | `""` |
+| `redis.hosts`                                | Redis hosts as list                                                                                         | `[]`                                            |
 | `redis.tls.enabled`                          | Enable TLS for Redis                         | `false`              |
 | `redis.tls.ca`                               | PEM version of redis server CA certificate   | `""`                 |
 | `redis.mode`                                 | Redis mode (standalone, sentinel or cluster)                                                                | `"standalone"`                                                  |
@@ -328,16 +359,22 @@ Usually 365d should be a decent value.
 | `jwt.serviceCapabilities`                    | Comma separated list with capabilities to add to the token                                                  | `"ai,calendar,contacts,infostore,jitsi,openai,switchboard,webmail,zoom"`                               |
 | `jwt.algorithm`                              | Algorithm to use with the given certificate                                                                  | `"RS256"`                                                       |
 | `oidc.issuer`                                | Comma-separated list of trusted OIDC issuer URLs for JWT verification                                       | `""`                                                            |
-| `jwks.enabled`                               | Run switchboard with JSON Web Key Set                                                                       | `true`                                                          |
+| `jwks.enabled`                               | Run switchboard with JSON Web Key Set                                                                       | `false`                                                          |
 | `jwks.secretName`                            | Name of existing secret with certificates for JSON Web Key Set                                               | `""`                                                            |
 | `mysql.enabled`                            | Wether mysql connection is enabled. Needed for webpush.                                               | `"false"`                                                            |
 | `mysql.existingSecret`                            | Existing secret for mysql                                               | `""`                                                            |
-| `mysql.host`                            | The database host.                                              | `""`                                                            |
+| `mysql.host`                            | The database host, without a port.                                              | `""`                                                            |
+| `mysql.port`                            | The database port.                                              | `3306`                                                            |
 | `mysql.database`                            | The database name.                                               | `""`                                                            |
-| `mysql.connections`                            |  Number of concurrent connections to the database.                                               | `""`                                                            |
+| `mysql.connections`                            |  Number of concurrent connections to the database.                                               | `10`                                                            |
 | `mysql.auth.user`                            | The database user.                                               | `""`                                                            |
 | `mysql.auth.password`                            | The database password.                                               | `""`                                                            |
-| `cron.cleanupDb`                            | Database cleanup interval (Cron notation)                                                      | `0 0 * * * *`                                       |
+| `mysql.tls.enabled`                            | Enable TLS for the mysql/mariadb connection.                                               | `false`                                                            |
+| `mysql.tls.ca`                            | PEM contents of the database server CA certificate. Stored in the generated secret as `MYSQL_SSL_CA`. When using `mysql.existingSecret`, populate `MYSQL_SSL_CA` in that secret instead. | `""`                                                            |
+| `mysql.tls.rejectUnauthorized`                            | Verify the server certificate against the trusted CAs. Set to `false` for self-signed certificates without a configured CA.                                               | `true`                                                            |
+| `mysql.tls.caSecretName`                            | Read the CA from a different secret than the connection secret (e.g. an operator- or cert-manager-managed CA bundle). Defaults to the connection secret.                                               | `""`                                                            |
+| `mysql.tls.caSecretKey`                            | Key inside `caSecretName` that holds the CA PEM (e.g. `ca.crt`).                                               | `"MYSQL_SSL_CA"`                                                            |
+| `cron.cleanupDb`                            | Database cleanup interval (Cron notation)                                                      | `0 0 * * *`                                       |
 | `cron.sidecarInjection.disabled`                     | Disable Istio Sidecar Injection for CronJobs                                                   | `true`                                              |
 | `vapid.enabled`                            | Wether VAPID secret is enabled. Needed for webpush.                                              | `"false"`                                                            |
 | `vapid.existingSecret`                            | Existing secret for VAPID keys.                                              | `""`                                                            |

@@ -7,5 +7,6 @@ metadata:
     {{- include "ox-common.labels.standard" . | nindent 4 }}
     grafana_dashboard: "1"
 data:
+  switchboard.json: |-
 {{ (.Files.Glob "dashboards/switchboard.json").AsConfig | indent 2 }}
 {{- end -}}

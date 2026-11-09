@@ -49,6 +49,38 @@ Not necessary anymore but it's possible to override them e.g. via `.Values.globa
 - Added support for `PodDisruptionBudget` (PDB) via the new `pdb` configuration section.
 - This version adds a new `middleware.open-xchange.com/type` label to pods. Upgrading to this version will trigger a rolling restart of all pods due to the label change.
 
+### 6.21.0
+
+#### Third-party Java agent support
+
+The chart supports injecting third-party Java agents (e.g. Elastic APM) into the middleware pod via `extraInitContainers`. A typical setup uses an init container to copy the agent JAR into a shared volume, which is then mounted into the middleware container and activated via `javaOpts.other`.
+
+> **Support scope:** OX supports the Helm injection mechanism (`extraInitContainers`, `extraVolumes`, `extraMounts`, `javaOpts.other`). The internal behavior of third-party agents is outside OX support scope.
+
+##### Example: Elastic APM agent
+
+```yaml
+extraInitContainers:
+  - name: elastic-apm-init
+    image: docker.elastic.co/apm/apm-agent-java:1.52.0
+    command: ["cp", "/usr/agent/elastic-apm-agent.jar", "/apm-agent/"]
+    volumeMounts:
+      - name: apm-agent
+        mountPath: /apm-agent
+
+extraVolumes:
+  - name: apm-agent
+    emptyDir: {}
+
+extraMounts:
+  - name: apm-agent
+    mountPath: /opt/apm-agent
+    readOnly: true
+
+javaOpts:
+  other: "-javaagent:/opt/apm-agent/elastic-apm-agent.jar"
+```
+
 ## Upgrading
 
 ### To 6.0.1
@@ -165,6 +197,269 @@ kubectl scale deployment appsuite-core-mw-groupware-without-docs --replicas=2
 This process needs to be followed for all node definitions that previously had the `hazelcast-data-holding` role without having the `documents` role after the migration.
 
 Don't forget to scale up the replicas in your `values.yaml` again.
+
+## Using `existing*Secret` values
+
+The `existing*Secret` values let you supply configuration from **Secrets you create and manage yourself**
+(for example via Vault, sealed-secrets or external-secrets) instead of placing sensitive data directly in
+`values.yaml`. The chart only *references* these Secrets, so each one **must already exist in the release
+namespace** before you install or upgrade.
+
+There are two behaviors. Know which one applies to the value you are setting:
+
+- **Additive** &ndash; your Secret is mounted *alongside* the chart-rendered configuration; both apply.
+- **Replace** &ndash; your Secret *replaces* the chart-rendered equivalent, and the corresponding plain
+  `values.yaml` settings are then ignored.
+
+| Value | Behavior | Combines with / replaces |
+|-------|----------|--------------------------|
+| `existingPropertiesSecret`   | Additive | `properties`, `secretProperties`, `propertiesFiles`, `secretPropertiesFiles` |
+| `existingUISettingsSecret`   | Additive | `uiSettings`, `secretUISettings`, `uiSettingsFiles`, `secretUISettingsFiles` |
+| `existingMetaSecret`         | Additive | `meta` |
+| `existingContextSetsSecret`  | Additive | `contextSets`, `secretContextSets` |
+| `existingETCFilesSecret`     | Additive | `etcFiles`, `secretETCFiles` |
+| `existingETCBinariesSecret`  | Additive | `etcBinaries`, `secretETCBinaries` |
+| `existingYAMLFilesSecret`    | Additive | `yamlFiles`, `secretYAMLFiles` |
+| `existingASConfigSecret`     | **Replace** | `asConfig` |
+| `existingEnvSecret`          | Additive (env) | container environment (`envFrom`) |
+| `existing*Secrets` (plural)  | Additive | the matching singular value; any number of further Secrets, see below |
+| `redis.existingSecret`       | **Replace** | chart-generated Redis properties secret |
+| `mysql.existingSecret`       | **Replace** | chart-generated configdb credentials secret |
+| `provisioningGateway.tls.existingSecret` | **Required** | nothing &ndash; the chart generates no certificate |
+
+### What each Secret must contain
+
+Every Secret below is one you create and manage yourself, in the release namespace, with the name you put
+into the corresponding value. The chart never generates them and never validates them: a missing or
+misspelled key is not a template error, it surfaces later as a failed database connection, a missing
+configuration file or a wrong password.
+
+Two rules apply throughout:
+
+- Use `stringData` for text and `data` for anything binary. Keys under `stringData` are stored verbatim;
+  keys under `data` must be base64-encoded and are decoded before they reach the container.
+- **A Secret key becomes a file name.** Kubernetes forbids `/` in Secret keys, so none of these Secrets can
+  place a file into a sub-directory. Where a chart value accepts a nested path (`yamlFiles`,
+  `secretYAMLFiles`), the `existing*Secret` equivalent does not.
+
+#### Database credentials — `mysql.existingSecret`
+
+Replaces the whole configdb Secret the chart would otherwise render, and is consumed as environment
+variables. Because it is a full replacement, supply all sixteen keys the chart's own Secret would define — a
+key you leave out is not a template error, it is an unset environment variable that surfaces much later. On a
+single-server setup, point the `_WRITE_` and `_READ_` keys at the same host as the plain ones.
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-db-creds
+type: Opaque
+stringData:
+  MYSQL_HOST: "mysql-master"
+  MYSQL_PORT: "3306"
+  MYSQL_DATABASE: "configdb"
+  MYSQL_USER: "openexchange"
+  MYSQL_PASSWORD: "secret"
+  MYSQL_ROOT_PASSWORD: "supersecret"
+  MYSQL_WRITE_HOST: "mysql-master"
+  MYSQL_WRITE_PORT: "3306"
+  MYSQL_WRITE_DATABASE: "configdb"
+  MYSQL_WRITE_USER: "openexchange"
+  MYSQL_WRITE_PASSWORD: "writePassword"
+  MYSQL_READ_HOST: "mysql-replica"
+  MYSQL_READ_PORT: "3306"
+  MYSQL_READ_DATABASE: "configdb"
+  MYSQL_READ_USER: "openexchange"
+  MYSQL_READ_PASSWORD: "readPassword"
+```
+
+One Secret serves every node type, referenced under exactly the name you give. The exception is a node type
+that overrides `mysql` in its own `scaling.nodes.<type>.values` block: the chart then looks for
+`<name>-<typeName>` instead, and since it is not generating the Secret either, those pods fail to start with
+`CreateContainerConfigError`. Do not combine `mysql.existingSecret` with a per-type `mysql` override.
+
+`global.mysql.existingSecret` does the same thing across sub-charts and takes precedence over
+`mysql.existingSecret` when both are set. Note that this Secret is **not** covered by the
+`checksums.existingSecrets` annotation, so editing it does not roll the pods — restart the deployment
+yourself.
+
+#### Redis credentials — `redis.existingSecret`
+
+This one is easy to get wrong: it is **not** a `redis-password` key. It replaces the chart's generated Redis
+*properties file*, so its value must be a middleware configuration document — a YAML file whose top-level
+key is a configuration scope (`anywhere` unless you know you need a narrower one) holding
+`com.openexchange.redis.*` properties. Give it the same `1000_` prefix the chart's own file uses: it lands in
+the same directory as the property files and is applied in file-name order, so an unprefixed name would sort
+after — and silently outrank — an `existingPropertiesSecret` file you prefixed `1001_`.
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-redis-props
+type: Opaque
+stringData:
+  1000_redis-properties.yaml: |
+    anywhere:
+      com.openexchange.redis.mode: "sentinel"
+      com.openexchange.redis.hosts: "redis-sentinel.example.svc.cluster.local:26379"
+      com.openexchange.redis.sentinel.masterId: "mymaster"
+      com.openexchange.redis.username: ""
+      com.openexchange.redis.password: "redisPassword"
+      com.openexchange.redis.ssl: "false"
+      com.openexchange.redis.cache.enabled: "true"
+      com.openexchange.redis.cache.mode: "cluster"
+      com.openexchange.redis.cache.hosts: "redis-cache.example.svc.cluster.local:6379"
+      com.openexchange.redis.cache.username: ""
+      com.openexchange.redis.cache.password: "cachePassword"
+      com.openexchange.redis.cache.ssl: "false"
+```
+
+For `standalone` or `cluster` mode drop the `sentinel.masterId` property and list the Redis nodes in
+`hosts`. Quote every value — the middleware expects strings, and an unquoted `false` or `6379` is parsed as
+a boolean or integer. Setting this value makes the chart ignore `redis.auth` and `redis.mode`, so anything
+you leave out of the Secret is simply absent rather than defaulted.
+
+Keep populating `redis.hosts` regardless. That value has a second consumer the Secret does not replace: when
+the list is empty the chart deploys its own single-node Redis alongside the middleware, and that decision
+does not look at `redis.existingSecret`. Leaving it at the default gets you an in-cluster Redis that nothing
+connects to.
+
+#### Environment variables — `existingEnvSecret`
+
+Keys are environment-variable names, added to the containers via `envFrom`. Include only the variables you
+actually want to override; unlike the two above, this Secret is additive, so anything you omit keeps the
+value the chart generates. These are the credential-bearing variables worth putting here:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-env
+type: Opaque
+stringData:
+  MASTER_ADMIN_USER: "oxadminmaster"
+  MASTER_ADMIN_PW: "masterPassword"
+  OX_BASIC_AUTH_LOGIN: "basicAuthUser"
+  OX_BASIC_AUTH_PASSWORD: "basicAuthPassword"
+  JOLOKIA_LOGIN: "jolokiaUser"
+  JOLOKIA_PASSWORD: "jolokiaPassword"
+  CREDSTORAGE_PASSCRYPT: "credStoragePassphrase"
+```
+
+Mind the caveat described under [Override precedence](#override-precedence): this changes the container
+environment only, and the chart's own templating still reads the plain `masterAdmin` / `masterPassword`
+values.
+
+#### Provisioning gateway certificate — `provisioningGateway.tls.existingSecret`
+
+Required as soon as `provisioningGateway.tls.enabled` is `true`: the chart generates no certificate, and
+rendering fails with a `required` error if the value is empty. It is an ordinary `kubernetes.io/tls` Secret,
+so the two keys are fixed and cannot be renamed — the gateway reads them from `tls.crt` and `tls.key` under
+`provisioningGateway.tls.mountPath`.
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-gateway-tls
+type: kubernetes.io/tls
+data:
+  tls.crt: <base64-encoded PEM certificate>
+  tls.key: <base64-encoded PEM private key>
+```
+
+Like `mysql.existingSecret`, this one is not folded into the `checksums.existingSecrets` annotation, so
+rotating the certificate does not restart the gateway on its own.
+
+#### Configuration files
+
+The remaining `existing*Secret` values all work the same way — each key becomes a file, and where that
+file lands is what differs. The `.yaml`/`.yml`/`.txt` names below are examples except
+where called out.
+
+| Value | Key is | Ends up as | Constraint on the key |
+|-------|--------|-----------|------------------------|
+| `existingPropertiesSecret`  | a properties document | `/configuration/<key>`              | numeric prefix `>= 1001` to win over the chart |
+| `existingUISettingsSecret`  | a UI settings document | `/configuration/<key>`             | numeric prefix `>= 2001` to win over the chart |
+| `existingMetaSecret`        | a meta document | `/opt/open-xchange/etc/meta/<key>`        | — |
+| `existingContextSetsSecret` | a context sets document | `/opt/open-xchange/etc/contextSets/<key>` | — |
+| `existingASConfigSecret`    | the as-config document | `/opt/open-xchange/etc/<key>`       | must be named `as-config.yml` |
+| `existingETCFilesSecret`    | any text file | `/opt/open-xchange/etc/<key>`               | — |
+| `existingETCBinariesSecret` | any binary file | `/opt/open-xchange/etc/<key>`             | put it under `data`, not `stringData` |
+| `existingYAMLFilesSecret`   | any YAML file | `/opt/open-xchange/etc/<key>`               | no sub-directories |
+
+`existingPropertiesSecret` and `existingUISettingsSecret` share the single `/configuration/` directory, so
+give their keys distinct names — the same key in both means one silently overwrites the other.
+
+### Several Secrets per value
+
+Every additive `existing*Secret` value has a plural twin that takes a list of further Secret names:
+`existingPropertiesSecrets`, `existingUISettingsSecrets`, `existingMetaSecrets`, `existingContextSetsSecrets`,
+`existingETCFilesSecrets`, `existingETCBinariesSecrets`, `existingYAMLFilesSecrets` and `existingEnvSecrets`.
+Use them when the sensitive data comes from several sources, for example one ExternalSecret per credential.
+The singular value stays supported and comes first; a name given twice is used once.
+
+For the file-based values all listed Secrets are projected into the same directory as the singular one, so
+the rule about distinct keys applies across the whole set. Which value wins on a duplicate property is still
+decided by the numeric file-name prefix, not by the order of the list.
+
+For `existingEnvSecrets` each entry becomes one more `envFrom` source after `existingEnvSecret`, so on a
+duplicate key a later entry wins over an earlier one, and `extraEnv` still wins over all of them.
+
+The `Replace` values (`existingASConfigSecret`, `redis.existingSecret`, `mysql.existingSecret`) and the
+gateway TLS Secret have no plural form: each stands in for exactly one chart-generated resource.
+
+```yaml
+existingPropertiesSecret: my-extra-props    # still supported, mounted first
+existingPropertiesSecrets:
+  - my-ldap-credentials                     # key 1002_ldap.yaml
+  - my-smtp-credentials                     # key 1003_smtp.yaml
+existingEnvSecrets:
+  - my-s3-env
+  - my-oauth-env                            # wins over my-s3-env on a duplicate key
+```
+
+### Override precedence
+
+For the additive property/UI-settings secrets, configuration is applied in numeric file-name order. To make
+your file win over the chart-generated configuration, prefix it with a number higher than the chart's:
+
+- properties: use a prefix `>= 1001` (the chart uses `<= 1000`)
+- UI settings: use a prefix `>= 2001` (the chart uses `<= 2000`)
+
+```yaml
+# stringData of the secret named by existingPropertiesSecret
+1001_existing.yaml: |
+  anywhere:
+    com.openexchange.foobar: "true"
+```
+
+`existingEnvSecret` is added after the common-env and chart-generated env secrets and before any
+`existingEnvSecrets` entry, so on a duplicate key it overrides those two but neither a later
+`existingEnvSecrets` entry nor `extraEnv`. For example, a `MASTER_ADMIN_USER` key in your secret wins over the
+`MASTER_ADMIN_USER` the chart generates from `masterAdmin`.
+
+This override happens **only at the container-environment level**. The chart's own templating still reads the
+plain `masterAdmin` / `masterPassword` values (it does *not* look at `existingEnvSecret`) when it generates
+other resources. So to change the master admin everywhere, set `masterAdmin` / `masterPassword` rather than
+only overriding the env var through `existingEnvSecret`.
+
+### Rolling restarts on content change
+
+With `checksums.existingSecrets: true` (the default), the checksum of each referenced Secret's contents is
+folded into a pod annotation, so editing a Secret triggers a rolling restart. `mysql.existingSecret` is
+intentionally excluded (connection details rarely change).
+
+### Example
+
+```yaml
+existingPropertiesSecret: my-extra-props   # additive; file prefixed 1001_ to override chart props
+existingPropertiesSecrets: [my-ldap, my-smtp] # additive; every existing*Secret above has such a plural list
+existingASConfigSecret: my-as-config       # replaces asConfig entirely
+existingEnvSecret: my-env                  # extra environment variables, last-wins on duplicate keys
+```
 
 ## Configuration
 

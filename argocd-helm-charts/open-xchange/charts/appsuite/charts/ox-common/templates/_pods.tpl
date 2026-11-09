@@ -13,8 +13,10 @@ Creates a list of image pull secrets and appends global.imagePullSecrets in case
 
 {{/*
 Generates basic attributes of a podspec to be used either in a Deployment, StatefulSet or Job (or anywhere else you need a Pod)
-From the .podRoot it pulls in: serviceAccountName, podSecurityContext/defaultPodSecurityContext or securityContext/defaultSecurityContext, nodeSelector, affinity and tolerations.
+From the .podRoot it pulls in: serviceAccountName, automountServiceAccountToken, podSecurityContext/defaultPodSecurityContext or securityContext/defaultSecurityContext, nodeSelector, affinity and tolerations.
 From the .global it pulls in: useDefaultSecurityContext.
+
+automountServiceAccountToken is only rendered when explicitly set (true or false); leaving it unset keeps the Kubernetes default. Set it to false for components that never call the Kubernetes API (CIS 5.1.6).
 
 Example:
 spec:
@@ -26,6 +28,9 @@ spec:
 {{- $global := .global -}}
 imagePullSecrets: {{ include "ox-common.pods.imagePullSecrets" (dict "imagePullSecrets" $podRoot.imagePullSecrets "global" $global ) | nindent 2 }}
 serviceAccountName: {{ include "ox-common.serviceaccount.name" (dict "podRoot" $podRoot "context" $context "global" $global) }}
+{{- if not (kindIs "invalid" $podRoot.automountServiceAccountToken) }}
+automountServiceAccountToken: {{ $podRoot.automountServiceAccountToken }}
+{{- end }}
 {{- if $podRoot.podSecurityContext }}
 securityContext: {{ toYaml $podRoot.podSecurityContext | nindent 2 }}
 {{- else if .global.Values.global -}}

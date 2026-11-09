@@ -1445,7 +1445,7 @@
               "legendFormat": "REConvs {{pod}}",
               "range": true,
               "refId": "C"
-            },
+            }
           ],
           "thresholds": [],
           "timeRegions": [],
