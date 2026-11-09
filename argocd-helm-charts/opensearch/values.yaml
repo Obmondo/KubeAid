@@ -17,7 +17,10 @@ backup:
   # deleteSchedule: "0 12 * * *"  # delete snapshot cron schedule (default: "20 18 * * *")
   # secret: s3-backup  # secret with s3 credentials
 opensearch:
-  # Helm chart points to 1.3.2, we want to use latest as of now which is 1.3.6
+  # Pinned: Graylog 7.2 supports OpenSearch up to 3.7.x, and the chart defaults to a newer version.
+  # OpenSearch can't downgrade, so a cluster already on a newer version must set its own tag.
+  image:
+    tag: "3.7.0"
   extraEnvs:
     - name: DISABLE_INSTALL_DEMO_CONFIG
       value: "false"

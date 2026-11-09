@@ -1,1 +1,6 @@
 networkpolicies: false
+
+opensearch-dashboards:
+  # Pinned to match the opensearch chart. Dashboards refuses to connect to an older OpenSearch minor version.
+  image:
+    tag: "3.7.0"
