@@ -2,6 +2,46 @@
 
 All releases and the changes included in them (pulled from git commits added since last release) will be detailed in this file.
 
+## KubeAid Release Version 37.0.0
+
+### Major Version Upgrades
+
+- 600026b65 Updated loki from version 20.2.1 to 21.0.0
+
+### Minor Version Upgrades
+
+- 600026b65 Updated hami from version 2.10.0 to 2.11.0
+- 600026b65 Updated mail from version 5.1.0 to 5.2.1
+- 600026b65 Updated appsuite from version 8.48.481 to 8.54.1446
+- 600026b65 Updated seaweedfs from version 4.51.0 to 4.52.0
+- 600026b65 Updated traefik from version 42.2.0 to 42.3.1
+
+### Patch Version Upgrades
+
+- 600026b65 Updated hcloud-cloud-controller-manager from version 1.39.2 to 1.39.3
+- 600026b65 Updated erpnext from version 8.0.90 to 8.0.91
+- 600026b65 Updated funkwhale from version 3.0.7 to 3.0.8
+- 600026b65 Updated actions from version 0.1.2 to 0.1.3
+- 600026b65 Updated gitlab-runner from version 0.94.2 to 0.94.3
+- 600026b65 Updated linuxaid-agents LinuxAid from version v1.8.12 to v1.8.13
+- 600026b65 Updated ntfy from version 0.5.24 to 0.5.25
+- 600026b65 Updated openobserve from version 1.1.3 to 1.1.4
+- 600026b65 Updated openobserve-collector from version 0.8.2 to 0.8.3
+- 600026b65 Updated teleport-cluster from version 18.11.8 to 18.11.9
+- 600026b65 Updated teleport-kube-agent from version 18.11.8 to 18.11.9
+
+### Features
+
+- 5d1ca3500 feat(kube-prometheus): adding Cilium mixin
+
+### Bug Fixes
+
+- 684566cab fix(opensearch): pin OpenSearch and Dashboards to 3.7.0
+- b471d912d fix(graylog): grant dbAdmin for Graylog 7.2 and update the upgrade guide
+- 1655c6198 fix(cilium): limit the private-CIDR host-firewall rule to node ports
+- a502ba500 fix(cilium): trust private-network CIDRs in the host firewall
+- c5a1d331e fix(matomo): turn off the marketplace and give archive runs 2 hours
+
 ## KubeAid Release Version 36.0.1
 
 ### Bug Fixes
