@@ -124,6 +124,11 @@ local mixins = remove_nulls([
     (import 'github.com/grafana/jsonnet-libs/opensearch-mixin/mixin.libsonnet'),
     vars,
   ),
+  addMixin(
+    'cilium-enterprise',
+    (import 'github.com/grafana/jsonnet-libs/cilium-enterprise-mixin/mixin.libsonnet'),
+    vars,
+  ),
   (
     if std.objectHas(vars, 'kube_prometheus_version') && vars.kube_prometheus_version == 'v0.13.0' then (
       addMixin(
