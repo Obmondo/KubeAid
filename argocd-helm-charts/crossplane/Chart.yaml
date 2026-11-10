@@ -1,7 +1,7 @@
 apiVersion: v2
 name: crossplane
-description: Crossplane core, the providers KubeAid supports with their provider configs, and the composite APIs KubeAid models on top of them
-version: 2.0.1
+description: Crossplane core and the Crossview UI
+version: 3.0.0
 dependencies:
   - name: crossplane
     version: "2.4.3"
@@ -10,7 +10,3 @@ dependencies:
     version: 4.6.0
     repository: https://crossplane-contrib.github.io/crossview
     condition: crossview.enabled
-  - name: compositions
-    version: 1.0.1
-    repository: file://charts/compositions
-    condition: compositions.enabled

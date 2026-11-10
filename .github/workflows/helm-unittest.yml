@@ -10,6 +10,7 @@ name: Helm Unittest
       - 'argocd-helm-charts/capi-cluster/**'
       - 'argocd-helm-charts/cilium/**'
       - 'argocd-helm-charts/crossplane/**'
+      - 'argocd-helm-charts/crossplane-compositions/**'
       - '.github/workflows/helm-unittest.yml'
 
 permissions:
@@ -40,14 +41,14 @@ jobs:
             helmunittest/helm-unittest:latest \
             charts/aws charts/azure charts/hetzner
 
-      - name: Run helm-unittest on the crossplane charts
+      - name: Run helm-unittest on the crossplane-compositions chart
         run: |
           docker run --rm \
             --user "$(id -u):$(id -g)" \
             -e HOME=/tmp \
             -v "$PWD/argocd-helm-charts:/apps" \
             helmunittest/helm-unittest:latest \
-            crossplane crossplane/charts/compositions
+            crossplane-compositions
 
       - name: Run helm-unittest on the cilium chart
         run: |
