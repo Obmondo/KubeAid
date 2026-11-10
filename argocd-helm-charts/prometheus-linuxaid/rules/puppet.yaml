@@ -1,8 +1,28 @@
+# Which nodes the Puppet alerts below cover.
+#
+# A series is in scope when its own `environment` label is a release (tag) environment, OR when
+# the node itself reports which environment it is configured to run in (any environment, including
+# master or a branch). That configured environment comes
+# from the Obmondo API (/servers/environment/certname/<certname>) and is resolved by
+# `linuxaid-cli run-openvox`, which exports it through the node_exporter textfile collector as
+#
+#   linuxaid_openvox_environment_info{certname="<certname>", environment="<env>", source="<source>"} 1
+#
+# where `source` is how linuxaid-cli resolved it: api, service_window, flag, opensource or
+# fallback (the API could not be reached / gave no answer and the default `master` was used).
+#
+# puppet_* series come from the Puppet server's prometheus reporter and carry the certname as
+# `host`, so the node-side series are joined with label_replace(..., "host", "$1", "certname", "(.+)").
 groups:
   - name: monitor::system::puppet::last_run
     rules:
     - alert: monitor::system::puppet::last_run
-      expr: time() - puppet_report{environment=~"v?[0-9]+_[0-9]+_[0-9]+",host!~".+.niwyocdmk2"} >= 86400 * 1
+      expr: |-
+        (
+          time() - puppet_report{host!~".+.niwyocdmk2",environment=~"v?[0-9]+_[0-9]+_[0-9]+"} >= 86400 * 1
+          or
+          (time() - puppet_report{host!~".+.niwyocdmk2"} >= 86400 * 1 and on (host) label_replace(linuxaid_openvox_environment_info, "host", "$1", "certname", "(.+)"))
+        )
       for: 24h
       labels:
         alert_id: 'monitor::system::puppet::last_run'
@@ -15,7 +35,14 @@ groups:
           This could be due to any number of things, e.g. Puppet crashing or hanging, or cron/systemd timers being broken.
 
     - alert: monitor::system::puppet::total_resources
-      expr: count(puppet_status{state="failed",environment=~"v?[0-9]+_[0-9]+_[0-9]+"} == 1) > 5
+      expr: |-
+        count(
+          (
+            puppet_status{state="failed",environment=~"v?[0-9]+_[0-9]+_[0-9]+"} == 1
+            or
+            (puppet_status{state="failed"} == 1 and on (host) label_replace(linuxaid_openvox_environment_info, "host", "$1", "certname", "(.+)"))
+          )
+        ) > 5
       for: 48h
       labels:
         alert_id: 'monitor::system::puppet::total_resources'
@@ -27,9 +54,119 @@ groups:
 
           You can get the list of nodes on prom dashboard by running this query
           ```sh
-          sum by (host) (puppet_status{environment=~"v?[0-9]+_[0-9]+_[0-9]+",state="failed"} == 1)
+          sum by (host) (puppet_status{state="failed"} == 1)
           ```
 
           Puppetboard for the corresponding node should show that the past
           Puppet runs has resulted in failures:
+          https://dashboard.obmondo.com/nodes?status=failed
+
+  - name: monitor::system::puppet::environment
+    rules:
+    # The environment of the last Puppet run differs from the one configured for the server.
+    # Only fires for nodes that export linuxaid_openvox_environment_info; the
+    # `and on (host)` keeps nodes without it (older linuxaid-cli) out of the alert.
+    - alert: monitor::system::puppet::environment_mismatch
+      expr: |-
+        (
+          max by (host, environment) (puppet_report)
+          unless on (host, environment)
+          max by (host, environment) (
+            label_replace(linuxaid_openvox_environment_info == 1, "host", "$1", "certname", "(.+)")
+          )
+        )
+        and on (host)
+        max by (host) (
+          label_replace(linuxaid_openvox_environment_info == 1, "host", "$1", "certname", "(.+)")
+        )
+      for: 3h
+      labels:
+        alert_id: 'monitor::system::puppet::environment_mismatch'
+        severity: warning
+      annotations:
+        summary: 'Puppet on **{{ $labels.host }}** ran in environment **{{ $labels.environment }}**, not the configured **{{ $labels.host | printf "linuxaid_openvox_environment_info{certname=\"%s\"}" | query | first | label "environment" }}**'
+        description: |-2
+          The last Puppet run on **{{ $labels.host }}** used environment **{{ $labels.environment }}**,
+          but the server is configured to run in **{{ $labels.host | printf "linuxaid_openvox_environment_info{certname=\"%s\"}" | query | first | label "environment" }}**
+          (resolved via **{{ $labels.host | printf "linuxaid_openvox_environment_info{certname=\"%s\"}" | query | first | label "source" }}**).
+
+          Common causes:
+          - Puppet was run by hand (`puppet agent -t --environment ...`) or by something other than `linuxaid-cli run-openvox`.
+          - The configured environment does not exist on the Puppet server, so the run could not use it.
+          - `environment` is pinned in `/etc/puppetlabs/puppet/puppet.conf`.
+
+          Check the last run with:
+          ```sh
+          grep -E '^ *environment:' /opt/puppetlabs/puppet/cache/state/last_run_report.yaml
+          journalctl -u run-openvox.service -n 100
+          ```
+
+    # linuxaid-cli could not get the configured environment from the Obmondo API and fell back
+    # to the default (master), so the node is not running the release it should.
+    - alert: monitor::system::puppet::environment_fallback
+      expr: |-
+        max by (certname, environment) (linuxaid_openvox_environment_info{source="fallback"} == 1)
+      for: 6h
+      labels:
+        alert_id: 'monitor::system::puppet::environment_fallback'
+        severity: warning
+      annotations:
+        summary: 'Puppet on **{{ $labels.certname }}** fell back to environment **{{ $labels.environment }}** because the configured environment could not be resolved'
+        description: |-2
+          `linuxaid-cli run-openvox` on **{{ $labels.certname }}** could not resolve the server's
+          configured environment from the Obmondo API (unreachable, non-200 response or empty answer)
+          and ran Puppet in the default environment **{{ $labels.environment }}** instead.
+
+          Check API connectivity and the run-openvox logs on the node:
+          ```sh
+          journalctl -u run-openvox.service -n 100
+          cat /var/lib/node_exporter/obmondo_domains_reachable.prom
+          ```
+
+  - name: monitor::system::puppet::run
+    rules:
+    # The agent could not get a fresh catalog (compile error, missing environment, server
+    # unreachable) and applied its cached catalog instead, so changes are not being rolled out.
+    - alert: monitor::system::puppet::catalog_failure
+      expr: |-
+        (
+          puppet_cache_catalog_status{state="on_failure",environment=~"v?[0-9]+_[0-9]+_[0-9]+"} == 1
+          or
+          (puppet_cache_catalog_status{state="on_failure"} == 1 and on (host) label_replace(linuxaid_openvox_environment_info, "host", "$1", "certname", "(.+)"))
+        )
+      for: 6h
+      labels:
+        alert_id: 'monitor::system::puppet::catalog_failure'
+        severity: warning
+      annotations:
+        summary: 'Puppet on **{{ $labels.host }}** is applying a cached catalog in environment **{{ $labels.environment }}**'
+        description: |-2
+          Puppet on **{{ $labels.host }}** could not retrieve a new catalog for environment
+          **{{ $labels.environment }}** and fell back to the cached one, so no new configuration is
+          being applied to the node.
+
+          Typical causes are a catalog compilation error, the environment missing on the Puppet
+          server, or the Puppet server being unreachable. Run `puppet agent -t --noop --environment {{ $labels.environment }}`
+          on the node to see the error, or check Puppetboard:
+          https://dashboard.obmondo.com/nodes?status=failed
+
+    - alert: monitor::system::puppet::run_failed
+      expr: |-
+        (
+          puppet_status{state="failed",environment=~"v?[0-9]+_[0-9]+_[0-9]+"} == 1
+          or
+          (puppet_status{state="failed"} == 1 and on (host) label_replace(linuxaid_openvox_environment_info, "host", "$1", "certname", "(.+)"))
+        )
+      for: 24h
+      labels:
+        alert_id: 'monitor::system::puppet::run_failed'
+        severity: warning
+      annotations:
+        summary: 'Puppet runs on **{{ $labels.host }}** have been failing for more than a day'
+        description: |-2
+          Every Puppet run on **{{ $labels.host }}** in environment **{{ $labels.environment }}**
+          during the last 24 hours has ended with status `failed` (one or more resources failed to
+          apply, or the run aborted).
+
+          Check the failed resources on Puppetboard:
           https://dashboard.obmondo.com/nodes?status=failed
