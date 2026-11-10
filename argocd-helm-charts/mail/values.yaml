@@ -5,3 +5,10 @@ mail:
   # mail. Config changes still restart the pod through the chart's checksum
   # annotation.
   recreateOnRedeploy: false
+  config:
+    postfix:
+      # Don't offer STARTTLS to in-cluster clients. Without a certificate the
+      # image serves its self-signed snakeoil one (issued to localhost), and
+      # clients that verify it, like Go's net/smtp, then fail every send.
+      # Outbound TLS to RELAYHOST is set by smtp_tls_security_level instead.
+      smtpd_tls_security_level: "none"
