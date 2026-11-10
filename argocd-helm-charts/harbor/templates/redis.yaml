@@ -13,8 +13,9 @@ spec:
       requests:
         cpu: null
         memory: 128Mi
+      # No CPU limit: throttling made redis miss its 1s liveness probe and
+      # restart in a loop, taking jobservice down with it.
       limits:
-        cpu: 101m
         memory: 256Mi
   redisExporter:
     enabled: true
