@@ -14,6 +14,12 @@ as a dependency so the chart updater follows its releases.
   Argo CD the chart is rendered continuously, so the app never reaches Synced and every sync
   restarts mail. The chart's `checksum/configmap` annotation still restarts the pod when the
   configuration changes.
+- **`mail.config.postfix.smtpd_tls_security_level: "none"`.** The image offers STARTTLS on the
+  submission port with its self-signed snakeoil certificate, issued to `localhost`. Clients that
+  switch to TLS when it is offered and verify the certificate, such as Go's `net/smtp`, then fail
+  every send with `x509: certificate is valid for localhost, not mail.system`. The relay is only
+  reachable inside the cluster, so it doesn't offer TLS. This doesn't affect TLS from the relay to
+  `RELAYHOST`, which `smtp_tls_security_level` controls.
 
 ## Key values
 
@@ -33,4 +39,6 @@ Before 5.1.0 this directory held a copy of the upstream chart whose `appVersion`
 placeholder `v1.0.0`, and the chart uses `appVersion` as the image tag. Clusters on that copy run
 `boky/postfix:v1.0.0`, released in January 2019. Moving to this chart moves them to
 `boky/postfix:v5.1.0`, which also changes the base image from Alpine to Debian slim (upstream v4).
-After syncing, send a test mail through the relay.
+The v5 image also started offering STARTTLS with its self-signed certificate, which broke sending
+for clients that verify it; see `smtpd_tls_security_level` above. After syncing, send a test mail
+through the relay.
