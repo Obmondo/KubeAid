@@ -40,7 +40,9 @@ Upstream values live under the `zfs-localpv:` key; the chart adds one KubeAid-sp
   zfs-csi-controller-critical` — dedicated `PriorityClass`es, created by default.
 - `storageClass.enabled` (default `false`, chart-added key) — when `true`, `templates/storageclass.yaml` renders
   a `zfs-localpv` `StorageClass` (and, if `storageClass.shared: true`, also a `zfs-localpv-shared` one) using
-  `storageClass.poolName` (**required** when enabled) and `storageClass.reclaimPolicy` (default `Delete`). See
+  `storageClass.poolName` (**required** when enabled), `storageClass.reclaimPolicy` (default `Delete`) and
+  `storageClass.volumeBindingMode` (default `WaitForFirstConsumer`, so the volume is created on the node the pod
+  is scheduled to and pod anti-affinity is honoured). See
   [examples/values-storageclass.yaml](examples/values-storageclass.yaml) for a worked example; confirm with
   `kubectl get sc` once deployed.
 - `zfs-localpv.crds.csi.volumeSnapshots.enabled` / `zfsController.snapshotController.enabled`: `false` — the
@@ -59,6 +61,19 @@ pod. On a cluster that ran those, roll out in this order:
 Syncing zfs-localpv with pruning while it still owns the CRDs can delete them, and every `VolumeSnapshot`,
 `VolumeSnapshotContent` and `VolumeSnapshotClass` with them. To keep the bundled pieces instead, set both values
 back to `true` and don't run the snapshot-controller chart.
+
+The StorageClasses used to be created with the default `volumeBindingMode: Immediate`, which places the volume
+before the pod. A StatefulSet with pod anti-affinity could then get two replicas' volumes on the same node and
+leave one replica Pending for good. `volumeBindingMode` can't be changed in place, so the sync fails until the old
+StorageClasses are deleted:
+
+```sh
+kubectl delete storageclass zfs-localpv zfs-localpv-shared
+```
+
+Then sync zfs-localpv to recreate them. Existing PersistentVolumes and PVCs are not affected, but new PVCs can't be
+provisioned in between, so sync right away. To keep the old behaviour, set `storageClass.volumeBindingMode:
+Immediate`. A volume already on the wrong node still has to be recreated (delete its PVC and pod).
 
 ## Docs links
 

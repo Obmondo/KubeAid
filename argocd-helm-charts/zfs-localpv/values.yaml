@@ -57,3 +57,9 @@ zfs-localpv:
 storageClass:
   enabled: false
   shared: true
+  # WaitForFirstConsumer picks the node once the pod is scheduled, so pod
+  # (anti-)affinity is honoured. With Immediate the volume lands on a node
+  # first, and a StatefulSet replica can end up pinned next to another one.
+  # The field is immutable: switching an existing StorageClass means deleting
+  # it first (see README).
+  volumeBindingMode: WaitForFirstConsumer

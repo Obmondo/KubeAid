@@ -16,6 +16,7 @@ parameters:
   shared: "yes"
 provisioner: zfs.csi.openebs.io
 reclaimPolicy: {{ .Values.storageClass.reclaimPolicy | default "Delete" }}
+volumeBindingMode: {{ .Values.storageClass.volumeBindingMode | default "WaitForFirstConsumer" }}
   {{- end }}
 ---
 apiVersion: storage.k8s.io/v1
@@ -32,4 +33,5 @@ parameters:
   poolname: {{ required "poolName is required for storage class " .Values.storageClass.poolName }}
 provisioner: zfs.csi.openebs.io
 reclaimPolicy: {{ .Values.storageClass.reclaimPolicy | default "Delete" }}
+volumeBindingMode: {{ .Values.storageClass.volumeBindingMode | default "WaitForFirstConsumer" }}
 {{- end -}}
