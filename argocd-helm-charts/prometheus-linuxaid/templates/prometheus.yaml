@@ -76,3 +76,7 @@ spec:
     certname: obmondomon.{{ .Values.prometheus.customerid }}
     {{- end }}
   enableRemoteWriteReceiver: true
+  {{- with .Values.prometheus.remoteWrite }}
+  remoteWrite:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
