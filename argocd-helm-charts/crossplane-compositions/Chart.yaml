@@ -1,0 +1,4 @@
+apiVersion: v2
+name: crossplane-compositions
+description: The Crossplane providers KubeAid supports with their provider configs, the composition functions, and the composite APIs KubeAid models on top of them
+version: 1.0.0
