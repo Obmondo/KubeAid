@@ -8,7 +8,7 @@ groups:
         alert_id: 'monitor::system::puppet::last_run'
         severity: warning
       annotations:
-        summary: 'Puppet has not run on **{{ $labels.host }}** for more than {{ $value | humanizeDuration }}'
+        summary: 'Puppet has not run on **{{ $labels.host }}** for more than 2 days'
         description: |-2
           Last Puppet run on **{{ $labels.host }}** was on {{ $labels.host | printf "puppet_report{host=\"%s\"}" | query | first | value | humanizeTimestamp }}, more than the limit of 2 days ago.
 
