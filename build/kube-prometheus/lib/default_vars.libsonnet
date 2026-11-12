@@ -24,6 +24,8 @@
   alert_namespace_selector: null,
   // Alert names dropped from every rule the build renders on this cluster.
   excluded_alerts: [],
+  // Fields merged into the named alerts, e.g. { AlertName: { expr: '...' } }.
+  alert_overrides: {},
   prometheus_resources: {
     limits: { memory: '3Gi' },
     requests: { cpu: '200m', memory: '2500Mi' },

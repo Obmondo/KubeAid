@@ -24,16 +24,26 @@ addMixins: {
 
 See `lib/default_vars.libsonnet` for the full list of defaults.
 
-## Skipping alerts per cluster
+## Skipping or changing alerts per cluster
 
-Two settings in the cluster vars file:
+Three settings in the cluster vars file:
 
 - `alert_namespace_selector` adds a PromQL matcher to the kubernetes-mixin's app, resource and storage alerts (pod, deployment, job, quota and volume alerts). The default `null` alerts on every namespace.
 - `excluded_alerts` drops the named alerts from every rule the build renders, kube-prometheus and mixins alike. The default `[]` keeps them all.
+- `alert_overrides` merges fields into the named alerts, for example a narrower `expr` or a longer `for`. Name, annotations and anything not overridden stay as rendered. The build fails if an override names an alert it does not render. The default `{}` changes nothing.
 
 ```jsonnet
 alert_namespace_selector: 'namespace!~"dev-.*"',
 excluded_alerts: ['KubeJobNotCompleted'],
+alert_overrides: {
+  NodeSystemSaturation: {
+    expr: |||
+      node_load1{job="node-exporter"}
+      / count without (cpu, mode) (node_cpu_seconds_total{job="node-exporter", mode="idle"}) > 2
+      unless on (instance) label_replace(kube_node_labels{label_usage="batch"}, "instance", "$1", "node", "(.*)")
+    |||,
+  },
+},
 ```
 
 To skip an alert only in some namespaces or for some labels, use an Alertmanager route instead.
