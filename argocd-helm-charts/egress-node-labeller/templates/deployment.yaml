@@ -1,0 +1,43 @@
+---
+{{- if .Values.floatingIPName | trim | eq "" }}
+{{- fail "floatingIPName must be provided" }}
+{{- end }}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app: {{ .Release.Name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      serviceAccountName: {{ .Release.Name }}
+      containers:
+      - name: {{ .Release.Name }}
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        args:
+        - --floating-ip-name={{ .Values.floatingIPName }}
+        - --cron-interval={{ .Values.cronInterval }}
+        # Kubernetes expands $(HCLOUD_TOKEN) from the env below.
+        - --hcloud-token=$(HCLOUD_TOKEN)
+        env:
+        - name: HCLOUD_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.cloudCredentialsSecretName }}
+              key: {{ .Values.cloudCredentialsSecretKey }}
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65534
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]

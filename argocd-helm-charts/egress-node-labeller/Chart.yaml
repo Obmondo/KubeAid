@@ -1,0 +1,7 @@
+apiVersion: v2
+name: egress-node-labeller
+description: |
+  A Helm Chart that keeps the Cilium egress gateway node label on exactly the HCloud node holding a
+  given Hetzner Cloud Floating IP.
+version: 0.1.0
+appVersion: "1.0.0"
