@@ -140,3 +140,4 @@ alertmanager:
 middleware:
   jwt:
     enabled: false
+    public_keys: []
