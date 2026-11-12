@@ -80,6 +80,40 @@ The proxy must be configured to serve those upstream paths under its prefix (an 
 pull-through cache rule, an ACR cache rule, a Harbor proxy project named after the
 upstream host).
 
+## Argo CD OutOfSync with mutating image policies
+
+`harbor-proxy-cache-mutate` and `replace-container-image-registries` rewrite container
+images at admission (for example `nginx:1.27` →
+`<proxy>/docker.io/library/nginx:1.27`). Git still has the original image; the live
+object has the rewritten one. Argo CD’s default diff compares raw desired vs live, so
+Applications stay permanently OutOfSync on the image field even though the cluster is
+correct.
+
+**Fix:** on each Argo CD Application whose workloads those policies mutate, set:
+
+```yaml
+metadata:
+  annotations:
+    argocd.argoproj.io/compare-options: ServerSideDiff=true,IncludeMutationWebhook=true
+```
+
+Put this on the **Application that owns the mutated Deployments/StatefulSets/…**, in the
+customer `kubeaid-config` templates — not on the `kyverno` Application alone, and not in
+the workload chart `values.yaml`. Prefer annotating only apps that actually ship images
+the policy rewrites (for `pullThroughCache` with `upstreamRegistries: [docker.io]`, that
+means confirmed `docker.io` / short-name images). Optional: also use
+`ServerSideApply=true` in `syncOptions`.
+
+With that annotation, Argo dry-runs the mutation webhook when computing the diff, so
+desired is already post-mutation. A real tag bump still shows as OutOfSync; the proxy
+prefix alone does not. Sync still sends the git image; Kyverno mutates the same
+admission request.
+
+Background:
+
+- [Argo CD diff strategies](https://argo-cd.readthedocs.io/en/stable/user-guide/diff-strategies/)
+- [GitOps and mutating policies (CNCF)](https://www.cncf.io/blog/2024/01/18/gitops-and-mutating-policies-the-tale-of-two-loops/)
+
 ## sync-secrets
 
 Copies a Secret from one namespace into every matching namespace and keeps the copies in
