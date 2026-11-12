@@ -75,7 +75,7 @@ tests:
               alert_id: 'monitor::system::puppet::last_run'
               environment: "1_0_0"
             exp_annotations:
-              summary: 'Puppet has not run on **atat.example** for more than 2d 2h 0m 0s'
+              summary: 'Puppet has not run on **atat.example** for more than 2 days'
               description: |-2
                 Last Puppet run on **atat.example** was on 1970-01-01 00:00:00 +0000 UTC, more than the limit of 2 days ago.
 
