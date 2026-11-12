@@ -169,6 +169,32 @@ test.suite({
     expect: true,
   },
 
+  // ── alert_overrides type checks ─────────────────────────────────────────
+
+  testAlertOverrides_validPasses: {
+    local vars = cfgKubeadmFull { alert_overrides: { NodeSystemSaturation: { expr: 'vector(1)', 'for': '30m' } } },
+    actual: noErrors(vars),
+    expect: true,
+  },
+
+  testAlertOverrides_mustBeObject: {
+    local vars = cfgKubeadmFull { alert_overrides: ['NodeSystemSaturation'] },
+    actual: hasError(vars, 'alert_overrides must be an object'),
+    expect: true,
+  },
+
+  testAlertOverrides_entryMustBeObject: {
+    local vars = cfgKubeadmFull { alert_overrides: { NodeSystemSaturation: 'vector(1)' } },
+    actual: hasError(vars, 'alert_overrides entries must be objects'),
+    expect: true,
+  },
+
+  testAlertOverrides_entryCannotRename: {
+    local vars = cfgKubeadmFull { alert_overrides: { NodeSystemSaturation: { alert: 'Other' } } },
+    actual: hasError(vars, 'alert_overrides entries must be objects'),
+    expect: true,
+  },
+
   // ── multiple errors returned at once ────────────────────────────────────
 
   testMultipleErrors_countedCorrectly: {
