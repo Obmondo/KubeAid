@@ -22,6 +22,7 @@ drift, systemd services, HAProxy, Docker, backups, and more (see `rules/` and `t
 | `prometheus.connect_obmondo` | Feed alerts into Opsmondo | `false` |
 | `prometheus.subscribed-certname` | Puppet certname this Prometheus instance is subscribed under | `""` |
 | `prometheus.customerid` | Obmondo customer ID | `""` |
+| `prometheus.remoteWrite` | Prometheus Operator `remoteWrite` entries, passed through as is | `[]` |
 | `prometheus.storage.size` / `.className` | Prometheus PVC size/class | `30Gi` / `rook-ceph-block` |
 | `prometheusRule.<name>` | Per-alert-group toggle (`disk`, `dns`, `haproxy`, `zfs`, `smartmon`, ~25 more) | mostly `true` |
 | `alertmanager.enabled` | Deploy Alertmanager | `true` |
