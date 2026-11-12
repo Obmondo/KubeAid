@@ -9,6 +9,7 @@ open-xchange                     # requires user-supplied values to render
 lemmy                            # requires user-supplied values to render
 hcloud-fip-controller            # requires user-supplied values to render
 hetzner-robot                    # requires user-supplied values to render
+egress-node-labeller             # requires user-supplied values to render
 metallb                          # requires user-supplied values to render
 odoo                             # requires user-supplied values to render
 peertube                         # requires user-supplied values to render
