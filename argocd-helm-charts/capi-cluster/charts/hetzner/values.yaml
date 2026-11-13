@@ -206,6 +206,19 @@ controlPlane:
       # @schema
       region: hel1
 
+  machineHealthCheck:
+    # @schema
+    # type: [integer, "null"]
+    # minimum: 1
+    # description: |
+    #   Seconds a control-plane node may stay NotReady (Ready=False or Unknown) before the
+    #   control-plane MachineHealthCheck marks its Machine unhealthy and KubeadmControlPlane
+    #   replaces it. null uses the mode default: 600 for mode=bare-metal, 180 for hcloud and
+    #   hybrid. On bare metal the replacement is a full reinstall of the server, and a plain
+    #   reboot (firmware POST plus OS boot) often takes longer than 3 minutes.
+    # @schema
+    unhealthyTimeoutSeconds: null
+
   # @schema
   # type: [object, "null"]
   # additionalProperties: true

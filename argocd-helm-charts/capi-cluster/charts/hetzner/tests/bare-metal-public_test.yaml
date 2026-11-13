@@ -118,3 +118,27 @@ tests:
       - matchRegex:
           path: spec.kubeadmConfigSpec.preKubeadmCommands[14]
           pattern: "for kubeadm_config in /run/kubeadm/kubeadm.yaml /run/kubeadm/kubeadm-join-config.yaml /kubeadm-join-config.yaml"
+
+  - it: waits 10 minutes before remediating a NotReady bare-metal control-plane node
+    template: MachineHealthCheck.yaml
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.checks.unhealthyNodeConditions[0].timeoutSeconds
+          value: 600
+      - equal:
+          path: spec.checks.unhealthyNodeConditions[1].timeoutSeconds
+          value: 600
+
+  - it: lets the control-plane MachineHealthCheck timeout be overridden
+    template: MachineHealthCheck.yaml
+    set:
+      controlPlane.machineHealthCheck.unhealthyTimeoutSeconds: 900
+    asserts:
+      - equal:
+          path: spec.checks.unhealthyNodeConditions[0].timeoutSeconds
+          value: 900
+      - equal:
+          path: spec.checks.unhealthyNodeConditions[1].timeoutSeconds
+          value: 900

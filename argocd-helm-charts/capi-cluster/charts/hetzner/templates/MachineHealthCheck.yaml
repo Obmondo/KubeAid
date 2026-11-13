@@ -8,12 +8,13 @@ spec:
   clusterName: {{ .Values.global.clusterName }}
   checks:
     nodeStartupTimeoutSeconds: 900
+    {{- $unhealthyTimeout := .Values.controlPlane.machineHealthCheck.unhealthyTimeoutSeconds | default 180 }}
     unhealthyNodeConditions:
     - status: Unknown
-      timeoutSeconds: 180
+      timeoutSeconds: {{ $unhealthyTimeout }}
       type: Ready
     - status: "False"
-      timeoutSeconds: 180
+      timeoutSeconds: {{ $unhealthyTimeout }}
       type: Ready
   remediation:
     triggerIf:
@@ -41,12 +42,18 @@ spec:
          forever. One hour covers the slowest observed installs with
          headroom while still catching genuinely dead hardware. */}}
     nodeStartupTimeoutSeconds: 3600
+    {{- /* Remediating a bare-metal control plane means a full reinstall of the
+         server and an etcd member removal. A plain reboot of a dedicated server
+         (firmware POST plus OS boot) often runs past 3 minutes, so the HCloud
+         180s threshold reinstalls nodes that were only rebooting. 10 minutes
+         still catches a server that is really down. */}}
+    {{- $unhealthyTimeout := .Values.controlPlane.machineHealthCheck.unhealthyTimeoutSeconds | default 600 }}
     unhealthyNodeConditions:
     - status: Unknown
-      timeoutSeconds: 180
+      timeoutSeconds: {{ $unhealthyTimeout }}
       type: Ready
     - status: "False"
-      timeoutSeconds: 180
+      timeoutSeconds: {{ $unhealthyTimeout }}
       type: Ready
   remediation:
     triggerIf:
