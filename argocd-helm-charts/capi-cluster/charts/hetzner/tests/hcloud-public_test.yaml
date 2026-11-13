@@ -62,3 +62,16 @@ tests:
     asserts:
       - hasDocuments:
           count: 0
+
+  - it: keeps the 180s control-plane MachineHealthCheck timeout on HCloud
+    template: MachineHealthCheck.yaml
+    documentSelector:
+      path: metadata.name
+      value: demo-control-plane-unhealthy-5m
+    asserts:
+      - equal:
+          path: spec.checks.unhealthyNodeConditions[0].timeoutSeconds
+          value: 180
+      - equal:
+          path: spec.checks.unhealthyNodeConditions[1].timeoutSeconds
+          value: 180
