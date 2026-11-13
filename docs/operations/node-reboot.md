@@ -5,6 +5,8 @@ k8s resources are usually independent of any specific node and kubectl makes thi
 NOTE - you would still need to verify the resources which utilises PVCs and ensure that PVCs
 are detachable and re-attachable so that pods do not suffer while getting migrated from one node to another.
 
+On Hetzner bare-metal clusters, follow [Reboot a Hetzner bare-metal node](./hetzner-bare-metal-node-reboot.md) instead.
+
 ## Steps
 
 1. You need to cordon the node. ```cordoning``` marks a node as unscheduled so that no new pods are placed there
