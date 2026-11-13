@@ -142,3 +142,23 @@ tests:
       - equal:
           path: spec.checks.unhealthyNodeConditions[1].timeoutSeconds
           value: 900
+
+  - it: only moves a UEFI PXE IPv4 entry to the front of the EFI boot order
+    template: KubeadmControlPlane.yaml
+    asserts:
+      - matchRegex:
+          path: spec.kubeadmConfigSpec.preKubeadmCommands[1]
+          pattern: "grep 'MAC\\(' \\| grep 'IPv4\\(' \\| grep -v 'Uri\\('"
+      - notMatchRegex:
+          path: spec.kubeadmConfigSpec.preKubeadmCommands[1]
+          pattern: "Network \\(Card"
+
+  - it: uses the same boot-order script after the OS image is installed
+    template: HetznerBareMetalMachineTemplate.yaml
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.installImage.postInstallScript
+          pattern: "grep 'MAC\\(' \\| grep 'IPv4\\(' \\| grep -v 'Uri\\('"
+      - notMatchRegex:
+          path: spec.template.spec.installImage.postInstallScript
+          pattern: "Network \\(Card"
