@@ -63,29 +63,8 @@ All applications should show `Healthy` and `Synced` status.
 
 ## Cluster Upgrade
 
-### Before Upgrading
-
-1. **Backup important data** - Export any critical secrets or configurations
-2. **Review changelogs** - Check for breaking changes in the new Kubernetes version
-3. **Test in staging** - If possible, test the upgrade on a non-production cluster first
-
-### Upgrade Command
-
-To upgrade the Kubernetes version of your cluster, edit `cluster.k8sVersion` in your `general.yaml`, then run:
-
-```bash
-kubeaid-cli cluster upgrade --cluster-name <cluster>
-```
-
-The command upgrades the cluster to the Kubernetes version (and machine images) declared in `general.yaml`. Its
-only flag is `--skip-pr-workflow`, which pushes the resulting kubeaid-config changes directly to the default
-branch instead of opening a PR.
-
-> **Note:** Always review the [Kubernetes changelog](https://kubernetes.io/releases/) before upgrading.
->
-> **EKS / AKS clusters:** `cluster upgrade` refuses to run - the managed control plane is upgraded the GitOps way.
-> Bump `global.kubernetes.version` in `argocd-apps/values-capi-cluster.yaml` in your kubeaid-config repo and let
-> ArgoCD sync; CAPA/CAPZ then upgrade the control plane and roll the node groups.
+For detailed instructions on upgrading Kubernetes clusters and troubleshooting common rollout roadblocks
+(such as stuck node drains or PDBs), see the [Cluster Upgrade Guide](../operations/cluster-upgrade.md).
 
 ---
 

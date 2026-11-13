@@ -65,12 +65,8 @@ table in the [Getting Started guide](./getting-started/README.md#choosing-your-p
 
 ## How do I upgrade Kubernetes - and why is EKS/AKS different?
 
-For self-managed clusters, edit `cluster.k8sVersion` in your `general.yaml` and run `kubeaid-cli cluster upgrade`;
-the CLI upgrades the cluster to the declared Kubernetes version and machine images. On EKS and AKS, `cluster upgrade`
-refuses to run because the control plane is owned by the cloud provider - instead you bump
-`global.kubernetes.version` in `argocd-apps/values-capi-cluster.yaml` in your kubeaid-config repo and let ArgoCD
-sync, after which CAPA/CAPZ upgrade the control plane and roll the node groups. See
-[Basic Operations](./getting-started/basic-operations.md#cluster-upgrade).
+For complete instructions and troubleshooting for upgrading Kubernetes across self-managed and managed control plane clusters,
+see the [Cluster Upgrade Guide](./operations/cluster-upgrade.md).
 
 ## How are secrets handled?
 
