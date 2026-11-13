@@ -38,6 +38,7 @@ Problem-oriented guides for a running cluster:
 | [Backup & Restore](./operations/backup-restore.md) | Disaster recovery procedures and backup health checks |
 | [Backup Exporter](./guides/backup-exporter.md) | Alerting on Velero, PostgreSQL, MongoDB and Sealed Secrets backups |
 | [Node Reboot](./operations/node-reboot.md) | Safe node maintenance |
+| [Hetzner Bare-Metal Node Reboot](./operations/hetzner-bare-metal-node-reboot.md) | Step-by-step reboot of a Hetzner dedicated server node, e.g. onto a new kernel |
 | [Node Disk Repair](./operations/fixing-a-k8s-node-disk.md) | Replace and fix corrupted node disks |
 | [ArgoCD Apps Service Window](./operations/argocd-apps-service-window.md) | Service windows and stakeholder communication for app updates |
 | [Update KubeAid ArgoCD Apps](./operations/update-kubeaid-argocd-apps.md) | Rolling KubeAid application updates to a cluster |
