@@ -1,31 +1,25 @@
 annotations:
   artifacthub.io/changes: |
     - kind: changed
-      description: "Upgrade Chart's version to 2026.5.1003"
+      description: "Upgrade Chart's version to 2026.5.1004"
     - kind: changed
-      description: "Upgrade SonarQube Server to 2026.5.3"
+      description: "Upgrade SonarQube Server to 2026.5.4"
     - kind: changed
-      description: "Upgrade the Agentic Runtimes (Agent Orchestrator, Hunter Agent, Remediation Agent) to 2026.5.1"
-    - kind: changed
-      description: "Upgrade Vortex to 2026.5.1"
-    - kind: changed
-      description: "Upgrade the MCP server to 2026.5.1"
-    - kind: changed
-      description: "Upgrade the Agent Egress Proxy image to ubuntu/squid 7.2-26.04_edge (Squid 7.7)"
-  artifacthub.io/containsSecurityUpdates: "true"
+      description: "Upgrade the Agent Orchestrator and Hunter Agent to 2026.5.2"
+  artifacthub.io/containsSecurityUpdates: "false"
   artifacthub.io/images: |
     - name: sonarqube-community
       image: sonarqube:26.9.0.129388-community
     - name: sonarqube-developer
-      image: sonarqube:2026.5.3-developer
+      image: sonarqube:2026.5.4-developer
     - name: sonarqube-enterprise
-      image: sonarqube:2026.5.3-enterprise
+      image: sonarqube:2026.5.4-enterprise
     - name: sonarqube-mcp
       image: sonarsource/sonarqube-mcp:2026.5.1
     - name: sonarqube-agent-orchestrator
-      image: sonarsource/sonarqube-agent-orchestrator:2026.5.1
+      image: sonarsource/sonarqube-agent-orchestrator:2026.5.2
     - name: sonarqube-hunter-agent
-      image: sonarsource/sonarqube-hunter-agent:2026.5.1
+      image: sonarsource/sonarqube-hunter-agent:2026.5.2
     - name: sonarqube-remediation-agent
       image: sonarsource/sonarqube-remediation-agent:2026.5.1
     - name: sonar-vortex
@@ -37,7 +31,7 @@ annotations:
       url: https://github.com/SonarSource/helm-chart-sonarqube/tree/master/charts/sonarqube
   charts.openshift.io/name: sonarqube
 apiVersion: v2
-appVersion: 2026.5.3
+appVersion: 2026.5.4
 dependencies:
 - condition: keda.enabled
   name: keda
@@ -80,4 +74,4 @@ sources:
 - https://github.com/SonarSource/docker-sonarqube
 - https://github.com/SonarSource/sonarqube
 type: application
-version: 2026.5.1003
+version: 2026.5.1004

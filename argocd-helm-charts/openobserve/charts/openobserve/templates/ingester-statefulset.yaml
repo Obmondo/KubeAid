@@ -10,6 +10,10 @@ spec:
   replicas: {{ .Values.replicaCount.ingester }}
   {{- end }}
   podManagementPolicy: Parallel
+  {{- with .Values.ingester.persistentVolumeClaimRetentionPolicy }}
+  persistentVolumeClaimRetentionPolicy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   updateStrategy:
     type: RollingUpdate
     rollingUpdate:
@@ -51,6 +55,13 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "openobserve.serviceAccountName" . }}
+      {{- /* The preStop drain hook (autoscaling.ingester.enabled) polls for up to ~16 minutes.
+             Without a pod-level grace period Kubernetes kills the pod after 30s. */}}
+      {{- if .Values.ingester.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ .Values.ingester.terminationGracePeriodSeconds }}
+      {{- else if .Values.autoscaling.ingester.enabled }}
+      terminationGracePeriodSeconds: 1200
+      {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       

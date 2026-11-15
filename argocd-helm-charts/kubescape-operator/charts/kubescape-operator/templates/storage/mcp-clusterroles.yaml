@@ -1,0 +1,36 @@
+{{- $components := fromYaml (include "components" .) }}
+{{- if and $components.storage.enabled (.Values.storage.mcp).enabled (.Values.storage.mcp).readerClusterRoles }}
+# Roles for AI agents that call the storage MCP endpoint. Bind them to an
+# agent's ServiceAccount with a RoleBinding in each namespace it may read.
+# Scan results:
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubescape-mcp-reader
+  annotations:
+    {{- include "kubescape-operator.annotations" (dict "Values" .Values) | nindent 4 }}
+  labels:
+    {{- include "kubescape-operator.labels" (dict "Chart" .Chart "Release" .Release "Values" .Values "app" .Values.storage.name "tier" .Values.global.namespaceTier) | nindent 4 }}
+rules:
+  - apiGroups: ["spdx.softwarecomposition.kubescape.io"]
+    resources: ["mcpservers/mcp"]
+    verbs: ["create"]
+  - apiGroups: ["spdx.softwarecomposition.kubescape.io"]
+    resources: ["vulnerabilitymanifests", "workloadconfigurationscans"]
+    verbs: ["get", "list"]
+---
+# Runtime behaviour and full package inventories, more sensitive, so bound
+# separately:
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubescape-mcp-runtime-reader
+  annotations:
+    {{- include "kubescape-operator.annotations" (dict "Values" .Values) | nindent 4 }}
+  labels:
+    {{- include "kubescape-operator.labels" (dict "Chart" .Chart "Release" .Release "Values" .Values "app" .Values.storage.name "tier" .Values.global.namespaceTier) | nindent 4 }}
+rules:
+  - apiGroups: ["spdx.softwarecomposition.kubescape.io"]
+    resources: ["containerprofiles", "sbomsyfts"]
+    verbs: ["get", "list"]
+{{- end }}

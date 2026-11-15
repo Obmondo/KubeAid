@@ -135,6 +135,17 @@ Parameters:
   - components: $components
 */}}
 {{- define "node-agent.volumeMounts" -}}
+{{- include "apiauth.callerVolumeMount" . }}
+{{- if .Values.nodeAgent.gVisorStart.enabled }}
+- name: gvisor-start
+  mountPath: {{ .Values.nodeAgent.gVisorStart.socketDirectory | quote }}
+  readOnly: false
+{{- end }}
+{{- if .Values.namespaceFilters.enabled }}
+- name: namespace-filters
+  mountPath: /etc/namespace-filters
+  readOnly: true
+{{- end }}
 {{- if .Values.volumeMounts }}
 {{ toYaml .Values.volumeMounts | trim }}
 {{- end }}
@@ -349,6 +360,23 @@ Parameters:
   - components: $components
 */}}
 {{- define "node-agent.volumes" -}}
+{{- $filters := fromYaml (include "namespaceFilters.config" .) -}}
+{{- include "apiauth.callerVolume" . }}
+{{- if .Values.nodeAgent.gVisorStart.enabled }}
+- name: gvisor-start
+  hostPath:
+    path: {{ .Values.nodeAgent.gVisorStart.socketDirectory | quote }}
+    type: Directory
+{{- end }}
+{{- if $filters.enabled }}
+- name: namespace-filters
+  configMap:
+    name: {{ $filters.name | quote }}
+    optional: false
+    items:
+    - key: namespaceFilters.json
+      path: namespaceFilters.json
+{{- end }}
 {{- if .Values.nodeAgent.volumes }}
 {{ toYaml .Values.nodeAgent.volumes | trim }}
 {{- end }}

@@ -3,5 +3,5 @@ name: openbao
 version: 1.0.0
 dependencies:
   - name: openbao
-    version: 0.30.6
+    version: 0.30.7
     repository: https://openbao.github.io/openbao-helm

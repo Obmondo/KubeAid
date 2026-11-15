@@ -327,19 +327,19 @@ core-mw:
   createCommonEnv: false
   image:
     repository: appsuite/middleware
-    tag: 8.54.351
+    tag: 8.54.360
   update:
     image:
       repository: appsuite/middleware
-      tag: 8.54.351
+      tag: 8.54.360
     defaultRegistry: registry.open-xchange.com
     podAnnotations:
-      commit.open-xchange.com/core: 3180700f2a585faddaf0e78d9be4434ccb3b6883
+      commit.open-xchange.com/core: 305d6285f8ec08a0d0998452b2348d633ad9aeaf
       commit.open-xchange.com/guard: '0491c00acbc50820a30ce8df2d0635b20bf4e5ee'
       commit.open-xchange.com/office: a0cb89e569debd0dd3697ba7e883b89f8fa36a94
       commit.open-xchange.com/weakforced: 0217347f6782d930f031518bcba3b56b9d649a0f
   podAnnotations:
-    commit.open-xchange.com/core: 3180700f2a585faddaf0e78d9be4434ccb3b6883
+    commit.open-xchange.com/core: 305d6285f8ec08a0d0998452b2348d633ad9aeaf
     commit.open-xchange.com/guard: '0491c00acbc50820a30ce8df2d0635b20bf4e5ee'
     commit.open-xchange.com/office: a0cb89e569debd0dd3697ba7e883b89f8fa36a94
     commit.open-xchange.com/weakforced: 0217347f6782d930f031518bcba3b56b9d649a0f
@@ -356,12 +356,12 @@ core-mw:
   gotenberg:
     image:
       repository: registry.open-xchange.com/appsuite/gotenberg
-      tag: 8.15.3
+      tag: 8.40.0
     podAnnotations: {}
   collabora-online:
     image:
       repository: registry.open-xchange.com/appsuite/collabora-online@sha256
-      tag: '0686d50956c3ef1baa44f91165186fcbe1663f98f298010058f12e39f6abab40'
+      tag: 67ff23875a7d64afbe2267e7f7b3d18ae91dc9b085224ae435c32ed4f4eee9f9
     podAnnotations: {}
 bookingservice:
   enabled: false
@@ -400,9 +400,9 @@ core-documentconverter:
   createCommonEnv: false
   image:
     repository: appsuite/documentconverter
-    tag: 8.54.2197
+    tag: 8.54.2200
   podAnnotations:
-    commit.open-xchange.com/documentconverter: d6655396836a7b8bbfee922f79b3224d48958fd2
+    commit.open-xchange.com/documentconverter: f794f4847493f895bd6694b111361bea27640e75
   defaultRegistry: registry.open-xchange.com
 core-documents-collaboration:
   enabled: true
@@ -417,9 +417,9 @@ core-imageconverter:
   createCommonEnv: false
   image:
     repository: appsuite/imageconverter
-    tag: 8.54.2628
+    tag: 8.54.2634
   podAnnotations:
-    commit.open-xchange.com/imageconverter: 7eb236d9182e4a851769c6472e67d5d86611d07b
+    commit.open-xchange.com/imageconverter: 8c945459c5b542d8b53f1ea461d8ae8ad3740d03
   defaultRegistry: registry.open-xchange.com
 core-spellcheck:
   enabled: true
@@ -433,9 +433,9 @@ office-web:
   enabled: true
   image:
     repository: appsuite/office-web
-    tag: 8.54.3025972031
+    tag: 8.54.3052562205
   podAnnotations:
-    commit.open-xchange.com/office-web: 1fd5a1c33a1c458189191baff5d8510e77ab89c6
+    commit.open-xchange.com/office-web: 7b0aad596bd802c2e2a02ff48e71e5a60024ab95
   defaultRegistry: registry.open-xchange.com
 office-user-guide:
   enabled: true
@@ -486,9 +486,9 @@ switchboard:
   enabled: true
   image:
     repository: appsuite/switchboard
-    tag: 5.4.3
+    tag: 5.4.4
   podAnnotations:
-    commit.open-xchange.com/switchboard: 3801888ae660c009292961729c0cf013f1acdc98
+    commit.open-xchange.com/switchboard: b9c0682f872982adfd3982ff3cfb78e6145c2a1b
   defaultRegistry: registry.open-xchange.com
 extras:
   monitoring:

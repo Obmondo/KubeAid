@@ -51,6 +51,17 @@ rules:
 - apiGroups: ["kubescape.io"]
   resources: ["rules"]
   verbs: ["list", "watch"]
+{{- if eq .Values.capabilities.sandboxSeccomp "enable" }}
+- apiGroups: ["kubescape.io"]
+  resources: ["sandboxpolicies", "clustersandboxpolicies"]
+  verbs: ["get", "watch", "list"]
+- apiGroups: ["kubescape.io"]
+  resources: ["sandboxpolicynodestatuses"]
+  verbs: ["get", "create"]
+- apiGroups: ["kubescape.io"]
+  resources: ["sandboxpolicynodestatuses/status"]
+  verbs: ["update"]
+{{- end }}
 {{- if .Values.nodeAgent.config.hostSensor.enabled }}
 - apiGroups: ["hostdata.kubescape.cloud"]
   resources:

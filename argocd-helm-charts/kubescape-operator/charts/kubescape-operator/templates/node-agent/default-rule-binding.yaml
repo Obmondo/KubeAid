@@ -1,3 +1,4 @@
+{{- $filters := fromYaml (include "namespaceFilters.config" .) }}
 {{- if and .Values.alertCRD.installDefault .Values.alertCRD.scopeClustered }}
 apiVersion: kubescape.io/v1
 kind: RuntimeRuleAlertBinding
@@ -8,6 +9,9 @@ metadata:
   labels:
     {{- include "kubescape-operator.labels" (dict "Chart" .Chart "Release" .Release "Values" .Values "app" .Values.nodeAgent.name "tier" .Values.global.namespaceTier) | nindent 4 }}
 spec:
+  {{- if $filters.enabled }}
+  namespaceSelector: {}
+  {{- else }}
   namespaceSelector:
     matchExpressions:
       {{- if ne .Values.includeNamespaces "" }}
@@ -27,6 +31,7 @@ spec:
           - {{ . | quote }}
           {{- end }}
       {{- end }}
+  {{- end }}
   rules:
     - ruleName: "Unexpected process launched"
     - ruleName: "Files Access Anomalies in container"

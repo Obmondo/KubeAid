@@ -1,9 +1,11 @@
-{{- if .Values.grypeOfflineDB.enabled }}
+{{- if and .Values.global.networkPolicy.enabled .Values.grypeOfflineDB.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: {{ .Values.grypeOfflineDB.name }}
   namespace: {{ .Values.ksNamespace }}
+  annotations:
+    {{- include "kubescape-operator.annotations" (dict "Values" .Values) | nindent 4 }}
   labels:
     {{- include "kubescape-operator.labels" (dict "Chart" .Chart "Release" .Release "Values" .Values "app" .Values.grypeOfflineDB.name "tier" .Values.global.namespaceTier) | nindent 4 }}
 spec:

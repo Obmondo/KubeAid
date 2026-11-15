@@ -1,3 +1,4 @@
+{{- $filters := fromYaml (include "namespaceFilters.config" .) }}
 {{- $components := fromYaml (include "components" .) }}
 {{- $configurations := fromYaml (include "configurations" .) }}
 {{- if $components.synchronizer.enabled }}
@@ -15,7 +16,10 @@ data:
   config.json: |
     {
       "inCluster": {
-        {{- if ne .Values.includeNamespaces "" }}
+        {{- if $filters.enabled }}
+        "namespaceFilterConfigMapName": {{ $filters.name | quote }},
+        "namespace": {{ .Values.ksNamespace | quote }},
+        {{- else if ne .Values.includeNamespaces "" }}
         "includeNamespaces": "{{ .Values.includeNamespaces }}",
         {{- else if ne .Values.excludeNamespaces "" }}
         "excludeNamespaces": "{{ .Values.excludeNamespaces }}",

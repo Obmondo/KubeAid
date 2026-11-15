@@ -25,7 +25,7 @@ spec:
             matchLabels:
               {{- include "kubescape-operator.selectorLabels" (dict "Chart" .Chart "Release" .Release "Values" .Values "app" .Values.synchronizer.name) | nindent 14 }}
       ports:
-        - port: {{ .Values.synchronizer.service.port }}
+        - port: {{ .Values.synchronizer.service.targetPort }}
           protocol: TCP
     {{- end }}
     {{- if .Values.configurations.otelUrl }}

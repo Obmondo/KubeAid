@@ -23,13 +23,11 @@ spec:
   {{- end }}
   ingress:
     # Allow traffic from kube-apiserver to storage API (port 8443)
-    # This is required for the v1beta1.spdx.softwarecomposition.kubescape.io APIService
+    # This is required for the v1beta1.spdx.softwarecomposition.kubescape.io APIService.
+    # Not restricted by source, like the admission webhook: depending on the cluster, the
+    # API server reaches pods from a node tunnel address, a konnectivity agent pod or one
+    # of several control-plane ENIs, none of which is reliably global.networkPolicy.apiServerIP.
     - ports:
         - port: {{ .Values.storage.serverPort }}
           protocol: TCP
-{{- if .Values.global.networkPolicy.apiServerIP }}
-      from:
-        - ipBlock:
-            cidr: {{ .Values.global.networkPolicy.apiServerIP }}/32
-{{- end }}
 {{- end }}

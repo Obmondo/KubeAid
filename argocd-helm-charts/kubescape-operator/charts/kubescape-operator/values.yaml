@@ -47,7 +47,7 @@ certificates:
 kubescapeOpsTool:
   image:
     repository: quay.io/kubescape/kubescape-ops-tool
-    tag: "0.1.0-r1"
+    tag: "0.2.0-r1"
     pullPolicy: IfNotPresent
 
 # global logger name and level
@@ -61,6 +61,13 @@ logger:
 excludeNamespaces: "kubescape,kube-system,kube-public,kube-node-lease,kubeconfig,gmp-system,gmp-public"
 # If you wish to scan only specific namespaces, provide the comma-separated list here (takes precedence over excludeNamespaces)
 includeNamespaces: ""
+# Live namespace filtering. Initial enablement requires a rollout; later edits
+# to namespaceFilters.json do not. See docs/features/live-namespace-filters.md.
+namespaceFilters:
+  enabled: false
+  # External ConfigMap in ksNamespace, containing namespaceFilters.json. Leave
+  # empty to create kubescape-namespace-filters from the namespace lists above.
+  existingConfigMap: ""
 # If you wish to exclude workloads having specific labels from scanning, provide them here as a map
 excludeLabels:
   # "app.kubernetes.io/component": ["kubescape"]
@@ -147,6 +154,11 @@ capabilities:
   seccompProfileService: enable
   # Storage backend for SeccompProfile resources: "crd" (Kubernetes CRD) or "storage" (aggregated API)
   seccompProfileBackend: crd
+  # Experimental: enforce SandboxPolicy privilege syscall rules with seccomp. Profiles
+  # are injected through NRI (containerd >= 2.2) and apply when a container starts.
+  # Requires the SandboxPolicy CRDs and a node-agent release that includes the seccomp
+  # layer (kubescape/node-agent#1064); older node-agent images ignore the setting.
+  sandboxSeccomp: disable
   manageWorkloads: disable
   syncSBOM: disable
 
@@ -326,12 +338,22 @@ global:
   kubescapePsp:
     name: ks-allow-privileged
     enabled: false
+  # NetworkPolicies for the kubescape components.
+  # NOTE: enabled by default. They only restrict INGRESS between our own components
+  # (see docs/features/network-policies.md); traffic leaving the namespace is untouched unless
+  # createEgressRules is set. On clusters whose CNI does not enforce NetworkPolicies they are no-ops.
   networkPolicy:
-    enabled: false
+    # -- create ingress NetworkPolicies for the kubescape components
+    enabled: true
+    # -- also restrict egress (opt-in, see docs/features/network-policies.md for what each component may reach)
     createEgressRules: false
+    # -- pin the kube-apiserver egress rule to this endpoint IP; empty allows the API server port(s) to any destination
     apiServerIP: ""
+    # -- kube-apiserver port allowed by the egress rules; the ports of the `default/kubernetes` EndpointSlice are added when it can be looked up
     apiServerPort: 443
+    # -- pin the HTTPS proxy egress rule to this IP (optional; destination left open if empty)
     httpsProxyIP: ""
+    # -- HTTPS proxy port allowed by the egress rules (defaults to the port parsed from global.httpsProxy)
     httpsProxyPort: ""
   overrideRuntimePath: ""
   overrideDefaultCaCertificates:
@@ -343,6 +365,19 @@ global:
   openshift: # Openshift Security Context Constraint support
     scc:
       enabled: false
+  # In-cluster API authentication: installs the RBAC, the projected caller
+  # tokens for this audience and the server env so that kubescape, kubevuln,
+  # synchronizer and the operator accept only callers presenting a
+  # service-account token (TokenReview) authorized by RBAC
+  # (SubjectAccessReview). Enforced by the images this chart pins (operator
+  # v0.2.209, kubescape v4.0.20, kubevuln v0.3.578, synchronizer v0.0.175,
+  # node-agent v0.3.310 and later). Set enabled: false to turn the check off
+  # on every server. The chart also turns it off on its
+  # own when nodeAgent.gke.allowlist is enabled with an allowlist that lacks
+  # the token mount (nodeAgent.gke.allowlist.supportsApiToken: false).
+  apiAuth:
+    enabled: true
+    audience: kubescape.io
 
 # Image scanning configurations
 imageScanning:
@@ -375,7 +410,7 @@ kubescape:
   image:
     # -- source code: https://github.com/kubescape/kubescape/tree/master/httphandler (public repo)
     repository: quay.io/kubescape/kubescape
-    tag: v4.0.17
+    tag: v4.0.20
     pullPolicy: IfNotPresent
 
   nodeSelector:
@@ -441,7 +476,7 @@ operator:
   image:
     # -- source code: https://github.com/kubescape/operator
     repository: quay.io/kubescape/operator
-    tag: v0.2.204
+    tag: v0.2.209
     pullPolicy: IfNotPresent
 
   nodeSelector:
@@ -523,8 +558,8 @@ kubevuln:
   image:
     # -- source code: https://github.com/kubescape/kubevuln
     repository: quay.io/kubescape/kubevuln
-    # Note: v0.3.571 supports GCP, ECR, and Azure Workload Identity ambient ACR auth.
-    tag: v0.3.571
+    # Note: v0.3.571 and later support GCP, ECR, and Azure Workload Identity ambient ACR auth.
+    tag: v0.3.578
     pullPolicy: IfNotPresent
 
   nodeSelector:
@@ -642,7 +677,7 @@ storage:
   image:
     # -- source code: https://github.com/kubescape/storage
     repository: quay.io/kubescape/storage
-    tag: v0.0.378
+    tag: v0.0.382
     pullPolicy: IfNotPresent
 
   nodeSelector:
@@ -651,6 +686,14 @@ storage:
 
   # cleanup interval is a duration string
   cleanupInterval: "6h"
+
+  # -- read-only MCP endpoint for AI agents, served as the mcpservers/mcp subresource behind kube-apiserver
+  # authentication and RBAC (designs-and-proposals storage-mcp-endpoint.md)
+  mcp:
+    # -- serve the MCP endpoint; off by default
+    enabled: false
+    # -- with `enabled`, create the `kubescape-mcp-reader` and `kubescape-mcp-runtime-reader` ClusterRoles to bind to agents
+    readerClusterRoles: true
 
   podAnnotations: {}
   podLabels: {}
@@ -668,6 +711,14 @@ storage:
   singleWriterEnabled: true
   poolTimeout: "15s"
   sqliteBusyTimeout: "60s"
+  # -- Serve ContainerProfiles from storage's SQLite-native backend (payload and metadata in one transaction). Requires `singleWriterEnabled`. Every storage start migrates existing profiles before serving; run `containerProfileMigrationDryRun` once first. See [the storage doc](https://github.com/kubescape/storage/blob/main/docs/features/containerprofile-sqlite-backend.md)
+  containerProfileSqliteBackend: false
+  # -- At storage start, log what the ContainerProfile migration to the SQLite backend would do, without writing anything. Cannot be combined with `containerProfileSqliteBackend`
+  containerProfileMigrationDryRun: false
+  # -- With `containerProfileSqliteBackend` or `containerProfileMigrationDryRun` on, storage runs the migration before it serves `/livez`. This startup probe gives it up to `periodSeconds` x `failureThreshold` seconds (10 minutes by default) before the liveness probe can restart it
+  containerProfileMigrationStartupProbe:
+    periodSeconds: 10
+    failureThreshold: 60
 
   # -- queue manager configuration
   queueManagerEnabled: true # set to false to disable the queue manager, this will disable the queue manager for all kinds
@@ -721,8 +772,19 @@ nodeAgent:
   image:
     # -- source code: https://github.com/kubescape/node-agent
     repository: quay.io/kubescape/node-agent
-    tag: v0.3.299
+    tag: v0.3.310
     pullPolicy: IfNotPresent
+
+  # -- Experimental SecCheck container/start observations on prepared self-managed Linux nodes.
+  # Requires a node-agent image containing node-agent#1069; v0.3.308 predates it.
+  # See docs/features/gvisor-start-source.md before enabling.
+  gVisorStart:
+    enabled: false
+    # Pre-created root-owned 0700 host directory. Never created by the chart.
+    socketDirectory: /run/kubescape/gvisor
+    # Empty reuses node-agent's detected CRI endpoint and existing runtime mounts.
+    runtimeEndpoint: ""
+    runtimeHandler: runsc
 
   config:
     maxLearningPeriod: 24h # duration string
@@ -739,6 +801,8 @@ nodeAgent:
     prometheusExporter: disable
     httpExporterConfig:
       url: http://synchronizer:8089/apis/v1/kubescape.io
+      # projected service-account token sent as a bearer token to the synchronizer (see global.apiAuth)
+      tokenFile: /var/run/secrets/kubescape.io/api-token/token
       maxAlertsPerMinute: 1000
       method: POST
     alertManagerExporterUrls: []
@@ -797,6 +861,12 @@ nodeAgent:
       # AllowlistSynchronizer that pulls that allowlist from Google's managed repo into the cluster.
       enabled: false
       name: armo-kubescape-node-agent-1.40-v2
+      # Whether `name` includes the node-agent's projected API token volume (global.apiAuth).
+      # Allowlists before 1.43 do not. While this is false and the allowlist is enabled, the chart
+      # renders the node-agent without the token mount and sets KS_API_AUTH_DISABLED on the
+      # servers, so upgrades keep their node-agent instead of being rejected by GKE Warden.
+      # Flip to true together with `name` once the 1.43 allowlist is rolled out.
+      supportsApiToken: false
       # AllowlistSynchronizer path. Leave empty to derive it from `name`
       # (ARMO/<name-without-version-suffix>/*); set explicitly to override.
       path: ""
@@ -1016,7 +1086,7 @@ synchronizer:
   image:
     # -- source code: https://github.com/kubescape/synchronizer
     repository: quay.io/kubescape/synchronizer
-    tag: v0.0.173
+    tag: v0.0.175
     pullPolicy: IfNotPresent
   nodeSelector:
     kubernetes.io/os: linux
@@ -1211,12 +1281,6 @@ kubescapeScheduler:
   #     * * * * *
   # -- scan schedule frequency
   scanSchedule: "0 8 * * *"
-  image:
-    # -- runs scripts/create-operator-command.sh, which needs kubectl, bash and jq
-    repository: quay.io/kubescape/kubectl
-    tag: "1.36.1"
-    pullPolicy: IfNotPresent
-
   nodeSelector:
     kubernetes.io/os: linux
   priorityClassName: ""
@@ -1256,12 +1320,6 @@ kubevulnScheduler:
     #     │ │ │ │ │
   #     * * * * *
   scanSchedule: "0 0 * * *"
-  image:
-    # -- runs scripts/create-operator-command.sh, which needs kubectl, bash and jq
-    repository: quay.io/kubescape/kubectl
-    tag: "1.36.1"
-    pullPolicy: IfNotPresent
-
   nodeSelector:
     kubernetes.io/os: linux
   priorityClassName: ""
@@ -1303,12 +1361,6 @@ registryScanScheduler:
   #     * * * * *
   # -- scan schedule frequency
   scanSchedule: "0 0 * * *"
-  image:
-    # -- runs scripts/create-operator-command.sh, which needs kubectl, bash and jq
-    repository: quay.io/kubescape/kubectl
-    tag: "1.36.1"
-    pullPolicy: IfNotPresent
-
   nodeSelector:
     kubernetes.io/os: linux
 

@@ -1,6 +1,6 @@
 # Kubescape Operator
 
-![Version: 1.41.0](https://img.shields.io/badge/Version-1.41.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.40.5](https://img.shields.io/badge/AppVersion-1.40.5-informational?style=flat-square)
+![Version: 1.42.0](https://img.shields.io/badge/Version-1.42.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.42.0](https://img.shields.io/badge/AppVersion-1.42.0-informational?style=flat-square)
 
 [Kubescape operator documentation](https://kubescape.io/docs/install-operator/)
 
@@ -30,6 +30,14 @@ kubescape     operator-5d745b5b84-ts7zq                           1/1     Runnin
 kubescape     storage-59567854fd-hg8n8                            1/1     Running   0               60m
 ```
 
+## Live namespace filters
+
+Set `namespaceFilters.enabled: true` to edit scanning and monitoring namespaces
+through one ConfigMap without restarting components after each filter edit.
+Leave `namespaceFilters.existingConfigMap` empty for chart-managed filters, or
+reference a separately named ConfigMap in `ksNamespace` for external ownership.
+See [configuration, recovery, and ownership migration](../../docs/features/live-namespace-filters.md).
+
 ## Offline daily reports
 
 Setting `capabilities.kubescapeOffline: enable` forces
@@ -47,6 +55,37 @@ explicitly online, set `KS_SKIP_UPDATE_CHECK=true` through `operator.env`.
 
 See the [published-image validation](../../docs/features/operator-daily-reports-validation.md)
 for a reproducible check of offline suppression and online reporting.
+
+## MCP endpoint for AI agents
+
+Set `storage.mcp.enabled: true` to let AI agents in the cluster (for example [Kagent](https://kagent.dev)) read Kubescape's results over [MCP](https://modelcontextprotocol.io). Storage serves read-only tools at
+
+```
+POST /apis/spdx.softwarecomposition.kubescape.io/v1beta1/namespaces/<namespace>/mcpservers/default/mcp
+```
+
+The call goes through kube-apiserver with the agent's own token, and storage checks every read against the agent's RBAC, so an agent sees only what it may `get` or `list`. The chart creates two ClusterRoles to bind per namespace:
+
+- `kubescape-mcp-reader`: call the endpoint, read vulnerability manifests and configuration scans
+- `kubescape-mcp-runtime-reader`: read container profiles and SBOMs (what containers run and every package in an image)
+
+The tools depend on the storage version. The chart's default (v0.0.382) serves the vulnerability tools (`list_vulnerability_manifests`, `list_vulnerabilities_in_manifest` and `list_vulnerability_matches_for_cve`) and the SBOM tools (`list_sboms` and `list_sbom_packages`). The configuration-scan and container-profile tools come with later releases. The two roles already cover them, so the RoleBindings stay the same when storage is upgraded.
+
+Image-level vulnerability manifests and SBOMs are stored in the Kubescape namespace, workload scans in the workload's namespace. For an agent with the ServiceAccount `kagent/agent`:
+
+```
+kubectl -n kagent create rolebinding kubescape-mcp --clusterrole=kubescape-mcp-reader --serviceaccount=kagent:agent
+kubectl -n kubescape create rolebinding kubescape-mcp --clusterrole=kubescape-mcp-reader --serviceaccount=kagent:agent
+```
+
+## Network policies
+
+> **Warning:** NetworkPolicies are now created by default (`global.networkPolicy.enabled: true`). They
+only restrict **ingress** to the Kubescape pods, to the traffic between Kubescape's own components plus
+kube-apiserver and Prometheus. Egress stays open unless `global.networkPolicy.createEgressRules` is set.
+If a tool outside the chart calls a Kubescape pod directly, add your own NetworkPolicy for it or set
+`global.networkPolicy.enabled=false`. See [Network policies](https://github.com/kubescape/helm-charts/blob/main/docs/features/network-policies.md)
+for the exact rules and the opt-in egress rules.
 
 ## Upgrade
 
@@ -145,11 +184,16 @@ However, we recommend that you give Kubescape no less than 500m CPU no matter th
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| namespaceFilters.enabled | bool | `false` | Reload namespace selection from one shared ConfigMap without restarting components after filter edits. |
+| namespaceFilters.existingConfigMap | string | `""` | External ConfigMap in ksNamespace with namespaceFilters.json; empty creates the chart-managed kubescape-namespace-filters. See the live-filter ownership migration guide above. |
 | excludeControls | list | `[]` | Control IDs or legacy CIS section numbers omitted from every operator-triggered posture scan. Request exclusions are added to this list. |
 | defaultFrameworks | list | `[]` | Install-time posture frameworks when a scan omits `targetNames`. Empty = operator legacy fallbacks. Clear with `--set defaultFrameworks=null`. |
 | capabilities.agentRuntimePosture | string | `"disable"` | Grant the Kubescape scanner read-only access to the supported Agent Runtime resources: Sandbox, SandboxTemplate, and WorkerPool. |
-| global.networkPolicy.enabled | bool | `false` | Create NetworkPolicies for all components |
-| global.networkPolicy.createEgressRules | bool | `false` | Create common Egress rules for NetworkPolicies |
+| capabilities.sandboxSeccomp | string | `"disable"` | Experimental. Enforce the syscall rules of SandboxPolicy `privilege` sections with seccomp. Profiles are injected through NRI (containerd >= 2.2 or CRI-O >= 1.34) and apply when a container starts. Requires the SandboxPolicy CRDs and a node-agent release that includes the seccomp layer; older images ignore it. |
+| global.networkPolicy.enabled | bool | `true` | Create ingress NetworkPolicies for all components. **On by default**, see [Network policies](https://github.com/kubescape/helm-charts/blob/main/docs/features/network-policies.md) |
+| global.networkPolicy.createEgressRules | bool | `false` | Also restrict egress (DNS, kube-apiserver, proxy and the destinations each component needs) |
+| global.networkPolicy.apiServerIP | string | `""` | Pin the kube-apiserver egress rule to this IP |
+| global.networkPolicy.apiServerPort | int | `443` | kube-apiserver port for the egress rules; the `default/kubernetes` endpoint ports are added when they can be looked up |
 | global.kubescapePsp.enabled | bool | `false` | Enable all privileges in Pod Security Policies for Kubescape namespace |
 | global.httpsProxy | string | `""` | Set https egress proxy for all components. Must supply also port.  |
 | global.proxySecretFile | string | `""` | Set proxy certificate / RootCA file content (not the file path) for all components to be used for proxy configured in global.httpsProxy |
@@ -163,6 +207,9 @@ However, we recommend that you give Kubescape no less than 500m CPU no matter th
 | customScheduling.nodeSelector | yaml | | Configure `nodeSelector` rules under the nodeSelector sub-section that will apply to all of the workloads managed by the kubescape-operator |
 | customScheduling.tolerations | yaml | | Define `tolerations` in the tolerations sub-section that will apply to all of the workloads managed by the kubescape-operator |
 | global.overrideRuntimePath | string | `""` | Override the runtime path for node-agent |
+| global.apiAuth.enabled | bool | `true` | Require a service-account token (TokenReview) and an RBAC grant (SubjectAccessReview) on the in-cluster HTTP APIs of kubescape, kubevuln, synchronizer and the operator. The chart installs the RBAC, projected tokens for the callers and the env the servers read; the pinned images enforce the check. Set to `false` to turn the check off. On GKE Autopilot clusters that set `nodeAgent.gke.allowlist.enabled=true` with an allowlist that lacks the node-agent's projected token mount (`nodeAgent.gke.allowlist.supportsApiToken=false`, the case for the pinned `armo-kubescape-node-agent-1.40-v2`), the chart turns the check off by itself: the node-agent is rendered without the token mount, so GKE Warden keeps admitting it, and the servers get `KS_API_AUTH_DISABLED=true` |
+| nodeAgent.gke.allowlist.supportsApiToken | bool | `false` | Whether `nodeAgent.gke.allowlist.name` includes the node-agent's projected API token volume (allowlists from 1.43 on). Set to `true` together with a 1.43 `name` to keep `global.apiAuth` effective on GKE Autopilot |
+| global.apiAuth.audience | string | `"kubescape.io"` | Audience of the projected service-account tokens the callers send and the servers accept |
 | credentials.cloudSecret | string | `""` | Leave it blank for the default secret. If you have an existing secret, override with the existing secret name to avoid Helm creating a default one |
 | kubescape.affinity | object | `{}` | Assign custom [affinity](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/) rules to the deployment |
 | kubescape.podLabels| object | `{}` | Optional labels to add to the pods |
@@ -176,7 +223,6 @@ However, we recommend that you give Kubescape no less than 500m CPU no matter th
 | kubescape.volumeMounts | object | `[]` | Additional volumeMounts for Kubescape |
 | kubescapeScheduler.podLabels| object | `{}` | Optional labels to add to the pods |
 | kubescapeScheduler.podAnnotations| object | `{}` | optional map of annotations to be applied to the Pods |
-| kubescapeScheduler.image.repository | string | `"quay.io/kubescape/kubectl"` | image that creates the `OperatorCommand` for the scheduled scan; it needs `kubectl`, `bash` and `jq` |
 | kubescapeScheduler.scanSchedule | string | `"0 0 * * *"` | scan schedule frequency. The scheduled scan CronJob is created when `capabilities.configurationScan` is `enable` |
 | kubescapeScheduler.volumes | object | `[]` | Additional volumes for scan scheduler |
 | kubescapeScheduler.volumeMounts | object | `[]` | Additional volumeMounts for scan scheduler |
@@ -195,7 +241,6 @@ However, we recommend that you give Kubescape no less than 500m CPU no matter th
 | kubevuln.config.trustedVendors | list | `[]` | Distro identifiers treated as trusted vendors in adaptive mode. Empty uses kubevuln's built-in default set (echo, chainguard, wolfi, minimos). |
 | kubevulnScheduler.podLabels| object | `{}` | Optional labels to add to the pods |
 | kubevulnScheduler.podAnnotations| object | `{}` | optional map of annotations to be applied to the Pods |
-| kubevulnScheduler.image.repository | string | `"quay.io/kubescape/kubectl"` | image that creates the `OperatorCommand` for the scheduled scan; it needs `kubectl`, `bash` and `jq` |
 | kubevulnScheduler.scanSchedule | string | `"0 0 * * *"` | scan schedule frequency. The scheduled scan CronJob is created when `capabilities.vulnerabilityScan` is `enable` |
 | kubevulnScheduler.volumes | object | `[]` | Additional volumes for scan scheduler |
 | kubevulnScheduler.volumeMounts | object | `[]` | Additional volumeMounts for scan scheduler |
@@ -207,7 +252,18 @@ However, we recommend that you give Kubescape no less than 500m CPU no matter th
 | operator.volumes | object | `[]` | Additional volumes for the web socket |
 | operator.volumeMounts | object | `[]` | Additional volumeMounts for the web socket |
 | storage.hostNetwork | bool | `false` | Bind the storage APIServer to the host network. Required when using a custom CNI where the control plane cannot reach pod IPs |
+| storage.containerProfileSqliteBackend | bool | `false` | Serve ContainerProfiles from storage's SQLite-native backend (payload and metadata in one transaction). Requires `storage.singleWriterEnabled`. Every storage start migrates existing profiles before serving; run `storage.containerProfileMigrationDryRun` once first. See [the storage doc](https://github.com/kubescape/storage/blob/main/docs/features/containerprofile-sqlite-backend.md) |
+| storage.containerProfileMigrationDryRun | bool | `false` | At storage start, log what the ContainerProfile migration to the SQLite backend would do, without writing anything. Cannot be combined with `storage.containerProfileSqliteBackend` |
+| storage.containerProfileMigrationStartupProbe.periodSeconds | int | `10` | With `storage.containerProfileSqliteBackend` or `storage.containerProfileMigrationDryRun` on, storage runs the migration before it serves `/livez`. A startup probe gives it up to `periodSeconds` x `failureThreshold` seconds (10 minutes by default) before the liveness probe can restart it |
+| storage.containerProfileMigrationStartupProbe.failureThreshold | int | `60` | See `storage.containerProfileMigrationStartupProbe.periodSeconds` |
+| storage.mcp.enabled | bool | `false` | Serve the read-only [MCP endpoint for AI agents](#mcp-endpoint-for-ai-agents) |
+| storage.mcp.readerClusterRoles | bool | `true` | With `storage.mcp.enabled`, create the `kubescape-mcp-reader` and `kubescape-mcp-runtime-reader` ClusterRoles |
 | nodeAgent.autoscaler.bottlerocketAutoDetect | bool | `true` | When the autoscaler is enabled, auto-detect AWS Bottlerocket nodes and set `seLinuxType: super_t` on the node-agent DaemonSet rendered for that node group, so you don't need to `--set nodeAgent.seLinuxType=super_t` manually |
+| nodeAgent.config.httpExporterConfig.tokenFile | string | `"/var/run/secrets/kubescape.io/api-token/token"` | Projected service-account token that node-agent and the operator send to the synchronizer HTTP endpoint (see `global.apiAuth`) |
+| nodeAgent.gVisorStart.enabled | bool | `false` | Experimental start collection on prepared self-managed Linux nodes. Requires an image containing node-agent #1069. See [setup and validation](../../docs/features/gvisor-start-source.md). |
+| nodeAgent.gVisorStart.socketDirectory | string | `/run/kubescape/gvisor` | Pre-created root-owned 0700 host directory. Mounted as `Directory`; the receiver uses `events.sock` inside it. |
+| nodeAgent.gVisorStart.runtimeEndpoint | string | `""` | Absolute local CRI socket path, or empty to reuse node-agent's detected runtime endpoint and existing mounts. |
+| nodeAgent.gVisorStart.runtimeHandler | string | `runsc` | Expected CRI runtime handler. |
 | nodeAgent.config.hostSensor.enabled | bool | `true` | Defines `KS_ENABLE_HOST_SCANNER` in kubescape to enable [host scanner feature](https://kubescape.io/docs/components/host-sensor/)
 | nodeAgent.config.tracers.capSys | string | `enable` | Allow capSys tracing when required by enabled node-agent features. Set to disable to force-disable the capSys tracer |
 | nodeAgent.config.tracers.dns | string | `enable` | Allow dns tracing when required by enabled node-agent features. Set to disable to force-disable the dns tracer |
@@ -677,8 +733,8 @@ empty request list does not clear the installation list. Controls are omitted
 before evaluation and compliance scoring, using the CLI's `--exclude-controls`
 behavior. Exclusions narrow the assessment scope; they do not make checks pass.
 The default empty list changes nothing. Non-list, non-string, and blank values
-are rejected. The chart defaults select operator `v0.2.186` and Kubescape scanner
-`v4.0.17`, which include support for this setting. Keep a compatible pair if
+are rejected. The chart defaults select operator `v0.2.209` and Kubescape scanner
+`v4.0.20`, which include support for this setting. Keep a compatible pair if
 overriding the image versions.
 
 ### Azure Workload Identity for ambient ACR authentication
@@ -687,7 +743,7 @@ To configure Kubevuln to scan private Azure Container Registries (ACR) using Azu
 
 1. **Enable Azure Workload Identity on AKS**: Ensure the Azure Workload Identity mutating webhook and OIDC issuer are enabled on your AKS cluster.
 2. **Federate the ServiceAccount**: Establish federated identity credentials linking your Azure Managed Identity (or App Registration) with the `kubevuln` ServiceAccount in the release namespace (e.g. `system:serviceaccount:kubescape:kubevuln`). Ensure the identity has the `AcrPull` role on the target ACR.
-3. **Compatible Kubevuln image prerequisite**: Ambient ACR authentication requires the ACR provider introduced in [kubescape/kubevuln#1163](https://github.com/kubescape/kubevuln/pull/1163). The chart defaults to `kubevuln.image.tag: v0.3.571`, which includes ambient ACR authentication.
+3. **Compatible Kubevuln image prerequisite**: Ambient ACR authentication requires the ACR provider introduced in [kubescape/kubevuln#1163](https://github.com/kubescape/kubevuln/pull/1163). The chart defaults to `kubevuln.image.tag: v0.3.578`, which includes ambient ACR authentication.
 
 #### Example `values.yaml`
 

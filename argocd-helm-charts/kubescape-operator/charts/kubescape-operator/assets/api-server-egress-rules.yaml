@@ -1,16 +1,24 @@
+{{- /*
+kube-apiserver egress. With global.networkPolicy.apiServerIP the rule is pinned to that IP.
+Without it, the destination is left open and only the port is restricted: the API server
+usually runs outside the pod network (host network or managed control plane), where pod and
+namespace selectors cannot match it, and most CNIs evaluate egress after the Service DNAT, so the
+port that matters is the one of the default/kubernetes EndpointSlice (6443 on kubeadm/k3s, 8443 on
+minikube, 443 on most managed clusters). Those ports are looked up when the cluster is reachable,
+whether or not apiServerIP is set.
+*/ -}}
+{{- $ports := list (int .Values.global.networkPolicy.apiServerPort) -}}
+{{- $slice := lookup "discovery.k8s.io/v1" "EndpointSlice" "default" "kubernetes" -}}
+{{- range $p := ($slice.ports | default list) -}}
+{{- $ports = append $ports (int $p.port) -}}
+{{- end -}}
 - ports:
-    - port: {{ .Values.global.networkPolicy.apiServerPort }}
+{{- range $port := ($ports | uniq) }}
+    - port: {{ $port }}
       protocol: TCP
-  to:
+{{- end }}
 {{- if .Values.global.networkPolicy.apiServerIP }}
+  to:
     - ipBlock:
         cidr: {{ .Values.global.networkPolicy.apiServerIP }}/32
-{{- else }}
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: default
-      podSelector:
-        matchLabels:
-          component: apiserver
-          provider: kubernetes
 {{- end -}}

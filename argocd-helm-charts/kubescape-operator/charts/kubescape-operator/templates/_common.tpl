@@ -90,6 +90,7 @@ nodeAgent:
    (eq .Values.capabilities.malwareDetection "enable")
    (eq .Values.capabilities.nodeProfileService "enable")
    (eq .Values.capabilities.seccompProfileService "enable")
+   (eq .Values.capabilities.sandboxSeccomp "enable")
   }}
 operator:
   enabled: {{ eq .Values.capabilities.operator "enable" }}
@@ -121,6 +122,15 @@ Because the gate logic lives here only, the rendered value and the warning about
 that value can never drift apart. See issue #851.
 */}}
 {{- define "capabilities.gates" -}}
+{{- range $scheduler := list "kubescapeScheduler" "kubevulnScheduler" "registryScanScheduler" }}
+{{- $image := (get (get $.Values $scheduler | default dict) "image") | default dict }}
+{{- if and $image (ne (get $image "repository" | default "quay.io/kubescape/kubectl") "quay.io/kubescape/kubectl") }}
+{{- fail (printf "%s.image has been removed. The scan schedulers now run on kubescapeOpsTool.image; move the override there." $scheduler) }}
+{{- end }}
+{{- end }}
+{{- if eq (toString .Values.kubescapeOpsTool.image.tag) "0.1.0-r1" }}
+{{- fail "kubescapeOpsTool.image.tag 0.1.0-r1 lacks the create-operator-command subcommand the scan schedulers need; use 0.2.0-r1 or later. Upgrades with --reuse-values keep the previous chart's default, so use --reset-then-reuse-values instead." }}
+{{- end }}
 {{- if and (hasKey .Values.nodeAgent.config "hostMalwareSensor") (not (has (get .Values.nodeAgent.config "hostMalwareSensor") (list "" "disable"))) }}
 {{- fail "nodeAgent.config.hostMalwareSensor has been removed. Malware detection is now controlled via capabilities.malwareDetection (or nodeAgent.config.extra.hostMalwareSensorEnabled for custom/private node-agent builds)." }}
 {{- end }}
@@ -169,10 +179,6 @@ warnings:
 - "capabilities.malwareDetection=enable but capabilities.runtimeDetection is not enabled. Malware detection runs on top of runtime detection. To use it, set capabilities.runtimeDetection=enable."
 {{- end }}
 {{- end -}}
-
-{{- define "kubescape.commandScripts.name" -}}
-{{- printf "%s-command-scripts" .Values.operator.name -}}
-{{- end }}
 
 {{- define "kubescape.certificates.strategy" -}}
 {{- $strategy := default "template" .Values.certificates.strategy -}}

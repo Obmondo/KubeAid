@@ -10,6 +10,7 @@ maintainers:
   url: https://github.com/zeritti
 name: prometheus-smartctl-exporter
 sources:
+- https://github.com/prometheus-community/helm-charts
 - https://github.com/prometheus-community/smartctl_exporter
 type: application
-version: 0.19.0
+version: 0.19.2

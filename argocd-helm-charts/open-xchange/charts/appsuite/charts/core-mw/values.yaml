@@ -1247,7 +1247,7 @@ gotenberg:
   enabled: false
   image:
     repository: registry.open-xchange.com/appsuite-core-internal/3rdparty/gotenberg
-    tag: '8.34.0'
+    tag: '8.40.0'
   securityContext:
     readOnlyRootFilesystem: true
   # -- Liveness probe of the `Gotenberg` container. The timing fields spell out the Kubernetes

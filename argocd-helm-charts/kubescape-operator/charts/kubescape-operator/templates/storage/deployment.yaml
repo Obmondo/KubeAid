@@ -142,6 +142,15 @@ spec:
             path: /readyz
             port: {{ .Values.storage.serverPort }}
             scheme: HTTPS
+        {{- if or .Values.storage.containerProfileSqliteBackend .Values.storage.containerProfileMigrationDryRun }}
+        startupProbe:
+          httpGet:
+            path: /livez
+            port: {{ .Values.storage.serverPort }}
+            scheme: HTTPS
+          periodSeconds: {{ .Values.storage.containerProfileMigrationStartupProbe.periodSeconds }}
+          failureThreshold: {{ .Values.storage.containerProfileMigrationStartupProbe.failureThreshold }}
+        {{- end }}
         env:
           {{- if .Values.storage.resources.limits.memory }}
           - name: GOMEMLIMIT

@@ -35,8 +35,8 @@ apiVersion: batch/v1
               {{- end }}
               containers:
               - name: {{ .Values.registryScanScheduler.name }}
-                image: "{{ .Values.registryScanScheduler.image.repository }}:{{ .Values.registryScanScheduler.image.tag }}"
-                imagePullPolicy: {{ .Values.registryScanScheduler.image.pullPolicy }}
+                image: "{{ .Values.kubescapeOpsTool.image.repository }}:{{ .Values.kubescapeOpsTool.image.tag }}"
+                imagePullPolicy: {{ .Values.kubescapeOpsTool.image.pullPolicy }}
                 securityContext:
                   allowPrivilegeEscalation: false
                   readOnlyRootFilesystem: true
@@ -48,7 +48,7 @@ apiVersion: batch/v1
                       - ALL
                 resources:
 {{ toYaml .Values.registryScanScheduler.resources | indent 18 }}
-                command: ["/scripts/create-operator-command.sh"]
+                command: ["/usr/bin/kubescape-ops-tool", "create-operator-command"]
                 args:
                   - --namespace
                   - {{ .Values.ksNamespace }}
@@ -66,11 +66,6 @@ apiVersion: batch/v1
                     mountPath: /home/ks/request-body.json
                     subPath: request-body.json
                     readOnly: true
-                  - name: command-scripts
-                    mountPath: /scripts
-                    readOnly: true
-                  - name: tmp-dir
-                    mountPath: /tmp
 {{- if .Values.volumeMounts }}
 {{ toYaml .Values.volumeMounts | indent 18 }}
 {{- end }}
@@ -102,12 +97,6 @@ apiVersion: batch/v1
                 - name: "request-body-volume" # placeholder
                   configMap:
                     name: {{ .Values.registryScanScheduler.name }}
-                - name: command-scripts
-                  configMap:
-                    name: {{ include "kubescape.commandScripts.name" . }}
-                    defaultMode: 0755
-                - name: tmp-dir
-                  emptyDir: {}
 {{- if .Values.volumes }}
 {{ toYaml .Values.volumes | indent 16 }}
 {{- end }}

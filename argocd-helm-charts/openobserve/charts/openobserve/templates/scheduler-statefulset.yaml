@@ -9,6 +9,10 @@ spec:
   serviceName: "{{ include "openobserve.fullname" . }}-scheduler"
   replicas: {{ .Values.replicaCount.scheduler }}
   podManagementPolicy: Parallel
+  {{- with .Values.scheduler.persistentVolumeClaimRetentionPolicy }}
+  persistentVolumeClaimRetentionPolicy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   updateStrategy:
     type: RollingUpdate
     rollingUpdate:

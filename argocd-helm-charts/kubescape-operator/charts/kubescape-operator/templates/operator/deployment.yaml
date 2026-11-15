@@ -164,6 +164,9 @@ spec:
           resources:
 {{ toYaml .Values.operator.resources | indent 12 }}
           env:
+            {{- include "apiauth.serverEnv" . | nindent 12 }}
+            - name: KS_API_TOKEN_FILE
+              value: {{ include "apiauth.tokenFile" . | quote }}
             - name: NODE_NAME
               valueFrom:
                 fieldRef:
@@ -195,6 +198,7 @@ spec:
               value: "{{ $no_proxy_envar_list }}"
             {{- end }}
           volumeMounts:
+            {{- include "apiauth.callerVolumeMount" . | nindent 12 }}
             - name: {{ $components.cloudSecret.name }}
               mountPath: /etc/credentials
               readOnly: true
@@ -250,6 +254,7 @@ spec:
               subPath: proxy.crt
 {{- end }}
       volumes:
+        {{- include "apiauth.callerVolume" . | nindent 8 }}
         - name: {{ $components.cloudSecret.name }}
           secret:
             secretName: {{ $components.cloudSecret.name }}

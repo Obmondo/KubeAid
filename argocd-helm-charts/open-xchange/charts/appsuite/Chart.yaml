@@ -14,7 +14,7 @@ dependencies:
   repository: oci://registry.open-xchange.com/appsuite-core-internal/charts
   tags:
   - preUpdate
-  version: 6.25.26
+  version: 6.25.27
 - condition: core-cacheservice.enabled, global.core-cacheservice.enabled
   name: core-cacheservice
   repository: oci://registry.open-xchange.com/appsuite-core-internal/charts
@@ -70,8 +70,8 @@ dependencies:
 - condition: switchboard.enabled, global.switchboard.enabled
   name: switchboard
   repository: oci://registry.open-xchange.com/appsuite-core-internal/charts
-  version: 5.8.17
+  version: 5.8.18
 description: A Helm chart for setting up AppSuite services on Kubernetes
 name: appsuite
 type: application
-version: 8.54.1446
+version: 8.54.1454
