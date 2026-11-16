@@ -26,6 +26,8 @@ drift, systemd services, HAProxy, Docker, backups, and more (see `rules/` and `t
 | `prometheusRule.<name>` | Per-alert-group toggle (`disk`, `dns`, `haproxy`, `zfs`, `smartmon`, ~25 more) | mostly `true` |
 | `alertmanager.enabled` | Deploy Alertmanager | `true` |
 | `middleware.jwt.enabled` | Traefik JWT middleware in front of Grafana | `false` |
+| `middleware.jwt.public_keys` | Keys the JWT middleware verifies with: PEM public keys, PEM certificates or JWKS URLs. A JWKS URL is re-fetched every 15 minutes, so a rotating Keycloak realm key need not be pinned | `[]` |
+| `middleware.jwt.public_key` | Single-key form, used when `public_keys` is unset | `""` |
 
 ## Operational notes
 

@@ -1,4 +1,9 @@
-{{- if and .Values.middleware.jwt.enabled .Values.middleware.jwt.public_key }}
+{{- $jwt := .Values.middleware.jwt }}
+{{- $keys := default (list) $jwt.public_keys }}
+{{- if and (eq (len $keys) 0) $jwt.public_key }}
+{{- $keys = list $jwt.public_key }}
+{{- end }}
+{{- if and $jwt.enabled (gt (len $keys) 0) }}
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
@@ -11,7 +16,7 @@ spec:
         - exp
       Required: true
       Keys:
-        - {{- .Values.middleware.jwt.public_key | toYaml | indent 8 }}
-      JwtHeaders: {{ toYaml .Values.middleware.jwt.headers | nindent 8 }}
+{{ toYaml $keys | indent 8 }}
+      JwtHeaders: {{ toYaml $jwt.headers | nindent 8 }}
       JwtCookieKey: jwt
 {{- end }}
