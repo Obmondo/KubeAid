@@ -17,9 +17,9 @@ Deployment alongside the agent, so one Argo CD application covers both.
 | PostgreSQL | `PostgresLogicalBackupMissing` | No logical backup has ever been recorded |
 | PostgreSQL | `PostgresWALBackupMissing` | No WAL backup has ever been recorded |
 | Velero | `VeleroBackupExporterJobFailed` | The exporter job itself reports an error (`backup_exporter_velero_error == 1`) |
-| Velero | `VeleroBackupExceededRPO` | One or more volumes in a namespace have a latest backup older than `max_rpo` (one alert per namespace, the description lists each volume and its age) |
+| Velero | `VeleroBackupExceededRPO` | One or more volumes have a latest backup older than `max_rpo` (one alert per cluster, the description lists each volume as `namespace/name` with its age) |
 | Velero | `VeleroNoBackupSchedules` | Velero is not installed, or declares no `Schedule` resources, so no volume on the cluster is protected. One warning per cluster, after 24h |
-| Velero | `VeleroBackupMissing` | One or more volumes in a namespace have never had a backup recorded (one alert per namespace, the description lists each volume). Volumes in namespaces no schedule covers, and volumes younger than `max_rpo` still awaiting their first scheduled run, are excluded |
+| Velero | `VeleroBackupMissing` | One or more volumes have never had a backup recorded (one alert per cluster, the description lists each volume as `namespace/name`). Volumes in namespaces no schedule covers, and volumes younger than `max_rpo` still awaiting their first scheduled run, are excluded |
 | MongoDB | `MongoDBBackupExporterJobFailed` | The exporter job itself reports an error (`backup_exporter_mongodb_error == 1`) |
 | MongoDB | `MongoDBDumpBackupExceededRPO` | Latest dump backup age exceeds `max_rpo` |
 | MongoDB | `MongoDBDumpBackupMissing` | No dump backup has ever been recorded |

@@ -22,11 +22,9 @@ spec:
           annotations:
             summary: 'Velero backup exporter job failed'
             description: 'Velero backup exporter error (type: {{ `{{ $labels.type }}` }})'
-        # One alert per namespace, not per PVC. A Velero Backup spans every
-        # included namespace and kopia keeps one repository per namespace, so a
-        # single failed run would otherwise page once per volume. The description
-        # still names every volume past RPO with its own age: it runs the
-        # per-volume query at notification time.
+        # One alert per cluster: a single failed Velero run would otherwise page
+        # once per namespace or volume. The description lists every volume past
+        # RPO with its namespace and age, queried at notification time.
         # velero_not_installed and no_schedules_found are excluded from
         # JobFailed because neither is a collector failure. They still mean no
         # volume on this cluster is protected, which Argo CD does not report
@@ -41,27 +39,27 @@ spec:
             summary: 'No Velero backup schedules on this cluster'
             description: 'Velero is backing up nothing on this cluster (reason: {{ `{{ $labels.type }}` }}). No PVC is protected.'
         - alert: VeleroBackupExceededRPO
-          expr: count by (namespace) (backup_exporter_velero_latest_backup_age > {{ $rpoSeconds }})
+          expr: count(backup_exporter_velero_latest_backup_age > {{ $rpoSeconds }})
           for: {{ .Values.prometheusRule.velero.alertForDuration | default "5m" }}
           labels:
             severity: {{ .Values.prometheusRule.velero.severity | default "critical" }}
           annotations:
-            summary: 'Velero backups in {{ `{{ $labels.namespace }}` }} exceeded RPO'
+            summary: 'Velero backups exceeded RPO'
             description: |-
-              {{ `{{ $value }}` }} Velero backup(s) in namespace {{ `{{ $labels.namespace }}` }} exceeded the RPO of {{ .Values.exporter.velero.max_rpo }}:
-              {{ `{{- range printf "backup_exporter_velero_latest_backup_age{namespace=%q} > ` }}{{ $rpoSeconds }}{{ `" $labels.namespace | query | sortByLabel "resource_name" }}` }}
-              {{ `{{ .Labels.resource_name }} ({{ .Labels.resource_type }}, method: {{ .Labels.backup }}, age: {{ .Value | humanizeDuration }})` }}
+              {{ `{{ $value }}` }} Velero backup(s) exceeded the RPO of {{ .Values.exporter.velero.max_rpo }}:
+              {{ `{{- range query "backup_exporter_velero_latest_backup_age > ` }}{{ $rpoSeconds }}{{ `" | sortByLabel "resource_name" | sortByLabel "namespace" }}` }}
+              {{ `- {{ .Labels.namespace }}/{{ .Labels.resource_name }} ({{ .Labels.resource_type }}, method: {{ .Labels.backup }}, age: {{ .Value | humanizeDuration }})` }}
               {{ `{{- end }}` }}
         - alert: VeleroBackupMissing
-          expr: count by (namespace) (backup_exporter_velero_latest_backup_age == 0 unless on (namespace, resource_name, resource_type) (backup_exporter_velero_error{type=~"backup_not_enabled|awaiting_first_backup"} == 1))
+          expr: count(backup_exporter_velero_latest_backup_age == 0 unless on (namespace, resource_name, resource_type) (backup_exporter_velero_error{type=~"backup_not_enabled|awaiting_first_backup"} == 1))
           for: {{ .Values.prometheusRule.velero.alertForDuration | default "5m" }}
           labels:
             severity: {{ .Values.prometheusRule.velero.severity | default "critical" }}
           annotations:
-            summary: 'Velero backups missing in {{ `{{ $labels.namespace }}` }}'
+            summary: 'Velero backups missing'
             description: |-
-              {{ `{{ $value }}` }} volume(s) in namespace {{ `{{ $labels.namespace }}` }} have never been backed up by Velero:
-              {{ `{{- range printf "backup_exporter_velero_latest_backup_age{namespace=%q} == 0 unless on (namespace, resource_name, resource_type) (backup_exporter_velero_error{namespace=%q,type=~'backup_not_enabled|awaiting_first_backup'} == 1)" $labels.namespace $labels.namespace | query | sortByLabel "resource_name" }}` }}
-              {{ `{{ .Labels.resource_name }} ({{ .Labels.resource_type }})` }}
+              {{ `{{ $value }}` }} volume(s) have never been backed up by Velero:
+              {{ `{{- range query "backup_exporter_velero_latest_backup_age == 0 unless on (namespace, resource_name, resource_type) (backup_exporter_velero_error{type=~'backup_not_enabled|awaiting_first_backup'} == 1)" | sortByLabel "resource_name" | sortByLabel "namespace" }}` }}
+              {{ `- {{ .Labels.namespace }}/{{ .Labels.resource_name }} ({{ .Labels.resource_type }})` }}
               {{ `{{- end }}` }}
 {{- end }}
