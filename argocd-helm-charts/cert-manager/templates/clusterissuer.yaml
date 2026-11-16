@@ -9,7 +9,10 @@ spec:
   {{- else }}
   acme:
     email: {{ .Values.issuer.issuerEmail }}
-    preferredChain: {{ .Values.issuer.preferredChain }}
+    {{- /* Omit when unset/null/"" — API rejects preferredChain: null (must be string or absent). */}}
+    {{- with .Values.issuer.preferredChain }}
+    preferredChain: {{ . | quote }}
+    {{- end }}
     privateKeySecretRef:
       name: {{ .Values.issuer.secret }}
     {{- if .Values.issuer.production }}
