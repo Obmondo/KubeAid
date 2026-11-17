@@ -94,19 +94,19 @@ tests:
           path: spec.kubeadmConfigSpec.joinConfiguration.controlPlane.localAPIEndpoint.advertiseAddress
           value: "{{ds.meta_data.private_networks[0].ip}}"
 
-  - it: passes kubelet's node IP as a flag, filled in by cloud-init Jinja
+  - it: leaves kubelet's node IP to ccm-hcloud
     template: KubeadmControlPlane.yaml
     asserts:
-      - contains:
+      - notContains:
           path: spec.kubeadmConfigSpec.initConfiguration.nodeRegistration.kubeletExtraArgs
           content:
             name: node-ip
-            value: "{{ds.meta_data.private_networks[0].ip}}"
-      - contains:
+          any: true
+      - notContains:
           path: spec.kubeadmConfigSpec.joinConfiguration.nodeRegistration.kubeletExtraArgs
           content:
             name: node-ip
-            value: "{{ds.meta_data.private_networks[0].ip}}"
+          any: true
       - notMatchRegex:
           path: spec.kubeadmConfigSpec.files[0].content
           pattern: "nodeIP:"

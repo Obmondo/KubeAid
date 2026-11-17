@@ -104,8 +104,8 @@ Each scenario asserts the specific differences the chart is supposed to make:
 
 - `hcloud` + `private`: `HetznerCluster` has `hcloudNetwork`,
   `HCloudMachineTemplate.spec.template.spec.publicNetwork.enableIPv4=true` (`enableIPv6=false`),
-  the control plane's `advertiseAddress` and kubelet `node-ip` are pinned to
-  the private-network IP, Floating IPs are bound on `eth0` with link scope,
+  the control plane's `advertiseAddress` is pinned to the private-network IP
+  (kubelet's node IP is left to ccm-hcloud), Floating IPs are bound on `eth0` with link scope,
   no NAT-gateway script, no bare-metal resources.
 - `hcloud` + `public`: `hcloudNetwork` is omitted, `publicNetwork.enableIPv4=true` (`enableIPv6=false`),
   no NAT-gateway script, no bare-metal resources.
@@ -179,8 +179,8 @@ diff <(helm template demo argocd-helm-charts/capi-cluster/charts/hetzner \
 You should see exactly two differences:
 
 - `HetznerCluster.spec.hcloudNetwork` is present on `private`, absent on `public`.
-- `KubeadmControlPlane.spec.kubeadmConfigSpec` pins `advertiseAddress` and
-  kubelet's `node-ip` to the private-network IP on `private` only.
+- `KubeadmControlPlane.spec.kubeadmConfigSpec` pins `advertiseAddress` to
+  the private-network IP on `private` only.
 
 ## 3. Schema validation
 

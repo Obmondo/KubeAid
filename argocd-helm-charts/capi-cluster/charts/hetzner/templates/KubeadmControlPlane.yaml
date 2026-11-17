@@ -1,6 +1,6 @@
 {{- $cpOnPrivateNetwork := and (ne .Values.mode "bare-metal") (or (eq .Values.mode "hybrid") (eq .Values.network.type "private")) }}
 {{- $cpOnly := and (not .Values.nodeGroups.hcloud) (not .Values.nodeGroups.bareMetal) }}
-{{- $pinNodeIP := or (and (eq .Values.mode "bare-metal") .Values.bareMetal.vSwitch) $cpOnPrivateNetwork }}
+{{- $pinNodeIP := and (eq .Values.mode "bare-metal") .Values.bareMetal.vSwitch }}
 {{- $hcloudPrivateIP := "{{ds.meta_data.private_networks[0].ip}}" }}
 apiVersion: controlplane.cluster.x-k8s.io/v1beta2
 kind: KubeadmControlPlane
@@ -262,6 +262,9 @@ spec:
       path: /bind-floating-ip.sh
       permissions: "0744"
     {{- end }}
+    {{- if ((.Values.controlPlane).apiServer).files }}
+    {{- ((.Values.controlPlane).apiServer).files | toYaml | nindent 4 }}
+    {{- end }}
     {{- if and (ne .Values.mode "bare-metal") .Values.controlPlane.hcloud.floatingIPs }}
     {{/* Bind the HCloud Floating IP(s) on every control-plane node's public NIC
          (eth0). hcloud-fip-controller moves the API-level assignment between
@@ -290,9 +293,6 @@ spec:
       owner: root:root
       path: /etc/systemd/network/10-netplan-eth0.network.d/60-floating-ip.conf
       permissions: "0644"
-    {{- end }}
-    {{- if ((.Values.controlPlane).apiServer).files }}
-    {{- ((.Values.controlPlane).apiServer).files | toYaml | nindent 4 }}
     {{- end }}
     initConfiguration:
       {{- if $cpOnPrivateNetwork }}
@@ -331,10 +331,11 @@ spec:
           {{- if $pinNodeIP }}
           {{/* kubelet reads its node IP only from this flag; KubeletConfiguration
                has no such field. The CP spec is shared across Machines, so the
-               per-host private IP is filled in at boot: by cloud-init Jinja on
-               HCloud, by a preKubeadm step on bare metal. */}}
+               per-host vSwitch IP is filled in at boot by a preKubeadm step.
+               HCloud control planes need no flag: ccm-hcloud sets their
+               InternalIP from the private network. */}}
           - name: node-ip
-            value: {{ if $cpOnPrivateNetwork }}{{ $hcloudPrivateIP | quote }}{{ else }}__KUBEAID_NODE_IP__{{ end }}
+            value: __KUBEAID_NODE_IP__
           {{- end }}
     joinConfiguration:
       {{- if $cpOnPrivateNetwork }}
@@ -353,7 +354,7 @@ spec:
             value: /etc/kubernetes/kubelet/config.yaml
           {{- if $pinNodeIP }}
           - name: node-ip
-            value: {{ if $cpOnPrivateNetwork }}{{ $hcloudPrivateIP | quote }}{{ else }}__KUBEAID_NODE_IP__{{ end }}
+            value: __KUBEAID_NODE_IP__
           {{- end }}
     {{- if (gt (len $.Values.global.additionalUsers) 0) }}
     users:
@@ -365,6 +366,16 @@ spec:
     {{- end }}
     preKubeadmCommands:
       - set -x
+
+      {{- if and (ne .Values.mode "bare-metal") .Values.controlPlane.hcloud.floatingIPs }}
+      {{/* Bind the Floating IP(s) now. The networkd drop-in in `files` only
+           takes effect on the next boot, and running `netplan apply` here
+           would restart systemd-networkd mid-cloud-init. See the drop-in for
+           why the address is `scope link`. */}}
+      {{- range .Values.controlPlane.hcloud.floatingIPs }}
+      - ip addr replace {{ . }}/32 dev eth0 scope link
+      {{- end }}
+      {{- end }}
 
       {{- if eq .Values.mode "bare-metal" }}
       - |
@@ -538,16 +549,6 @@ spec:
         set +eu
       {{- end }}
 
-      {{- if and (ne .Values.mode "bare-metal") .Values.controlPlane.hcloud.floatingIPs }}
-      {{/* Bind the Floating IP(s) now. The networkd drop-in in `files` only
-           takes effect on the next boot, and running `netplan apply` here
-           would restart systemd-networkd mid-cloud-init. See the drop-in for
-           why the address is `scope link`. */}}
-      {{- range .Values.controlPlane.hcloud.floatingIPs }}
-      - ip addr replace {{ . }}/32 dev eth0 scope link
-      {{- end }}
-      {{- end }}
-
       - sed -i '/swap/d' /etc/fstab
       - swapoff -a
       - modprobe overlay && modprobe br_netfilter && sysctl --system
@@ -661,22 +662,25 @@ spec:
       - API_SERVER_HOST=$(echo "$API_SERVER_URL" | awk -F[/:] '{print $4}')
       - API_SERVER_PORT=$(echo "$API_SERVER_URL" | awk -F[/:] '{print $5}')
 
-      # The add-ons below are installed only by the node that ran 'kubeadm
-      # init'. Cluster API writes /run/kubeadm/kubeadm.yaml on that one
-      # machine; every control plane that joins later (scale-up, rollout,
-      # rebuilt node) gets kubeadm-join-config.yaml instead, and must not
-      # re-apply chart defaults over the add-ons ArgoCD manages.
+      # Each add-on below is installed once per cluster. After a successful
+      # install the node creates a <add-on>-bootstrapped marker ConfigMap in
+      # the default namespace; every later control-plane node (scale-up,
+      # rollout, rebuilt node) finds the marker and skips the install, so it
+      # never re-applies chart defaults over the add-ons ArgoCD manages.
+      # Unlike checking for /run/kubeadm/kubeadm.yaml, a failed install on
+      # the init node is retried by the next node that comes up.
       - |
-        if [ -f /run/kubeadm/kubeadm.yaml ]; then
+        if marker=$(kubectl -n default get configmap cilium-bootstrapped --ignore-not-found -o name) && [ -z "$marker" ]; then
           helm template cilium kubeaid/argocd-helm-charts/cilium \
             --namespace cilium \
             --values kubeaid/argocd-helm-charts/cilium/values.yaml \
             --set cilium.kubeProxyReplacement=true \
-            --set cilium.k8sServiceHost=${API_SERVER_HOST} \
-            --set cilium.k8sServicePort=${API_SERVER_PORT} \
+            --set cilium.k8sServiceHost={{ (.Values.controlPlane.endpoint).host | default "${API_SERVER_HOST}" }} \
+            --set cilium.k8sServicePort={{ if (.Values.controlPlane.endpoint).host }}6443{{ else }}${API_SERVER_PORT}{{ end }} \
             --set-string 'cilium.extraArgs[0]=--devices=vswitch+\,eth0\,enp+\,eno+' \
             > /tmp/cilium.yaml \
-          && kubectl apply -f /tmp/cilium.yaml
+          && kubectl apply -f /tmp/cilium.yaml \
+          && kubectl -n default create configmap cilium-bootstrapped
         fi
 
       # Hetzner Cloud Controller Manager(s). Both apps install the SAME
@@ -690,17 +694,17 @@ spec:
       #     NO other source for it; without it the apiserver can't reach the
       #     kubelet and CP scale-up stalls on etcd health), hcloud:// IDs,
       #     LoadBalancers, routes.
-      #   ccm-hetzner (robot=true, networking=false) — owns bare-metal nodes:
+      #   ccm-hetzner (robot=true) — owns bare-metal nodes:
       #     hrobot://<id> providerIDs.
       #
       # hcloud -> ccm-hcloud only. bare-metal -> ccm-hetzner only.
-      # hybrid -> BOTH (it has both node types); there the robot CCM is scoped
-      # to the node controllers so it doesn't also fight ccm-hcloud over
-      # LoadBalancers. Same `helm template | kubectl apply` as cilium.
+      # hybrid -> BOTH (it has both node types); there the robot CCM also
+      # gets the HCloud network, with network routes off and LoadBalancers
+      # on the private network. Same `helm template | kubectl apply` as cilium.
 
       {{- if or (eq .Values.mode "hcloud") (eq .Values.mode "hybrid") }}
       - |
-        if [ -f /run/kubeadm/kubeadm.yaml ]; then
+        if marker=$(kubectl -n default get configmap ccm-hcloud-bootstrapped --ignore-not-found -o name) && [ -z "$marker" ]; then
           helm template ccm-hcloud kubeaid/argocd-helm-charts/ccm-hetzner \
             --namespace kube-system \
             --values kubeaid/argocd-helm-charts/ccm-hetzner/values.yaml \
@@ -712,25 +716,38 @@ spec:
             --set 'ccm-hetzner.additionalTolerations[0].effect=NoSchedule' \
             --set env.HCLOUD_LOAD_BALANCERS_ENABLED.value=false \
             > /tmp/ccm-hcloud.yaml \
-          && kubectl apply -f /tmp/ccm-hcloud.yaml
+          && kubectl apply -f /tmp/ccm-hcloud.yaml \
+          && kubectl -n default create configmap ccm-hcloud-bootstrapped
         fi
       {{- end }}
 
       {{- if or (eq .Values.mode "bare-metal") (eq .Values.mode "hybrid") }}
+      {{/* networking.enabled makes the CCM read the network from the "network"
+           key of the cloud-credentials Secret. Pure bare-metal clusters have
+           no HCloud network and no such key, so the CCM pod would never start
+           (CreateContainerConfigError): the networking settings are hybrid
+           only. */}}
       - |
-        if [ -f /run/kubeadm/kubeadm.yaml ]; then
+        if marker=$(kubectl -n default get configmap ccm-hetzner-bootstrapped --ignore-not-found -o name) && [ -z "$marker" ]; then
           helm template ccm-hetzner kubeaid/argocd-helm-charts/ccm-hetzner \
             --namespace kube-system \
             --values kubeaid/argocd-helm-charts/ccm-hetzner/values.yaml \
+            {{- if eq .Values.mode "hybrid" }}
+            --set ccm-hetzner.networking.enabled=true \
+            {{- end }}
             --set ccm-hetzner.robot.enabled=true \
             --set 'ccm-hetzner.additionalTolerations[0].key=node.kubernetes.io/not-ready' \
             --set 'ccm-hetzner.additionalTolerations[0].operator=Exists' \
             --set 'ccm-hetzner.additionalTolerations[0].effect=NoSchedule' \
             {{- if eq .Values.mode "hybrid" }}
-            --set-string 'ccm-hetzner.args.controllers=cloud-node\,cloud-node-lifecycle' \
+            --set env.HCLOUD_NETWORK_ROUTES_ENABLED.value=false \
+            --set env.HCLOUD_LOAD_BALANCERS_NETWORK_ZONE.value={{ .Values.hcloud.zone }} \
+            --set env.HCLOUD_LOAD_BALANCERS_DISABLE_PUBLIC_NETWORK.value=true \
+            --set env.HCLOUD_LOAD_BALANCERS_USE_PRIVATE_IP.value=true \
             {{- end }}
             > /tmp/ccm-hetzner.yaml \
-          && kubectl apply -f /tmp/ccm-hetzner.yaml
+          && kubectl apply -f /tmp/ccm-hetzner.yaml \
+          && kubectl -n default create configmap ccm-hetzner-bootstrapped
         fi
       {{- end }}
 
@@ -761,12 +778,13 @@ spec:
       # replace it because of the structural vSwitch blind spot. Also
       # remove the matching opt-out / TODO in kubeaid-cli at that point.
       - |
-        if [ -f /run/kubeadm/kubeadm.yaml ]; then
+        if marker=$(kubectl -n default get configmap kubelet-csr-approver-bootstrapped --ignore-not-found -o name) && [ -z "$marker" ]; then
           helm template kubelet-csr-approver kubeaid/argocd-helm-charts/kubelet-csr-approver \
             --namespace kube-system \
             --values kubeaid/argocd-helm-charts/kubelet-csr-approver/values.yaml \
             > /tmp/kubelet-csr-approver.yaml \
-          && kubectl apply -f /tmp/kubelet-csr-approver.yaml
+          && kubectl apply -f /tmp/kubelet-csr-approver.yaml \
+          && kubectl -n default create configmap kubelet-csr-approver-bootstrapped
         fi
       {{- end }}
 
@@ -788,13 +806,14 @@ spec:
       # logic is active from the first kubeadm-init onward, including
       # the window before ArgoCD itself is fully reconciled.
       - |
-        if [ -f /run/kubeadm/kubeadm.yaml ]; then
+        if marker=$(kubectl -n default get configmap hetzner-robot-bootstrapped --ignore-not-found -o name) && [ -z "$marker" ]; then
           helm template hetzner-robot kubeaid/argocd-helm-charts/hetzner-robot \
             --namespace kube-system \
             --values kubeaid/argocd-helm-charts/hetzner-robot/values.yaml \
             --set failoverIP={{ .Values.controlPlane.bareMetal.endpoint.host }} \
             > /tmp/hetzner-robot.yaml \
-          && kubectl apply -f /tmp/hetzner-robot.yaml
+          && kubectl apply -f /tmp/hetzner-robot.yaml \
+          && kubectl -n default create configmap hetzner-robot-bootstrapped
         fi
       {{- end }}
 
