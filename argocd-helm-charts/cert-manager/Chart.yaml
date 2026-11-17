@@ -6,3 +6,5 @@ dependencies:
   - name: cert-manager
     version: v1.21.3
     repository: https://charts.jetstack.io
+  - name: network-policies
+    version: 1.0.0

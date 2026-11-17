@@ -36,7 +36,9 @@ issuer:
   name: letsencrypt
   enabled: false
   production: false
-  preferredChain: null
+  # Optional ACME preferred chain. Leave unset (do not use null) — the
+  # ClusterIssuer template only renders this when set to a non-empty string.
+  # preferredChain: "ISRG Root X1"
   solvers:
     - type: http
       http01:
