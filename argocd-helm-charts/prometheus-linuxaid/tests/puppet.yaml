@@ -7,95 +7,53 @@ rule_files:
 tests:
   - interval: 1m
     input_series:
-      - series: 'puppet_report{host="atat.example",environment="1_0_0"}'
+      # last run at t=0, never again
+      - series: 'puppet_report{host="atat.example",environment="v1_0_0"}'
         values: 0x3000
-      - series: 'puppet_status{state="failed",host="atat01.example",environment="v1_0_0"}'
-        values: 1x3000
-      - series: 'puppet_status{state="failed",host="atat02.example",environment="v1_0_0"}'
-        values: 1x3000
-      - series: 'puppet_status{state="failed",host="atat03.example",environment="v1_0_0"}'
-        values: 1x3000
-      - series: 'puppet_status{state="failed",host="atat04.example",environment="v1_0_0"}'
-        values: 1x3000
-      - series: 'puppet_status{state="failed",host="atat05.example",environment="v1_0_0"}'
-        values: 1x3000
-      - series: 'puppet_status{state="failed",host="atat06.example",environment="v1_0_0"}'
-        values: 1x3000
-      - series: 'puppet_status{state="failed",host="atat07.example",environment="v1_0_0"}'
-        values: 1x3000
-      - series: 'puppet_status{state="failed",host="atat08.example",environment="v1_0_0"}'
-        values: 1x3000
-      - series: 'puppet_status{state="failed",host="atat09.example",environment="v1_0_0"}'
-        values: 1x3000
-      - series: 'puppet_status{state="failed",host="atat10.example",environment="v1_0_0"}'
-        values: 1x3000
-      - series: 'puppet_status{state="failed",host="atat11.example",environment="v1_0_0"}'
-        values: 1x3000
-      - series: 'puppet_status{state="failed",host="atat12.example",environment="v1_0_0"}'
-        values: 1x3000
-      - series: 'puppet_status{state="failed",host="atat13.example",environment="v1_0_0"}'
-        values: 1x3000
-      - series: 'puppet_status{state="failed",host="atat14.example",environment="v1_0_0"}'
-        values: 1x3000
-      - series: 'puppet_status{state="failed",host="atat15.example",environment="v1_0_0"}'
-        values: 1x3000
-      - series: 'puppet_status{state="failed",host="atat16.example",environment="v1_0_0"}'
-        values: 1x3000
-      - series: 'puppet_status{state="failed",host="atat17.example",environment="v1_0_0"}'
-        values: 1x3000
-      - series: 'puppet_status{state="failed",host="atat18.example",environment="v1_0_0"}'
-        values: 1x3000
-      - series: 'puppet_status{state="failed",host="atat19.example",environment="v1_0_0"}'
-        values: 1x3000
-      - series: 'puppet_status{state="failed",host="atat20.example",environment="v1_0_0"}'
-        values: 1x3000
-      - series: 'puppet_status{state="failed",host="atat21.example",environment="v1_0_0"}'
-        values: 1x3000
-      - series: 'puppet_status{state="failed",host="atat22.example",environment="v1_0_0"}'
-        values: 1x3000
-      - series: 'puppet_status{state="failed",host="atat23.example",environment="v1_0_0"}'
-        values: 1x3000
-      - series: 'puppet_status{state="failed",host="atat24.example",environment="v1_0_0"}'
-        values: 1x3000
-      - series: 'puppet_status{state="failed",host="atat25.example",environment="v1_0_0"}'
-        values: 1x3000
-      - series: 'puppet_status{state="failed",host="atat26.example",environment="v1_0_0"}'
-        values: 1x3000  # 2 days
-      - series: 'puppet_status{state="failed",host="atat27.example",environment="master"}'
-        values: 1x3000  # not a release environment, must be ignored
+      # failing in a release environment
+      - series: 'puppet_status{state="failed",host="fail.example",environment="v1_0_0"}'
+        values: 1x1600
+      # healthy node
+      - series: 'puppet_status{state="failed",host="ok.example",environment="v1_0_0"}'
+        values: 0x1600
+      # failing outside a release environment: ignored
+      - series: 'puppet_status{state="failed",host="branch.example",environment="master"}'
+        values: 1x1600
 
     alert_rule_test:
       - alertname: 'monitor::system::puppet::last_run'
-        # time function take this as a value, rather than local time
-        eval_time: 50h
+        eval_time: 47h
+        exp_alerts: []
+      - alertname: 'monitor::system::puppet::last_run'
+        eval_time: 49h
         exp_alerts:
           - exp_labels:
               severity: warning
               host: atat.example
+              environment: v1_0_0
               alert_id: 'monitor::system::puppet::last_run'
-              environment: "1_0_0"
             exp_annotations:
               summary: 'Puppet has not run on **atat.example** for more than 2 days'
               description: |-2
                 Last Puppet run on **atat.example** was on 1970-01-01 00:00:00 +0000 UTC, more than the limit of 2 days ago.
 
                 This could be due to any number of things, e.g. Puppet crashing or hanging, or cron/systemd timers being broken.
-      - alertname: 'monitor::system::puppet::total_resources'
-        eval_time: 50h
+      - alertname: 'monitor::system::puppet::run_failed'
+        eval_time: 2h
+        exp_alerts: []
+      - alertname: 'monitor::system::puppet::run_failed'
+        eval_time: 4h
         exp_alerts:
           - exp_labels:
               severity: warning
-              alert_id: 'monitor::system::puppet::total_resources'
+              host: fail.example
+              state: failed
+              environment: v1_0_0
+              alert_id: 'monitor::system::puppet::run_failed'
             exp_annotations:
-              summary: 'Puppet run has failed on more than 26 nodes'
+              summary: 'Puppet run is failing on **fail.example** in environment **v1_0_0**'
               description: |-2
-                Most likely this is due to Puppet failing with an error on the node.
+                Puppet runs on **fail.example** in environment **v1_0_0** have been failing for more than 3 hours.
 
-                You can get the list of nodes on prom dashboard by running this query
-                ```sh
-                sum by (host) (puppet_status{environment=~"v?[0-9]+_[0-9]+_[0-9]+",state="failed"} == 1)
-                ```
-
-                Puppetboard for the corresponding node should show that the past
-                Puppet runs has resulted in failures:
+                Check the failed resources on Puppetboard:
                 https://dashboard.obmondo.com/nodes?status=failed

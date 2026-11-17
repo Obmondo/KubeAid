@@ -1,5 +1,5 @@
 groups:
-  - name: monitor::system::puppet::last_run
+  - name: monitor::system::puppet
     rules:
     - alert: monitor::system::puppet::last_run
       expr: time() - puppet_report{environment=~"v?[0-9]+_[0-9]+_[0-9]+",host!~".+.niwyocdmk2"} >= 86400 * 1
@@ -14,22 +14,16 @@ groups:
 
           This could be due to any number of things, e.g. Puppet crashing or hanging, or cron/systemd timers being broken.
 
-    - alert: monitor::system::puppet::total_resources
-      expr: count(puppet_status{state="failed",environment=~"v?[0-9]+_[0-9]+_[0-9]+"} == 1) > 5
-      for: 48h
+    - alert: monitor::system::puppet::run_failed
+      expr: puppet_status{state="failed",environment=~"v?[0-9]+_[0-9]+_[0-9]+"} == 1
+      for: 3h
       labels:
-        alert_id: 'monitor::system::puppet::total_resources'
+        alert_id: 'monitor::system::puppet::run_failed'
         severity: warning
       annotations:
-        summary: 'Puppet run has failed on more than {{ $value }} nodes'
+        summary: 'Puppet run is failing on **{{ $labels.host }}** in environment **{{ $labels.environment }}**'
         description: |-2
-          Most likely this is due to Puppet failing with an error on the node.
+          Puppet runs on **{{ $labels.host }}** in environment **{{ $labels.environment }}** have been failing for more than 3 hours.
 
-          You can get the list of nodes on prom dashboard by running this query
-          ```sh
-          sum by (host) (puppet_status{environment=~"v?[0-9]+_[0-9]+_[0-9]+",state="failed"} == 1)
-          ```
-
-          Puppetboard for the corresponding node should show that the past
-          Puppet runs has resulted in failures:
+          Check the failed resources on Puppetboard:
           https://dashboard.obmondo.com/nodes?status=failed
