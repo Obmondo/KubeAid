@@ -662,25 +662,22 @@ spec:
       - API_SERVER_HOST=$(echo "$API_SERVER_URL" | awk -F[/:] '{print $4}')
       - API_SERVER_PORT=$(echo "$API_SERVER_URL" | awk -F[/:] '{print $5}')
 
-      # Each add-on below is installed once per cluster. After a successful
-      # install the node creates a <add-on>-bootstrapped marker ConfigMap in
-      # the default namespace; every later control-plane node (scale-up,
-      # rollout, rebuilt node) finds the marker and skips the install, so it
-      # never re-applies chart defaults over the add-ons ArgoCD manages.
-      # Unlike checking for /run/kubeadm/kubeadm.yaml, a failed install on
-      # the init node is retried by the next node that comes up.
+      # The add-ons below are installed only by the node that ran 'kubeadm
+      # init'. Cluster API writes /run/kubeadm/kubeadm.yaml on that one
+      # machine; every control plane that joins later (scale-up, rollout,
+      # rebuilt node) gets kubeadm-join-config.yaml instead, and must not
+      # re-apply chart defaults over the add-ons ArgoCD manages.
       - |
-        if marker=$(kubectl -n default get configmap cilium-bootstrapped --ignore-not-found -o name) && [ -z "$marker" ]; then
+        if [ -f /run/kubeadm/kubeadm.yaml ]; then
           helm template cilium kubeaid/argocd-helm-charts/cilium \
             --namespace cilium \
             --values kubeaid/argocd-helm-charts/cilium/values.yaml \
             --set cilium.kubeProxyReplacement=true \
-            --set cilium.k8sServiceHost={{ (.Values.controlPlane.endpoint).host | default "${API_SERVER_HOST}" }} \
-            --set cilium.k8sServicePort={{ if (.Values.controlPlane.endpoint).host }}6443{{ else }}${API_SERVER_PORT}{{ end }} \
+            --set cilium.k8sServiceHost=${API_SERVER_HOST} \
+            --set cilium.k8sServicePort=${API_SERVER_PORT} \
             --set-string 'cilium.extraArgs[0]=--devices=vswitch+\,eth0\,enp+\,eno+' \
             > /tmp/cilium.yaml \
-          && kubectl apply -f /tmp/cilium.yaml \
-          && kubectl -n default create configmap cilium-bootstrapped
+          && kubectl apply -f /tmp/cilium.yaml
         fi
 
       # Hetzner Cloud Controller Manager(s). Both apps install the SAME
@@ -694,17 +691,17 @@ spec:
       #     NO other source for it; without it the apiserver can't reach the
       #     kubelet and CP scale-up stalls on etcd health), hcloud:// IDs,
       #     LoadBalancers, routes.
-      #   ccm-hetzner (robot=true) — owns bare-metal nodes:
+      #   ccm-hetzner (robot=true, networking=false) — owns bare-metal nodes:
       #     hrobot://<id> providerIDs.
       #
       # hcloud -> ccm-hcloud only. bare-metal -> ccm-hetzner only.
-      # hybrid -> BOTH (it has both node types); there the robot CCM also
-      # gets the HCloud network, with network routes off and LoadBalancers
-      # on the private network. Same `helm template | kubectl apply` as cilium.
+      # hybrid -> BOTH (it has both node types); there the robot CCM is scoped
+      # to the node controllers so it doesn't also fight ccm-hcloud over
+      # LoadBalancers. Same `helm template | kubectl apply` as cilium.
 
       {{- if or (eq .Values.mode "hcloud") (eq .Values.mode "hybrid") }}
       - |
-        if marker=$(kubectl -n default get configmap ccm-hcloud-bootstrapped --ignore-not-found -o name) && [ -z "$marker" ]; then
+        if [ -f /run/kubeadm/kubeadm.yaml ]; then
           helm template ccm-hcloud kubeaid/argocd-helm-charts/ccm-hetzner \
             --namespace kube-system \
             --values kubeaid/argocd-helm-charts/ccm-hetzner/values.yaml \
@@ -716,38 +713,25 @@ spec:
             --set 'ccm-hetzner.additionalTolerations[0].effect=NoSchedule' \
             --set env.HCLOUD_LOAD_BALANCERS_ENABLED.value=false \
             > /tmp/ccm-hcloud.yaml \
-          && kubectl apply -f /tmp/ccm-hcloud.yaml \
-          && kubectl -n default create configmap ccm-hcloud-bootstrapped
+          && kubectl apply -f /tmp/ccm-hcloud.yaml
         fi
       {{- end }}
 
       {{- if or (eq .Values.mode "bare-metal") (eq .Values.mode "hybrid") }}
-      {{/* networking.enabled makes the CCM read the network from the "network"
-           key of the cloud-credentials Secret. Pure bare-metal clusters have
-           no HCloud network and no such key, so the CCM pod would never start
-           (CreateContainerConfigError): the networking settings are hybrid
-           only. */}}
       - |
-        if marker=$(kubectl -n default get configmap ccm-hetzner-bootstrapped --ignore-not-found -o name) && [ -z "$marker" ]; then
+        if [ -f /run/kubeadm/kubeadm.yaml ]; then
           helm template ccm-hetzner kubeaid/argocd-helm-charts/ccm-hetzner \
             --namespace kube-system \
             --values kubeaid/argocd-helm-charts/ccm-hetzner/values.yaml \
-            {{- if eq .Values.mode "hybrid" }}
-            --set ccm-hetzner.networking.enabled=true \
-            {{- end }}
             --set ccm-hetzner.robot.enabled=true \
             --set 'ccm-hetzner.additionalTolerations[0].key=node.kubernetes.io/not-ready' \
             --set 'ccm-hetzner.additionalTolerations[0].operator=Exists' \
             --set 'ccm-hetzner.additionalTolerations[0].effect=NoSchedule' \
             {{- if eq .Values.mode "hybrid" }}
-            --set env.HCLOUD_NETWORK_ROUTES_ENABLED.value=false \
-            --set env.HCLOUD_LOAD_BALANCERS_NETWORK_ZONE.value={{ .Values.hcloud.zone }} \
-            --set env.HCLOUD_LOAD_BALANCERS_DISABLE_PUBLIC_NETWORK.value=true \
-            --set env.HCLOUD_LOAD_BALANCERS_USE_PRIVATE_IP.value=true \
+            --set-string 'ccm-hetzner.args.controllers=cloud-node\,cloud-node-lifecycle' \
             {{- end }}
             > /tmp/ccm-hetzner.yaml \
-          && kubectl apply -f /tmp/ccm-hetzner.yaml \
-          && kubectl -n default create configmap ccm-hetzner-bootstrapped
+          && kubectl apply -f /tmp/ccm-hetzner.yaml
         fi
       {{- end }}
 
@@ -778,13 +762,12 @@ spec:
       # replace it because of the structural vSwitch blind spot. Also
       # remove the matching opt-out / TODO in kubeaid-cli at that point.
       - |
-        if marker=$(kubectl -n default get configmap kubelet-csr-approver-bootstrapped --ignore-not-found -o name) && [ -z "$marker" ]; then
+        if [ -f /run/kubeadm/kubeadm.yaml ]; then
           helm template kubelet-csr-approver kubeaid/argocd-helm-charts/kubelet-csr-approver \
             --namespace kube-system \
             --values kubeaid/argocd-helm-charts/kubelet-csr-approver/values.yaml \
             > /tmp/kubelet-csr-approver.yaml \
-          && kubectl apply -f /tmp/kubelet-csr-approver.yaml \
-          && kubectl -n default create configmap kubelet-csr-approver-bootstrapped
+          && kubectl apply -f /tmp/kubelet-csr-approver.yaml
         fi
       {{- end }}
 
@@ -806,14 +789,13 @@ spec:
       # logic is active from the first kubeadm-init onward, including
       # the window before ArgoCD itself is fully reconciled.
       - |
-        if marker=$(kubectl -n default get configmap hetzner-robot-bootstrapped --ignore-not-found -o name) && [ -z "$marker" ]; then
+        if [ -f /run/kubeadm/kubeadm.yaml ]; then
           helm template hetzner-robot kubeaid/argocd-helm-charts/hetzner-robot \
             --namespace kube-system \
             --values kubeaid/argocd-helm-charts/hetzner-robot/values.yaml \
             --set failoverIP={{ .Values.controlPlane.bareMetal.endpoint.host }} \
             > /tmp/hetzner-robot.yaml \
-          && kubectl apply -f /tmp/hetzner-robot.yaml \
-          && kubectl -n default create configmap hetzner-robot-bootstrapped
+          && kubectl apply -f /tmp/hetzner-robot.yaml
         fi
       {{- end }}
 
