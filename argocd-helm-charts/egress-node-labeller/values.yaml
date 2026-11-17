@@ -1,0 +1,13 @@
+---
+image:
+  repository: ghcr.io/obmondo/egress-node-labeller
+  tag: v1.0.0
+
+# Name of the Hetzner Cloud Floating IP whose holder node gets the egress gateway label.
+floatingIPName: ""
+
+# Secret (in the release namespace) holding the Hetzner Cloud API token.
+cloudCredentialsSecretName: cloud-credentials
+cloudCredentialsSecretKey: hcloud
+
+cronInterval: "30s"

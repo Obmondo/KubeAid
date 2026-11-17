@@ -40,29 +40,39 @@ tests:
           path: spec.hcloudNetwork.subnetCidrBlock
           value: 10.0.0.0/24
 
-  - it: keeps public IPv4 and IPv6 disabled on every HCloud machine
+  - it: gives every HCloud machine a public IPv4 and no IPv6, also on the private network
     template: HCloudMachineTemplate.yaml
     asserts:
       - equal:
           path: spec.template.spec.publicNetwork.enableIPv4
-          value: false
+          value: true
       - equal:
           path: spec.template.spec.publicNetwork.enableIPv6
           value: false
 
-  - it: writes and invokes the NAT gateway bootstrap on the control plane
+  - it: ships no NAT gateway bootstrap on the control plane
     template: KubeadmControlPlane.yaml
     asserts:
-      - contains:
+      - notContains:
           path: spec.kubeadmConfigSpec.preKubeadmCommands
           content: chmod +x /connect-nat-gateway.sh && /connect-nat-gateway.sh
+      - notContains:
+          path: spec.kubeadmConfigSpec.files
+          content:
+            path: /connect-nat-gateway.sh
+          any: true
 
-  - it: writes and invokes the NAT gateway bootstrap on HCloud workers
+  - it: ships no NAT gateway bootstrap on HCloud workers
     template: KubeadmConfigTemplate.yaml
     asserts:
-      - contains:
+      - notContains:
           path: spec.template.spec.preKubeadmCommands
           content: chmod +x /connect-nat-gateway.sh && /connect-nat-gateway.sh
+      - notContains:
+          path: spec.template.spec.files
+          content:
+            path: /connect-nat-gateway.sh
+          any: true
 
   - it: renders no bare-metal resources in hcloud mode
     template: HetznerBareMetalHost.yaml
@@ -70,16 +80,83 @@ tests:
       - hasDocuments:
           count: 0
 
-  - it: does not pin kubelet's node IP on a private control plane
+  - it: pins the kubeadm advertise address on the first control-plane node to the private-network IP
+    template: KubeadmControlPlane.yaml
+    asserts:
+      - equal:
+          path: spec.kubeadmConfigSpec.initConfiguration.localAPIEndpoint.advertiseAddress
+          value: "{{ds.meta_data.private_networks[0].ip}}"
+
+  - it: pins the kubeadm advertise address on joining control-plane nodes to the private-network IP
+    template: KubeadmControlPlane.yaml
+    asserts:
+      - equal:
+          path: spec.kubeadmConfigSpec.joinConfiguration.controlPlane.localAPIEndpoint.advertiseAddress
+          value: "{{ds.meta_data.private_networks[0].ip}}"
+
+  - it: leaves kubelet's node IP to ccm-hcloud
     template: KubeadmControlPlane.yaml
     asserts:
       - notContains:
           path: spec.kubeadmConfigSpec.initConfiguration.nodeRegistration.kubeletExtraArgs
           content:
             name: node-ip
-            value: __KUBEAID_NODE_IP__
+          any: true
       - notContains:
           path: spec.kubeadmConfigSpec.joinConfiguration.nodeRegistration.kubeletExtraArgs
           content:
             name: node-ip
-            value: __KUBEAID_NODE_IP__
+          any: true
+      - notMatchRegex:
+          path: spec.kubeadmConfigSpec.files[0].content
+          pattern: "nodeIP:"
+
+  - it: binds the Floating IPs on eth0 with link scope
+    template: KubeadmControlPlane.yaml
+    set:
+      controlPlane.hcloud.floatingIPs:
+        - 203.0.113.10
+    asserts:
+      - contains:
+          path: spec.kubeadmConfigSpec.files
+          content:
+            path: /etc/systemd/network/10-netplan-eth0.network.d/60-floating-ip.conf
+            owner: root:root
+            permissions: "0644"
+            content: |
+              [Address]
+              Address=203.0.113.10/32
+              Scope=link
+      - contains:
+          path: spec.kubeadmConfigSpec.preKubeadmCommands
+          content: ip addr replace 203.0.113.10/32 dev eth0 scope link
+
+  - it: binds no Floating IP when none are configured
+    template: KubeadmControlPlane.yaml
+    asserts:
+      - notContains:
+          path: spec.kubeadmConfigSpec.files
+          content:
+            path: /etc/systemd/network/10-netplan-eth0.network.d/60-floating-ip.conf
+          any: true
+
+  - it: keeps the control-plane taint when node-groups exist
+    template: KubeadmControlPlane.yaml
+    asserts:
+      - notExists:
+          path: spec.kubeadmConfigSpec.initConfiguration.nodeRegistration.taints
+      - notExists:
+          path: spec.kubeadmConfigSpec.joinConfiguration.nodeRegistration.taints
+
+  - it: registers the control plane untainted when there are no node-groups
+    template: KubeadmControlPlane.yaml
+    set:
+      nodeGroups.hcloud: []
+      nodeGroups.bareMetal: []
+    asserts:
+      - equal:
+          path: spec.kubeadmConfigSpec.initConfiguration.nodeRegistration.taints
+          value: []
+      - equal:
+          path: spec.kubeadmConfigSpec.joinConfiguration.nodeRegistration.taints
+          value: []

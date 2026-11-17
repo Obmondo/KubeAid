@@ -9,8 +9,8 @@
 #   network.type   = public      (nodes use public IPv4/IPv6 directly)
 #
 # For the private-network variant, set `network.type: private` and
-# provide an external NAT gateway reachable from the bare-metal hosts
-# (the default bootstrap assumes one at 10.0.0.1 over interface enp7s0).
+# configure `bareMetal.vSwitch`. Internet egress always stays on each
+# server's own public interface; there is no NAT gateway.
 
 mode: bare-metal
 

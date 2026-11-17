@@ -103,15 +103,16 @@ additional overrides pinned in its `set:` block.
 Each scenario asserts the specific differences the chart is supposed to make:
 
 - `hcloud` + `private`: `HetznerCluster` has `hcloudNetwork`,
-  `HCloudMachineTemplate.spec.template.spec.publicNetwork.enableIPv4/v6=false`,
-  `KubeadmControlPlane` and `KubeadmConfigTemplate` include the
-  `/connect-nat-gateway.sh` file and invocation, no bare-metal resources.
-- `hcloud` + `public`: `hcloudNetwork` is omitted, `publicNetwork.enableIPv4/v6=true`,
+  `HCloudMachineTemplate.spec.template.spec.publicNetwork.enableIPv4=true` (`enableIPv6=false`),
+  the control plane's `advertiseAddress` is pinned to the private-network IP
+  (kubelet's node IP is left to ccm-hcloud), Floating IPs are bound on `eth0` with link scope,
+  no NAT-gateway script, no bare-metal resources.
+- `hcloud` + `public`: `hcloudNetwork` is omitted, `publicNetwork.enableIPv4=true` (`enableIPv6=false`),
   no NAT-gateway script, no bare-metal resources.
 - `bare-metal` + `private`: no `hcloudNetwork`, no `HCloudMachineTemplate`,
   6 `HetznerBareMetalHost` documents rendered (3 CP + 2 × 2 workers),
-  NAT-gateway script present on the control plane.
-- `bare-metal` + `public`: same as above but NAT-gateway script omitted.
+  no NAT-gateway script.
+- `bare-metal` + `public`: same as above.
 - `hybrid` (private/public): control-plane on HCloud, bare-metal workers
   attached via vSwitch. Covered by the suites added in #1451.
 
@@ -175,13 +176,11 @@ diff <(helm template demo argocd-helm-charts/capi-cluster/charts/hetzner \
         --set global.pods.cidrBlock=10.244.0.0/16 --set-json 'global.additionalUsers=[]')
 ```
 
-You should see exactly three differences:
+You should see exactly two differences:
 
 - `HetznerCluster.spec.hcloudNetwork` is present on `private`, absent on `public`.
-- `HCloudMachineTemplate.spec.template.spec.publicNetwork.enableIPv4/v6` flips
-  from `false` → `true`.
-- `KubeadmControlPlane.spec.kubeadmConfigSpec` (and `KubeadmConfigTemplate`)
-  drops the `/connect-nat-gateway.sh` file and its invocation.
+- `KubeadmControlPlane.spec.kubeadmConfigSpec` pins `advertiseAddress` to
+  the private-network IP on `private` only.
 
 ## 3. Schema validation
 

@@ -160,7 +160,7 @@
           "additionalProperties": false,
           "properties": {
             "floatingIPs": {
-              "description": "Floating IPs to bind (/32) on every control-plane node's primary network interface via netplan, so a host-network service stays reachable at a stable public IP across CP failures (e.g. NetBird Coturn fronted by hcloud-fip-controller, which moves the API-level assignment but not the OS interface). Empty (default) = no binding.",
+              "description": "Floating IPs to bind (/32, scope link) on every control-plane node's public interface (eth0), through a systemd-networkd drop-in, so the IP stays usable at a stable public address across CP failures (e.g. NetBird Coturn, or a Cilium egress gateway), with hcloud-fip-controller moving the API-level assignment. Empty (default) = no binding.",
               "items": {
                 "minLength": 1,
                 "type": "string"
@@ -194,21 +194,6 @@
               "minLength": 1,
               "title": "machineType",
               "type": "string"
-            },
-            "publicNetwork": {
-              "additionalProperties": false,
-              "description": "Public IPv4 and IPv6 for control-plane nodes on a private network (network.type=private or hybrid), e.g. so a Floating IP from floatingIPs can be assigned to them (Hetzner only assigns Floating IPs to servers that have a Primary IP). These nodes keep their default route on the public interface and skip the NAT gateway; the private network stays for etcd, the apiserver InternalIP and private load-balancer targets.",
-              "properties": {
-                "enabled": {
-                  "default": false,
-                  "description": "Give control-plane nodes a public IPv4 and IPv6 while keeping the private network.",
-                  "title": "enabled",
-                  "type": "boolean"
-                }
-              },
-              "required": [],
-              "title": "publicNetwork",
-              "type": "object"
             },
             "replicas": {
               "default": 3,
@@ -271,20 +256,6 @@
           "title": "imageName",
           "type": "string"
         },
-        "natGatewayIP": {
-          "default": "10.0.0.1",
-          "description": "IP of the NAT gateway nodes route through for egress when they have no public IP. Default matches the first usable host in the default cidrBlock (10.0.0.0/16 → 10.0.0.1). Override when running on a custom private network.\n",
-          "pattern": "^[0-9.]+$",
-          "title": "natGatewayIP",
-          "type": "string"
-        },
-        "dnsServer": {
-          "default": "1.1.1.1",
-          "description": "Public DNS resolver written to /etc/resolv.conf on private-only nodes during cloud-init. Defaults to Cloudflare 1.1.1.1; override for sovereignty / internal-DNS setups.\n",
-          "pattern": "^[0-9.]+$",
-          "title": "dnsServer",
-          "type": "string"
-        },
         "subnetCidrBlock": {
           "default": "10.0.0.0/24",
           "description": "CIDR block for the HCloud subnet servers attach to.",
@@ -331,7 +302,7 @@
       "properties": {
         "type": {
           "default": "private",
-          "description": "Networking model for the workload cluster:\n  private - nodes run on an HCloud private network (or VSwitch in hybrid)\n            and the bootstrap assumes NAT egress via a gateway; no public\n            IPv4/IPv6 on HCloud machines.\n  public  - nodes use public IPv4/IPv6 directly; no private-network /\n            NAT bootstrap assumptions are applied.\nIn mode=hybrid this is effectively always private (hybrid intrinsically\nuses a private network to link HCloud and bare-metal sides).",
+          "description": "Networking model for the workload cluster. HCloud machines always get a\npublic IPv4 and use it for internet egress; there is no NAT gateway.\n  private - nodes are also attached to an HCloud private network (or the\n            VSwitch in hybrid), which carries all traffic between nodes.\n  public  - no private network; nodes talk over their public IPs.\nIn mode=hybrid this is effectively always private (hybrid intrinsically\nuses a private network to link HCloud and bare-metal sides).",
           "enum": [
             "private",
             "public"

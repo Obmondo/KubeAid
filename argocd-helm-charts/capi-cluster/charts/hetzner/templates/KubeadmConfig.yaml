@@ -241,9 +241,11 @@ spec:
          with "SPDY upgrade failed: 401 Unauthorized" coming from
          the apiserver's streamtunnel.
 
-         The NAT-gateway-egress routes (10.0.0.0/16 + default via
-         10.0.1.1) belong only to hybrid — pure bare-metal nodes
-         keep their default route on the public NIC. */}}
+         The route to the HCloud network (10.0.0.0/16 via the vSwitch
+         gateway 10.0.1.1) belongs only to hybrid. There is deliberately
+         no default route via 10.0.1.1: a bare-metal server always has
+         its own public NIC with a default route, so internet egress
+         stays there and never depends on the NAT gateway. */}}
     - |
       set -eu
       until ip route get 8.8.8.8 >/dev/null 2>&1; do sleep 5; done
@@ -263,9 +265,6 @@ spec:
             routes:
               - to: 10.0.0.0/16
                 via: 10.0.1.1
-              - to: 0.0.0.0/0
-                via: 10.0.1.1
-                metric: 200
             nameservers:
               addresses:
                 - 185.12.64.1
