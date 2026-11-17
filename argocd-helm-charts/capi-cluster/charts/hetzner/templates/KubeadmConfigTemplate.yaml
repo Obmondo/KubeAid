@@ -64,67 +64,6 @@ spec:
               - TLS_RSA_WITH_AES_256_GCM_SHA384
               - TLS_RSA_WITH_AES_128_GCM_SHA256
 
-        {{- if or (eq $.Values.mode "hybrid") (eq $.Values.network.type "private") }}
-        {{/* NAT gateway script is only needed when nodes run on a private network.
-             Gateway IP + DNS resolver come from values so non-default private
-             networks work; the interface name is discovered at runtime so the
-             script also works on bare-metal hosts (eno1, enp3s0, …) and isn't
-             pinned to HCloud's enp7s0. */}}
-        - content: |
-            set -eu
-            NAT_GATEWAY_IP="{{ $.Values.hcloud.natGatewayIP }}"
-            DNS_SERVER="{{ $.Values.hcloud.dnsServer }}"
-
-            # The private NIC toward the NAT gateway. Discovered at runtime so
-            # we don't pin HCloud's enp7s0 vs bare-metal eno1/enp3s0; it
-            # resolves from the connected private-subnet route before any
-            # default route exists. Retry while the private network comes up.
-            IFACE=""
-            for i in $(seq 1 30); do
-              IFACE=$(ip route get "$NAT_GATEWAY_IP" 2>/dev/null | awk '{print $3; exit}')
-              [ -n "$IFACE" ] && break
-              sleep 10
-            done
-            if [ -z "$IFACE" ]; then
-              echo "FATAL: could not find the interface toward $NAT_GATEWAY_IP after 30 retries" >&2
-              exit 1
-            fi
-
-            # Default route + DNS via netplan: persists across reboots
-            # (networkd re-applies it on every boot) and is applied now too,
-            # so the rest of preKubeadm (apt, binary downloads) has egress
-            # and DNS.
-            cat <<EOF > /etc/netplan/70-nat-gateway.yaml
-            network:
-              version: 2
-              renderer: networkd
-              ethernets:
-                ${IFACE}:
-                  routes:
-                    - to: default
-                      via: ${NAT_GATEWAY_IP}
-                  nameservers:
-                    addresses:
-                      - ${DNS_SERVER}
-            EOF
-            chmod 0600 /etc/netplan/70-nat-gateway.yaml
-
-            # Apply now and wait until the default route is actually installed
-            # before continuing (networkd can lag a moment after apply).
-            for i in $(seq 1 30); do
-              netplan apply 2>/dev/null || true
-              ip route show default | grep -q "via $NAT_GATEWAY_IP" && break
-              sleep 10
-            done
-            if ! ip route show default | grep -q "via $NAT_GATEWAY_IP"; then
-              echo "FATAL: default route via $NAT_GATEWAY_IP not up after netplan apply" >&2
-              exit 1
-            fi
-          owner: "root:root"
-          path: /connect-nat-gateway.sh
-          permissions: "0744"
-        {{- end }}
-
         - content: |
             net.ipv4.conf.lxc*.rp_filter = 0
           owner: root:root
@@ -218,10 +157,6 @@ spec:
               value: /etc/kubernetes/kubelet/config.yaml
       preKubeadmCommands:
       - set -x
-
-      {{- if or (eq $.Values.mode "hybrid") (eq $.Values.network.type "private") }}
-      - chmod +x /connect-nat-gateway.sh && /connect-nat-gateway.sh
-      {{- end }}
 
       - grep VERSION= /etc/os-release; uname -a
       - export CONTAINERD=2.2.9

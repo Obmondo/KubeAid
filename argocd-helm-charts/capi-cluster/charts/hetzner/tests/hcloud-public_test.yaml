@@ -33,7 +33,7 @@ tests:
       - notExists:
           path: spec.hcloudNetwork
 
-  - it: enables public IPv4 and IPv6 on every HCloud machine
+  - it: enables public IPv4 and no IPv6 on every HCloud machine
     template: HCloudMachineTemplate.yaml
     asserts:
       - equal:
@@ -41,7 +41,7 @@ tests:
           value: true
       - equal:
           path: spec.template.spec.publicNetwork.enableIPv6
-          value: true
+          value: false
 
   - it: does not ship the NAT gateway bootstrap on the control plane
     template: KubeadmControlPlane.yaml

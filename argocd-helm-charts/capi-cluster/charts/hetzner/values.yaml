@@ -14,12 +14,11 @@ network:
   # type: string
   # enum: [private, public]
   # description: |
-  #   Networking model for the workload cluster:
-  #     private - nodes run on an HCloud private network (or VSwitch in hybrid)
-  #               and the bootstrap assumes NAT egress via a gateway; no public
-  #               IPv4/IPv6 on HCloud machines.
-  #     public  - nodes use public IPv4/IPv6 directly; no private-network /
-  #               NAT bootstrap assumptions are applied.
+  #   Networking model for the workload cluster. HCloud machines always get a
+  #   public IPv4 and use it for internet egress; there is no NAT gateway.
+  #     private - nodes are also attached to an HCloud private network (or the
+  #               VSwitch in hybrid), which carries all traffic between nodes.
+  #     public  - no private network; nodes talk over their public IPs.
   #   In mode=hybrid this is effectively always private (hybrid intrinsically
   #   uses a private network to link HCloud and bare-metal sides).
   # @schema
@@ -65,25 +64,6 @@ hcloud:
   # description: CIDR block for the HCloud subnet servers attach to.
   # @schema
   subnetCidrBlock: 10.0.0.0/24
-  # @schema
-  # type: string
-  # pattern: ^[0-9.]+$
-  # description: |
-  #   IP of the NAT gateway nodes route through for egress when they have no
-  #   public IP. Default matches the first usable host in the default
-  #   cidrBlock (10.0.0.0/16 → 10.0.0.1). Override when running on a custom
-  #   private network.
-  # @schema
-  natGatewayIP: 10.0.0.1
-  # @schema
-  # type: string
-  # pattern: ^[0-9.]+$
-  # description: |
-  #   Public DNS resolver written to /etc/resolv.conf on private-only nodes
-  #   during cloud-init. Defaults to Cloudflare 1.1.1.1; override for
-  #   sovereignty / internal-DNS setups.
-  # @schema
-  dnsServer: 1.1.1.1
   # @schema
   # type: boolean
   # description: Attach an HCloud vSwitch (for connecting bare-metal servers to the HCloud private network).
@@ -179,19 +159,9 @@ controlPlane:
     # @schema
     # type: array
     # items: { type: string, minLength: 1 }
-    # description: Floating IPs to bind (/32) on every control-plane node's primary network interface via netplan, so a host-network service stays reachable at a stable public IP across CP failures (e.g. NetBird Coturn fronted by hcloud-fip-controller, which moves the API-level assignment but not the OS interface). Empty (default) = no binding.
+    # description: Floating IPs to bind (/32, scope link) on every control-plane node's public interface (eth0), through a systemd-networkd drop-in, so the IP stays usable at a stable public address across CP failures (e.g. NetBird Coturn, or a Cilium egress gateway), with hcloud-fip-controller moving the API-level assignment. Empty (default) = no binding.
     # @schema
     floatingIPs: []
-    # @schema
-    # type: object
-    # description: Public IPv4 and IPv6 for control-plane nodes on a private network (network.type=private or hybrid), e.g. so a Floating IP from floatingIPs can be assigned to them (Hetzner only assigns Floating IPs to servers that have a Primary IP). These nodes keep their default route on the public interface and skip the NAT gateway; the private network stays for etcd, the apiserver InternalIP and private load-balancer targets.
-    # @schema
-    publicNetwork:
-      # @schema
-      # type: boolean
-      # description: Give control-plane nodes a public IPv4 and IPv6 while keeping the private network.
-      # @schema
-      enabled: false
     loadBalancer:
       # @schema
       # type: boolean

@@ -1,6 +1,7 @@
-{{- $cpPublic := and (ne .Values.mode "bare-metal") (or (eq .Values.mode "hybrid") (eq .Values.network.type "private")) (dig "publicNetwork" "enabled" false (.Values.controlPlane.hcloud | default dict)) }}
+{{- $cpOnPrivateNetwork := and (ne .Values.mode "bare-metal") (or (eq .Values.mode "hybrid") (eq .Values.network.type "private")) }}
 {{- $cpOnly := and (not .Values.nodeGroups.hcloud) (not .Values.nodeGroups.bareMetal) }}
-{{- $pinNodeIP := or (and (eq .Values.mode "bare-metal") .Values.bareMetal.vSwitch) $cpPublic }}
+{{- $pinNodeIP := or (and (eq .Values.mode "bare-metal") .Values.bareMetal.vSwitch) $cpOnPrivateNetwork }}
+{{- $hcloudPrivateIP := "{{ds.meta_data.private_networks[0].ip}}" }}
 apiVersion: controlplane.cluster.x-k8s.io/v1beta2
 kind: KubeadmControlPlane
 metadata:
@@ -20,14 +21,10 @@ spec:
         # layer for enforcement, not chart-side flag pinning.
         extraArgs:
           # InternalIP is prepended to upstream CAPH's order
-          # (ExternalIP,Hostname,InternalDNS,ExternalDNS) which assumes
-          # HCloud servers always have a public IP. CP-only VPN clusters
-          # don't, so the API server's kubelet proxy would otherwise fall
-          # through to Hostname → host-resolver lookup → "no such host"
-          # (the resolver from connect-nat-gateway.sh doesn't know
-          # internal node names), breaking exec / port-forward /
-          # log-streaming. InternalIP is always populated by HCloud CCM
-          # and is harmless for clusters that do have a public IP.
+          # (ExternalIP,Hostname,InternalDNS,ExternalDNS), so the API
+          # server reaches kubelets over the private network whenever a
+          # node has one, instead of over its public IP. InternalIP is
+          # always populated by HCloud CCM.
           - name: kubelet-preferred-address-types
             value: InternalIP,ExternalIP,Hostname,InternalDNS,ExternalDNS
         {{- /* Operator-supplied apiserver flags rendered by kubeaid-cli into
@@ -128,74 +125,6 @@ spec:
           - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
           - TLS_RSA_WITH_AES_256_GCM_SHA384
           - TLS_RSA_WITH_AES_128_GCM_SHA256
-
-    {{- if and (not $cpPublic) (ne .Values.mode "bare-metal") (or (eq .Values.mode "hybrid") (eq .Values.network.type "private")) }}
-    {{/* NAT gateway script is only needed when HCloud nodes run on a
-         private network (and the HCloud side of hybrid) with no public IP
-         of their own. Pure bare-metal is excluded: those hosts have their
-         own public connectivity and no NAT gateway — network.type defaults
-         to "private", so without the mode guard they'd ship and run this
-         script for nothing. $cpPublic is excluded for the same reason:
-         controlPlane.hcloud.publicNetwork gives the node a public IPv4, so
-         Hetzner's public gateway already provides egress and (via DHCP) a
-         resolver. The private network stays — only the default-route hop
-         goes away.
-         Gateway IP + DNS resolver come from values so non-default private
-         networks work; the interface name is discovered at runtime so the
-         script isn't pinned to HCloud's enp7s0. */}}
-    - content: |
-        set -eu
-        NAT_GATEWAY_IP="{{ .Values.hcloud.natGatewayIP }}"
-        DNS_SERVER="{{ .Values.hcloud.dnsServer }}"
-
-        # The private NIC toward the NAT gateway. Discovered at runtime so we
-        # don't pin HCloud's enp7s0 vs bare-metal eno1/enp3s0; it resolves
-        # from the connected private-subnet route before any default route
-        # exists. Retry while the private network comes up.
-        IFACE=""
-        for i in $(seq 1 30); do
-          IFACE=$(ip route get "$NAT_GATEWAY_IP" 2>/dev/null | awk '{print $3; exit}')
-          [ -n "$IFACE" ] && break
-          sleep 10
-        done
-        if [ -z "$IFACE" ]; then
-          echo "FATAL: could not find the interface toward $NAT_GATEWAY_IP after 30 retries" >&2
-          exit 1
-        fi
-
-        # Default route + DNS via netplan: persists across reboots (networkd
-        # re-applies it on every boot) and is applied now too, so the rest of
-        # preKubeadm (apt, binary downloads) has egress and DNS.
-        cat <<EOF > /etc/netplan/70-nat-gateway.yaml
-        network:
-          version: 2
-          renderer: networkd
-          ethernets:
-            ${IFACE}:
-              routes:
-                - to: default
-                  via: ${NAT_GATEWAY_IP}
-              nameservers:
-                addresses:
-                  - ${DNS_SERVER}
-        EOF
-        chmod 0600 /etc/netplan/70-nat-gateway.yaml
-
-        # Apply now and wait until the default route is actually installed
-        # before continuing (networkd can lag a moment after apply).
-        for i in $(seq 1 30); do
-          netplan apply 2>/dev/null || true
-          ip route show default | grep -q "via $NAT_GATEWAY_IP" && break
-          sleep 10
-        done
-        if ! ip route show default | grep -q "via $NAT_GATEWAY_IP"; then
-          echo "FATAL: default route via $NAT_GATEWAY_IP not up after netplan apply" >&2
-          exit 1
-        fi
-      owner: "root:root"
-      path: /connect-nat-gateway.sh
-      permissions: "0744"
-    {{- end }}
 
     {{- if eq .Values.mode "bare-metal" }}
     - content: |
@@ -333,23 +262,50 @@ spec:
       path: /bind-floating-ip.sh
       permissions: "0744"
     {{- end }}
+    {{- if and (ne .Values.mode "bare-metal") .Values.controlPlane.hcloud.floatingIPs }}
+    {{/* Bind the HCloud Floating IP(s) on every control-plane node's public NIC
+         (eth0). hcloud-fip-controller moves the API-level assignment between
+         nodes on failover, but the kernel only answers for an IP configured
+         locally (Hetzner: "you must configure the Floating IP inside the OS of
+         the server"). Every CP binds it; Hetzner routes it only to the
+         assigned node, so the CPs don't conflict. Cilium's egress gateway
+         also needs its egressIP on a local device of the gateway node.
+
+         `Scope=link` keeps it out of source-address selection. Cilium picks
+         the device's "primary" address for BPF masquerade by ranking global
+         before link scope, and only then by lowest IP. A global-scope Floating
+         IP that is numerically lower than the node's own IP would become the
+         masquerade source, so pod replies would be routed to whichever node
+         holds the Floating IP and get lost. The kernel likewise never picks a
+         link-scope address as the source of host-originated traffic.
+
+         A systemd-networkd drop-in for the netplan-generated eth0 network,
+         because netplan has no way to set an address scope. */}}
+    - content: |
+        {{- range .Values.controlPlane.hcloud.floatingIPs }}
+        [Address]
+        Address={{ . }}/32
+        Scope=link
+        {{- end }}
+      owner: root:root
+      path: /etc/systemd/network/10-netplan-eth0.network.d/60-floating-ip.conf
+      permissions: "0644"
+    {{- end }}
     {{- if ((.Values.controlPlane).apiServer).files }}
     {{- ((.Values.controlPlane).apiServer).files | toYaml | nindent 4 }}
     {{- end }}
     initConfiguration:
-      {{- if $cpPublic }}
+      {{- if $cpOnPrivateNetwork }}
       {{/* etcd derives its peer and client URLs from advertiseAddress, and
            kubeadm defaults it by returning the FIRST global address on the
            default-route interface (apimachinery ChooseHostInterface), not by
-           asking the kernel for a source address. On a public control-plane
-           node that interface is the public NIC, which also carries any
-           controlPlane.hcloud.floatingIPs — so etcd would advertise a public
-           address, and with a Floating IP every CP would advertise the SAME
-           one, since they all bind it. Pin it to the private NIC instead:
-           etcd peers over the HCloud private network, which is also where
-           the control-plane load balancer sends apiserver traffic. */}}
+           asking the kernel for a source address. On an HCloud control-plane
+           node that interface is the public NIC, so etcd would advertise the
+           public address. Pin it to the HCloud private-network IP instead:
+           etcd peers over the private network, which is also where the
+           control-plane load balancer sends apiserver traffic. */}}
       localAPIEndpoint:
-        advertiseAddress: __KUBEAID_NODE_IP__
+        advertiseAddress: {{ $hcloudPrivateIP | quote }}
       {{- end }}
       skipPhases:
         - addon/kube-proxy
@@ -374,16 +330,17 @@ spec:
             value: /etc/kubernetes/kubelet/config.yaml
           {{- if $pinNodeIP }}
           {{/* kubelet reads its node IP only from this flag; KubeletConfiguration
-               has no such field. The CP spec is shared across Machines, so a
-               preKubeadm step fills in this host's private IP at boot. */}}
+               has no such field. The CP spec is shared across Machines, so the
+               per-host private IP is filled in at boot: by cloud-init Jinja on
+               HCloud, by a preKubeadm step on bare metal. */}}
           - name: node-ip
-            value: __KUBEAID_NODE_IP__
+            value: {{ if $cpOnPrivateNetwork }}{{ $hcloudPrivateIP | quote }}{{ else }}__KUBEAID_NODE_IP__{{ end }}
           {{- end }}
     joinConfiguration:
-      {{- if $cpPublic }}
+      {{- if $cpOnPrivateNetwork }}
       controlPlane:
         localAPIEndpoint:
-          advertiseAddress: __KUBEAID_NODE_IP__
+          advertiseAddress: {{ $hcloudPrivateIP | quote }}
       {{- end }}
       nodeRegistration:
         {{- if $cpOnly }}
@@ -396,7 +353,7 @@ spec:
             value: /etc/kubernetes/kubelet/config.yaml
           {{- if $pinNodeIP }}
           - name: node-ip
-            value: __KUBEAID_NODE_IP__
+            value: {{ if $cpOnPrivateNetwork }}{{ $hcloudPrivateIP | quote }}{{ else }}__KUBEAID_NODE_IP__{{ end }}
           {{- end }}
     {{- if (gt (len $.Values.global.additionalUsers) 0) }}
     users:
@@ -408,66 +365,6 @@ spec:
     {{- end }}
     preKubeadmCommands:
       - set -x
-
-      {{- if $cpPublic }}
-      {{/* Substitute the __KUBEAID_NODE_IP__ placeholders (kubelet's --node-ip
-           and kubeadm's localAPIEndpoint.advertiseAddress) with this host's
-           HCloud private-network IP. The CP KubeadmConfigSpec is shared
-           across every Machine the KCP creates, so the per-host address can
-           only be filled in at boot.
-
-           Found as the global IPv4 on the one interface that is neither
-           loopback nor the default route's — on these nodes that is the
-           HCloud private NIC. Picked by interface rather than by scanning
-           addresses, because the address list is exactly what kubeadm's own
-           auto-detection gets wrong: a Floating IP bound to the public NIC
-           can sort ahead of the node's real address. No NAT gateway is
-           involved — a public control plane has its own egress, so its
-           private NIC carries no default route to borrow a gateway from.
-
-           cloud-init writes write_files before runcmd, so kubeadm's config
-           already exists here and is still editable. Only one of the two
-           kubeadm configs is present on any given node (init on the first,
-           join on the rest). */}}
-      - |
-        PUBLIC_IFACE="$(ip -4 route show default | grep -o 'dev [^ ]*' | cut -d' ' -f2 | head -1)"
-        if [ -z "$PUBLIC_IFACE" ]; then
-          echo "no default route, cannot tell the public interface from the private one" >&2
-          exit 1
-        fi
-        PRIVATE_IP=""
-        for iface_path in /sys/class/net/*; do
-          iface="${iface_path##*/}"
-          if [ "$iface" = "lo" ] || [ "$iface" = "$PUBLIC_IFACE" ]; then
-            continue
-          fi
-          PRIVATE_IP="$(ip -4 -o addr show dev "$iface" scope global | grep -o 'inet [0-9.]*' | cut -d' ' -f2 | head -1)"
-          if [ -n "$PRIVATE_IP" ]; then
-            break
-          fi
-        done
-        if [ -z "$PRIVATE_IP" ]; then
-          echo "no private-network IPv4 found outside ${PUBLIC_IFACE}, but this control-plane node is on the HCloud private network" >&2
-          exit 1
-        fi
-        for kubeadm_config in /run/kubeadm/kubeadm.yaml /run/kubeadm/kubeadm-join-config.yaml; do
-          if [ -f "$kubeadm_config" ]; then
-            sed -i "s|__KUBEAID_NODE_IP__|${PRIVATE_IP}|g" "$kubeadm_config"
-          fi
-        done
-      {{- end }}
-
-      {{/* The NAT-gateway hop only exists for HCloud machines on a
-           private network (and the HCloud side of hybrid) that have no
-           public IP. network.type defaults to "private", so without the
-           mode guard a pure bare-metal node — which has its own public
-           connectivity and no 10.0.0.1 gateway — spent 5 minutes retrying
-           an impossible default route on every boot. $cpPublic nodes skip
-           it too: taking the default route off the public NIC is what made
-           source-based policy routing necessary in the first place. */}}
-      {{- if and (not $cpPublic) (ne .Values.mode "bare-metal") (or (eq .Values.mode "hybrid") (eq .Values.network.type "private")) }}
-      - chmod +x /connect-nat-gateway.sh && /connect-nat-gateway.sh
-      {{- end }}
 
       {{- if eq .Values.mode "bare-metal" }}
       - |
@@ -642,61 +539,13 @@ spec:
       {{- end }}
 
       {{- if and (ne .Values.mode "bare-metal") .Values.controlPlane.hcloud.floatingIPs }}
-      {{/* Bind the HCloud Floating IP(s) on every control-plane node, on a
-           dummy interface rather than the public NIC. hcloud-fip-controller
-           moves the *API-level* assignment between nodes on failover, but the
-           kernel only answers for an IP that is actually configured locally
-           (Hetzner: "you must configure the Floating IP inside the OS of the
-           server"). Every CP binds it; hcloud routes it (L3) only to the
-           assigned node, so there is no conflict between CPs. Used for NetBird
-           Coturn (host-network STUN/TURN) to survive CP failures at a stable
-           public IP.
-
-           It must NOT sit on the public NIC. Several things derive "the node's
-           address" by taking the FIRST global address on an interface instead
-           of asking the kernel for the route's source: kubeadm (apimachinery
-           ChooseHostInterface), netfilter's MASQUERADE target
-           (inet_select_addr) and Cilium's BPF masquerade. A Floating IP added
-           to the public NIC sorts ahead of the node's own address and wins all
-           three, so pod egress leaves masqueraded to an address Hetzner routes
-           to whichever node currently holds the assignment — every reply lands
-           on the wrong node, where there is no conntrack entry for it. That
-           also deadlocks hcloud-fip-controller, which needs api.hetzner.cloud
-           to move the very assignment it is broken by.
-
-           A dummy device avoids all of it: the address is still local so the
-           kernel answers for it, Coturn advertises it through external-ip
-           regardless of which interface holds it, and Cilium device lists of
-           the --devices=eth+,enp+,eno+ form exclude it by name. systemd-networkd
-           units rather than netplan because netplan only gained dummy-devices
-           in 1.0 while hcloud.imageName is operator-settable. */}}
-      - |
-        cat <<'EOF' > /etc/systemd/network/10-kubeaid-floating-ip.netdev
-        [NetDev]
-        Name=kubeaid-fip0
-        Kind=dummy
-        EOF
-        cat <<'EOF' > /etc/systemd/network/10-kubeaid-floating-ip.network
-        [Match]
-        Name=kubeaid-fip0
-        [Network]
-        {{- range .Values.controlPlane.hcloud.floatingIPs }}
-        Address={{ . }}/32
-        {{- end }}
-        EOF
-        chmod 0644 /etc/systemd/network/10-kubeaid-floating-ip.netdev /etc/systemd/network/10-kubeaid-floating-ip.network
-
-        # Create and address it now too. The units above are what survives a
-        # reboot; doing it directly here avoids restarting systemd-networkd
-        # mid-cloud-init, and works on images whose networkctl cannot create a
-        # .netdev on reload.
-        if ! ip link show kubeaid-fip0 >/dev/null 2>&1; then
-          ip link add kubeaid-fip0 type dummy
-        fi
-        ip link set kubeaid-fip0 up
-        {{- range .Values.controlPlane.hcloud.floatingIPs }}
-        ip addr replace {{ . }}/32 dev kubeaid-fip0
-        {{- end }}
+      {{/* Bind the Floating IP(s) now. The networkd drop-in in `files` only
+           takes effect on the next boot, and running `netplan apply` here
+           would restart systemd-networkd mid-cloud-init. See the drop-in for
+           why the address is `scope link`. */}}
+      {{- range .Values.controlPlane.hcloud.floatingIPs }}
+      - ip addr replace {{ . }}/32 dev eth0 scope link
+      {{- end }}
       {{- end }}
 
       - sed -i '/swap/d' /etc/fstab

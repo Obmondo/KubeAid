@@ -14,20 +14,8 @@ spec:
       placementGroupName: control-plane
       type: {{ .Values.controlPlane.hcloud.machineType }}
       publicNetwork:
-        {{/* Nodes have no public IPv4/IPv6 when using a private network (hcloud
-             with network.type=private) or when running in hybrid mode.
-             controlPlane.hcloud.publicNetwork.enabled still gives control-plane
-             nodes a public IPv4 and IPv6, keeping the private network, e.g. so a
-             Floating IP (controlPlane.hcloud.floatingIPs) can be assigned to
-             them: Hetzner only assigns Floating IPs to servers that have a
-             Primary IP of the same family. These nodes keep their default
-             route on the public interface and skip the NAT gateway, so replies
-             from the public IP and the Floating IPs already leave with the
-             right source address — no source-based policy routing needed. */}}
-        {{- $isPrivate := or (eq .Values.mode "hybrid") (eq .Values.network.type "private") }}
-        {{- $cpPublic := dig "publicNetwork" "enabled" false (.Values.controlPlane.hcloud | default dict) }}
-        enableIPv4: {{ or (not $isPrivate) $cpPublic }}
-        enableIPv6: {{ or (not $isPrivate) $cpPublic }}
+        enableIPv4: true
+        enableIPv6: false
 {{- end }}
 
 {{/* Handling node-groups in HCloud. */}}
@@ -48,10 +36,7 @@ spec:
       placementGroupName: {{ $nodeGroup.name }}
       type: {{ $nodeGroup.machineType }}
       publicNetwork:
-        {{/* Nodes have no public IPv4/IPv6 when using a private network (hcloud
-             with network.type=private) or when running in hybrid mode. */}}
-        {{- $isPrivate := or (eq $.Values.mode "hybrid") (eq $.Values.network.type "private") }}
-        enableIPv4: {{ not $isPrivate }}
-        enableIPv6: {{ not $isPrivate }}
+        enableIPv4: true
+        enableIPv6: false
 {{- end }}
 {{- end }}
