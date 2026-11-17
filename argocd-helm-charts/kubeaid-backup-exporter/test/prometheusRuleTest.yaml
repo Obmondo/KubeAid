@@ -281,12 +281,11 @@ tests:
           - exp_labels:
               alertname: VeleroBackupMissing
               severity: critical
-              namespace: mixed-ns
             exp_annotations:
-              summary: 'Velero backups missing in mixed-ns'
+              summary: 'Velero backups missing'
               description: |-
-                1 volume(s) in namespace mixed-ns have never been backed up by Velero:
-                pvc-never (pvc)
+                1 volume(s) have never been backed up by Velero:
+                - mixed-ns/pvc-never (pvc)
 
   # A genuinely missing, in-scope PVC (no matching not-enabled error) must
   # still fire VeleroBackupMissing.
@@ -301,14 +300,13 @@ tests:
           - exp_labels:
               alertname: VeleroBackupMissing
               severity: critical
-              namespace: test-ns
             exp_annotations:
-              summary: 'Velero backups missing in test-ns'
+              summary: 'Velero backups missing'
               description: |-
-                1 volume(s) in namespace test-ns have never been backed up by Velero:
-                pvc-never (pvc)
+                1 volume(s) have never been backed up by Velero:
+                - test-ns/pvc-never (pvc)
 
-  # One alert per namespace, listing only that namespace's missing volumes.
+  # One alert per cluster, listing every missing volume with its namespace.
   - interval: 1m
     input_series:
       - series: 'backup_exporter_velero_latest_backup_age{backup="",namespace="test-ns",resource_name="pvc-missing-b",resource_type="pvc"}'
@@ -330,22 +328,13 @@ tests:
           - exp_labels:
               alertname: VeleroBackupMissing
               severity: critical
-              namespace: test-ns
             exp_annotations:
-              summary: 'Velero backups missing in test-ns'
+              summary: 'Velero backups missing'
               description: |-
-                2 volume(s) in namespace test-ns have never been backed up by Velero:
-                pvc-missing-a (pvc)
-                pvc-missing-b (pvc)
-          - exp_labels:
-              alertname: VeleroBackupMissing
-              severity: critical
-              namespace: third-ns
-            exp_annotations:
-              summary: 'Velero backups missing in third-ns'
-              description: |-
-                1 volume(s) in namespace third-ns have never been backed up by Velero:
-                pvc-lonely (pvc)
+                3 volume(s) have never been backed up by Velero:
+                - test-ns/pvc-missing-a (pvc)
+                - test-ns/pvc-missing-b (pvc)
+                - third-ns/pvc-lonely (pvc)
 
   # A PVC outside every schedule's included namespaces is exporter bookkeeping,
   # not a collector failure: backup_not_enabled must not fire
@@ -360,11 +349,9 @@ tests:
         eval_time: 6m
         exp_alerts: []
 
-  # ExceededRPO is one alert per namespace. Two volumes past RPO in one
-  # namespace and one healthy volume in another must yield exactly one alert,
-  # carrying only the namespace label, whose description lists both late
-  # volumes with humanized ages (sorted by name) and nothing from the healthy
-  # namespace.
+  # ExceededRPO is one alert per cluster. Late volumes in two namespaces and
+  # a healthy one must yield exactly one alert with no labels but severity,
+  # listing every late volume as namespace/name (sorted) with its age.
   - interval: 1m
     input_series:
       - series: 'backup_exporter_velero_latest_backup_age{backup="test-backup",namespace="test-ns",resource_name="pvc-late-b",resource_type="pvc"}'
@@ -375,6 +362,8 @@ tests:
         values: '3600x6'
       - series: 'backup_exporter_velero_latest_backup_age{backup="test-backup",namespace="other-ns",resource_name="pvc-other",resource_type="pvc"}'
         values: '3600x6'
+      - series: 'backup_exporter_velero_latest_backup_age{backup="test-backup",namespace="a-ns",resource_name="pvc-x",resource_type="pvc"}'
+        values: '95000x6'
     alert_rule_test:
       - alertname: VeleroBackupExceededRPO
         eval_time: 6m
@@ -382,13 +371,13 @@ tests:
           - exp_labels:
               alertname: VeleroBackupExceededRPO
               severity: critical
-              namespace: test-ns
             exp_annotations:
-              summary: 'Velero backups in test-ns exceeded RPO'
+              summary: 'Velero backups exceeded RPO'
               description: |-
-                2 Velero backup(s) in namespace test-ns exceeded the RPO of 26h:
-                pvc-late-a (pvc, method: test-backup, age: 1d 2h 23m 20s)
-                pvc-late-b (pvc, method: test-backup, age: 1d 3h 46m 40s)
+                3 Velero backup(s) exceeded the RPO of 26h:
+                - a-ns/pvc-x (pvc, method: test-backup, age: 1d 2h 23m 20s)
+                - test-ns/pvc-late-a (pvc, method: test-backup, age: 1d 2h 23m 20s)
+                - test-ns/pvc-late-b (pvc, method: test-backup, age: 1d 3h 46m 40s)
 
   # Nothing past RPO, no alert, even with many volumes.
   - interval: 1m
