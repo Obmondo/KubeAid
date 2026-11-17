@@ -68,6 +68,8 @@ All applications should show `Healthy` and `Synced` status.
 1. **Backup important data** - Export any critical secrets or configurations
 2. **Review changelogs** - Check for breaking changes in the new Kubernetes version
 3. **Test in staging** - If possible, test the upgrade on a non-production cluster first
+4. **Hetzner bare metal** - The upgrade reinstalls every server, so prepare Ceph and ZFS LocalPV first; see
+   [Upgrade Kubernetes on Hetzner Bare Metal](../operations/hetzner-bare-metal-k8s-upgrade.md)
 
 ### Upgrade Command
 
