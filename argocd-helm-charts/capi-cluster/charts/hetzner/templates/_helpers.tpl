@@ -40,19 +40,32 @@ Output: e.g. `dedicated=gpu:NoSchedule,workload=batch:PreferNoSchedule`
 {{- join "," $taints -}}
 {{- end -}}
 
-{{/* Give highest priority to the Network Card / Connection entry in the boot order.
-     Otherwise, we cannot boot the servers into rescue mode, and need to reach out to the
-     Hetzner support team. */}}
+{{/* Put the UEFI PXE IPv4 entry first in the boot order, so CAPH can boot the server into
+     the Hetzner rescue system. When no rescue is activated, UEFI PXE gets nothing to boot
+     and the firmware moves on to the next entry, the installed OS.
+
+     Only a UEFI entry qualifies, matched on its device path (MAC(...)/IPv4(...), and no
+     Uri(...), which would be HTTP boot). Matching on the entry name ("Network Card",
+     "Network Connection") also picks the legacy CSM entry, BBS(Network,...), on boards
+     that have one. That legacy PXE ROM exits with "PXE-M0F: Exiting PXE ROM" and the
+     firmware does not fall through to the UEFI OS entry, so the server hangs on its
+     first reboot after the install.
+
+     Without a UEFI PXE IPv4 entry the boot order is left as it is: UEFI network boot is
+     off in the BIOS and has to be enabled there (Hetzner support), or CAPH cannot boot
+     the server into rescue for a reinstall. */}}
 {{- define "hetzner.efiBootOrderScript" -}}
 if [ ! -d /sys/firmware/efi ]; then
-        echo "legacy BIOS boot — skipping EFI boot-order adjustment"
+  echo "legacy BIOS boot — skipping EFI boot-order adjustment"
 else
   NETBOOT=$(efibootmgr -v \
-    | grep -E "Network (Card|Connection|Device)" \
-    | sed 's/Boot\([0-9A-F]*\).*/\1/' \
+    | grep -E '^Boot[0-9A-F]{4}' \
+    | grep 'MAC(' | grep 'IPv4(' | grep -v 'Uri(' \
+    | sed 's/^Boot\([0-9A-F]\{4\}\).*/\1/' \
     | head -n1)
   if [ -z "$NETBOOT" ]; then
-    echo "no EFI network boot entry found — skipping boot-order adjustment"
+    echo "no UEFI PXE IPv4 boot entry found — leaving the boot order unchanged"
+    echo "enable UEFI network boot in the BIOS, otherwise CAPH cannot boot this server into rescue"
   else
     CURRENT_ORDER=$(efibootmgr | grep "BootOrder:" | cut -d' ' -f2)
     NEW_ORDER=$(echo "$CURRENT_ORDER" | sed "s/$NETBOOT,\?//g" | sed "s/^/$NETBOOT,/" | sed 's/,$//')

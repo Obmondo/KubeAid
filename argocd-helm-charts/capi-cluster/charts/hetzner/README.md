@@ -44,16 +44,6 @@ The following table lists the configurable parameters of the chart and their def
 | `workerMachineCount.hcloud`                          | Number of Hetzner Cloud worker nodes                     | `0`                                                             |
 | `includeWorker.hcloud`                               | Enable Hetzner Cloud worker nodes                        | `false`                                                         |
 | `includeWorker.baremetal`                            | Enable baremetal worker nodes                            | `true`                                                          |
-| `remediation.enabled.hcloud`                         | Enable remediation for Hetzner Cloud machines            | `true`                                                          |
-| `remediation.enabled.baremetal`                      | Enable remediation for baremetal machines                | `true`                                                          |
-| `remediation.hcloud.controlPlane.retryLimit`         | Retry limit for Hetzner Cloud control plane remediation  | `1`                                                             |
-| `remediation.hcloud.controlPlane.timeout`            | Timeout for Hetzner Cloud control plane remediation      | `180s`                                                          |
-| `remediation.hcloud.controlPlane.type`               | Type of remediation for Hetzner Cloud control plane      | `Reboot`                                                        |
-| `remediation.hcloud.controlPlane.maxUnhealthy`       | Maximum percentage of unhealthy nodes allowed            | `100%`                                                          |
-| `remediation.hcloud.controlPlane.nodeStartupTimeout` | Timeout for node startup after remediation               | `15m`                                                           |
-| `remediation.hcloud.worker`                          | Remediation settings for Hetzner Cloud worker nodes      | See values.yaml                                                 |
-| `remediation.baremetal.controlPlane`                 | Remediation settings for baremetal control plane nodes   | See values.yaml                                                 |
-| `remediation.baremetal.worker`                       | Remediation settings for baremetal worker nodes          | See values.yaml                                                 |
 | `baremetalHosts.WithRaid`                            | List of baremetal servers with RAID configuration        | See values.yaml                                                 |
 | `baremetalHosts.WithRaid[].serverID`                 | Hetzner Robot server ID                                  |                                                                 |
 | `baremetalHosts.WithRaid[].role`                     | Role of the server (control-plane/worker)                |                                                                 |
@@ -88,7 +78,20 @@ To use Hetzner Cloud nodes, set `controlPlaneType: hcloud` and/or `includeWorker
 
 ### Node Remediation
 
-The chart includes configuration for automatic remediation of unhealthy nodes. You can enable or disable remediation for each provider and node type, and configure parameters like retry limits, timeouts, and remediation types.
+The chart renders a MachineHealthCheck for the control plane and one per HCloud node group. When a node stays
+NotReady (`Ready` is `False` or `Unknown`) for longer than the timeout, its Machine is marked unhealthy and
+replaced.
+
+The control-plane timeout is set with `controlPlane.machineHealthCheck.unhealthyTimeoutSeconds`. Left at `null`,
+it is 600 seconds in `mode: bare-metal` and 180 seconds in `hcloud` and `hybrid`. Replacing a bare-metal control
+plane reinstalls the server, and a plain reboot of a dedicated server (firmware POST plus OS boot) often takes
+longer than 3 minutes, so the bare-metal default is longer. Set a value to override it in any mode:
+
+```yaml
+controlPlane:
+  machineHealthCheck:
+    unhealthyTimeoutSeconds: 900
+```
 
 ## Examples
 
