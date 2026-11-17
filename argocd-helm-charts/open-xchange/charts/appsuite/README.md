@@ -100,6 +100,40 @@ appsuite:
             enabled: true
 ```
 
+## Destination rules
+
+The chart renders one Istio `DestinationRule` per core-mw service. Each keeps a
+user or client on one core-mw pod through a consistent hash: a cookie for
+`appsuite` (http-api), the `Authorization` header for `dav` (sync) and
+`businessmobility`. Per block, these keys are passed through to Istio:
+
+| Key | Rendered into |
+|-----|---------------|
+| `istio.destinationRules.<block>.tls` | `trafficPolicy.tls` |
+| `istio.destinationRules.<block>.outlierDetection` | `trafficPolicy.outlierDetection` |
+| `istio.destinationRules.<block>.localityLbSetting` | `trafficPolicy.loadBalancer.localityLbSetting` |
+
+**Warning:** setting `outlierDetection` switches on Istio's locality failover
+for that host, since it is enabled mesh-wide by default. Each ingress gateway
+then hashes only over the core-mw pods in its own zone. If gateways in several
+zones serve one user, the user is spread across pods and per-pod state such as
+mail compose (uploads, inline images) breaks. Disable locality load balancing
+for the rule in that case:
+
+```
+appsuite:
+    istio:
+        destinationRules:
+            appsuite:
+                outlierDetection:
+                    consecutive5xxErrors: 5
+                    interval: 5s
+                    baseEjectionTime: 30s
+                    maxEjectionPercent: 100
+                localityLbSetting:
+                    enabled: false
+```
+
 # Optional dependencies
 
 ## Redis

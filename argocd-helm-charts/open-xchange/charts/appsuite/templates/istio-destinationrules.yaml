@@ -26,6 +26,9 @@ spec:
           name: {{ $fullname }}-http-api-route
           path: /
           ttl: 720h # 30 days
+    {{- with ((((.Values).istio).destinationRules).appsuite).localityLbSetting }}
+      localityLbSetting: {{ toYaml . | nindent 8 }}
+    {{- end }}
 {{- if and (include "appsuite.provisioningGatewayEnabled" .) ((((.Values).istio).destinationRules).appsuite).tls }}
 ---
 apiVersion: networking.istio.io/v1
@@ -56,6 +59,9 @@ spec:
     loadBalancer:
       consistentHash:
         httpHeaderName: authorization
+    {{- with ((((.Values).istio).destinationRules).dav).localityLbSetting }}
+      localityLbSetting: {{ toYaml . | nindent 8 }}
+    {{- end }}
 {{- if .Values.istio.virtualServices.businessmobility.enabled }}
 ---
 apiVersion: networking.istio.io/v1
@@ -75,6 +81,9 @@ spec:
     loadBalancer:
       consistentHash:
         httpHeaderName: authorization
+    {{- with ((((.Values).istio).destinationRules).businessmobility).localityLbSetting }}
+      localityLbSetting: {{ toYaml . | nindent 8 }}
+    {{- end }}
 {{- end }}
 {{- end -}}
 {{- end -}}

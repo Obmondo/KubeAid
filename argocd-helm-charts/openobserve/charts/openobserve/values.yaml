@@ -78,6 +78,14 @@ replicaCount:
 
 scheduler:
   extraEnv: []
+  # -- What happens to this component's PVCs when the StatefulSet is scaled down or deleted.
+  # Requires Kubernetes >= 1.27. Empty keeps the Kubernetes default (Retain for both).
+  # The volume only holds disk cache, so `whenScaled: Delete` is safe here.
+  # Example:
+  #   persistentVolumeClaimRetentionPolicy:
+  #     whenScaled: Delete
+  #     whenDeleted: Retain
+  persistentVolumeClaimRetentionPolicy: {}
   persistence: # If enabled it will be used for disk cache. Highly recommend to enable this for production
     enabled: true
     size: 100Gi
@@ -101,6 +109,17 @@ router:
 
 ingester:
   extraEnv: []
+  # -- Seconds Kubernetes waits for the ingester pod to stop before killing it.
+  # When autoscaling.ingester.enabled is true the preStop hook drains the node and uploads
+  # pending files (up to ~16 minutes), so this defaults to 1200 in that case.
+  # Leave empty to use that default (or the Kubernetes default of 30 when autoscaling is off).
+  terminationGracePeriodSeconds:
+  # -- What happens to ingester PVCs when the StatefulSet is scaled down or deleted.
+  # Requires Kubernetes >= 1.27. Empty keeps the Kubernetes default (Retain for both).
+  # WARNING: the ingester volume holds the WAL. Only set `whenScaled: Delete` when the preStop
+  # drain is enabled (autoscaling.ingester.enabled) and terminationGracePeriodSeconds is long
+  # enough for it to finish; otherwise data not yet uploaded is lost on every scale-down.
+  persistentVolumeClaimRetentionPolicy: {}
   headless:
     enabled: false
   persistence:
@@ -115,6 +134,14 @@ ingester:
 
 querier:
   extraEnv: []
+  # -- What happens to this component's PVCs when the StatefulSet is scaled down or deleted.
+  # Requires Kubernetes >= 1.27. Empty keeps the Kubernetes default (Retain for both).
+  # The volume only holds disk cache, so `whenScaled: Delete` is safe here.
+  # Example:
+  #   persistentVolumeClaimRetentionPolicy:
+  #     whenScaled: Delete
+  #     whenDeleted: Retain
+  persistentVolumeClaimRetentionPolicy: {}
   persistence: # If enabled it will be used for disk cache. Highly recommend to enable this for production
     enabled: true
     size: 100Gi
@@ -124,6 +151,14 @@ querier:
 
 alertquerier:
   extraEnv: []
+  # -- What happens to this component's PVCs when the StatefulSet is scaled down or deleted.
+  # Requires Kubernetes >= 1.27. Empty keeps the Kubernetes default (Retain for both).
+  # The volume only holds disk cache, so `whenScaled: Delete` is safe here.
+  # Example:
+  #   persistentVolumeClaimRetentionPolicy:
+  #     whenScaled: Delete
+  #     whenDeleted: Retain
+  persistentVolumeClaimRetentionPolicy: {}
   persistence: # If enabled it will be used for disk cache. Highly recommend to enable this for production
     enabled: true
     size: 100Gi
@@ -228,7 +263,7 @@ config:
   ZO_GRPC_PORT: "5081"
   ZO_GRPC_ADDR: ""
   ZO_GRPC_CONNECT_TIMEOUT: "600"
-  ZO_GRPC_MAX_MESSAGE_SIZE: "16"
+  ZO_GRPC_MAX_MESSAGE_SIZE: "32"
   ZO_GRPC_CHANNEL_CACHE_DISABLED: "false"
   ZO_GRPC_ORG_HEADER_KEY: "organization"
   ZO_GRPC_STREAM_HEADER_KEY: "stream-name"

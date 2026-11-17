@@ -9,6 +9,10 @@ spec:
   serviceName: "{{ include "openobserve.fullname" . }}-alertquerier"
   replicas: {{ .Values.replicaCount.alertquerier }}
   podManagementPolicy: Parallel
+  {{- with .Values.alertquerier.persistentVolumeClaimRetentionPolicy }}
+  persistentVolumeClaimRetentionPolicy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   updateStrategy:
     type: RollingUpdate
     rollingUpdate:

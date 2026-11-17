@@ -1,11 +1,11 @@
 annotations:
   artifacthub.io/images: |
     - name: crossview
-      image: ghcr.io/crossplane-contrib/crossview:v4.6.0
+      image: ghcr.io/crossplane-contrib/crossview:v4.7.0
     - name: postgres
-      image: postgres:latest
+      image: postgres:18-alpine
 apiVersion: v2
-appVersion: v4.6.0
+appVersion: v4.7.0
 description: A Helm chart for Crossview - Crossplane resource visualization and management
   platform
 home: https://github.com/crossplane-contrib/crossview
@@ -21,4 +21,4 @@ name: crossview
 sources:
 - https://github.com/crossplane-contrib/crossview
 type: application
-version: 4.6.0
+version: 4.7.0

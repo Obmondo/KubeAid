@@ -1,17 +1,17 @@
 annotations:
   artifacthub.io/category: networking
   artifacthub.io/changes: |
-    - Do not render the PodSecurityPolicy Role and RoleBinding on Kubernetes 1.25 and newer
-    - Update base image to HAProxy 3.4.4
+    - Document memory limits and what HAProxy's memory use depends on
+    - Note in NOTES.txt when no memory limit is set
   artifacthub.io/images: |
     - name: haproxy
-      image: docker.io/haproxytech/haproxy-alpine:3.4.4
+      image: docker.io/haproxytech/haproxy-alpine:3.4.7
   artifacthub.io/license: Apache-2.0
   artifacthub.io/links: |
     - name: support
       url: https://github.com/haproxytech/helm-charts/issues
 apiVersion: v2
-appVersion: 3.4.4
+appVersion: 3.4.7
 description: A Helm chart for HAProxy on Kubernetes
 home: https://github.com/haproxytech/helm-charts/tree/main/haproxy
 icon: https://raw.githubusercontent.com/haproxytech/helm-charts/main/haproxy/chart-icon.png
@@ -25,4 +25,4 @@ name: haproxy
 sources:
 - http://www.haproxy.org/
 type: application
-version: 1.30.2
+version: 1.30.4

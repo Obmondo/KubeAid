@@ -1,6 +1,8 @@
+{{- $filters := fromYaml (include "namespaceFilters.config" .) }}
 {{- $components := fromYaml (include "components" .) }}
 {{- $configurations := fromYaml (include "configurations" .) }}
 {{- $gates := (fromYaml (include "capabilities.gates" .)).effective }}
+{{- include "gvisorStart.validate" . }}
 {{- if $components.nodeAgent.enabled }}
 {{/* validate that either alertCRD.scopeClustered or alertCRD.scopeNamespaced defined when the capability enabled */}}
 {{- if eq .Values.capabilities.runtimeDetection "enable" }}
@@ -25,6 +27,14 @@ data:
         {{- if $configurations.backendStorageEnabled }}
         "backendStorageEnabled": true,
         {{- end }}
+        {{- if .Values.nodeAgent.gVisorStart.enabled }}
+        "gVisorStart": {
+          "enabled": true,
+          "socketPath": {{ printf "%s/events.sock" .Values.nodeAgent.gVisorStart.socketDirectory | toJson }},
+          "runtimeEndpoint": {{ .Values.nodeAgent.gVisorStart.runtimeEndpoint | toJson }},
+          "runtimeHandler": {{ .Values.nodeAgent.gVisorStart.runtimeHandler | toJson }}
+        },
+        {{- end }}
         "applicationProfileServiceEnabled": {{ or $configurations.runtimeObservability (eq .Values.capabilities.relevancy "enable") }},
         "prometheusExporterEnabled": {{ eq .Values.nodeAgent.config.prometheusExporter "enable" }},
         "runtimeDetectionEnabled": {{ eq .Values.capabilities.runtimeDetection "enable" }},
@@ -42,12 +52,15 @@ data:
         "enableEmbeddedSBOMs": {{ eq .Values.capabilities.scanEmbeddedSBOMs "enable" }},
         "seccompServiceEnabled": {{ eq .Values.capabilities.seccompProfileService "enable" }},
         "seccompProfileBackend": "{{ .Values.capabilities.seccompProfileBackend }}",
+        "sandboxSeccompEnabled": {{ eq .Values.capabilities.sandboxSeccomp "enable" }},
         "initialDelay": "{{ .Values.nodeAgent.config.learningPeriod }}",
         "updateDataPeriod": "{{ .Values.nodeAgent.config.updatePeriod }}",
         "nodeProfileInterval": "{{ .Values.nodeAgent.config.nodeProfileInterval }}",
         "networkStreamingInterval": "{{ .Values.nodeAgent.config.networkStreamingInterval }}",
         "maxSniffingTimePerContainer": "{{ .Values.nodeAgent.config.maxLearningPeriod }}",
-        {{- if ne .Values.includeNamespaces "" }}
+        {{- if $filters.enabled }}
+        "namespaceFilterFile": {{ "/etc/namespace-filters/namespaceFilters.json" | quote }},
+        {{- else if ne .Values.includeNamespaces "" }}
         "includeNamespaces": "{{ .Values.includeNamespaces }}",
         {{- else if ne .Values.excludeNamespaces "" }}
         "excludeNamespaces": "{{ .Values.excludeNamespaces }}",

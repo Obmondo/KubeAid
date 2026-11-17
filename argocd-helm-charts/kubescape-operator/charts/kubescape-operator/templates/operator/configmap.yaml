@@ -1,3 +1,4 @@
+{{- $filters := fromYaml (include "namespaceFilters.config" .) }}
 {{- $components := fromYaml (include "components" .) }}
 {{- /* node-agent autoscaler floor. Only the chart defaults are raised; any other value is used as is. */}}
 {{- $naMinCPU := .Values.nodeAgent.autoscaler.minResources.cpu }}
@@ -45,7 +46,9 @@ metadata:
 data:
   config.json: |
     {
-        {{- if ne .Values.includeNamespaces "" }}
+        {{- if $filters.enabled }}
+      "namespaceFilterConfigMapName": {{ $filters.name | quote }},
+      {{- else if ne .Values.includeNamespaces "" }}
       "includeNamespaces": "{{ .Values.includeNamespaces }}",
         {{- else if ne .Values.excludeNamespaces "" }}
       "excludeNamespaces": "{{ .Values.excludeNamespaces }}",

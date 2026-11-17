@@ -73,6 +73,7 @@ spec:
           resources:
 {{ toYaml .Values.synchronizer.resources | indent 12 }}
           env:
+            {{- include "apiauth.serverEnv" . | nindent 12 }}
             - name: HELM_RELEASE
               value: kubescape-operator-{{ .Chart.Version | replace "+" "_" }}
             {{- if .Values.synchronizer.resources.limits.memory }}

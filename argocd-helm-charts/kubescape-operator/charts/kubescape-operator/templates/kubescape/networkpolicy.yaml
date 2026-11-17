@@ -41,10 +41,10 @@ spec:
       ports:
         - port: http
           protocol: TCP
-    {{- if .Values.kubescape.serviceMonitor.enabled }}
-    # Allow Prometheus to scrape metrics
+    {{- if or .Values.kubescape.serviceMonitor.enabled (eq .Values.configurations.prometheusAnnotations "enable") }}
+    # Allow Prometheus to scrape metrics (ServiceMonitor or prometheus.io annotations), from any namespace
     - ports:
         - port: http
           protocol: TCP
     {{- end }}
-{{ end }}
+{{- end }}

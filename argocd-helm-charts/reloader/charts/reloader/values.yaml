@@ -19,7 +19,7 @@ fullnameOverride: ""
 image:
   name: stakater/reloader
   repository: ghcr.io/stakater/reloader
-  tag: v1.4.23
+  tag: v1.4.24
   # digest: sha256:1234567
   # repository, tag and digest are rendered with tpl, so they may reference other values.
   pullPolicy: IfNotPresent
@@ -152,7 +152,7 @@ reloader:
     labels:
       provider: stakater
       group: com.stakater.platform
-      version: v1.4.23
+      version: v1.4.24
     # Support for extra environment variables.
     env:
       # Open supports Key value pair as environment variables.
@@ -360,7 +360,15 @@ reloader:
     # - podSelector:
     #     matchLabels:
     #       app.kubernetes.io/name: prometheus
+    # Deprecated: use reloader.netpol.egress with custom to blocks instead
     to: []
+    egress:
+      - ports:
+          - port: 443
+            protocol: TCP
+      #   to:
+      #     - ipBlock:
+      #         cidr: 0.0.0.0/0
 
   # Enable vertical pod autoscaler
   verticalPodAutoscaler:

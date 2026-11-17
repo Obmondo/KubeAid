@@ -1,18 +1,51 @@
+{{- /*
+DNS. Port-only on purpose: the cluster resolver is not always a kube-dns pod in kube-system
+(NodeLocal DNSCache listens on a link-local host-network address, OpenShift runs it in
+openshift-dns), and selectors would silently break name resolution there. 5353 is the pod
+port behind OpenShift's DNS Service, which egress policies see after the Service DNAT.
+*/ -}}
 - ports:
     - port: 53
       protocol: UDP
-  to:
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: kube-system
-      podSelector:
-        matchLabels:
-          k8s-app: kube-dns
-{{- if ne .Values.global.httpsProxy "" }}
-- ports:
-    - port: {{ .Values.global.networkPolicy.httpsProxyPort }}
+    - port: 53
       protocol: TCP
+    - port: 5353
+      protocol: UDP
+    - port: 5353
+      protocol: TCP
+{{- if ne .Values.global.httpsProxy "" }}
+{{- $proxyPort := .Values.global.networkPolicy.httpsProxyPort -}}
+{{- if not $proxyPort -}}
+  {{- $rawProxy := .Values.global.httpsProxy -}}
+  {{- if not (or (hasPrefix "http://" $rawProxy) (hasPrefix "https://" $rawProxy)) -}}
+    {{- $rawProxy = printf "http://%s" $rawProxy -}}
+  {{- end -}}
+  {{- $parsed := urlParse $rawProxy -}}
+  {{- if and $parsed.host (hasPrefix "[" $parsed.host) -}}
+    {{- if contains "]:" $parsed.host -}}
+      {{- $proxyPort = int (last (splitList "]:" $parsed.host)) -}}
+    {{- else if eq $parsed.scheme "https" -}}
+      {{- $proxyPort = 443 -}}
+    {{- else if eq $parsed.scheme "http" -}}
+      {{- $proxyPort = 80 -}}
+    {{- end -}}
+  {{- else if and $parsed.host (contains ":" $parsed.host) -}}
+    {{- $proxyPort = int (last (splitList ":" $parsed.host)) -}}
+  {{- else if eq $parsed.scheme "https" -}}
+    {{- $proxyPort = 443 -}}
+  {{- else if eq $parsed.scheme "http" -}}
+    {{- $proxyPort = 80 -}}
+  {{- end -}}
+{{- end -}}
+{{- if $proxyPort }}
+- ports:
+    - port: {{ $proxyPort }}
+      protocol: TCP
+{{- if .Values.global.networkPolicy.httpsProxyIP }}
   to:
     - ipBlock:
         cidr: {{ .Values.global.networkPolicy.httpsProxyIP }}/32
 {{- end }}
+{{- end }}
+{{- end }}
+

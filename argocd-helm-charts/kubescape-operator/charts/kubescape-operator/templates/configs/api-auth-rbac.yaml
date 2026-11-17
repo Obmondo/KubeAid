@@ -1,0 +1,108 @@
+{{- /*
+RBAC for in-cluster API authentication (global.apiAuth).
+Each server gets system:auth-delegator so it can create TokenReviews and
+SubjectAccessReviews; each caller gets a Role in ksNamespace granting the
+kubescape.io verbs the servers check.
+*/}}
+{{- $components := fromYaml (include "components" .) }}
+{{- if eq (include "apiauth.enabled" .) "true" }}
+{{- $servers := list }}
+{{- if $components.kubescape.enabled }}{{- $servers = append $servers .Values.kubescape.name }}{{- end }}
+{{- if $components.kubevuln.enabled }}{{- $servers = append $servers .Values.kubevuln.name }}{{- end }}
+{{- if $components.synchronizer.enabled }}{{- $servers = append $servers .Values.synchronizer.name }}{{- end }}
+{{- if $components.operator.enabled }}{{- $servers = append $servers .Values.operator.name }}{{- end }}
+{{- range $name := $servers }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ printf "%s:system:auth-delegator" $name | quote }}
+  annotations:
+    {{- include "kubescape-operator.annotations" (dict "Values" $.Values) | nindent 4 }}
+  labels:
+    {{- include "kubescape-operator.labels" (dict "Chart" $.Chart "Release" $.Release "Values" $.Values "app" $name "tier" $.Values.global.namespaceTier) | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+- kind: ServiceAccount
+  name: {{ $name }}
+  namespace: {{ $.Values.ksNamespace }}
+{{- end }}
+{{- if $components.operator.enabled }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: operator-api-caller
+  namespace: {{ .Values.ksNamespace }}
+  annotations:
+    {{- include "kubescape-operator.annotations" (dict "Values" .Values) | nindent 4 }}
+  labels:
+    {{- include "kubescape-operator.labels" (dict "Chart" .Chart "Release" .Release "Values" .Values "app" .Values.operator.name "tier" .Values.global.namespaceTier) | nindent 4 }}
+rules:
+  - apiGroups: ["kubescape.io"]
+    resources: ["scans", "scanresults"]
+    verbs: ["create", "get", "delete"]
+  - apiGroups: ["kubescape.io"]
+    resources: ["vulnerabilityscans"]
+    verbs: ["create", "get"]
+  - apiGroups: ["kubescape.io"]
+    resources: ["runtimealerts", "registrystatuses"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: operator-api-caller
+  namespace: {{ .Values.ksNamespace }}
+  annotations:
+    {{- include "kubescape-operator.annotations" (dict "Values" .Values) | nindent 4 }}
+  labels:
+    {{- include "kubescape-operator.labels" (dict "Chart" .Chart "Release" .Release "Values" .Values "app" .Values.operator.name "tier" .Values.global.namespaceTier) | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: operator-api-caller
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.operator.name }}
+  namespace: {{ .Values.ksNamespace }}
+{{- end }}
+{{- if $components.nodeAgent.enabled }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: node-agent-api-caller
+  namespace: {{ .Values.ksNamespace }}
+  annotations:
+    {{- include "kubescape-operator.annotations" (dict "Values" .Values) | nindent 4 }}
+  labels:
+    {{- include "kubescape-operator.labels" (dict "Chart" .Chart "Release" .Release "Values" .Values "app" .Values.nodeAgent.name "tier" .Values.global.namespaceTier) | nindent 4 }}
+rules:
+  # Keep in sync with httpEndpoint.resources in templates/synchronizer/configmap.yaml.
+  - apiGroups: ["kubescape.io"]
+    resources: ["networkstreams", "nodeprofiles", "runtimealerts", "registrystatuses", "aisandboxheartbeats"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: node-agent-api-caller
+  namespace: {{ .Values.ksNamespace }}
+  annotations:
+    {{- include "kubescape-operator.annotations" (dict "Values" .Values) | nindent 4 }}
+  labels:
+    {{- include "kubescape-operator.labels" (dict "Chart" .Chart "Release" .Release "Values" .Values "app" .Values.nodeAgent.name "tier" .Values.global.namespaceTier) | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: node-agent-api-caller
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.nodeAgent.name }}
+  namespace: {{ .Values.ksNamespace }}
+{{- end }}
+{{- end }}

@@ -81,6 +81,7 @@ spec:
           resources:
 {{ toYaml .Values.kubevuln.resources | indent 12 }}
           env:
+            {{- include "apiauth.serverEnv" . | nindent 12 }}
             {{- if .Values.kubevuln.resources.limits.memory }}
             - name: GOMEMLIMIT
               value: {{ include "kubescape-operator.gomemlimit" (dict "memory" .Values.kubevuln.resources.limits.memory "percentage" .Values.kubevuln.gomemlimitPercentage) | quote }}

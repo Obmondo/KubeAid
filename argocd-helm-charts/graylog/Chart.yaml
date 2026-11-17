@@ -3,7 +3,7 @@ name: graylog
 version: 4.3.9
 dependencies:
   - name: graylog
-    version: 3.0.39
+    version: 3.0.40
     repository: https://charts.kong-z.com
   - name: kubeaid-addons
     version: 1.1.0

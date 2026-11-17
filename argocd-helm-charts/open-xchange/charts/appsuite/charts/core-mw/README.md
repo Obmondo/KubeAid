@@ -1,6 +1,6 @@
 # core-mw
 
-![Version: 6.25.26](https://img.shields.io/badge/Version-6.25.26-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 8.54.0](https://img.shields.io/badge/AppVersion-8.54.0-informational?style=flat-square)
+![Version: 6.25.27](https://img.shields.io/badge/Version-6.25.27-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 8.54.0](https://img.shields.io/badge/AppVersion-8.54.0-informational?style=flat-square)
 
 App Suite Middleware Core Helm Chart
 
@@ -569,7 +569,7 @@ The following table lists the configurable parameters of the `App Suite Middlewa
 | gotenberg.extraEnv[2].name | string | `"XDG_CACHE_HOME"` |  |
 | gotenberg.extraEnv[2].value | string | `"/tmp/.cache"` |  |
 | gotenberg.image.repository | string | `"registry.open-xchange.com/appsuite-core-internal/3rdparty/gotenberg"` |  |
-| gotenberg.image.tag | string | `"8.34.0"` |  |
+| gotenberg.image.tag | string | `"8.40.0"` |  |
 | gotenberg.livenessProbe | object | `{"failureThreshold":3,"httpGet":{"path":"/health","port":"http"},"periodSeconds":10,"successThreshold":1,"timeoutSeconds":1}` | Liveness probe of the `Gotenberg` container. The timing fields spell out the Kubernetes defaults, which cluster policies may require to be set explicitly. |
 | gotenberg.readinessProbe | object | `{"failureThreshold":3,"httpGet":{"path":"/health","port":"http"},"periodSeconds":10,"successThreshold":1,"timeoutSeconds":1}` | Readiness probe of the `Gotenberg` container. See `gotenberg.livenessProbe`. |
 | gotenberg.securityContext.readOnlyRootFilesystem | bool | `true` |  |

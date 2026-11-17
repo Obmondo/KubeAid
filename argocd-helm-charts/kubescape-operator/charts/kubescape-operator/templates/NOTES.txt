@@ -21,6 +21,12 @@ To change the schedule, edit `.spec.schedule`:
 
 {{- end }}
 
+{{ if eq (include "apiauth.enabled" .) "true" -}}
+The in-cluster Kubescape APIs require a service-account token (audience {{ .Values.global.apiAuth.audience }}) authorized by RBAC; set global.apiAuth.enabled=false to turn this off. External callers should create OperatorCommand objects instead of calling the APIs (kubescape CLI v4.0.19 and later do).
+{{- else if .Values.global.apiAuth.enabled }}
+WARNING: in-cluster API auth (global.apiAuth) is turned off because nodeAgent.gke.allowlist is enabled with {{ .Values.nodeAgent.gke.allowlist.name }}, which does not include the node-agent's projected API token mount (nodeAgent.gke.allowlist.supportsApiToken=false). The node-agent is rendered without the token and the servers with KS_API_AUTH_DISABLED. Move to the 1.43 allowlist and set supportsApiToken=true to enable it.
+{{- end }}
+
 {{ if eq .Values.capabilities.vulnerabilityScan "enable" -}}
 
 View your image vulnerabilities scan summaries:
@@ -61,3 +67,18 @@ Please migrate any overrides to operator.admissionWebhooks.service.*:
   - operator.admissionService.annotations -> operator.admissionWebhooks.service.annotations
 {{- end }}
 
+
+{{- if and .Values.global.networkPolicy.enabled (not .Release.IsUpgrade) }}
+
+NetworkPolicies restrict ingress to the {{ .Values.ksNamespace }} components (global.networkPolicy.enabled).
+See https://github.com/kubescape/helm-charts/blob/main/docs/features/network-policies.md
+{{- else if .Values.global.networkPolicy.enabled }}
+
+WARNING: NetworkPolicies are now created by default (global.networkPolicy.enabled=true).
+They restrict ingress to the {{ .Values.ksNamespace }} components to the traffic Kubescape needs
+(between its own components, from the API server and from Prometheus), and do not restrict egress
+unless global.networkPolicy.createEgressRules=true. If something outside this chart talks to a
+Kubescape pod directly, allow it with your own NetworkPolicy, or opt out with:
+  --set global.networkPolicy.enabled=false
+See https://github.com/kubescape/helm-charts/blob/main/docs/features/network-policies.md
+{{- end }}

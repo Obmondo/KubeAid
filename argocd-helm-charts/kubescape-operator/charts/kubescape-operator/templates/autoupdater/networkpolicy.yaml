@@ -14,5 +14,10 @@ spec:
   policyTypes:
     - Egress
   egress:
+    # helm upgrade: the chart repository over HTTPS, then the release through kube-apiserver.
+    - ports:
+        - port: 443
+          protocol: TCP
+{{ tpl (.Files.Get "assets/api-server-egress-rules.yaml") . | indent 4 }}
 {{ tpl (.Files.Get "assets/common-egress-rules.yaml") . | indent 4 }}
 {{- end }}

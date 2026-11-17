@@ -1,0 +1,35 @@
+{{- $filters := fromYaml (include "namespaceFilters.config" .) -}}
+{{- if and $filters.enabled (empty .Values.namespaceFilters.existingConfigMap) }}
+{{- $declared := dict "includeNamespaces" $filters.includeNamespaces "excludeNamespaces" $filters.excludeNamespaces | toJson -}}
+{{- $checksum := sha256sum $declared -}}
+{{- $document := printf "%s\n" $declared -}}
+{{- /* Preserve manual edits on connected Helm upgrades only while declared
+      inputs are unchanged. Offline rendering still initializes from values.
+      Keep bookkeeping in data so filter edits never change pod metadata. */ -}}
+{{- $current := lookup "v1" "ConfigMap" .Values.ksNamespace $filters.name -}}
+{{- if $current -}}
+  {{- $annotations := default dict $current.metadata.annotations -}}
+  {{- $labels := default dict $current.metadata.labels -}}
+  {{- $data := default dict $current.data -}}
+  {{- if and
+      (eq (index $labels "app.kubernetes.io/managed-by") "Helm")
+      (eq (index $annotations "meta.helm.sh/release-name") .Release.Name)
+      (eq (index $annotations "meta.helm.sh/release-namespace") .Release.Namespace)
+      (eq (index $data "helm-values-checksum") $checksum)
+      (hasKey $data "namespaceFilters.json") -}}
+    {{- $document = index $data "namespaceFilters.json" -}}
+  {{- end -}}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $filters.name }}
+  namespace: {{ .Values.ksNamespace }}
+  annotations:
+    {{- include "kubescape-operator.annotations" (dict "Values" .Values) | nindent 4 }}
+  labels:
+    {{- include "kubescape-operator.labels" (dict "Chart" .Chart "Release" .Release "Values" .Values "app" "namespace-filters" "tier" .Values.global.namespaceTier) | nindent 4 }}
+data:
+  helm-values-checksum: {{ $checksum | quote }}
+  namespaceFilters.json: {{ $document | quote }}
+{{- end }}

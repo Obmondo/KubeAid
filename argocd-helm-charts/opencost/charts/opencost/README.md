@@ -2,9 +2,9 @@
 
 OpenCost and OpenCost UI
 
-![Version: 2.5.33](https://img.shields.io/badge/Version-2.5.33-informational?style=flat-square)
+![Version: 2.5.34](https://img.shields.io/badge/Version-2.5.34-informational?style=flat-square)
 ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
-![AppVersion: 1.121.3](https://img.shields.io/badge/AppVersion-1.121.3-informational?style=flat-square)
+![AppVersion: 1.121.4](https://img.shields.io/badge/AppVersion-1.121.4-informational?style=flat-square)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/opencost)](https://artifacthub.io/packages/search?repo=opencost)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/opencost-oci)](https://artifacthub.io/packages/search?repo=opencost-oci)
 
@@ -59,7 +59,7 @@ $ helm install opencost opencost/opencost
 | opencost.cloudIntegrationSecret | string | `""` | Existing Secret containing `cloud-integration.json` for Cloud Costs. See https://www.opencost.io/docs/configuration/#cloud-costs. Create with: `kubectl create secret generic <SECRET_NAME> --from-file=cloud-integration.json -n opencost`. Mutually exclusive with `opencost.cloudIntegrationJSON`. |
 | opencost.customPricing.configPath | string | `"/tmp/custom-config"` | Path for the pricing configuration. |
 | opencost.customPricing.configmapName | string | `"custom-pricing-model"` | Customize the configmap name used for custom pricing |
-| opencost.customPricing.costModel | object | `{"CPU":1.25,"GPU":0.95,"RAM":0.5,"description":"Modified pricing configuration.","internetNetworkEgress":0.12,"regionNetworkEgress":0.01,"spotCPU":0.006655,"spotRAM":0.000892,"storage":0.25,"zoneNetworkEgress":0.01}` | More information about these values here: https://www.opencost.io/docs/configuration/on-prem#custom-pricing-using-the-opencost-helm-chart |
+| opencost.customPricing.costModel | object | `{"CPU":1.25,"GPU":0.95,"RAM":0.5,"description":"Modified pricing configuration.","discount":"","internetNetworkEgress":0.12,"regionNetworkEgress":0.01,"spotCPU":0.006655,"spotRAM":0.000892,"storage":0.25,"zoneNetworkEgress":0.01}` | More information about these values here: https://www.opencost.io/docs/configuration/on-prem#custom-pricing-using-the-opencost-helm-chart |
 | opencost.customPricing.createConfigmap | bool | `true` | Configures the pricing model provided in the values file. |
 | opencost.customPricing.enabled | bool | `false` | Enables custom pricing configuration |
 | opencost.customPricing.provider | string | `"custom"` | Sets the provider type for the custom pricing file. |
@@ -98,12 +98,12 @@ $ helm install opencost opencost/opencost
 | opencost.exporter.extraEnv | object | `{}` | Any extra environment variables you would like to pass on to the pod |
 | opencost.exporter.extraEnvFrom | list | `[]` | Extra environment variables from secrets or configmaps |
 | opencost.exporter.extraVolumeMounts | list | `[]` | A list of volume mounts to be added to the pod |
-| opencost.exporter.image | object | `{"fullImageName":null,"pullPolicy":"IfNotPresent","registry":"ghcr.io","repository":"opencost/opencost","tag":"1.121.3@sha256:4cdd173253e5abba048dfe2cfa968707a5b59d774157d5356940d0d923a6c281"}` | This overrides the above defaultClusterId. Ensure the ConfigMap exists and contains the required CLUSTER_ID key. clusterIdConfigmap: cluster-id-configmap |
+| opencost.exporter.image | object | `{"fullImageName":null,"pullPolicy":"IfNotPresent","registry":"ghcr.io","repository":"opencost/opencost","tag":"1.121.4@sha256:daa04ae48f17b830de941c3602563c5a01fabb13522ede1ba057f09e96613aaa"}` | This overrides the above defaultClusterId. Ensure the ConfigMap exists and contains the required CLUSTER_ID key. clusterIdConfigmap: cluster-id-configmap |
 | opencost.exporter.image.fullImageName | string | `nil` | Override the full image name for development purposes |
 | opencost.exporter.image.pullPolicy | string | `"IfNotPresent"` | Exporter container image pull policy |
 | opencost.exporter.image.registry | string | `"ghcr.io"` | Exporter container image registry |
 | opencost.exporter.image.repository | string | `"opencost/opencost"` | Exporter container image name |
-| opencost.exporter.image.tag | string | `"1.121.3@sha256:4cdd173253e5abba048dfe2cfa968707a5b59d774157d5356940d0d923a6c281"` | Exporter container image tag |
+| opencost.exporter.image.tag | string | `"1.121.4@sha256:daa04ae48f17b830de941c3602563c5a01fabb13522ede1ba057f09e96613aaa"` | Exporter container image tag |
 | opencost.exporter.inferenceCostTracking.collectionInterval | string | `"2m"` | Background collection interval |
 | opencost.exporter.inferenceCostTracking.enabled | bool | `false` | Enable inference cost tracking |
 | opencost.exporter.inferenceCostTracking.modelLabel | string | `"llm-d.ai/model"` | Pod label whose value is the vLLM model name. Must match the model_name label on vLLM Prometheus metrics |
