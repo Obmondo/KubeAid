@@ -1,0 +1,493 @@
+global:
+  image:
+    # -- if set it will overwrite all registry entries
+    registry:
+    # -- if set it will overwrite all pullPolicy
+    pullPolicy:
+
+# -- replicas
+# @section -- Cluster
+replicaCount: 1
+# -- updateStrategy
+# @section -- Cluster
+updateStrategy: {}
+
+image:
+  # -- image registry (could be overwritten by global.image.registry)
+  registry: ghcr.io
+  # -- image repository
+  repository: stalwartlabs/stalwart
+  # -- This sets the pull policy for images. (could be overwritten by global.image.pullPolicy)
+  pullPolicy: IfNotPresent
+  # -- image tag - Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# -- json config for stalwart
+config:
+  "@type": ""
+  host: ""
+  database: ""
+  authUsername: ""
+  authSecret:
+    "@type": "Value"
+    secret: ""
+
+secrets:
+  # -- enables env secret creation from secrets.env values
+  #    NOTE: The env variables below should be manually
+  #    passed in the pod if disabled.
+  create: true
+  env:
+    # -- password for fallback authentfication (env)
+    # @section -- Authentification
+    FALLBACK_ADMIN_SECRET: supersecret
+    # -- basic auth metrics username in secret for stalwart-mail
+    # @section -- Observability
+    METRICS_USERNAME: "scrape_metrics_user"
+    # -- basic auth metrics password in secret for stalwart-mail
+    # @section -- Observability
+    METRICS_SECRET: "scrape_metrics_password"
+
+nats:
+  # -- deploy a NATS and configure stalwart to use it as coordinator
+  # @section -- Cluster
+  enabled: false
+  # -- NATS configure
+  # @section -- Cluster
+  config: {}
+  promExporter:
+    # -- deploy prometheus exporter to NATS (in coordinator setup)
+    # @section -- Observability
+    enabled: false
+    podMonitor:
+      # -- deploy pod monitor for NATS prometheus exporter (in coordinator setup)
+      # @section -- Observability
+      enabled: false
+webclients:
+  networkPolicy:
+    enabled: false
+    ingress:
+      http: []
+    egress:
+      enabled: true
+      extra: []
+
+  twake:
+    # -- deploy a
+    # @section -- Twake Webmail Client
+    enabled: false
+    image:
+      # -- image registry (could be overwritten by global.image.registry)
+      # @section -- Twake Webmail Client
+      registry: ghcr.io
+      # -- image repository
+      # @section -- Twake Webmail Client
+      repository: linagora/tmail-web
+      # -- This sets the pull policy for images. (could be overwritten by global.image.pullPolicy)
+      # @section -- Twake Webmail Client
+      pullPolicy: IfNotPresent
+      # -- image tag
+      # @section -- Twake Webmail Client
+      tag: "v0.35.1"
+
+    config:
+      env:
+        SERVER_URL: "https://{{ (.Values.ingress.hosts | first).host }}/"
+        DOMAIN_REDIRECT_URL: "https://{{ (.Values.webclients.twake.ingress.hosts | first).host }}"
+        WEB_OIDC_CLIENT_ID: "teammail-web"
+        OIDC_SCOPES:
+          - openid
+          - profile
+          - email
+          - offline_access
+        APP_GRID_AVAILABLE: "supported"
+        FORWARD_WARNING_MESSAGE: ""
+        PLATFORM: other
+        WS_ECHO_PING: true
+        FORCE_EMAIL_QUERY: false
+      dashboard:
+        apps:
+          - name: "Administration"
+            publicIconUri: "https://{{ (.Values.ingress.hosts | first).host }}/apple-touch-icon.png"
+            appLink: "https://{{ (.Values.ingress.hosts | first).host }}"
+
+    podAnnotations: {}
+    podLabels: {}
+
+    podSecurityContext: {}
+    securityContext: {}
+
+    livenessProbe:
+      httpGet:
+        path: /
+        port: http
+      initialDelaySeconds: 5
+      periodSeconds: 10
+
+    readinessProbe:
+      httpGet:
+        path: /
+        port: http
+      initialDelaySeconds: 30
+      periodSeconds: 10
+
+    resources: {}
+
+    nodeSelector: {}
+
+    tolerations: []
+
+    affinity: {}
+
+    # -- Additional volumes on the output Deployment definition.
+    # @section -- Twake Webmail Client
+    volumes: []
+    # -- Additional volumeMounts on the output Deployment definition.
+    # @section -- Twake Webmail Client
+    volumeMounts: []
+
+    service:
+      # -- service type
+      # @section -- Twake Webmail Client
+      type: ClusterIP
+      ipFamilies: ["IPv4"]
+      # -- other option is RequireDualStack
+      # @section -- Twake Webmail Client
+      ipFamilyPolicy: "SingleStack"
+      annotations: {}
+
+    ingress:
+      enabled: false
+      className: ""
+      annotations: {}
+        # kubernetes.io/ingress.class: nginx
+        # kubernetes.io/tls-acme: "true"
+      hosts:
+        - host: chart-example.local
+          paths:
+            - path: /
+              pathType: ImplementationSpecific
+      tls: []
+      #  - secretName: chart-example-tls
+      #    hosts:
+      #      - chart-example.local
+
+  rootFr:
+    # -- deploy a
+    # @section -- Root-FR Webmail Client
+    enabled: false
+    image:
+      # -- image registry (could be overwritten by global.image.registry)
+      # @section -- Root-FR Webmail Client
+      registry: ghcr.io
+      # -- image repository
+      # @section -- Root-FR Webmail Client
+      repository: root-fr/jmap-webmail
+      # -- This sets the pull policy for images. (could be overwritten by global.image.pullPolicy)
+      # @section -- Root-FR Webmail Client
+      pullPolicy: IfNotPresent
+      # -- image tag
+      # @section -- Root-FR Webmail Client
+      tag: "1.6.0"
+
+    config:
+      env:
+        APP_NAME: "My Stalwart Webmail"
+        JMAP_SERVER_URL: "https://{{ (.Values.ingress.hosts | first).host }}/"
+        SESSION_SECRET:
+          valueFrom:
+            secretKeyRef:
+              name: '{{ printf "%s-rootfr" (include "stalwart-mail.fullname" .) }}'
+              key: "session_secret"
+
+    create:
+      sessionSecret: true
+
+    podAnnotations: {}
+    podLabels: {}
+
+    podSecurityContext: {}
+    securityContext: {}
+
+    livenessProbe:
+      httpGet:
+        path: /api/health
+        port: http
+      initialDelaySeconds: 5
+      periodSeconds: 10
+
+    readinessProbe:
+      httpGet:
+        path: /api/health
+        port: http
+      initialDelaySeconds: 30
+      periodSeconds: 10
+
+    resources: {}
+
+    nodeSelector: {}
+
+    tolerations: []
+
+    affinity: {}
+
+    # -- Additional volumes on the output Deployment definition.
+    # @section -- Root-FR Webmail Client
+    volumes: []
+    # -- Additional volumeMounts on the output Deployment definition.
+    # @section -- Root-FR Webmail Client
+    volumeMounts: []
+
+    service:
+      # -- service type
+      # @section -- Root-FR Webmail Client
+      type: ClusterIP
+      ipFamilies: ["IPv4"]
+      # -- other option is RequireDualStack
+      # @section -- Root-FR Webmail Client
+      ipFamilyPolicy: "SingleStack"
+      annotations: {}
+    ingress:
+      enabled: false
+      className: ""
+      annotations: {}
+        # kubernetes.io/ingress.class: nginx
+        # kubernetes.io/tls-acme: "true"
+      hosts:
+        - host: chart-example.local
+          paths:
+            - path: /
+              pathType: ImplementationSpecific
+      tls: []
+      #  - secretName: chart-example-tls
+      #    hosts:
+      #      - chart-example.local
+
+
+serviceAccount:
+  # -- Specifies whether a service account should be created
+  create: false
+  # -- Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # -- Annotations to add to the service account
+  annotations: {}
+  # -- The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+env:
+  - name: "STALWART_RECOVERY_MODE"
+    value: "1"
+  - name: "STALWART_RECOVERY_ADMIN"
+    value: "admin:$(FALLBACK_ADMIN_SECRET)"
+
+envFrom: []
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  externalTrafficPolicy:
+  ipFamilies: ["IPv4"]
+  # -- other option is RequireDualStack
+  ipFamilyPolicy: "SingleStack"
+  annotations: {}
+  ports:
+    smtp: 25
+    submission: 587
+    submissions: 465
+    imap: 143
+    imaptls: 993
+    pop3: 110
+    pop3s: 995
+    sieve: 4190
+    http: 80
+    https: 443
+
+livenessProbe:
+  httpGet:
+    path: /healthz/live
+    port: http
+    httpHeaders:
+      # -- send fake X-Forwarded-For for not generate warnings
+      - name: "X-Forwarded-For"
+        value: "127.0.0.1"
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /healthz/ready
+    port: http
+    httpHeaders:
+      # -- send fake X-Forwarded-For for not generate warnings
+      - name: "X-Forwarded-For"
+        value: "127.0.0.1"
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: admin.chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+traefik:
+  enabled: false
+  ports:
+    smtp:
+      match:
+      entrypoint: smtp
+      proxyProtocol: true
+    submissions:
+      match:
+      entrypoint: smtps
+      proxyProtocol: true
+      passthroughTLS: true
+    imaptls:
+      match:
+      entrypoint: imaps
+      proxyProtocol: true
+      passthroughTLS: true
+    pop3s:
+      match:
+      entrypoint: pop3s
+      proxyProtocol: true
+      passthroughTLS: true
+    sieve:
+      match:
+      entrypoint: sieve
+      proxyProtocol: true
+      passthroughTLS: true
+    https:
+      match:
+      entrypoint: websecure
+      proxyProtocol: true
+      passthroughTLS: true
+
+certificate:
+  # -- not needed if certmanager is used
+  secretName:
+  certmanager:
+    enabled: true
+    issuerRef:
+      group: cert-manager.io
+      kind: ClusterIssuer
+      name: letsencrypt-prod
+    dnsNames:
+      - "chart-example.local"
+
+prometheus:
+  servicemonitor:
+    # -- deploy servicemonitor
+    # @section -- Observability
+    enabled: false
+    # -- label of servicemonitor
+    # @section -- Observability
+    labels: {}
+
+grafana:
+  dashboards:
+    # -- deploy grafana dashboard in configmap
+    # @section -- Observability
+    enabled: false
+    # -- label of configmap
+    # @section -- Observability
+    labels:
+      grafana_dashboard: "1"
+    # -- label of configmap
+    # @section -- Observability
+    annotations: {}
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+# -- Additional volumes on the output Deployment definition.
+volumes: []
+# - name: foo
+#   secret:
+#     secretName: mysecret
+#     optional: false
+
+# -- Additional volumeMounts on the output Deployment definition.
+volumeMounts: []
+# - name: foo
+#   mountPath: "/etc/foo"
+#   readOnly: true
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+persistence:
+  # -- Enable persistence using Persistent Volume Claims
+  # ref: http://kubernetes.io/docs/user-guide/persistent-volumes/
+  enabled: true
+  annotations: {}
+  # -- Persistent Volume Storage Class
+  # If defined, storageClassName: <storageClass>
+  # If set to "-", storageClassName: "", which disables dynamic provisioning
+  # If undefined (the default) or set to null, no storageClassName spec is
+  #   set, choosing the default provisioner.  (gp2 on AWS, standard on
+  #   GKE, AWS & OpenStack)
+  storageClass:
+
+  # -- A manually managed Persistent Volume and Claim
+  # Requires persistence.enabled: true
+  # If defined, PVC must be created manually before volume will be bound
+  existingClaim:
+
+  # --  Do not create an PVC, direct use hostPath in Pod
+  hostPath:
+  # --  accessMode
+  accessMode: ReadWriteOnce
+  # -- size
+  size: 10Gi
