@@ -24,6 +24,9 @@
   alert_namespace_selector: null,
   // Alert names dropped from every rule the build renders on this cluster.
   excluded_alerts: [],
+  // false stops scraping kube-scheduler and kube-controller-manager and drops their
+  // alerts, for kubeadm clusters that leave both bound to 127.0.0.1.
+  scrape_scheduler_and_controller_manager: true,
   prometheus_resources: {
     limits: { memory: '3Gi' },
     requests: { cpu: '200m', memory: '2500Mi' },
