@@ -31,6 +31,10 @@ prometheus:
     failureThreshold: 240
   externalUrl: /
   routePrefix: /
+  # Prometheus Operator remoteWrite entries, passed through as is. Use it to send
+  # selected series to another Prometheus, e.g. one Obmondo can reach when this
+  # one sits on a network it can't.
+  remoteWrite: []
 
 grafana:
   version: 12.2.0
