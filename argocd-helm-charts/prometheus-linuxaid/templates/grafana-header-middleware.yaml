@@ -1,4 +1,4 @@
-{{- if and .Values.middleware.jwt.enabled .Values.middleware.jwt.public_key }}
+{{- if include "prometheus-linuxaid.jwtKeys" . }}
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:

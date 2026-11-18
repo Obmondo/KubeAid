@@ -26,3 +26,19 @@ Create a default fully qualified app name.
 {{- end }}
 {{- end }}
 {{- end }}
+
+{{/*
+The keys the Grafana JWT middleware verifies with, as a YAML list: public_keys, else the single
+public_key. Empty when the middleware is disabled or has no key. The jwt, header and chain
+middlewares all gate on it, so the chain is never rendered without the middlewares it names.
+*/}}
+{{- define "prometheus-linuxaid.jwtKeys" -}}
+{{- $jwt := .Values.middleware.jwt -}}
+{{- $keys := default (list) $jwt.public_keys -}}
+{{- if and (eq (len $keys) 0) $jwt.public_key -}}
+{{- $keys = list $jwt.public_key -}}
+{{- end -}}
+{{- if and $jwt.enabled (gt (len $keys) 0) -}}
+{{- toYaml $keys -}}
+{{- end -}}
+{{- end -}}
