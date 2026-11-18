@@ -15,6 +15,45 @@ Harbor needs a storage-class defined in its values that gives it a PV with `Read
 `accessMode: ReadWriteMany` in values.yaml). This ensures High Availability, scaling, failover and drainage of k8s
 nodes (for regular maintenance) works.
 
+## Tag retention and garbage collection
+
+Harbor keeps every pushed artifact until a tag retention policy deletes it, and only garbage collection (GC) frees
+the space on the registry volume. Harbor stores both in its database rather than in config, so the chart sets them
+through the Harbor API: with `policies.enabled`, the `harbor-policies` CronJob creates or updates each project's
+retention policy and the GC schedule from the `policies` values on every run (default nightly). Changes made in
+the UI are reverted on the next run. See the comments under `policies` in `values.yaml` for the rule templates.
+
+```yaml
+policies:
+  enabled: true
+  retention:
+    - project: library
+      schedule: "0 0 2 * * 0"
+      rules:
+        - template: latestPushedK
+          value: 10
+        - template: nDaysSinceLastPull
+          value: 30
+        - template: always
+          tags: "{latest,v1.2.3}"
+  gc:
+    enabled: true
+    schedule: "0 0 5 * * 0"
+```
+
+An artifact is kept if any rule keeps it. Keep the tags your clusters run in an `always` rule: a pod using an
+`IfNotPresent` image doesn't pull it again, so `nDaysSinceLastPull` alone won't protect a long-running workload's
+image, and a deleted tag only shows up as `ImagePullBackOff` when the pod is next rescheduled.
+
+Before the first scheduled run, trigger a dry run from the UI (Projects → *project* → Policy → Tag Retention →
+Dry Run) and read its log. The job authenticates as `admin` with the password from
+`harbor.existingSecretAdminPassword`; set `policies.passwordSecret` if the admin password lives elsewhere. To apply
+right after a change instead of waiting for the schedule:
+
+```sh
+kubectl -n harbor create job --from=cronjob/harbor-policies harbor-policies-now
+```
+
 ## Accessing Harbor via CLI
 
 The harbor team have introduced [harbor-cli](https://github.com/goharbor/harbor-cli), which is parity to their WebUI.

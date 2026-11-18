@@ -1,0 +1,140 @@
+{{- if (.Values.policies).enabled }}
+{{- $p := .Values.policies }}
+{{- /*
+  Harbor keeps tag retention and the GC schedule in its own database and only
+  exposes them through its API, so the upstream chart can't set them. The
+  payloads are rendered here from the values and a CronJob applies them, which
+  also reverts any change made in the UI on the next run.
+*/}}
+{{- $retention := list }}
+{{- range $p.retention }}
+{{- $rules := list }}
+{{- range .rules }}
+{{- $params := dict }}
+{{- if ne .template "always" }}
+{{- $params = dict .template (int (required (printf "policies.retention rule %s needs a value" .template) .value)) }}
+{{- end }}
+{{- $rules = append $rules (dict
+      "disabled" false
+      "action" "retain"
+      "template" .template
+      "params" $params
+      "tag_selectors" (list (dict "kind" "doublestar" "decoration" "matches" "pattern" (.tags | default "**") "extras" (dict "untagged" (.untagged | default false) | toJson)))
+      "scope_selectors" (dict "repository" (list (dict "kind" "doublestar" "decoration" "repoMatches" "pattern" (.repositories | default "**"))))
+    ) }}
+{{- end }}
+{{- $retention = append $retention (dict
+      "project" .project
+      "policy" (dict
+        "algorithm" "or"
+        "rules" $rules
+        "trigger" (dict "kind" "Schedule" "settings" (dict "cron" (.schedule | default "")) "references" dict)
+        "scope" (dict "level" "project")
+      )
+    ) }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: harbor-policies
+  namespace: {{ .Release.Namespace }}
+data:
+  retention.json: {{ $retention | toJson | quote }}
+  {{- with $p.gc }}
+  {{- if .enabled }}
+  gc.json: {{ dict "schedule" (dict "type" "Custom" "cron" .schedule) "parameters" (dict "delete_untagged" (ne .deleteUntagged false) "workers" (int (.workers | default 1))) | toJson | quote }}
+  {{- end }}
+  {{- end }}
+  apply.sh: |
+    #!/bin/sh
+    set -eu
+    API="${HARBOR_URL}/api/v2.0"
+    run() { if [ "$DRY_RUN" = true ]; then echo "  dry-run: $*"; else "$@"; fi; }
+    api() { curl -sSf -u "${HARBOR_USERNAME}:${HARBOR_PASSWORD}" -H 'Content-Type: application/json' "$@"; }
+
+    # Retention: one policy per project, found through the project's
+    # retention_id metadata. Harbor only reschedules on a PUT when the cron
+    # changed, so updating an unchanged policy every run is a no-op.
+    jq -c '.[]' /config/retention.json | while read -r item; do
+      project=$(echo "$item" | jq -r .project)
+      meta=$(api -H 'X-Is-Resource-Name: true' "$API/projects/$project")
+      policy=$(echo "$item" | jq -c --argjson ref "$(echo "$meta" | jq .project_id)" '.policy | .scope.ref = $ref')
+      id=$(echo "$meta" | jq -r '.metadata.retention_id // empty')
+      if [ -z "$id" ]; then
+        echo "retention $project: creating"
+        run api -X POST "$API/retentions" -d "$policy"
+      else
+        echo "retention $project: updating policy $id"
+        run api -X PUT "$API/retentions/$id" -d "$(echo "$policy" | jq -c --argjson id "$id" '.id = $id')"
+      fi
+    done
+
+    # GC: a PUT deletes and recreates the schedule, so only write on a change.
+    if [ -f /config/gc.json ]; then
+      want=$(cat /config/gc.json)
+      have=$(api "$API/system/gc/schedule")
+      if [ -z "$(echo "$have" | jq -r '.schedule.cron // empty')" ]; then
+        echo "gc: creating schedule"
+        run api -X POST "$API/system/gc/schedule" -d "$want"
+      elif [ "$(echo "$have" | jq -c '[.schedule.cron, (.job_parameters | if . == null or . == "" then {} else fromjson end | .delete_untagged, .workers)]')" \
+           != "$(echo "$want" | jq -c '[.schedule.cron, .parameters.delete_untagged, .parameters.workers]')" ]; then
+        echo "gc: updating schedule"
+        run api -X PUT "$API/system/gc/schedule" -d "$want"
+      else
+        echo "gc: up to date"
+      fi
+    fi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: harbor-policies
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: {{ $p.schedule | default "0 1 * * *" | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 300
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: apply
+              # Same pinned image as other KubeAid script jobs; has curl and jq.
+              image: alpine/k8s:1.33.4@sha256:b0523f0a244ddc4c8e055aa335c040d3d78b3ead5528f4544395f7f9f69c7b68
+              command: ["/bin/sh", "/config/apply.sh"]
+              env:
+                - name: HARBOR_URL
+                  value: {{ $p.harborURL | default (printf "http://%s-core" .Release.Name) | quote }}
+                - name: HARBOR_USERNAME
+                  value: {{ $p.username | default "admin" | quote }}
+                - name: HARBOR_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ $p.passwordSecret | default .Values.harbor.existingSecretAdminPassword | required "policies.passwordSecret or harbor.existingSecretAdminPassword must be set" }}
+                      key: {{ $p.passwordSecretKey | default .Values.harbor.existingSecretAdminPasswordKey | default "HARBOR_ADMIN_PASSWORD" }}
+                - name: DRY_RUN
+                  value: {{ $p.dryRun | default false | quote }}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  memory: 64Mi
+              volumeMounts:
+                - name: config
+                  mountPath: /config
+                  readOnly: true
+          volumes:
+            - name: config
+              configMap:
+                name: harbor-policies
+{{- end }}
