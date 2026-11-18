@@ -2,6 +2,26 @@
 
 All releases and the changes included in them (pulled from git commits added since last release) will be detailed in this file.
 
+## KubeAid Release Version 38.0.1
+
+### Features
+
+- 6a2e746d4 feat(prometheus-linuxaid): alert on puppet run failures per node
+- 53fcbb447 feat(capi-cluster/hetzner): proper values for CCM Hetzner installation
+- 6f6544736 feat(capi-cluster/hetzner): getting rid of NAT gateway for an HCloud or hybrid based Kubernetes cluster
+- 13bc1177a feat(egress-node-labeller): adding Helm chart
+
+### Bug Fixes
+
+- 8600ea59c fix(kube-prometheus): lowercase grafana dashboard names
+- 0b44f3a7d fix(capi-cluster/hetzner): match the control-plane bootstrap running on QA
+- aaaee1d95 fix(rook-ceph): default Ceph back to Tentacle v20.2.5
+
+### Other Changes
+
+- e85cbbe6f revert(capi-cluster/hetzner): restore the original postKubeadm add-on installs
+- 673acc113 docs(hetzner): add a bare-metal Kubernetes upgrade runbook
+
 ## KubeAid Release Version 38.0.0
 
 ### Major Version Upgrades
