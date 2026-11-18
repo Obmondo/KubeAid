@@ -61,6 +61,29 @@ local cephMixinObj = mixinAlerts('ceph', 'CephHealthWarning');
 local hpaMixinObj = mixinAlerts('kubernetes-apps', 'KubeHpaMaxedOut');
 local opensearchMixinObj = mixinAlerts('opensearch', 'OpenSearchClusterRed');
 
+// Dashboard keys become ConfigMap and volume names ('grafana-dashboard-<key>'),
+// which must be lowercase. Upstream mixins such as cilium-enterprise-mixin
+// ship keys like 'cilium-L3-policy.json'.
+local mixedCaseDashboardsMixinObj = {
+  _config+:: {},
+  grafanaDashboards+:: {
+    'cilium-L3-policy.json': { uid: 'l3-policy' },
+    'cilium-L7-proxy.json': { uid: 'l7-proxy' },
+    'overview.json': { uid: 'overview' },
+  },
+};
+
+local cfgMixedCaseDashboards = {
+  namespace: 'monitoring',
+  labels: { prometheus: 'k8s' },
+  mixin_configs: {},
+  addMixins: { dashboards: true },
+};
+
+local cfgMixedCaseDashboardsInFolder = cfgMixedCaseDashboards {
+  mixin_configs: { dashboards: { dashboardFolder: 'Cilium' } },
+};
+
 // ── HPA replacement logic (same as common-template.jsonnet after the fix) ──
 
 local hpaReplacementRules(mixins, groupRules) =
@@ -241,6 +264,23 @@ test.suite({
   testVeleroMixin_configNameMatchesMixinArg: {
     actual: addMixin('velero', veleroMixinObj, cfgVeleroOnly)._config.name,
     expect: 'velero',
+  },
+
+  // ── dashboard names must be valid Kubernetes object names ────────────────
+
+  testDashboards_keysLowercased: {
+    actual: std.objectFields(addMixin('dashboards', mixedCaseDashboardsMixinObj, cfgMixedCaseDashboards).grafanaDashboards),
+    expect: ['cilium-l3-policy.json', 'cilium-l7-proxy.json', 'overview.json'],
+  },
+
+  testDashboards_contentKept: {
+    actual: addMixin('dashboards', mixedCaseDashboardsMixinObj, cfgMixedCaseDashboards).grafanaDashboards['cilium-l3-policy.json'].uid,
+    expect: 'l3-policy',
+  },
+
+  testDashboards_keysLowercasedInFolder: {
+    actual: std.objectFields(addMixin('dashboards', mixedCaseDashboardsMixinObj, cfgMixedCaseDashboardsInFolder).grafanaDashboards.Cilium),
+    expect: ['cilium-l3-policy.json', 'cilium-l7-proxy.json', 'overview.json'],
   },
 
 }).verify
