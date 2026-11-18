@@ -58,6 +58,16 @@ spec:
     storageClass: {{ $postgresql.storageClass }}
     {{- end }}
 
+  {{- if $postgresql.walStorage.enabled }}
+  walStorage:
+    size: {{ $postgresql.walStorage.size }}
+    {{- if $postgresql.walStorage.storageClass }}
+    storageClass: {{ $postgresql.walStorage.storageClass }}
+    {{- else if $postgresql.storageClass }}
+    storageClass: {{ $postgresql.storageClass }}
+    {{- end }}
+  {{- end }}
+
   {{- if $postgresql.backups.enabled }}
   plugins:
     - name: barman-cloud.cloudnative-pg.io

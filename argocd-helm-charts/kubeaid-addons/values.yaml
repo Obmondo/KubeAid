@@ -107,6 +107,18 @@ global:
     # -- StorageClass for PVCs. Omit to use the cluster default.
     # storageClass: ""
 
+    # -- Dedicated WAL volume, separate from the main data volume above. Keeps
+    # WAL growth on the primary (which must retain WAL until it's archived)
+    # from competing with table-data growth for the same disk. Omit to keep
+    # WAL on the main data volume (CNPG's default).
+    walStorage:
+      # -- Provision a separate WAL volume. Requires size to be set.
+      enabled: false
+      # -- PVC size for the WAL volume.
+      # size: 2Gi
+      # -- StorageClass for the WAL PVC. Omit to use the same as storage.storageClass.
+      # storageClass: ""
+
     # -- Resource requests and limits
     resources:
       requests:
