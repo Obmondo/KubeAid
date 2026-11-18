@@ -1,0 +1,14 @@
+{{- if .Values.sogo.autoSubscribeAllUsers -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "sogo.fullname" . }}-subscribe-users-cron
+  labels:
+    app.kubernetes.io/name: {{ include "sogo.name" . }}
+    helm.sh/chart: {{ include "sogo.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+data:
+  cron: |
+    {{ printf "%s sogo  /usr/sbin/sogo-tool-plus -mode cli -action cal-subscribe-all" (.Values.sogo.autoSubscribeAllUsers.schedule | trim | default "*/15 * * * *") }}
+{{- end }}
