@@ -112,6 +112,23 @@ function(vars)
           'loki.settings must be an object',
         ),
 
+      if std.objectHas(vars, 'alert_overrides') then
+        check(
+          std.type(vars.alert_overrides) == 'object',
+          'alert_overrides must be an object of alert name to rule fields (got: %s)' % std.type(vars.alert_overrides),
+        ),
+
+      if std.objectHas(vars, 'alert_overrides') && std.type(vars.alert_overrides) == 'object' then
+        local bad = [
+          name
+          for name in std.objectFields(vars.alert_overrides)
+          if std.type(vars.alert_overrides[name]) != 'object' || std.objectHas(vars.alert_overrides[name], 'alert')
+        ];
+        check(
+          std.length(bad) == 0,
+          'alert_overrides entries must be objects of rule fields without an alert key (bad: %s)' % std.join(', ', bad),
+        ),
+
     ]
   );
 

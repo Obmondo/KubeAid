@@ -212,16 +212,19 @@ local scrape_namespaces = std.uniq(std.sort(std.flattenArrays(
 local relabelings = import 'kube-prometheus/addons/dropping-deprecated-metrics-relabelings.libsonnet';
 
 // Drops the alerts named in excluded_alerts from a list of rule groups, and any
-// group left without rules.
-local dropExcludedAlerts(groups) =
-  if std.length(vars.excluded_alerts) == 0 then groups else std.filter(
+// group left without rules, then merges alert_overrides into the alerts left.
+local applyAlertSettings(groups) =
+  if std.length(vars.excluded_alerts) == 0 && std.length(vars.alert_overrides) == 0 then groups else std.filter(
     function(group) std.length(group.rules) > 0,
     [
       group {
-        rules: std.filter(
-          function(rule) !std.objectHas(rule, 'alert') || !std.member(vars.excluded_alerts, rule.alert),
-          group.rules
-        ),
+        rules: [
+          if std.objectHas(rule, 'alert') && std.objectHas(vars.alert_overrides, rule.alert)
+          then rule + vars.alert_overrides[rule.alert]
+          else rule
+          for rule in group.rules
+          if !std.objectHas(rule, 'alert') || !std.member(vars.excluded_alerts, rule.alert)
+        ],
       }
       for group in groups
     ]
@@ -945,11 +948,32 @@ local kpBase =
     [if std.objectHas(vars, 'alertmanager_probe_target') then 'alertmanager']+: blackboxIngressRule('alertmanager'),
   };
 
-// excluded_alerts applies to the alert rules of every component that has any.
-local kp = kpBase {
-  [component]+: { prometheusRule+: { spec+: { groups: dropExcludedAlerts(super.groups) } } }
+local kpRuleComponents = [
+  component
   for component in std.objectFields(kpBase)
   if std.isObject(kpBase[component]) && std.objectHasAll(kpBase[component], 'prometheusRule')
+];
+
+// An override naming an alert the build does not render is most likely a typo,
+// and would otherwise be ignored without a word.
+local unknownOverrides =
+  if std.length(vars.alert_overrides) == 0 then [] else
+    local rendered = std.set([
+      rule.alert
+      for groups in [kpBase[c].prometheusRule.spec.groups for c in kpRuleComponents]
+                    + [o.prometheusRules.spec.groups for o in mixins if o.prometheusRules != null]
+      for group in groups
+      for rule in group.rules
+      if std.objectHas(rule, 'alert')
+    ]);
+    [name for name in std.objectFields(vars.alert_overrides) if !std.setMember(name, rendered)];
+assert std.length(unknownOverrides) == 0 :
+       '\n\nalert_overrides names alerts this build does not render: ' + std.join(', ', unknownOverrides) + '\n';
+
+// excluded_alerts and alert_overrides apply to the alert rules of every component that has any.
+local kp = kpBase {
+  [component]+: { prometheusRule+: { spec+: { groups: applyAlertSettings(super.groups) } } }
+  for component in kpRuleComponents
 };
 
 {
@@ -1101,7 +1125,7 @@ else kp.nodeExporter[name] for name in std.objectFields(kp.nodeExporter) } +
     || std.objectHas(vars, 'alertmanager_ingress_host')
  then { [name + '-ingress']: kp.ingress[name] for name in std.objectFields(kp.ingress) } else {}) +
 // Rendering prometheusRules object. This is an object compatible with prometheus-operator CRD definition for prometheusRule
-{ [o._config.name + '-prometheus-rules']: o.prometheusRules { spec+: { groups: dropExcludedAlerts(super.groups) } } for o in std.filter((function(o) o.prometheusRules != null), mixins) } +
+{ [o._config.name + '-prometheus-rules']: o.prometheusRules { spec+: { groups: applyAlertSettings(super.groups) } } for o in std.filter((function(o) o.prometheusRules != null), mixins) } +
 (if std.objectHas(vars, 'prometheus_ingress_host') && vars.prometheus_blackbox_probe_enabled then {
    'blackbox-probe-prometheus': blackboxProbe({ name: 'prometheus', host: vars.prometheus_ingress_host, module: vars.prometheus_probe_module, interval: '30m' }
                                               + (if std.objectHas(vars, 'prometheus_probe_target') then { url: vars.prometheus_probe_target.url } else {})),
