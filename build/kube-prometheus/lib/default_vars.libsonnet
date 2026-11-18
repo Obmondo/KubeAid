@@ -24,6 +24,9 @@
   alert_namespace_selector: null,
   // Alert names dropped from every rule the build renders on this cluster.
   excluded_alerts: [],
+  // true scrapes kube-scheduler and kube-controller-manager. Off by default: kubeadm binds
+  // both to 127.0.0.1, where Prometheus can't reach them, so the scrape only fires alerts.
+  scrape_scheduler_and_controller_manager: false,
   prometheus_resources: {
     limits: { memory: '3Gi' },
     requests: { cpu: '200m', memory: '2500Mi' },

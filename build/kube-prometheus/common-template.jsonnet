@@ -943,7 +943,20 @@ local kpBase =
     [if std.objectHas(vars, 'grafana_probe_target') then 'grafana']+: blackboxIngressRule('grafana'),
     [if std.objectHas(vars, 'prometheus_probe_target') then 'prometheus']+: blackboxIngressRule('prometheus'),
     [if std.objectHas(vars, 'alertmanager_probe_target') then 'alertmanager']+: blackboxIngressRule('alertmanager'),
-  };
+  } +
+  // scrape_scheduler_and_controller_manager: false applies kube-prometheus' managed-cluster
+  // addon, which drops both ServiceMonitors and their alert groups. It has to come after the
+  // kubeadm ServiceMonitor patch above. The kubeadm discovery Services go too: nothing
+  // selects them any more.
+  (
+    if vars.scrape_scheduler_and_controller_manager then {} else
+      (import 'kube-prometheus/addons/managed-cluster.libsonnet') + {
+        kubernetesControlPlane+: {
+          kubeSchedulerPrometheusDiscoveryService:: null,
+          kubeControllerManagerPrometheusDiscoveryService:: null,
+        },
+      }
+  );
 
 // excluded_alerts applies to the alert rules of every component that has any.
 local kp = kpBase {
