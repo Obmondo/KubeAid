@@ -27,3 +27,17 @@ groups:
 
           Check the failed resources on Puppetboard:
           https://dashboard.obmondo.com/nodes?status=failed
+
+    - alert: monitor::system::puppet::pending_changes
+      expr: count(puppet_report_events{name="Total",environment=~"v?[0-9]+_[0-9]+_[0-9]+"} > 0) > 5
+      for: 3h
+      labels:
+        alert_id: 'monitor::system::puppet::pending_changes'
+        severity: warning
+      annotations:
+        summary: 'Puppet has pending changes on more than 5 servers'
+        description: |-2
+          Puppet has pending changes on {{ $value }} servers for more than 3 hours:
+          {{ range query `sort_desc(puppet_report_events{name="Total",environment=~"v?[0-9]+_[0-9]+_[0-9]+"} > 0)` }}
+          - **{{ .Labels.host }}** ({{ .Labels.environment }}): {{ .Value }} pending changes
+          {{- end }}

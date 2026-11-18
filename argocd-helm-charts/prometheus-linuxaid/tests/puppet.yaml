@@ -57,3 +57,68 @@ tests:
 
                 Check the failed resources on Puppetboard:
                 https://dashboard.obmondo.com/nodes?status=failed
+
+  # 6 servers with pending changes: fires and lists them
+  - interval: 1m
+    input_series:
+      - series: 'puppet_report_events{name="Total",host="srv1.example",environment="v1_8_13"}'
+        values: 6x400
+      - series: 'puppet_report_events{name="Total",host="srv2.example",environment="v1_8_13"}'
+        values: 5x400
+      - series: 'puppet_report_events{name="Total",host="srv3.example",environment="v1_8_13"}'
+        values: 4x400
+      - series: 'puppet_report_events{name="Total",host="srv4.example",environment="v1_8_13"}'
+        values: 3x400
+      - series: 'puppet_report_events{name="Total",host="srv5.example",environment="v1_8_12"}'
+        values: 2x400
+      - series: 'puppet_report_events{name="Total",host="srv6.example",environment="v1_8_13"}'
+        values: 1x400
+      # no pending changes
+      - series: 'puppet_report_events{name="Total",host="clean.example",environment="v1_8_13"}'
+        values: 0x400
+      # not a release environment: ignored
+      - series: 'puppet_report_events{name="Total",host="branch.example",environment="master"}'
+        values: 9x400
+
+    alert_rule_test:
+      - alertname: 'monitor::system::puppet::pending_changes'
+        eval_time: 2h
+        exp_alerts: []
+      - alertname: 'monitor::system::puppet::pending_changes'
+        eval_time: 4h
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              alert_id: 'monitor::system::puppet::pending_changes'
+            exp_annotations:
+              summary: 'Puppet has pending changes on more than 5 servers'
+              description: |-2
+                Puppet has pending changes on 6 servers for more than 3 hours:
+
+                - **srv1.example** (v1_8_13): 6 pending changes
+                - **srv2.example** (v1_8_13): 5 pending changes
+                - **srv3.example** (v1_8_13): 4 pending changes
+                - **srv4.example** (v1_8_13): 3 pending changes
+                - **srv5.example** (v1_8_12): 2 pending changes
+                - **srv6.example** (v1_8_13): 1 pending changes
+
+  # only 5 servers with pending changes: no alert
+  - interval: 1m
+    input_series:
+      - series: 'puppet_report_events{name="Total",host="srv1.example",environment="v1_8_13"}'
+        values: 1x400
+      - series: 'puppet_report_events{name="Total",host="srv2.example",environment="v1_8_13"}'
+        values: 1x400
+      - series: 'puppet_report_events{name="Total",host="srv3.example",environment="v1_8_13"}'
+        values: 1x400
+      - series: 'puppet_report_events{name="Total",host="srv4.example",environment="v1_8_13"}'
+        values: 1x400
+      - series: 'puppet_report_events{name="Total",host="srv5.example",environment="v1_8_13"}'
+        values: 1x400
+      - series: 'puppet_report_events{name="Total",host="branch.example",environment="master"}'
+        values: 1x400
+
+    alert_rule_test:
+      - alertname: 'monitor::system::puppet::pending_changes'
+        eval_time: 4h
+        exp_alerts: []
