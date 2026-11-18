@@ -2,6 +2,16 @@
 
 All releases and the changes included in them (pulled from git commits added since last release) will be detailed in this file.
 
+## KubeAid Release Version 38.0.2
+
+### Features
+
+- 5fbcc6c64 feat(prometheus-linuxaid): alert when more than 5 servers have pending puppet changes
+
+### Bug Fixes
+
+- 1b9aa7c95 fix(prometheus-linuxaid): render the grafana chain and header middlewares when only public_keys is set
+
 ## KubeAid Release Version 38.0.1
 
 ### Features
