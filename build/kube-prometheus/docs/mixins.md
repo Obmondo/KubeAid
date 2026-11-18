@@ -30,12 +30,11 @@ Three settings in the cluster vars file:
 
 - `alert_namespace_selector` adds a PromQL matcher to the kubernetes-mixin's app, resource and storage alerts (pod, deployment, job, quota and volume alerts). The default `null` alerts on every namespace.
 - `excluded_alerts` drops the named alerts from every rule the build renders, kube-prometheus and mixins alike. The default `[]` keeps them all.
-- `scrape_scheduler_and_controller_manager: false` stops scraping kube-scheduler and kube-controller-manager and drops their alerts (`KubeSchedulerDown`, `KubeControllerManagerDown`, and from v0.18.0 the two `…InstanceUnreachable` alerts). Use it on kubeadm clusters that leave both bound to 127.0.0.1, where Prometheus can't reach them. The default `true` scrapes them.
+- `scrape_scheduler_and_controller_manager` decides whether kube-scheduler and kube-controller-manager are scraped. The default `false` skips both and drops their alerts (`KubeSchedulerDown`, `KubeControllerManagerDown`, and from v0.18.0 the two `…InstanceUnreachable` alerts), because kubeadm binds both to 127.0.0.1, where Prometheus can't reach them. Set it to `true` only where both listen on an address Prometheus can reach.
 
 ```jsonnet
 alert_namespace_selector: 'namespace!~"dev-.*"',
 excluded_alerts: ['KubeJobNotCompleted'],
-scrape_scheduler_and_controller_manager: false,
 ```
 
 To skip an alert only in some namespaces or for some labels, use an Alertmanager route instead.
