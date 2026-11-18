@@ -624,7 +624,7 @@ local kpBase =
         plugins: vars.grafana_plugins,
         resources: vars.grafana_resources,
         dashboards+: {
-          [dashboard]: mixin.grafanaDashboards[dashboard]
+          [std.asciiLower(dashboard)]: mixin.grafanaDashboards[dashboard]
           for mixin in mixins
           if mixin.grafanaDashboards != null
           for dashboard in std.objectFields(mixin.grafanaDashboards)
