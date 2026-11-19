@@ -14,7 +14,7 @@
             },
             annotations: {
               summary: 'Bare-metal node labels missing or incorrect.',
-              description: 'Node {{ $labels.node }} with hostname "{{ $labels.label_kubernetes_io_hostname | or "not set" }}" does not follow the required naming pattern. Bare-metal nodes must use consistent hostnames matching bm-*-[0-9]{7} (e.g., bm-worker-1234567) to prevent CAPI from restarting nodes, which would cause PVC attachment failures.',
+              description: 'Node {{ $labels.node }} with hostname "{{ or $labels.label_kubernetes_io_hostname "not set" }}" does not follow the required naming pattern. Bare-metal nodes must use consistent hostnames matching bm-*-[0-9]{7} (e.g., bm-worker-1234567) to prevent CAPI from restarting nodes, which would cause PVC attachment failures.',
             },
           },
         ],
