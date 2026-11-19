@@ -1,0 +1,19 @@
+annotations:
+  category: AI/Machine Learning
+apiVersion: v2
+appVersion: v0.20.0
+description: Helm chart for deploying LocalModel CRDs
+home: https://kserve.github.io/website/
+icon: https://raw.githubusercontent.com/kserve/website/main/docs/images/logo.png
+keywords:
+- kserve
+- localmodel
+- model-caching
+maintainers:
+- name: KServe Team
+  url: https://github.com/kserve/kserve
+name: kserve-localmodel-crd
+sources:
+- https://github.com/kserve/kserve
+type: application
+version: v0.20.0
