@@ -5,20 +5,20 @@ version: 1.0.0
 # see KServe's v-prefixed OCI tags, so bump them here by hand (see README.md).
 dependencies:
   - name: kserve-crd
-    version: v0.20.0
+    version: v0.21.0
     repository: oci://ghcr.io/kserve/charts
   - name: kserve-llmisvc-crd
-    version: v0.20.0
+    version: v0.21.0
     repository: oci://ghcr.io/kserve/charts
   - name: kserve-llmisvc-resources
-    version: v0.20.0
+    version: v0.21.0
     repository: oci://ghcr.io/kserve/charts
   - name: kserve-localmodel-crd
-    version: v0.20.0
+    version: v0.21.0
     repository: oci://ghcr.io/kserve/charts
   - name: kserve-localmodel-resources
-    version: v0.20.0
+    version: v0.21.0
     repository: oci://ghcr.io/kserve/charts
   - name: kserve-runtime-configs
-    version: v0.20.0
+    version: v0.21.0
     repository: oci://ghcr.io/kserve/charts
