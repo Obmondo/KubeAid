@@ -107,18 +107,27 @@ Or delete the version directory and re-run `setup-version.sh`.
 
 ### Validating rules
 
-Generate and check the rule file:
+`mixin.libsonnet` is the source: it is what `build.sh` compiles into a cluster's rules.
+`prometheus.yaml` is a generated copy that promtool can read, so never edit it by hand.
+Regenerate it after every change to `mixin.libsonnet`, from the mixin's folder:
 
 ```sh
 jsonnet -e '(import "mixin.libsonnet").prometheusAlerts' | gojsontoyaml > prometheus.yaml
-promtool check rules prometheus.yaml
 ```
 
-Run unit tests if you have a test file:
+Unit tests go next to it in a file whose name starts with `test` and ends with `.yaml`
+(`tests.yaml`, `testUnsuccessfulBackup.yaml`), with `rule_files: [prometheus.yaml]`.
+
+Then check the rules and run the tests:
 
 ```sh
-promtool test rules build/kube-prometheus/mixins/<mixin-name>/test.yaml
+promtool check rules prometheus.yaml
+promtool test rules tests.yaml
 ```
+
+CI (`.github/workflows/promtool.yml`) runs these for every mixin, fails when
+`prometheus.yaml` differs from what `mixin.libsonnet` generates, and runs
+`mixtool lint --prometheus --grafana=false mixin.libsonnet`.
 
 ### Testing on a cluster
 

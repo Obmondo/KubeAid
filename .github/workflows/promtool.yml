@@ -1,0 +1,139 @@
+name: Prometheus rule test
+
+"on":
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+    paths:
+      - 'build/kube-prometheus/**'
+      - 'argocd-helm-charts/prometheus-linuxaid/**'
+      - 'argocd-helm-charts/kubeaid-agent/**'
+      - 'argocd-helm-charts/kubeaid-backup-exporter/**'
+      - '.github/workflows/promtool.yml'
+
+permissions:
+  contents: read
+
+# This will only allow a single promtool action to run per PR.
+# Any github action running on the older commits will be aborted.
+concurrency:
+  group: promtool-${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  PROMETHEUS_VERSION: "3.10.0"
+  JSONNET_VERSION: "v0.22.0"
+  GOJSONTOYAML_VERSION: "v0.1.0"
+  # mixtool has no releases, and "go install ...@main" is refused because its
+  # go.mod carries a replace directive. It is built from this commit instead.
+  MIXTOOL_COMMIT: "5d4358f07f2b4d58d88b54c9eb3e7f68b62fa219"
+
+jobs:
+  promtool:
+    name: Prometheus rule test
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version: stable
+          cache: false
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v5
+        with:
+          version: 'v3.21.3'
+
+      - name: Install promtool, jsonnet, gojsontoyaml and mixtool
+        run: |
+          set -euo pipefail
+          bin="${RUNNER_TEMP}/bin"
+          mkdir -p "${bin}"
+
+          curl -fsSL "https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz" |
+            tar -xz -C "${bin}" --strip-components=1 "prometheus-${PROMETHEUS_VERSION}.linux-amd64/promtool"
+
+          GOBIN="${bin}" go install "github.com/google/go-jsonnet/cmd/jsonnet@${JSONNET_VERSION}"
+          GOBIN="${bin}" go install "github.com/brancz/gojsontoyaml@${GOJSONTOYAML_VERSION}"
+
+          git clone --quiet https://github.com/monitoring-mixins/mixtool "${RUNNER_TEMP}/mixtool"
+          git -C "${RUNNER_TEMP}/mixtool" checkout --quiet "${MIXTOOL_COMMIT}"
+          (cd "${RUNNER_TEMP}/mixtool" && go build -o "${bin}/mixtool" ./cmd/mixtool)
+
+          echo "${bin}" >>"${GITHUB_PATH}"
+
+      - name: Tool versions
+        run: |
+          promtool --version
+          jsonnet --version
+          command -v gojsontoyaml mixtool
+          helm version --short
+          yq --version
+
+      - name: prometheus-linuxaid rules test
+        working-directory: argocd-helm-charts/prometheus-linuxaid/tests
+        run: promtool test rules ./*.yaml
+
+      # Unlike prometheus-linuxaid, these rules are templated -- the RPO threshold
+      # comes from the chart's max_rpo -- so they have to be rendered before promtool
+      # can read them. The test file's rule_files points at the path written here.
+      - name: kubeaid-backup-exporter alert rules check and test
+        run: |
+          set -euo pipefail
+          helm template kubeaid-agent argocd-helm-charts/kubeaid-agent \
+            --set kubeaid-backup-exporter.enabled=true \
+            --show-only charts/kubeaid-backup-exporter/templates/postgres-prometheusrule.yaml \
+            --show-only charts/kubeaid-backup-exporter/templates/velero-prometheusrule.yaml \
+            | yq ea '[.spec.groups[]] | {"groups": .}' > /tmp/prometheusRule.yaml
+          promtool check rules /tmp/prometheusRule.yaml
+          promtool test rules argocd-helm-charts/kubeaid-backup-exporter/test/prometheusRuleTest.yaml
+
+      # Every mixin is checked before the step fails, so one run lists all failures.
+      - name: prometheus mixins rules check, test and lint
+        working-directory: build/kube-prometheus/mixins
+        run: |
+          set -uo pipefail
+          failed=0
+          for dir in */; do
+            mixin="${dir%/}"
+            echo "Mixin: ${mixin}"
+
+            # prometheus.yaml has to be what mixin.libsonnet generates.
+            if ! jsonnet -e "(import '${mixin}/mixin.libsonnet').prometheusAlerts" | gojsontoyaml | diff -u "${mixin}/prometheus.yaml" -; then
+              echo "::error::${mixin}/prometheus.yaml is out of date, regenerate it from mixin.libsonnet (see build/kube-prometheus/docs/mixins.md)"
+              failed=1
+            fi
+
+            promtool check rules "${mixin}/prometheus.yaml" || failed=1
+
+            for test_file in "${mixin}"/test*.yaml; do
+              [ -e "${test_file}" ] || continue
+              promtool test rules "${test_file}" || failed=1
+            done
+
+            # --grafana=false: only the alerts are linted. Dashboards that come from
+            # upstream (keycloak) do not follow the dashboard-linter rules.
+            mixtool lint --prometheus --grafana=false "${mixin}/mixin.libsonnet" || failed=1
+          done
+          exit "${failed}"
+
+      - name: jsonnet unit tests
+        working-directory: build/kube-prometheus
+        run: |
+          set -euo pipefail
+          bash tests/lint_vars_access.sh
+          for version in libraries/*/; do
+            echo "Testing against ${version}vendor"
+            jsonnet -J "${version}vendor" tests/addmixin_test.jsonnet
+            jsonnet -J "${version}vendor" tests/validate_vars_test.jsonnet
+          done
+
+      - name: kube-prometheus e2e compilation tests
+        working-directory: build/kube-prometheus
+        run: bash e2e/run.sh
