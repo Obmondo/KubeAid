@@ -78,8 +78,12 @@ composite APIs built on them, `WorkloadIdentityInfrastructure` and `DisasterReco
 
 | Value | Description | Default |
 |---|---|---|
-| `providers.scaleway.provider.version` | Version `provider-scaleway` is pinned to; the package (`xpkg.upbound.io/scaleway/provider-scaleway`) is fixed in the chart | `v0.6.0` |
+| `providers.scaleway.provider.version` | Version `provider-scaleway` is pinned to; the package (`xpkg.upbound.io/scaleway/provider-scaleway`) is fixed in the chart | `v0.8.0` |
 | `providers.scaleway.credentials.secretName` / `.secretKey` | Secret (release namespace) and key with the Scaleway API key | `scaleway-credentials` / `credentials` |
+
+On clusters with arm64 nodes, pin a version that publishes an arm64 image. `v0.6.0` is amd64 only: on an
+arm64 node the provider pod crashloops with `exec /usr/local/bin/provider: exec format error`, the
+`Provider` stays unhealthy and the Argo CD application shows Degraded. `v0.8.0` ships amd64 and arm64.
 
 The provider runs with `--enable-management-policies` (a `DeploymentRuntimeConfig`), and every Scaleway
 managed resource authenticates through the `default` `ClusterProviderConfig` this chart renders next to

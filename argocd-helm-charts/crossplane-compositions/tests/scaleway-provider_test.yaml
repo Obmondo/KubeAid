@@ -23,7 +23,7 @@ tests:
         documentIndex: 0
       - equal:
           path: spec.package
-          value: xpkg.upbound.io/scaleway/provider-scaleway:v0.6.0
+          value: xpkg.upbound.io/scaleway/provider-scaleway:v0.8.0
         documentIndex: 0
       - equal:
           path: spec.runtimeConfigRef.name

@@ -8,7 +8,9 @@ providers:
   scaleway:
     enabled: false
     provider:
-      version: v0.6.0
+      # v0.6.0 is published for amd64 only and crashloops with "exec format error" on arm64 nodes;
+      # v0.8.0 ships both amd64 and arm64 images.
+      version: v0.8.0
     credentials:
       secretName: scaleway-credentials
       secretKey: credentials
