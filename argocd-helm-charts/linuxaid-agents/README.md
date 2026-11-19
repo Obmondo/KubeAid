@@ -222,7 +222,7 @@ nodeSelector: "!node-role.kubernetes.io/control-plane"
 | `enforce` | `false` | `false` = report-only (`puppet apply --noop`); `true` = apply changes. |
 | `interval` | `4h` | How often the operator creates a Job per node, as a Go duration such as `30m`. |
 | `controlRepo.url` | `https://github.com/Obmondo/linuxaid.git` | Control repo each node clones. |
-| `controlRepo.ref` | `v1.8.12` | Tag or branch to check out. Empty = the repo's newest tag on every run, so nodes move forward on their own. |
+| `controlRepo.ref` | `v1.8.14` | Tag or branch to check out. Empty = the repo's newest tag on every run, so nodes move forward on their own. |
 | `controlRepo.secretName` | `""` | Secret for a private control repo: key `ssh-privatekey` for SSH URLs, or `token` (a Gitea access token) for https URLs. |
 | `openvoxEnvironment` | `""` | Name of the environment directory on the node. Empty = `controlRepo.ref` with dots as underscores (`v1.8.8` → `v1_8_8`), or `master` without a ref. It only names the directory: `controlRepo.ref` decides which code runs. With a ref, the name is also added to the hiera data as `common::system::openvox::environment`. |
 | `hiera` | `classes: [role::kubeaid]`, `monitor::enable: false` | Hiera data for every node; see [What gets managed](#what-gets-managed). |
