@@ -1,0 +1,33 @@
+{{- if .Values.redis.enabled }}
+apiVersion: redis.redis.opstreelabs.in/v1beta2
+kind: Redis
+metadata:
+  name: {{ include "stalwart.redisName" . }}
+  labels:
+    {{- include "stalwart.labels" . | nindent 4 }}
+spec:
+  kubernetesConfig:
+    image: {{ .Values.redis.image }}
+    imagePullPolicy: IfNotPresent
+    {{- with .Values.redis.resources }}
+    resources:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+  redisExporter:
+    enabled: true
+    image: quay.io/opstree/redis-exporter:v1.44.0
+    imagePullPolicy: IfNotPresent
+  storage:
+    volumeClaimTemplate:
+      spec:
+        {{- with .Values.redis.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.redis.storage }}
+  podSecurityContext:
+    runAsUser: 1000
+    fsGroup: 1000
+{{- end }}

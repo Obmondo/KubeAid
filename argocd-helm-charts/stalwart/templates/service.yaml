@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "stalwart.fullname" . }}-headless
+  labels:
+    {{- include "stalwart.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  selector:
+    {{- include "stalwart.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+# HTTP: WebUI, JMAP, CalDAV/CardDAV, autoconfig. Fronted by the Ingress.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "stalwart.fullname" . }}
+  labels:
+    {{- include "stalwart.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "stalwart.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+# Mail protocols need L4 exposure; they cannot go through an HTTP Ingress.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "stalwart.fullname" . }}-mail
+  labels:
+    {{- include "stalwart.labels" . | nindent 4 }}
+  {{- with .Values.mailService.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.mailService.type }}
+  {{- if and (ne .Values.mailService.type "ClusterIP") .Values.mailService.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ .Values.mailService.externalTrafficPolicy }}
+  {{- end }}
+  {{- with .Values.mailService.loadBalancerIP }}
+  loadBalancerIP: {{ . }}
+  {{- end }}
+  selector:
+    {{- include "stalwart.selectorLabels" . | nindent 4 }}
+  ports:
+    {{- range $name, $port := .Values.mailService.ports }}
+    - name: {{ $name }}
+      port: {{ $port }}
+      targetPort: {{ $name }}
+    {{- end }}
