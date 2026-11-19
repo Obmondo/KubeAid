@@ -618,6 +618,7 @@ function main (){
 
   if [ -n "$UPDATE_HELM_CHART" ]; then
     update_helm_chart "$ARGOCD_CHART_PATH/$UPDATE_HELM_CHART" "$CHART_VERSION"
+    BUMP_TYPE=""
     if [ "$HAS_MAJOR" = true ]; then
       BUMP_TYPE="major"
     elif [ "$HAS_MINOR" = true ]; then
@@ -627,7 +628,13 @@ function main (){
     fi
 
     {
-      echo "chore($BUMP_TYPE update): $UPDATE_LINE"
+      # No update type is recorded for a chart that is not in the latest
+      # release tag, or whose version matches it
+      if [ -n "$BUMP_TYPE" ]; then
+        echo "chore($BUMP_TYPE update): $UPDATE_LINE"
+      else
+        echo "chore(update): Updated helm chart $UPDATE_HELM_CHART"
+      fi
     } > "$COMMIT_MSG_FILE"
   fi
 
@@ -690,8 +697,10 @@ function main (){
     git add VERSION .helm_version_last_update
   fi
 
-  if [[ -n "$(git status --porcelain)" ]]; then
-    git add -A "$ARGOCD_CHART_PATH"
+  git add -A "$ARGOCD_CHART_PATH"
+  # .helm_version_last_update changes on every run, so commit only when
+  # something is staged
+  if ! git diff --cached --quiet; then
     git commit -F "$COMMIT_MSG_FILE"
   fi
 
