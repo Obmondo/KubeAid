@@ -1,6 +1,5 @@
-// KubeHpaMaxedOut alert to exclude HPAs where min == max replicas
-// This prevents false alerts for HPAs that are intentionally configured
-// with a fixed size (e.g., min=1, max=1) and cannot scale.
+// KubeHpaMaxedOut alert that skips HPAs which cannot scale: min == max replicas
+// (a fixed size, e.g. min=1, max=1) or max == 1 (e.g. KEDA scaling between 0 and 1).
 {
   _config+:: {
     selector: '',
@@ -21,6 +20,8 @@
               kube_horizontalpodautoscaler_spec_min_replicas{job="kube-state-metrics"}
                 !=
               kube_horizontalpodautoscaler_spec_max_replicas{job="kube-state-metrics"}
+                and
+              kube_horizontalpodautoscaler_spec_max_replicas{job="kube-state-metrics"} > 1
             ||| % $._config,
             'for': '15m',
             labels: {

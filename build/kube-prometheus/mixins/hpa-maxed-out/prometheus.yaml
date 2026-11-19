@@ -15,7 +15,7 @@ groups:
         !=
       kube_horizontalpodautoscaler_spec_max_replicas{job="kube-state-metrics"}
         and
-      kube_horizontalpodautoscaler_status_max_replicas{job="kube-state-metrics"} > 1
+      kube_horizontalpodautoscaler_spec_max_replicas{job="kube-state-metrics"} > 1
     for: 15m
     labels:
       severity: warning
