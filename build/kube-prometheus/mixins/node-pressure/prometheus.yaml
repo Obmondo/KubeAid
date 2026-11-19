@@ -1,5 +1,5 @@
 groups:
-- name: node-pressure
+- name: kube-node-pressure
   rules:
   - alert: KubeNodePressure
     annotations:
@@ -11,3 +11,5 @@ groups:
       and on (cluster, node)
       kube_node_spec_unschedulable{job="kube-state-metrics"} == 0
     for: 10m
+    labels:
+      severity: info

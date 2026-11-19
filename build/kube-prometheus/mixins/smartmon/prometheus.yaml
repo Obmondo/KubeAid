@@ -40,7 +40,6 @@ groups:
       description: |-
         Disk **{{ $labels.disk }}** on **{{ $labels.certname }}** has exceeded 100% of NVM subsystem life,
                   instance="**{{ $labels.instance }}**",
-                  type="**{{ $labels.type }}**",
 
                   Percentage Used: Contains a vendor specific estimate of the percentage of NVM subsystem life used based on the actual usage and the manufacturers prediction of NVM life. A value of 100 indicates that the estimated endurance of the NVM in the NVM subsystem has been consumed, but may not indicate an NVM subsystem failure. The value is allowed to exceed 100, percentages greater than 254 shall be represented as 255, this value shall be updated once per power-on hour (when the controller is not in a sleep state).
       summary: Disk has exceeded 100% of NVM subsystem life.
