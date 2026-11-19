@@ -13,6 +13,10 @@ metadata:
 spec:
   instances: {{ $postgresql.instances }}
 
+  {{- with $postgresql.imageName }}
+  imageName: {{ . }}
+  {{- end }}
+
   affinity:
     podAntiAffinityType: {{ $postgresql.podAntiAffinityType }}
 
