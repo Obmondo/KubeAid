@@ -667,6 +667,12 @@ spec:
       # machine; every control plane that joins later (scale-up, rollout,
       # rebuilt node) gets kubeadm-join-config.yaml instead, and must not
       # re-apply chart defaults over the add-ons ArgoCD manages.
+      #
+      # On a private network an HCloud node has both eth0 (public) and enp+
+      # (private). Matching both leaves cilium to pick the direct routing
+      # device from the Node's IP, which the CCM has not set yet on a fresh
+      # node, so the agent fails with "unable to determine direct routing
+      # device". Leave eth0 out there; public-network nodes only have eth0.
       - |
         if [ -f /run/kubeadm/kubeadm.yaml ]; then
           helm template cilium kubeaid/argocd-helm-charts/cilium \
@@ -675,7 +681,7 @@ spec:
             --set cilium.kubeProxyReplacement=true \
             --set cilium.k8sServiceHost=${API_SERVER_HOST} \
             --set cilium.k8sServicePort=${API_SERVER_PORT} \
-            --set-string 'cilium.extraArgs[0]=--devices=vswitch+\,eth0\,enp+\,eno+' \
+            --set-string 'cilium.extraArgs[0]=--devices={{ if $cpOnPrivateNetwork }}vswitch+\,enp+\,eno+{{ else }}vswitch+\,eth0\,enp+\,eno+{{ end }}' \
             > /tmp/cilium.yaml \
           && kubectl apply -f /tmp/cilium.yaml
         fi
