@@ -1,0 +1,10 @@
+# Paths deleted from the vendored subcharts after `helm dependency update`.
+# One path per line, relative to this chart directory. Comments with #.
+#
+# kserve-crd and kserve-llmisvc-crd both ship the clusterstoragecontainers.serving.kserve.io
+# CRD, byte for byte the same. Upstream installs them as separate Helm releases and skips the
+# second copy with a `lookup` of the live CRD, but this chart puts both in one release and Argo
+# CD renders without cluster access, so the CRD would render twice. The kserve-crd copy stays.
+# The published tarball carries it regardless, which is why this file exists: without it the
+# duplicate comes back on the next version bump.
+charts/kserve-llmisvc-crd/templates/serving.kserve.io_clusterstoragecontainers.yaml
