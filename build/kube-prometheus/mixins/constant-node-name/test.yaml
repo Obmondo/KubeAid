@@ -27,7 +27,7 @@ tests:
   - interval: 5m
     input_series:
       - series: 'kube_node_labels{node="bm-kcm-1234567",label_beta_kubernetes_io_instance_type="unknown",label_kubernetes_io_hostname="bm-kcm-1234567"}'
-        values: '1+0x1'
+        values: '1+0x2'
     alert_rule_test:
       - eval_time: 10m
         alertname: BareMetalNodeLabelsMissingOrMismatch
@@ -39,7 +39,7 @@ tests:
   - interval: 5m
     input_series:
       - series: 'kube_node_labels{node="node1",label_beta_kubernetes_io_instance_type="wrongtype",label_kubernetes_io_hostname="node1"}'
-        values: '1+0x1'
+        values: '1+0x2'
     alert_rule_test:
       - eval_time: 10m
         alertname: BareMetalNodeLabelsMissingOrMismatch
@@ -60,7 +60,7 @@ tests:
   - interval: 5m
     input_series:
       - series: 'kube_node_labels{node="node-cax",label_beta_kubernetes_io_instance_type="cax.large",label_kubernetes_io_hostname="node-cax"}'
-        values: '1+0x1'
+        values: '1+0x2'
     alert_rule_test:
       - eval_time: 10m
         alertname: BareMetalNodeLabelsMissingOrMismatch
@@ -72,7 +72,7 @@ tests:
   - interval: 5m
     input_series:
       - series: 'kube_node_labels{node="node2",label_beta_kubernetes_io_instance_type="customtype",label_kubernetes_io_hostname="node2"}'
-        values: '1+0x1'
+        values: '1+0x2'
     alert_rule_test:
       - eval_time: 10m
         alertname: BareMetalNodeLabelsMissingOrMismatch
