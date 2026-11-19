@@ -2,6 +2,25 @@
 
 All releases and the changes included in them (pulled from git commits added since last release) will be detailed in this file.
 
+## KubeAid Release Version 38.0.3
+
+### Features
+
+- 1088ba4ee feat(kserve): bump KServe to v0.21.0
+- 96bb9594a feat(kserve): add KServe v0.20.0 chart
+- fb9d7580f feat(kubeaid-agent): run agent v1.2.0
+- 6ad4f90c7 feat(kube-prometheus): skip the scheduler/controller-manager scrape by default
+- 1aa1c6d81 feat(kube-prometheus): optional scheduler/controller-manager scrape
+
+### Bug Fixes
+
+- e01d1452d fix(manage-helm-chart): handle --update-helm-chart runs with no bump type
+- de24af243 fix(crossplane-compositions): default provider-scaleway to v0.8.0 for arm64 nodes
+
+### Other Changes
+
+- 65e5a25c4 ci(shellcheck): install the runner's shellcheck instead of pinning 0.9.0-1
+
 ## KubeAid Release Version 38.0.2
 
 ### Features
