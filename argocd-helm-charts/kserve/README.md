@@ -1,6 +1,6 @@
 # KServe
 
-Wrapper around the upstream [KServe](https://kserve.github.io/website/) v0.20.0 charts from
+Wrapper around the upstream [KServe](https://kserve.github.io/website/) charts from
 `oci://ghcr.io/kserve/charts`, for LLM serving with `LLMInferenceService` (llm-d) and the local model cache.
 `values.yaml` is empty, so every default is upstream's.
 
@@ -33,9 +33,8 @@ Both CRD charts ship `clusterstoragecontainers.serving.kserve.io`. `.helm-prune`
 
 ## Argo CD Application
 
-Three CRDs are over the 256 KiB last-applied annotation limit of client-side apply: `llminferenceservices`
-(723 KiB), `llminferenceserviceconfigs` (712 KiB) and `inferenceservices` (623 KiB). The upstream CRD charts have no
-setting for extra annotations, so the Application sets `ServerSideApply=true` in `spec.syncPolicy.syncOptions` and
+Three CRDs, `llminferenceservices`, `llminferenceserviceconfigs` and `inferenceservices`, are well over the 256 KiB
+last-applied annotation limit of client-side apply. The upstream CRD charts have no setting for extra annotations, so the Application sets `ServerSideApply=true` in `spec.syncPolicy.syncOptions` and
 deploys to namespace `kserve`.
 
 ## Cluster values for LLM serving

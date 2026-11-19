@@ -1,21 +1,21 @@
 dependencies:
 - name: kserve-crd
   repository: oci://ghcr.io/kserve/charts
-  version: v0.20.0
+  version: v0.21.0
 - name: kserve-llmisvc-crd
   repository: oci://ghcr.io/kserve/charts
-  version: v0.20.0
+  version: v0.21.0
 - name: kserve-llmisvc-resources
   repository: oci://ghcr.io/kserve/charts
-  version: v0.20.0
+  version: v0.21.0
 - name: kserve-localmodel-crd
   repository: oci://ghcr.io/kserve/charts
-  version: v0.20.0
+  version: v0.21.0
 - name: kserve-localmodel-resources
   repository: oci://ghcr.io/kserve/charts
-  version: v0.20.0
+  version: v0.21.0
 - name: kserve-runtime-configs
   repository: oci://ghcr.io/kserve/charts
-  version: v0.20.0
-digest: sha256:a78517e6214c30bdc2f773c937ee6debb9789e8a5bae9ac6af0926d27936d5c9
-generated: "2026-11-19T09:40:34.807882738+05:30"
+  version: v0.21.0
+digest: sha256:631064ccaf3f71f649198dad7b578e46136abaafa99d0cc170a1ed2750e29307
+generated: "2026-11-19T10:18:57.687100676+05:30"
