@@ -1,4 +1,3 @@
-# node-labels-alert-test.yaml
 rule_files:
   - prometheus.yaml
 
