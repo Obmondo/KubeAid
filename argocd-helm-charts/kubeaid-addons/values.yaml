@@ -81,6 +81,12 @@ global:
     # -- Number of PostgreSQL instances in the cluster
     instances: 1
 
+    # -- PostgreSQL image, e.g. ghcr.io/cloudnative-pg/postgresql:18.7-system-trixie.
+    # Empty lets the CNPG operator pick its default, but only once: it is written
+    # into the Cluster at creation and never updated by operator upgrades.
+    # Changing it to a newer minor of the same major does a rolling update.
+    imageName: ""
+
     # -- REFER : https://cloudnative-pg.io/docs/1.27/scheduling/#requiring-pod-anti-affinity.
     podAntiAffinityType: required
 
