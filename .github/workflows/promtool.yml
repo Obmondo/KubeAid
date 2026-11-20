@@ -40,6 +40,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7.0.1
 
+      # Runs before the tools are installed: it needs none, so a wrong name fails
+      # in seconds. The test step below only picks up files with these names.
+      - name: prometheus mixins file names
+        working-directory: build/kube-prometheus/mixins
+        run: |
+          set -uo pipefail
+          failed=0
+          for file in */*.yaml; do
+            case "$(basename "${file}")" in
+              prometheus.yaml | tests.yaml | ?*_test.yaml) ;;
+              *)
+                echo "::error file=build/kube-prometheus/mixins/${file}::Unexpected file name. A mixin folder holds prometheus.yaml and its tests: <alert>_test.yaml for one alert, tests.yaml for several (see build/kube-prometheus/docs/mixins.md)"
+                failed=1
+                ;;
+            esac
+          done
+          exit "${failed}"
+
       - name: Set up Go
         uses: actions/setup-go@v7.0.0
         with:
@@ -113,7 +131,7 @@ jobs:
 
             promtool check rules "${mixin}/prometheus.yaml" || failed=1
 
-            for test_file in "${mixin}"/test*.yaml; do
+            for test_file in "${mixin}"/tests.yaml "${mixin}"/*_test.yaml; do
               [ -e "${test_file}" ] || continue
               promtool test rules "${test_file}" || failed=1
             done

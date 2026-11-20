@@ -115,8 +115,14 @@ Regenerate it after every change to `mixin.libsonnet`, from the mixin's folder:
 jsonnet -e '(import "mixin.libsonnet").prometheusAlerts' | gojsontoyaml > prometheus.yaml
 ```
 
-Unit tests go next to it in a file whose name starts with `test` and ends with `.yaml`
-(`tests.yaml`, `testUnsuccessfulBackup.yaml`), with `rule_files: [prometheus.yaml]`.
+Unit tests go next to it, with `rule_files: [prometheus.yaml]`, in a file named:
+
+- `<alert>_test.yaml` when it tests one alert, the alert name in snake case
+  (`kube_hpa_maxed_out_test.yaml` for `KubeHpaMaxedOut`)
+- `tests.yaml` when it tests several alerts
+
+No other `.yaml` file is allowed in a mixin folder; CI fails on any other name, so a
+test file cannot be skipped because of how it is called.
 
 Then check the rules and run the tests:
 
