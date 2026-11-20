@@ -5,7 +5,7 @@ name: Prometheus rule test
     types:
       - opened
       - synchronize
-      - reopened
+
     paths:
       - 'build/kube-prometheus/**'
       - 'argocd-helm-charts/prometheus-linuxaid/**'
@@ -26,8 +26,9 @@ env:
   PROMETHEUS_VERSION: "3.10.0"
   JSONNET_VERSION: "v0.22.0"
   GOJSONTOYAML_VERSION: "v0.1.0"
-  # mixtool has no releases, and "go install ...@main" is refused because its
-  # go.mod carries a replace directive. It is built from this commit instead.
+  # mixtool has no tags or releases, so it is pinned to a commit (main as of 2026-11-04).
+  # "go install ...@main" is refused because its go.mod carries a replace directive,
+  # so it is cloned and built instead.
   MIXTOOL_COMMIT: "5d4358f07f2b4d58d88b54c9eb3e7f68b62fa219"
 
 jobs:
