@@ -22,12 +22,12 @@
             },
           },
           {
-            alert: 'ClusterFailedToUpdateNodeCountForOverTenDays',
+            alert: 'ClusterFailedToUpdateNodeCount',
             expr: 'days_missing_node_count>10',
             'for': '15m',
             labels: {
               severity: 'critical',
-              alert_id: 'ClusterFailedToUpdateNodeCountForOverTenDays',
+              alert_id: 'ClusterFailedToUpdateNodeCount',
             },
             annotations: {
               description: 'The cluster **{{ .Labels.cluster_certname }}** has failed to update its node count for over ten days this month ( **{{ .Value }}** ). This will have an impact on the average node count calculation for the month.',
