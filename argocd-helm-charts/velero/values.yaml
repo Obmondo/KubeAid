@@ -31,6 +31,27 @@ velero:
   configuration:
     logLevel: info
     features: EnableCSI
+  # Read-only backup PVC for CephFS, so ceph-csi mounts the snapshot instead of
+  # cloning it file by file. The clone ran past the prepare timeout on volumes with
+  # lots of small files.
+  # https://velero.io/docs/v1.18/data-movement-backup-pvc-configuration/
+  #
+  # The flag assumes the release is called velero. A cluster that sets its own
+  # nodeAgent.extraArgs has to keep it.
+  nodeAgent:
+    extraArgs:
+      - --node-agent-configmap=velero-node-agent-config
+  configMaps:
+    node-agent-config:
+      data:
+        node-agent-config.json: |
+          {
+            "backupPVC": {
+              "ceph-filesystem": {
+                "readOnly": true
+              }
+            }
+          }
   metrics:
     enabled: true
     serviceMonitor:
