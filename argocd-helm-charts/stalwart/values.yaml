@@ -87,8 +87,10 @@ redis:
     limits:
       memory: 256Mi
 
-# Blob store: message bodies, Sieve scripts, attachments.
+# Blob store: message bodies, Sieve scripts, attachments. Disabled, blobs go
+# to the PostgreSQL data store; enabled, they go to this S3 bucket.
 s3:
+  enabled: false
   bucket: ""
   # -- S3 endpoint, e.g. https://bucket.obmondo.com
   endpoint: ""

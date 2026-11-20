@@ -73,6 +73,7 @@ before the coordinator (the server refuses the reverse order).
 {{- /* Shared stores: required before replicaCount > 1. */ -}}
 {{- $ops = append $ops (dict "@type" "update" "object" "InMemoryStore" "value" (dict "@type" "Redis" "url" (include "stalwart.redisUrl" .))) -}}
 {{- $ops = append $ops (dict "@type" "update" "object" "Coordinator" "value" (dict "@type" "Default")) -}}
+{{- if .Values.s3.enabled }}
 {{- $s3 := dict
   "@type" "S3"
   "bucket" (required "s3.bucket is required" .Values.s3.bucket)
@@ -82,6 +83,9 @@ before the coordinator (the server refuses the reverse order).
 -}}
 {{- with .Values.s3.keyPrefix }}{{- $_ := set $s3 "keyPrefix" . -}}{{- end }}
 {{- $ops = append $ops (dict "@type" "update" "object" "BlobStore" "value" $s3) -}}
+{{- else }}
+{{- $ops = append $ops (dict "@type" "update" "object" "BlobStore" "value" (dict "@type" "Default")) -}}
+{{- end }}
 {{- $ops = append $ops (dict "@type" "update" "object" "SearchStore" "value" (dict "@type" "Default")) -}}
 {{- /* Domains and server identity. */ -}}
 {{- if .Values.domains }}
