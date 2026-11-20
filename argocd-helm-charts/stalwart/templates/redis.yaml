@@ -3,8 +3,12 @@ apiVersion: redis.redis.opstreelabs.in/v1beta2
 kind: Redis
 metadata:
   name: {{ include "stalwart.redisName" . }}
+  # Not stalwart.labels: the operator copies these onto the Redis pod, and the
+  # Stalwart Services/PDB select on app.kubernetes.io/name + instance.
   labels:
-    {{- include "stalwart.labels" . | nindent 4 }}
+    app.kubernetes.io/name: {{ include "stalwart.name" . }}-redis
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
 spec:
   kubernetesConfig:
     image: {{ .Values.redis.image }}

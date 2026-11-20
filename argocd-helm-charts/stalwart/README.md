@@ -79,7 +79,15 @@ Stalwart uses a static client id.
    - Turn **Add to access token** on.
 
    Stalwart rejects tokens whose `aud` does not match `acceptedAudiences`.
-5. Optional: add a **Group Membership** mapper with token claim `groups` and Full group path off.
+5. Create the client scope that the WebUI requests. Without it, Keycloak rejects the login with
+   `Invalid scopes: openid email urn:stalwart:oauth:scope:full`.
+   - In Client scopes → Create client scope, set Name to `urn:stalwart:oauth:scope:full` (exactly),
+     Type to None, Protocol to OpenID Connect, and turn **Include in token scope** on.
+   - On the `stalwart-webui` client, add it as an **Optional** client scope.
+
+   Keep this scope on `stalwart-webui` only. Never make it a realm default: a token carrying it gets
+   the account's full permissions, which for an administrator includes managing the server.
+6. Optional: add a **Group Membership** mapper with token claim `groups` and Full group path off.
    Then set `oidc.claimGroups: groups`.
 
 Accounts are created on the first Keycloak login. Mail for an address that has never logged in is
