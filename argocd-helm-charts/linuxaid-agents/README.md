@@ -51,7 +51,8 @@ operator Deployment                     one Job per node                  on the
    not in a container. It tolerates every taint and is bound straight to its node, so it also runs
    on control-plane and cordoned nodes.
 4. **The run.** The Job clones the control repo at `controlRepo.ref`, writes your `hiera` values
-   next to it and runs `puppet apply`. With `enforce: false`, the default, Puppet only reports what
+   next to it and runs `puppet apply`. Agents from linuxaid-cli releases after v1.11.6 take the
+   ref from the hiera ConfigMap instead, so editing it there is enough to switch releases. With `enforce: false`, the default, Puppet only reports what
    it would change.
 5. **Cleanup.** Kubernetes deletes the finished Job, and its logs, after
    `agentJob.ttlSecondsAfterFinished`.
@@ -222,9 +223,8 @@ nodeSelector: "!node-role.kubernetes.io/control-plane"
 | `enforce` | `false` | `false` = report-only (`puppet apply --noop`); `true` = apply changes. |
 | `interval` | `4h` | How often the operator creates a Job per node, as a Go duration such as `30m`. |
 | `controlRepo.url` | `https://github.com/Obmondo/linuxaid.git` | Control repo each node clones. |
-| `controlRepo.ref` | `v1.8.14` | Tag or branch to check out. Empty = the repo's newest tag on every run, so nodes move forward on their own. |
+| `controlRepo.ref` | `v1.8.14` | Tag or branch to check out. Empty = the repo's newest tag on every run, so nodes move forward on their own. The environment directory on the node is named after it (`v1.8.8` → `v1_8_8`). Also written to the hiera ConfigMap as `common::system::openvox::environment`; agents from linuxaid-cli releases after v1.11.6 read it from there, so editing the ConfigMap switches the release on the next Job. |
 | `controlRepo.secretName` | `""` | Secret for a private control repo: key `ssh-privatekey` for SSH URLs, or `token` (a Gitea access token) for https URLs. |
-| `openvoxEnvironment` | `""` | Name of the environment directory on the node. Empty = `controlRepo.ref` with dots as underscores (`v1.8.8` → `v1_8_8`), or `master` without a ref. It only names the directory: `controlRepo.ref` decides which code runs. With a ref, the name is also added to the hiera data as `common::system::openvox::environment`. |
 | `hiera` | `classes: [role::kubeaid]`, `monitor::enable: false` | Hiera data for every node; see [What gets managed](#what-gets-managed). |
 | `nodeSelector` | `""` | Label selector for the nodes to manage; empty = all nodes. |
 | `obmondoClientCert.secretName` | `obmondo-clientcert` | Secret with the client certificate. |
