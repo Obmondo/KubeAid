@@ -53,10 +53,6 @@ obmondoClientCert:
 # false = report-only (puppet --noop); true = apply changes (--no-noop).
 enforce: false
 
-# OpenVox environment name. Empty = controlRepo.ref with dots as underscores (v1.8.8 ->
-# v1_8_8), as the server setup names tag environments; master when that is empty too.
-openvoxEnvironment: ""
-
 # Only manage nodes matching this label selector ("" = all nodes).
 nodeSelector: ""
 

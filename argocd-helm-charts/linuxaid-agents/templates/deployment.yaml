@@ -36,6 +36,7 @@ spec:
             - --certname={{ .Values.certname }}
             - --enforce={{ .Values.enforce }}
             - --interval={{ .Values.interval }}
+            # Only read by agents up to linuxaid-cli v1.11.6; drop it with the image bump.
             - --openvox-environment={{ include "linuxaid-agents.openvoxEnvironment" . }}
             - --cert-secret={{ .Values.obmondoClientCert.secretName }}
             - --name-prefix={{ include "linuxaid-agents.fullname" . }}

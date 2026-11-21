@@ -1,9 +1,10 @@
 # The rendered Helm values ARE the node's hiera data: the operator mounts this
 # ConfigMap into every per-node Job at /hiera-data, the Job stages it onto the host,
 # and puppet apply reads it as the global (highest-precedence) hiera layer, so chart
-# values win over control-repo defaults. With a controlRepo.ref, the environment name
-# (v1_8_8) is recorded as common::system::openvox::environment so the puppet code knows
-# which tag it ran from.
+# values win over control-repo defaults. With a controlRepo.ref, the ref (v1.8.8, or a
+# branch like master) is recorded as common::system::openvox::environment. Agents from
+# linuxaid-cli releases after v1.11.6 check that ref out, so editing it here switches the
+# release on the next Job without touching the operator's arguments.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -14,6 +15,6 @@ data:
   values.yaml: |
     {{- $hiera := .Values.hiera | default dict }}
     {{- if .Values.controlRepo.ref }}
-    {{- $hiera = merge (dict "common::system::openvox::environment" (include "linuxaid-agents.openvoxEnvironment" .)) $hiera }}
+    {{- $hiera = merge (dict "common::system::openvox::environment" .Values.controlRepo.ref) $hiera }}
     {{- end }}
     {{- toYaml $hiera | nindent 4 }}

@@ -27,12 +27,13 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
 {{- end -}}
 
 {{/*
-OpenVox environment name: openvoxEnvironment, else controlRepo.ref with dots and other
-characters puppet rejects as underscores (v1.8.8 -> v1_8_8, as the server setup names tag
-environments), else master.
+OpenVox environment name for agents up to linuxaid-cli v1.11.6, which take it from the
+operator: controlRepo.ref with dots and other characters puppet rejects as underscores
+(v1.8.8 -> v1_8_8), else master. Later agents name the environment after the ref they
+check out themselves.
 */}}
 {{- define "linuxaid-agents.openvoxEnvironment" -}}
-{{- .Values.openvoxEnvironment | default (regexReplaceAll "\\W" .Values.controlRepo.ref "_") | default "master" -}}
+{{- regexReplaceAll "\\W" .Values.controlRepo.ref "_" | default "master" -}}
 {{- end -}}
 
 {{/* Selector labels. */}}
