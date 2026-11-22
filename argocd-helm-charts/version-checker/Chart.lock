@@ -1,6 +1,6 @@
 dependencies:
 - name: version-checker
   repository: https://charts.jetstack.io
-  version: v0.11.0
-digest: sha256:8ddda7a1f70c86901d2554c9333c49885dc36a95a8c164fc4dd3a4414852eac1
-generated: "2026-06-29T02:35:45.835280589+05:30"
+  version: v0.12.0
+digest: sha256:0aa4d621b9d4ff8157be9d362c55b91961b65bbdfdbb23eaf855c7cebea33740
+generated: "2026-11-22T10:53:15.793195041Z"

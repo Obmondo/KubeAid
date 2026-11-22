@@ -5,7 +5,7 @@ metadata:
   name: {{ include "openobserve.fullname" . }}-postgres
   namespace: {{ .Release.Namespace | quote }}
 spec:
-  enableSuperuserAccess: true
+  enableSuperuserAccess: {{ .Values.postgres.spec.enableSuperuserAccess }}
   managed:
     roles:
     - name: openobserve  # this should match the username in secret

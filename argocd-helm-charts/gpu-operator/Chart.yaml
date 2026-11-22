@@ -3,5 +3,5 @@ name: gpu-operator
 version: 1.0.0
 dependencies:
   - name: gpu-operator
-    version: v26.7.2
+    version: v26.7.3
     repository: https://nvidia.github.io/gpu-operator

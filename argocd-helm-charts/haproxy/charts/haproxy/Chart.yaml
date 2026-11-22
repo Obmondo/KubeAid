@@ -1,8 +1,7 @@
 annotations:
   artifacthub.io/category: networking
   artifacthub.io/changes: |
-    - Document memory limits and what HAProxy's memory use depends on
-    - Note in NOTES.txt when no memory limit is set
+    - "Add revisionHistoryLimit value for the Deployment and DaemonSet"
   artifacthub.io/images: |
     - name: haproxy
       image: docker.io/haproxytech/haproxy-alpine:3.4.7
@@ -25,4 +24,4 @@ name: haproxy
 sources:
 - http://www.haproxy.org/
 type: application
-version: 1.30.4
+version: 1.31.0

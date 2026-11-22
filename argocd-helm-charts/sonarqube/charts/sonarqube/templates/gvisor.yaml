@@ -67,6 +67,7 @@ data:
   run.sh: |
     #!/usr/bin/env bash
     set -euo pipefail
+    trap 'rm -rf /host/tmp/gvisor-sa' EXIT
     echo "[gvisor-installer] node=${NODE_NAME}"
     mkdir -p /host/opt/gvisor
     cp /scripts/install-gvisor.sh /host/opt/gvisor/install-gvisor.sh
@@ -78,13 +79,12 @@ data:
     echo "[gvisor-installer] labeling node ${NODE_NAME}"
     SA=/var/run/secrets/kubernetes.io/serviceaccount
     mkdir -p /host/tmp/gvisor-sa
-    # EXIT trap (not a plain rm after the call) so the token is scrubbed from the host even if
-    # label-node.sh fails under set -e.
-    trap 'rm -rf /host/tmp/gvisor-sa' EXIT
     cp "${SA}/token" /host/tmp/gvisor-sa/token
     cp "${SA}/ca.crt" /host/tmp/gvisor-sa/ca.crt
     chroot /host /bin/bash /opt/gvisor/label-node.sh
     {{- end }}
+    # Remove the copied ServiceAccount files once labelling is done.
+    rm -rf /host/tmp/gvisor-sa
     echo "[gvisor-installer] done; idling to keep the DaemonSet pod Running"
     exec tail -f /dev/null
   # Runs on the host (via chroot). Idempotent and version-aware: skips the download when runsc is
@@ -412,9 +412,13 @@ spec:
       release: {{ .Release.Name }}
   template:
     metadata:
-      {{- with $installer.annotations }}
-      annotations: {{- toYaml . | nindent 8 }}
-      {{- end }}
+      annotations:
+        # Roll the installer pods when their scripts can change (chart upgrade or gvisor.* values),
+        # so an upgrade runs the new scripts.
+        checksum/scripts: {{ printf "%s-%s" .Chart.Version (toJson $gvisor) | sha256sum }}
+        {{- with $installer.annotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       labels:
         app: {{ include "sonarqube.name" . }}-gvisor-installer
         release: {{ .Release.Name }}

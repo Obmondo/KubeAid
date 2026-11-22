@@ -327,22 +327,22 @@ core-mw:
   createCommonEnv: false
   image:
     repository: appsuite/middleware
-    tag: 8.54.360
+    tag: 8.54.379
   update:
     image:
       repository: appsuite/middleware
-      tag: 8.54.360
+      tag: 8.54.379
     defaultRegistry: registry.open-xchange.com
     podAnnotations:
-      commit.open-xchange.com/core: 305d6285f8ec08a0d0998452b2348d633ad9aeaf
-      commit.open-xchange.com/guard: '0491c00acbc50820a30ce8df2d0635b20bf4e5ee'
-      commit.open-xchange.com/office: a0cb89e569debd0dd3697ba7e883b89f8fa36a94
-      commit.open-xchange.com/weakforced: 0217347f6782d930f031518bcba3b56b9d649a0f
+      commit.open-xchange.com/core: 200ea45b3fc9ad7566380652e0cb2f039d3703b1
+      commit.open-xchange.com/guard: 5d545f9a4e6a09f8ddf0b2794f265aba7e411a5b
+      commit.open-xchange.com/office: 4de89c703f3b0de4d306b3b316361097e56d8d77
+      commit.open-xchange.com/weakforced: 62d20410304b54cdb1dd24138648749543c7e45e
   podAnnotations:
-    commit.open-xchange.com/core: 305d6285f8ec08a0d0998452b2348d633ad9aeaf
-    commit.open-xchange.com/guard: '0491c00acbc50820a30ce8df2d0635b20bf4e5ee'
-    commit.open-xchange.com/office: a0cb89e569debd0dd3697ba7e883b89f8fa36a94
-    commit.open-xchange.com/weakforced: 0217347f6782d930f031518bcba3b56b9d649a0f
+    commit.open-xchange.com/core: 200ea45b3fc9ad7566380652e0cb2f039d3703b1
+    commit.open-xchange.com/guard: 5d545f9a4e6a09f8ddf0b2794f265aba7e411a5b
+    commit.open-xchange.com/office: 4de89c703f3b0de4d306b3b316361097e56d8d77
+    commit.open-xchange.com/weakforced: 62d20410304b54cdb1dd24138648749543c7e45e
   defaultRegistry: registry.open-xchange.com
   packages:
     status:
@@ -391,9 +391,9 @@ core-cacheservice:
   enabled: true
   image:
     repository: appsuite/cacheservice
-    tag: 8.54.2245
+    tag: 8.54.2281
   podAnnotations:
-    commit.open-xchange.com/cacheservice: 385a026b705f89b441299eb9140be7debb1faf4f
+    commit.open-xchange.com/cacheservice: 891dc0ffeb9e04919c698751517d173e4d88f014
   defaultRegistry: registry.open-xchange.com
 core-documentconverter:
   enabled: true
@@ -408,34 +408,34 @@ core-documents-collaboration:
   enabled: true
   image:
     repository: appsuite/documents-collaboration
-    tag: 8.54.2941331832
+    tag: 8.54.3083813010
   podAnnotations:
-    commit.open-xchange.com/documents-collaboration: 15114f7dacf65b8dcd1f3f5cb4987a91b76245cb
+    commit.open-xchange.com/documents-collaboration: e53f6dd7add9fd12052e350b04cfb876c76fe216
   defaultRegistry: registry.open-xchange.com
 core-imageconverter:
   enabled: true
   createCommonEnv: false
   image:
     repository: appsuite/imageconverter
-    tag: 8.54.2634
+    tag: 8.54.2659
   podAnnotations:
-    commit.open-xchange.com/imageconverter: 8c945459c5b542d8b53f1ea461d8ae8ad3740d03
+    commit.open-xchange.com/imageconverter: 9382f9d0b18bc6f50aac703b2dcb3ba3993fe475
   defaultRegistry: registry.open-xchange.com
 core-spellcheck:
   enabled: true
   image:
     repository: appsuite/spellcheck
-    tag: 8.54.2941332537
+    tag: 8.54.3078689939
   podAnnotations:
-    commit.open-xchange.com/spellchecker: 94fd9064ab84e8a5ba4e7d32c3bae639a083282a
+    commit.open-xchange.com/spellchecker: 21308eee445de6f2eaa8908de1ec55f066753e41
   defaultRegistry: registry.open-xchange.com
 office-web:
   enabled: true
   image:
     repository: appsuite/office-web
-    tag: 8.54.3052562205
+    tag: 8.54.3083291010
   podAnnotations:
-    commit.open-xchange.com/office-web: 7b0aad596bd802c2e2a02ff48e71e5a60024ab95
+    commit.open-xchange.com/office-web: 6a2e8937ba489e8be9a9111abe20b4d421491976
   defaultRegistry: registry.open-xchange.com
 office-user-guide:
   enabled: true
@@ -449,9 +449,9 @@ core-ui:
   enabled: true
   image:
     repository: appsuite/core-ui
-    tag: 8.54.5
+    tag: 8.54.6
   podAnnotations:
-    commit.open-xchange.com/ui: 1f9071ad12b72a54fa5a252fd1013a6c2eb01793
+    commit.open-xchange.com/ui: 9dae14d8deec69ff42a9f585c84bd55096453e1e
   defaultRegistry: registry.open-xchange.com
 core-ui-middleware:
   enabled: true
@@ -517,9 +517,9 @@ appsuite-toolkit:
   mwctl:
     image:
       repository: appsuite/middleware-debug
-      tag: 2.0.2878450660
+      tag: 2.0.3082893814
     defaultRegistry: registry.open-xchange.com
     podAnnotations:
-      commit.open-xchange.com/middleware-debug: '0860746e67ad764e715c072aa8e1b6e1c4198ca8'
+      commit.open-xchange.com/middleware-debug: de51ca3dbd18e525fbfa81e66f4b80030b19abf1
   podAnnotations:
     commit.open-xchange.com/appsuite-toolkit: e45e82a9c459e486cede223ba14b24133c660025

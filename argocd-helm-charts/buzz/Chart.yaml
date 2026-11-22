@@ -3,7 +3,7 @@ name: buzz
 version: 1.0.0
 dependencies:
   - name: buzz
-    version: 0.1.11
+    version: 0.1.13
     repository: oci://ghcr.io/block/buzz/charts
   - name: kubeaid-addons
     version: 1.1.0

@@ -246,6 +246,7 @@ rbac:
   ## - apiGroups: default "" (indicates the core API group) if missing or empty.
   ## - resources: default "*" if missing or empty.
   ## - verbs: default "*" if missing or empty.
+  ## Rendering fails if a rule sets another key, such as resourceNames or nonResourceURLs.
   ##
   ## Read more about the recommended rules on the following link
   ##
@@ -345,6 +346,14 @@ metrics:
   ## Provide a port number for the integrated Prometheus metrics exporter
   ##
   port: 9252
+
+  ## Add prometheus.io/scrape and prometheus.io/port annotations to the
+  ## runner pod. Disable when a podMonitor or serviceMonitor scrapes the pod,
+  ## so Prometheus does not scrape it twice. A key set in podAnnotations
+  ## overrides the matching default annotation.
+  ##
+  prometheusAnnotations:
+    enabled: true
 
   ## Configure a prometheus-operator serviceMonitor to allow autodetection of
   ## the scraping target. Requires enabling the service resource below.
@@ -543,11 +552,38 @@ runners:
   #
   # tpl: https://helm.sh/docs/howto/charts_tips_and_tricks/#using-the-tpl-function
   # runner configuration: https://docs.gitlab.com/runner/configuration/advanced-configuration.html
+  # Example: to enable user namespaces under [runners.kubernetes]:
+  #   host_users = false
+  #   host_users_overwrite_allowed = false
   config: |
     [[runners]]
       [runners.kubernetes]
         namespace = "{{ default .Release.Namespace .Values.runners.jobNamespace }}"
         image = "alpine"
+
+  ## Enable or disable user namespaces for Kubernetes executor build pods.
+  ## When set to false, build pods run in separate user namespaces.
+  ## When set to true, build pods share the host's user namespace.
+  ## When unset, the cluster default is used.
+  ## Requires the UserNamespacesSupport feature gate (on by default in Kubernetes 1.33+)
+  ## and a node runtime that supports user namespaces (introduced in Kubernetes 1.25).
+  ## If the gate is off, this setting is ignored without an error.
+  ## Note: when 'host_users' is defined in runners.config or when runners.configOverride
+  ## is used, this setting is ignored in favor of the configuration TOML.
+  ## ref: https://kubernetes.io/docs/concepts/workloads/pods/user-namespaces/
+  ##
+  # hostUsers: false
+
+  ## Authorize builds to overwrite runner 'host_users' configuration via KUBERNETES_HOST_USERS variable.
+  ## When set to true, allows CI jobs to set KUBERNETES_HOST_USERS.
+  ## Setting to false does not inject an environment variable because false is the default
+  ## in GitLab Runner and cannot override host_users_overwrite_allowed = true in runners.config.
+  ## To disable overwrite when runners.config defines it, set host_users_overwrite_allowed = false
+  ## directly in runners.config.
+  ## Note: this setting has no effect when runners.configOverride is used;
+  ## configure host_users_overwrite_allowed under [runners.kubernetes] in the configOverride TOML instead.
+  ##
+  # hostUsersOverwriteAllowed: false
 
   ## Absolute path for an existing runner configuration file
   ## Can be used alongside "volumes" and "volumeMounts" to use an external config file
@@ -570,7 +606,8 @@ runners:
   ##   - runners.config, runners.configPath
   ##   - runners.name, runners.tags, runners.locked, runners.protected,
   ##     runners.runUntagged, runners.maximumTimeout, runners.executor,
-  ##     runners.jobNamespace
+  ##     runners.jobNamespace, runners.hostUsers,
+  ##     runners.hostUsersOverwriteAllowed
   ##   - gitlabUrl  (set `url = "..."` under [[runners]])
   ##   - runnerRegistrationToken / runnerToken  (the token lives in the TOML or
   ##     is injected via extraEnv / extraEnvFromRefs / secrets)
@@ -594,6 +631,8 @@ runners:
   #     [runners.kubernetes]
   #       namespace = "gitlab-runner"
   #       image = "alpine"
+  #       host_users = false
+  #       host_users_overwrite_allowed = false
 
   ## Which executor should be used
   ##
@@ -715,6 +754,15 @@ podSecurityContext:
   ## Note: values for the ubuntu image:
   # runAsUser: 999
   # fsGroup: 999
+
+## Configure hostUsers for the runner manager pod
+## When set to false, enables User Namespaces for the pod.
+## Requires the UserNamespacesSupport feature gate (on by default in Kubernetes 1.33+)
+## and a node runtime that supports user namespaces (introduced in Kubernetes 1.25).
+## If the gate is off, this setting is ignored without an error.
+## ref: https://kubernetes.io/docs/concepts/workloads/pods/user-namespaces/
+##
+# hostUsers: false
 
 ## Configure resource requests and limits
 ## ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/

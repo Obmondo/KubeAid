@@ -41,9 +41,14 @@ spec:
         {{- if or .Values.runnerRegistrationToken .Values.runnerToken .Values.runners.secret }}
         checksum/secrets: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
         {{- end }}
-        {{- if .Values.metrics.enabled }}
+        {{- if and .Values.metrics.enabled .Values.metrics.prometheusAnnotations.enabled }}
+        {{- $podAnnotations := .Values.podAnnotations | default dict }}
+        {{- if not (hasKey $podAnnotations "prometheus.io/scrape") }}
         prometheus.io/scrape: 'true'
+        {{- end }}
+        {{- if not (hasKey $podAnnotations "prometheus.io/port") }}
         prometheus.io/port: {{ .Values.metrics.port | quote }}
+        {{- end }}
         {{- end }}
         {{- range $key, $value := .Values.podAnnotations }}
         {{   $key }}: {{ $value | quote }}
@@ -51,6 +56,12 @@ spec:
     spec:
       {{- if hasKey .Values "automountServiceAccountToken" }}
       automountServiceAccountToken: {{ .Values.automountServiceAccountToken }}
+      {{- end }}
+      {{- if and (hasKey .Values "hostUsers") (not (kindIs "invalid" .Values.hostUsers)) }}
+      {{- if not (kindIs "bool" .Values.hostUsers) }}
+      {{- fail "hostUsers must be true or false" }}
+      {{- end }}
+      hostUsers: {{ .Values.hostUsers }}
       {{- end }}
       {{- if .Values.schedulerName }}
       schedulerName: {{ .Values.schedulerName }}

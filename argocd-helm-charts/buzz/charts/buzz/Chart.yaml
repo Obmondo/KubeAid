@@ -1,10 +1,10 @@
 annotations:
   artifacthub.io/changes: |
-    - kind: changed
-      description: Chart-managed Pods derive tags.datadoghq.com/version from the deployed image identity instead of operator-supplied labels.
+    - kind: added
+      description: Optional acceptance probe CronJob (acceptance.enabled) that runs buzz-acceptance from the relay image, with its key from a Secret or a file.
   artifacthub.io/license: Apache-2.0
 apiVersion: v2
-appVersion: 0.1.0
+appVersion: 0.3.0
 dependencies:
 - alias: postgresql
   condition: postgresql.enabled
@@ -33,4 +33,4 @@ name: buzz
 sources:
 - https://github.com/block/buzz
 type: application
-version: 0.1.11
+version: 0.1.13

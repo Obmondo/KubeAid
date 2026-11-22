@@ -24,7 +24,15 @@ rules:
   resources: {{ (list "*") | toJson }}
   verbs: {{ (list "*") | toJson }}
 {{- end -}}
-{{ range .Values.rbac.rules }}
+{{ range $i, $rule := .Values.rbac.rules }}
+{{- if not (kindIs "map" $rule) }}{{ fail (printf "rbac.rules[%v] must be a map with the keys apiGroups, resources and verbs." $i) }}{{ end }}
+{{- if $rule.nonResourceURLs }}{{ fail (printf "rbac.rules[%v] sets nonResourceURLs, which the chart does not render. Delete the rule, not only the key, and grant the URLs with your own ClusterRole and ClusterRoleBinding." $i) }}{{ end }}
+{{- if $rule.resourceNames }}{{ fail (printf "rbac.rules[%v] sets resourceNames, which the chart does not render. To grant by name, set rbac.create to false and serviceAccount.create to true, and bind your own Role or ClusterRole to that service account." $i) }}{{ end }}
+{{- /* resourceNames and nonResourceURLs are allowed here because the checks above handle them. Empty values are ignored. */}}
+{{- $allowed := list "apiGroups" "resources" "verbs" "resourceNames" "nonResourceURLs" }}
+{{- $unknown := list }}
+{{- range $key, $_ := $rule }}{{ if not (has $key $allowed) }}{{ $unknown = append $unknown $key }}{{ end }}{{ end }}
+{{- if $unknown }}{{ fail (printf "rbac.rules[%v] sets the unsupported keys %s. The chart renders only apiGroups, resources and verbs." $i (join ", " $unknown)) }}{{ end }}
 - apiGroups: {{ (default (list "") .apiGroups) | toJson }}
   resources: {{ (default (list "*") .resources) | toJson }}
   verbs: {{ (default (list "*") .verbs) | toJson }}

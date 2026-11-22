@@ -1,6 +1,6 @@
 dependencies:
 - name: kubelet-csr-approver
   repository: https://postfinance.github.io/kubelet-csr-approver
-  version: 1.2.15
-digest: sha256:d3f50f4762074b222a90fd2baa8216be4a19e1748cf51d1fca80a2cf61b25d6d
-generated: "2026-09-07T12:07:58.270451589Z"
+  version: 1.2.16
+digest: sha256:61acf7eb09f87e389b0e516bfd20da966dc778222b56f7ac91c55e3a89bcfd88
+generated: "2026-11-22T10:39:41.694978167Z"

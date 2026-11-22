@@ -1,0 +1,39 @@
+{{- if and (include "core-ui.dbEnabled" .) .Values.bimiCleanup.enabled }}
+{{- /* Deletes expired BIMI cache rows once per schedule, not once per replica (ASB-481). */}}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ printf "%s-bimi-cleanup" (include "ox-common.names.fullname" .) | trunc 52 | trimSuffix "-" }}
+  labels:
+    {{- include "ox-common.labels.standard" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.bimiCleanup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      # a hung run must not block the following ones (concurrencyPolicy: Forbid)
+      activeDeadlineSeconds: 3600
+      template:
+        metadata:
+          labels:
+            {{- /* not "server": keeps the job pods out of the Service selector */}}
+            {{- include "ox-common.labels.podLabels" . | nindent 12 }}
+            app.kubernetes.io/component: bimi-cleanup
+        spec: {{ include "ox-common.pods.podSpec" (dict "podRoot" .Values "global" $ "context" . ) | nindent 10 }}
+          restartPolicy: OnFailure
+          containers:
+            - name: bimi-cleanup
+              {{- include "ox-common.containers.securityContext" (dict "podRoot" .Values "global" $ "context" . ) | nindent 14 }}
+              image: {{ include "ox-common.images.image" (dict "imageRoot" .Values.image "global" $ "context" . ) }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              args: ["server/jobs/bimi-cleanup.js"]
+              env:
+                {{- include "core-ui.env" . | nindent 16 }}
+              volumeMounts:
+                {{- include "core-ui.volumeMounts" . | nindent 16 }}
+          volumes:
+            {{- include "core-ui.volumes" . | nindent 12 }}
+{{- end }}

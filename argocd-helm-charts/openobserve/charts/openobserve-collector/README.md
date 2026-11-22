@@ -130,6 +130,41 @@ helm --namespace openobserve-collector \
   --set exporters."otlphttp/openobserve_k8s_events".headers.Authorization="Basic base64 encoded auth"
 ```
 
+### Keeping the Authorization header in a Secret
+
+The header above ends up in the `OpenTelemetryCollector` resources and in the Helm release. To keep it only in a Secret, put it in one, expose it to the collectors with `extraEnv` and reference it with `${env:...}`:
+
+```shell
+kubectl -n openobserve-collector create secret generic openobserve-collector-auth \
+  --from-literal=authorization="Basic base64 encoded auth"
+```
+
+```yaml
+exporters:
+  otlphttp/openobserve:
+    endpoint: URL
+    headers:
+      Authorization: ${env:OO_AUTH}
+  otlphttp/openobserve_k8s_events:
+    endpoint: URL
+    headers:
+      Authorization: ${env:OO_AUTH}
+      stream-name: k8s_events
+agent:
+  extraEnv: &ooAuth
+    - name: OO_AUTH
+      valueFrom:
+        secretKeyRef:
+          name: openobserve-collector-auth
+          key: authorization
+gateway:
+  extraEnv: *ooAuth
+ebpf:
+  extraEnv: *ooAuth  # only needed with ebpf.enabled and gateway.enabled=false
+```
+
+After rotating the Secret, restart the collector pods to pick up the new value.
+
 To upgrade
 
 ```shell

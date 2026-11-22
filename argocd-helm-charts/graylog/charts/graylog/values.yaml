@@ -68,7 +68,7 @@ graylog:
 
   ## Graylog default Java option
   # javaOpts: "-Dlog4j2.formatMsgNoLookups=true -Djdk.tls.acknowledgeCloseNotify=true -XX:+UnlockExperimentalVMOptions -XX:-OmitStackTraceInFastThrow -XX:+UseG1GC -server"
-  javaOpts: "-Dlog4j2.formatMsgNoLookups=true -Djdk.tls.acknowledgeCloseNotify=true -XX:+UnlockExperimentalVMOptions -XX:-OmitStackTraceInFastThrow -XX:+UseG1GC -server"
+  javaOpts: "-Dlog4j2.formatMsgNoLookups=true -Djdk.tls.acknowledgeCloseNotify=true -XX:+UnlockExperimentalVMOptions -XX:-OmitStackTraceInFastThrow -XX:+UseG1GC -server -XX:-UseBASE64Intrinsics"
 
   ## Number of Graylog instance
   ##
@@ -694,7 +694,7 @@ opensearch:
   replicas: 3
   ## Set default resource very low. This help reduce resources usage on GitHub Action when performing chart-testing.
   ##
-  opensearchJavaOpts: "-Xmx128M -Xms128M"
+  opensearchJavaOpts: "-Xmx128M -Xms128M -XX:-UseBASE64Intrinsics"
   resources:
     requests:
       cpu: "100m"

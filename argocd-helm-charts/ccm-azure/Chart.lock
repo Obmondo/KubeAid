@@ -1,6 +1,6 @@
 dependencies:
 - name: cloud-provider-azure
   repository: https://raw.githubusercontent.com/kubernetes-sigs/cloud-provider-azure/master/helm/repo
-  version: 1.36.0
-digest: sha256:f1f0e88efb07d5523bf3a84024d68fb03f098f75a4037d139d62ef6398a665a6
-generated: "2026-05-18T16:19:26.557517288+05:30"
+  version: 1.37.4
+digest: sha256:7ac629f1a702ca8621e3d01ef9810b0dc853ccc61398ec1b6764907fc8b3bf10
+generated: "2026-11-22T10:36:50.940553337Z"

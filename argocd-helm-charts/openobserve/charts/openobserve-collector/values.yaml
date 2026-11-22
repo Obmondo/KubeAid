@@ -133,6 +133,8 @@ ebpf:
   # Runs the pods on the host network. Works with or without trace selectors.
   network:
     enabled: false
+  # Extra environment variables for the eBPF collector pods (see agent.extraEnv).
+  extraEnv: []
   nodeSelector: {}
   affinity:          # the receiver is built for Linux on amd64 and arm64 only
     nodeAffinity:
@@ -175,6 +177,16 @@ agent:
   securityContext: {}
   # podSecurityContext applied to the agent collector pod.
   podSecurityContext: {}
+  # Extra environment variables for the agent collector pods. Use them to keep
+  # credentials out of the collector config, e.g. read the exporter
+  # Authorization header from a Secret and reference it as ${env:OO_AUTH}:
+  #   extraEnv:
+  #     - name: OO_AUTH
+  #       valueFrom:
+  #         secretKeyRef:
+  #           name: openobserve-collector-auth
+  #           key: authorization
+  extraEnv: []
   tolerations:
     - operator: Exists
   resources: {}
@@ -447,6 +459,16 @@ gateway:
   securityContext: {}
   # podSecurityContext applied to the gateway collector pod.
   podSecurityContext: {}
+  # Extra environment variables for the gateway collector pods. Use them to keep
+  # credentials out of the collector config, e.g. read the exporter
+  # Authorization header from a Secret and reference it as ${env:OO_AUTH}:
+  #   extraEnv:
+  #     - name: OO_AUTH
+  #       valueFrom:
+  #         secretKeyRef:
+  #           name: openobserve-collector-auth
+  #           key: authorization
+  extraEnv: []
   # Number of replicas when autoscaler is not used
   replicas: 1
   prometheus:

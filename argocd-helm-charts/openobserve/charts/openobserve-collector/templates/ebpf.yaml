@@ -66,6 +66,10 @@ spec:
   securityContext:
     privileged: true
     runAsUser: 0
+  {{- with .Values.ebpf.extraEnv }}
+  env:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   {{- with .Values.ebpf.tolerations }}
   tolerations:
     {{- toYaml . | nindent 4 }}

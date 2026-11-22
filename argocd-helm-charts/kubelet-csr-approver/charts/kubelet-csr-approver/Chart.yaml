@@ -1,5 +1,5 @@
 apiVersion: v2
-appVersion: v1.2.15
+appVersion: v1.2.16
 description: Kubelet CSR Approver
 home: https://github.com/postfinance/kubelet-csr-approver
 icon: https://avatars.githubusercontent.com/u/34368733
@@ -15,4 +15,4 @@ name: kubelet-csr-approver
 sources:
 - https://github.com/postfinance/kubelet-csr-approver
 type: application
-version: 1.2.15
+version: 1.2.16
