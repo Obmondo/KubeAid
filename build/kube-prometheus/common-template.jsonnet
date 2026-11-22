@@ -227,6 +227,23 @@ local dropExcludedAlerts(groups) =
     ]
   );
 
+// KubeJobFailed skips Velero's repo maintenance jobs (<repo>-maintain-job-<millis>).
+// Velero retries a failed one a few minutes later by itself, but the failed Job is
+// kept with the last few jobs, so a single slow bucket response kept KubeJobFailed
+// firing for hours. kubeaid-backup-exporter's VeleroRepoMaintenanceFailing alerts
+// when a repo really keeps failing. https://github.com/velero-io/velero/issues/9225
+local skipVeleroMaintenanceJobs(groups) = [
+  group {
+    rules: [
+      if std.objectHas(rule, 'alert') && rule.alert == 'KubeJobFailed' then
+        rule { expr: std.strReplace(rule.expr, 'kube_job_failed{', 'kube_job_failed{job_name!~".+-maintain-job-[0-9]+",') }
+      else rule
+      for rule in group.rules
+    ],
+  }
+  for group in groups
+];
+
 local kpBase =
   (import 'kube-prometheus/main.libsonnet') +
   // Uncomment the following imports to enable its patches
@@ -960,7 +977,7 @@ local kpBase =
 
 // excluded_alerts applies to the alert rules of every component that has any.
 local kp = kpBase {
-  [component]+: { prometheusRule+: { spec+: { groups: dropExcludedAlerts(super.groups) } } }
+  [component]+: { prometheusRule+: { spec+: { groups: skipVeleroMaintenanceJobs(dropExcludedAlerts(super.groups)) } } }
   for component in std.objectFields(kpBase)
   if std.isObject(kpBase[component]) && std.objectHasAll(kpBase[component], 'prometheusRule')
 };

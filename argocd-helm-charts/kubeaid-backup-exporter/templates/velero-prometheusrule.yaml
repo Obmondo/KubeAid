@@ -62,4 +62,20 @@ spec:
               {{ `{{- range query "backup_exporter_velero_latest_backup_age == 0 unless on (namespace, resource_name, resource_type) (backup_exporter_velero_error{type=~'backup_not_enabled|awaiting_first_backup'} == 1)" | sortByLabel "resource_name" | sortByLabel "namespace" }}` }}
               {{ `- {{ .Labels.namespace }}/{{ .Labels.resource_name }} ({{ .Labels.resource_type }})` }}
               {{ `{{- end }}` }}
+        # Velero retries a failed repo maintenance a few minutes later by itself, so
+        # one failed job is only a slow bucket and KubeJobFailed skips these jobs.
+        # This fires when a repo gets no successful maintenance for a long time.
+        # Metrics: https://github.com/velero-io/velero/pull/9414
+        # Why metrics and not Job status: https://github.com/velero-io/velero/issues/9225
+        - alert: VeleroRepoMaintenanceFailing
+          expr: |-
+            sum by (repository_name) (increase(velero_repo_maintenance_failure_total[1h])) > 0
+            unless on (repository_name)
+            sum by (repository_name) (increase(velero_repo_maintenance_success_total[1h])) > 0
+          for: {{ .Values.prometheusRule.velero.maintenanceForDuration | default "6h" }}
+          labels:
+            severity: {{ .Values.prometheusRule.velero.maintenanceSeverity | default "warning" }}
+          annotations:
+            summary: 'Velero repository maintenance keeps failing'
+            description: 'Maintenance of Velero repository {{ `{{ $labels.repository_name }}` }} has been failing for {{ .Values.prometheusRule.velero.maintenanceForDuration | default "6h" }} without a successful run. The error is in status.recentMaintenance of the BackupRepository.'
 {{- end }}
