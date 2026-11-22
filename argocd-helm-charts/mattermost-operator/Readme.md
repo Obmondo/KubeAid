@@ -8,8 +8,15 @@
   cluster where one operator serves instances that other releases create.
 - `mattermost.fileStore` selects where uploaded files live:
   - `external.enabled: true` with `url`, `bucket` and `secret`: an S3-compatible bucket.
-  - `volume.storageClass`, optionally with `volume.size` (default `10Gi`): a ReadWriteOnce PVC
-    named `<name>-files` on that class, created by this chart. Set `mattermost.replicas: 1` with it.
+  - `volume.storageClass`, optionally with `volume.size` (default `10Gi`) and
+    `volume.accessMode` (default `ReadWriteOnce`): a PVC named `<name>-files` on that class,
+    created by this chart.
+    - With `ReadWriteOnce` set `mattermost.replicas: 1`. Only one node can hold the volume, so
+      a rollout can hang when the new pod lands on another node than the old one.
+    - On a shared-filesystem class such as CephFS set `accessMode: ReadWriteMany`. The new pod
+      can then mount the volume from any node while the old one still runs.
+    - Kubernetes does not allow changing the access mode or the class of an existing claim.
+      To switch, copy the files out, delete the claim and let the chart create it again.
   - neither: the operator's own PVC sized by `local.storageSize` (default `10Gi`), which the
     operator requests as ReadWriteMany on the cluster's default storage class.
 - `mattermost.podTemplate` goes into the CR's `spec.podTemplate`. With a `volume` or `local`
