@@ -5,7 +5,7 @@ metadata:
   name: {{ .Values.mattermost.name | default "mattermost" }}-files
 spec:
   accessModes:
-    - ReadWriteOnce
+    - {{ .Values.mattermost.fileStore.volume.accessMode | default "ReadWriteOnce" }}
   storageClassName: {{ .Values.mattermost.fileStore.volume.storageClass }}
   resources:
     requests:

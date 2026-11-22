@@ -9,8 +9,10 @@ mattermost:
   fileStore:
     external: {}
     local: {}
-    # storageClass (and size, default 10Gi) puts the files on a ReadWriteOnce PVC the chart
-    # creates on that class. Run one replica with it.
+    # storageClass (and size, default 10Gi) puts the files on a PVC the chart creates on that
+    # class. accessMode defaults to ReadWriteOnce: run one replica with it. On a
+    # shared-filesystem class such as CephFS set accessMode: ReadWriteMany, so that a rollout
+    # does not hang when the new pod lands on another node than the old one.
     volume: {}
   # goes into the CR's spec.podTemplate
   podTemplate: {}

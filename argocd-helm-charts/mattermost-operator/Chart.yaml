@@ -1,6 +1,6 @@
 apiVersion: v2
 name: mattermost-operator
-version: 1.1.0
+version: 1.2.0
 dependencies:
   - name: mattermost-operator
     version: 1.0.5
