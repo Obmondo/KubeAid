@@ -294,6 +294,10 @@ prometheusRule:
     # so it is a warning, and long enough to ride out a cluster rebuild.
     noSchedulesSeverity: warning
     noSchedulesForDuration: 24h
+    # Failing repo maintenance doesn't stop backups, it only stops kopia from
+    # cleaning up the repo, so it is a warning and can wait a few hours.
+    maintenanceSeverity: warning
+    maintenanceForDuration: 6h
   mongodb:
     # Follows exporter.mongodb.enabled -- rules for an exporter that is not
     # running would alert on series that never appear.

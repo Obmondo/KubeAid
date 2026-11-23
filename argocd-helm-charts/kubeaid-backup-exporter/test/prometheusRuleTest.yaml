@@ -510,3 +510,45 @@ tests:
             exp_annotations:
               summary: 'Velero backup exporter job failed'
               description: 'Velero backup exporter error (type: s3_connection_failed)'
+
+  # Velero retries a failed repo maintenance every ~5 minutes. A repo that keeps
+  # failing with no successful run for 6h fires VeleroRepoMaintenanceFailing.
+  - interval: 5m
+    input_series:
+      - series: 'velero_repo_maintenance_failure_total{repository_name="nextcloud-default-kopia"}'
+        values: '0+1x90'
+    alert_rule_test:
+      - alertname: VeleroRepoMaintenanceFailing
+        eval_time: 7h
+        exp_alerts:
+          - exp_labels:
+              alertname: VeleroRepoMaintenanceFailing
+              severity: warning
+              repository_name: nextcloud-default-kopia
+            exp_annotations:
+              summary: 'Velero repository maintenance keeps failing'
+              description: 'Maintenance of Velero repository nextcloud-default-kopia has been failing for 6h without a successful run. The error is in status.recentMaintenance of the BackupRepository.'
+
+  # One failed run that the next retry fixes is only a slow bucket, no alert.
+  - interval: 5m
+    input_series:
+      - series: 'velero_repo_maintenance_failure_total{repository_name="matomo-default-kopia"}'
+        values: '0 1x90'
+      - series: 'velero_repo_maintenance_success_total{repository_name="matomo-default-kopia"}'
+        values: '0 0 1x89'
+    alert_rule_test:
+      - alertname: VeleroRepoMaintenanceFailing
+        eval_time: 7h
+        exp_alerts: []
+
+  # Failing for 5h and then recovering stays under the 6h and never fires.
+  - interval: 5m
+    input_series:
+      - series: 'velero_repo_maintenance_failure_total{repository_name="puppetserver-enableit-default-kopia"}'
+        values: '0+1x60 60x30'
+      - series: 'velero_repo_maintenance_success_total{repository_name="puppetserver-enableit-default-kopia"}'
+        values: '0x60 1x30'
+    alert_rule_test:
+      - alertname: VeleroRepoMaintenanceFailing
+        eval_time: 5h30m
+        exp_alerts: []
