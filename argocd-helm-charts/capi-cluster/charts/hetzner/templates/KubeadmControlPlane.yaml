@@ -831,11 +831,15 @@ spec:
        accepted trade-off on fixed hardware. HCloud control-planes keep
        the default surge rollout: a temporary 4th server is cheap and
        avoids the n-1 window entirely. */}}
+  {{/* Cluster API rejects maxSurge 0 below 3 replicas, so a smaller control
+       plane keeps the default. */}}
+  {{- if ge (len .Values.controlPlane.bareMetal.bareMetalHosts) 3 }}
   rollout:
     strategy:
       type: RollingUpdate
       rollingUpdate:
         maxSurge: 0
+  {{- end }}
   {{- else }}
   machineTemplate:
     spec:
