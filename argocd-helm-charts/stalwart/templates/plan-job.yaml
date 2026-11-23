@@ -1,0 +1,76 @@
+{{- if .Values.plan.enabled }}
+{{- $plan := include "stalwart.plan" . | trim }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "stalwart.fullname" . }}-plan
+  labels:
+    {{- include "stalwart.labels" . | nindent 4 }}
+data:
+  plan.ndjson: |
+    {{- $plan | nindent 4 }}
+---
+# Applies the plan after every sync, once the server is healthy. All operations
+# are upserts/updates, so re-running converges to the same state.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "stalwart.fullname" . }}-plan
+  labels:
+    {{- include "stalwart.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    checksum/plan: {{ $plan | sha256sum }}
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "stalwart.name" . }}-plan
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: apply
+          image: "{{ .Values.plan.image.repository }}:{{ .Values.plan.image.tag }}"
+          args:
+            - apply
+            - --file
+            - /plan/plan.ndjson
+          env:
+            - name: STALWART_URL
+              value: "http://{{ include "stalwart.fullname" . }}:8080"
+          envFrom:
+            - secretRef:
+                name: {{ required "plan.existingSecret is required when plan.enabled" .Values.plan.existingSecret }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: plan
+              mountPath: /plan
+              readOnly: true
+            # stalwart-cli caches the server schema here.
+            - name: cache
+              mountPath: /home/nonroot/.cache
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+      volumes:
+        - name: plan
+          configMap:
+            name: {{ include "stalwart.fullname" . }}-plan
+        - name: cache
+          emptyDir: {}
+{{- end }}

@@ -1,0 +1,15 @@
+apiVersion: v2
+name: stalwart
+description: Stalwart mail server (SMTP, IMAP, JMAP, CalDAV/CardDAV) on CNPG + S3 + Redis, with Keycloak (OIDC) login.
+type: application
+version: 1.0.0
+appVersion: "v1.1.1"
+home: https://stalw.art
+# Templates are derived from the upstream chart published as documentation
+# (no chart repository exists): https://stalw.art/docs/cluster/orchestration/kubernetes-chart
+sources:
+  - https://github.com/stalwartlabs/stalwart
+dependencies:
+  - name: kubeaid-addons
+    version: 1.1.0
+    repository: file://../kubeaid-addons

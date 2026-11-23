@@ -1,0 +1,18 @@
+{{- if .Values.tls.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "stalwart.fullname" . }}
+  labels:
+    {{- include "stalwart.labels" . | nindent 4 }}
+spec:
+  secretName: {{ .Values.tls.secretName }}
+  issuerRef:
+    kind: {{ .Values.tls.issuerRef.kind }}
+    name: {{ .Values.tls.issuerRef.name }}
+  dnsNames:
+    - {{ .Values.hostname | quote }}
+    {{- range (concat .Values.ingress.extraHosts .Values.tls.extraDnsNames | uniq) }}
+    - {{ . | quote }}
+    {{- end }}
+{{- end }}
