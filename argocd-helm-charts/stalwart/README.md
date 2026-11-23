@@ -14,7 +14,7 @@ derived from it and adapted to KubeAid.
 | --- | --- | --- |
 | Data store (accounts, mailboxes, settings) | CNPG PostgreSQL (`global.postgresql`, via kubeaid-addons) | `config.json` (ConfigMap) |
 | Full-text search | Same PostgreSQL (`SearchStore: Default`) | plan |
-| Message blobs | S3, e.g. RustFS at `bucket.obmondo.com` | plan |
+| Message blobs | Same PostgreSQL by default; S3 with `s3.enabled` | plan |
 | In-memory store + cluster coordinator | Redis (opstree `Redis` CR) | plan |
 | Login | Keycloak through an OIDC directory | plan |
 | TLS for SMTP/IMAP | cert-manager `Certificate`, mounted at `/etc/stalwart/tls` | plan |
@@ -27,7 +27,7 @@ Job** applies it with `stalwart-cli apply` on every sync.
 Every operation in the plan is an `upsert` or an `update`, so re-applying it converges to the same
 state.
 
-Because all state is in PostgreSQL, S3 and Redis, the pods are stateless. Run 2+ replicas once the
+Because all state is in PostgreSQL, Redis and (optionally) S3, the pods are stateless. Run 2+ replicas once the
 shared stores are set (step 4 below).
 
 Network exposure:
@@ -45,12 +45,14 @@ exposed. Mail clients use 465 (implicit TLS) and 993.
 - Operators: cloudnative-pg, redis-operator (opstree), cert-manager, and stakater/reloader.
   Reloader restarts the pods when the certificate renews, because Stalwart reads certificate files
   at load time.
-- An S3 bucket and a user for it. On RustFS, follow the user == bucket layout.
+- With `s3.enabled: true`, an S3 bucket and a user for it. On RustFS, follow the user == bucket
+  layout. The store must answer quickly: every message is written to it before the SMTP session
+  gets its reply, so a slow S3 shows up directly as slow sending and receiving.
 - Secrets in the namespace. Use SealedSecrets in kubeaid-config:
 
   | Secret | Keys |
   | --- | --- |
-  | `s3.existingSecret` | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` |
+  | `s3.existingSecret` (only with `s3.enabled`) | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` |
   | `recoveryAdmin.existingSecret` | `STALWART_RECOVERY_ADMIN` = `admin:<password>` |
   | `plan.existingSecret` | `STALWART_USER` + `STALWART_PASSWORD`, or `STALWART_TOKEN` (API key) |
 
@@ -58,7 +60,7 @@ exposed. Mail clients use 465 (implicit TLS) and 993.
 - Egress from the pods to:
   - `github.com`: the WebUI bundle is downloaded at startup.
   - The Keycloak issuer.
-  - The S3 endpoint.
+  - The S3 endpoint, if S3 is enabled.
   - Outbound SMTP on port 25.
 
 ## Keycloak
@@ -98,17 +100,13 @@ Mail apps such as Thunderbird and phones cannot obtain Keycloak tokens themselve
 
 ## Rollout
 
-1. Prepare the secrets and the bucket, and set the values. Example for kcm:
+1. Prepare the secrets, and set the values. Example for kcm:
 
    ```yaml
    hostname: mail.obmondo.com
    domains: [obmondo.com]
    recoveryAdmin: {existingSecret: stalwart-admin}
    plan: {existingSecret: stalwart-admin}
-   s3:
-     bucket: stalwart-kcm
-     endpoint: https://bucket.obmondo.com
-     existingSecret: stalwart-s3
    oidc:
      enabled: true
      issuerUrl: https://<keycloak>/realms/<realm>
@@ -130,6 +128,9 @@ Mail apps such as Thunderbird and phones cannot obtain Keycloak tokens themselve
 
 Do not raise `replicaCount` above 1 before step 3. Pods that start before the shared stores exist
 would each run with local in-memory state.
+
+Switching `s3.enabled` on a running server does not move existing blobs. Messages stored before
+the switch become unreadable, so choose the blob store before real mail arrives.
 
 ## Client IP behind the LoadBalancer
 

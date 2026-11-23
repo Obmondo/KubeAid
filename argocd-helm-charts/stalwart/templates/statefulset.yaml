@@ -57,6 +57,7 @@ spec:
                 secretKeyRef:
                   name: {{ include "stalwart.dbSecret" . }}
                   key: password
+            {{- if .Values.s3.enabled }}
             - name: STALWART_S3_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
@@ -67,6 +68,7 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.s3.existingSecret }}
                   key: AWS_SECRET_ACCESS_KEY
+            {{- end }}
             {{- with .Values.recoveryAdmin.existingSecret }}
             - name: STALWART_RECOVERY_ADMIN
               valueFrom:
