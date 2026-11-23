@@ -173,8 +173,9 @@ plan:
     repository: stalwartlabs/cli
     tag: 2.0.0
   # -- Secret with STALWART_USER + STALWART_PASSWORD (e.g. the recovery admin),
-  # or STALWART_TOKEN (an API key). Required when plan.enabled.
-  existingSecret: ""
+  # or STALWART_TOKEN (an API key). Required when plan.enabled; the Job does not
+  # start until the Secret exists.
+  existingSecret: stalwart-admin
   # -- Log level of the stdout tracer (kubectl logs).
   logLevel: info
   # -- Extra plan operations appended verbatim, one object per NDJSON line.

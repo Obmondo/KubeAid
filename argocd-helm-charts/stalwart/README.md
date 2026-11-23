@@ -54,7 +54,7 @@ exposed. Mail clients use 465 (implicit TLS) and 993.
   | --- | --- |
   | `s3.existingSecret` (only with `s3.enabled`) | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` |
   | `recoveryAdmin.existingSecret` | `STALWART_RECOVERY_ADMIN` = `admin:<password>` |
-  | `plan.existingSecret` | `STALWART_USER` + `STALWART_PASSWORD`, or `STALWART_TOKEN` (API key) |
+  | `plan.existingSecret` (default `stalwart-admin`) | `STALWART_USER` + `STALWART_PASSWORD`, or `STALWART_TOKEN` (API key) |
 
   One Secret can hold all three admin keys, and both settings can point at it.
 - Egress from the pods to:
