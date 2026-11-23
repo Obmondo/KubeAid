@@ -132,6 +132,18 @@ would each run with local in-memory state.
 Switching `s3.enabled` on a running server does not move existing blobs. Messages stored before
 the switch become unreadable, so choose the blob store before real mail arrives.
 
+## Spam filter DNS blocklists
+
+Stalwart queries its built-in DNS blocklists (DNSBLs) for every message, through the cluster's
+resolver. A list that hangs costs up to the resolver timeout times its attempts, 10s by default, on
+every SMTP transaction. `spamFilter.disabledDnsbl` turns such lists off by rule name. By default it
+disables `STWT_SURBL_DOMAIN`, because `multi.surbl.org` answers SERVFAIL after about 8s through
+public resolvers.
+
+Spamhaus and URIBL also refuse queries that arrive through public resolvers. They answer with their
+"blocked" codes (`127.255.255.254`, `127.0.0.1`), which Stalwart ignores, so they do not delay mail
+but give no protection either. They need a dedicated recursive resolver.
+
 ## Client IP behind the LoadBalancer
 
 SPF checks, DNSBLs and rate limiting need the real client IP. `externalTrafficPolicy: Local`

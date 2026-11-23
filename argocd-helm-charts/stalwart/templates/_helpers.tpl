@@ -123,6 +123,12 @@ before the coordinator (the server refuses the reverse order).
 {{- $ops = append $ops (dict "@type" "upsert" "object" "Directory" "matchOn" (list "description") "value" (dict "dir-oidc" $dir)) -}}
 {{- $ops = append $ops (dict "@type" "update" "object" "Authentication" "value" (dict "directoryId" "#dir-oidc")) -}}
 {{- end }}
+{{- /* Built-in DNSBL servers to turn off; upsert by name keeps their zone and tag rules. */ -}}
+{{- with .Values.spamFilter.disabledDnsbl }}
+{{- $dnsbl := dict -}}
+{{- range $i, $d := . }}{{- $_ := set $dnsbl (printf "dnsbl-%d" $i) (dict "@type" $d.type "name" $d.name "enable" false) -}}{{- end }}
+{{- $ops = append $ops (dict "@type" "upsert" "object" "SpamDnsblServer" "matchOn" (list "name") "value" $dnsbl) -}}
+{{- end }}
 {{- range .Values.plan.extra }}{{- $ops = append $ops . -}}{{- end }}
 {{- range $ops }}
 {{ toJson . }}

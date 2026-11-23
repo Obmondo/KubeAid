@@ -156,6 +156,15 @@ ingress:
   # -- Extra hosts besides `hostname` (e.g. autoconfig.example.com, mta-sts.example.com).
   extraHosts: []
 
+# Spam filter DNS blocklists to turn off, by rule name and variant (Ip, Domain,
+# Email, Url). Lists that hang or refuse queries from the cluster's resolver delay
+# every SMTP transaction by up to resolver timeout x attempts (10s by default).
+# multi.surbl.org answers SERVFAIL after about 8s through public resolvers.
+spamFilter:
+  disabledDnsbl:
+    - name: STWT_SURBL_DOMAIN
+      type: Domain
+
 # Declarative configuration: rendered into NDJSON and applied with
 # `stalwart-cli apply` by an Argo CD PostSync Job. Every operation is idempotent.
 plan:
