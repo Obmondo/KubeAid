@@ -2,14 +2,18 @@ groups:
   - name: monitor::system::dns
     rules:
       - alert: monitor::system::dns::resolution
+        # One alert per certname; the failing domains are listed in the description.
         expr: |
-         (
-           node_dns_test_result{status="failed"} == 1
-         ) and on(certname) obmondo_monitoring{alert_id="monitor::system::dns::resolution"} > 0
+          count by (certname) (
+            node_dns_test_result{status="failed"} == 1
+          ) and on(certname) obmondo_monitoring{alert_id="monitor::system::dns::resolution"} > 0
         for: 5m
         labels:
           severity: critical
           alert_id: monitor::system::dns::resolution
         annotations:
-          summary: "DNS resolution failed"
-          description: DNS resolution has failed for **{{ .Labels.host }}** host because of **{{ .Labels.result }}** for certname **{{ .Labels.certname }}**
+          summary: "DNS resolution failed for {{ $value }} domain(s) on {{ $labels.certname }}"
+          description: |
+            DNS resolution has failed on certname **{{ $labels.certname }}** for the following domain(s):
+            {{ range query (printf `node_dns_test_result{status="failed",certname="%s"} == 1` $labels.certname) | sortByLabel "host" }}- **{{ .Labels.host }}**: {{ .Labels.result }}
+            {{ end -}}

@@ -8,7 +8,14 @@ tests:
     input_series:
       - series: node_dns_test_result{status="failed", host="enableit.dk", result="connection refused", node="localhost", certname="test.abc"}
         values: 1x10
+      - series: node_dns_test_result{status="failed", host="example.com", result="timeout", node="localhost", certname="test.abc"}
+        values: 1x10
+      - series: node_dns_test_result{status="success", host="google.com", result="ok", node="localhost", certname="test.abc"}
+        values: 1x10
       - series: obmondo_monitoring{certname="test.abc", alert_id="monitor::system::dns::resolution"}
+        values: 1x10
+      # Not monitored: must not alert
+      - series: node_dns_test_result{status="failed", host="enableit.dk", result="timeout", node="localhost", certname="other.abc"}
         values: 1x10
 
     alert_rule_test:
@@ -18,11 +25,10 @@ tests:
           - exp_labels:
               severity: critical
               alert_id: monitor::system::dns::resolution
-              status: failed
-              host: enableit.dk
-              result: connection refused
               certname: test.abc
-              node: localhost
             exp_annotations:
-              summary: "DNS resolution failed"
-              description: "DNS resolution has failed for **enableit.dk** host because of **connection refused** for certname **test.abc**"
+              summary: "DNS resolution failed for 2 domain(s) on test.abc"
+              description: |
+                DNS resolution has failed on certname **test.abc** for the following domain(s):
+                - **enableit.dk**: connection refused
+                - **example.com**: timeout
