@@ -16,6 +16,24 @@
 - name: KUBERNETES_NAMESPACE
   value: {{ .Release.Namespace | quote }}
 {{- end }}
+{{- if and (hasKey .Values.runners "hostUsers") (not (kindIs "invalid" .Values.runners.hostUsers)) }}
+{{- if not (kindIs "bool" .Values.runners.hostUsers) }}
+{{- fail "runners.hostUsers must be true or false" }}
+{{- end }}
+{{- if not (regexMatch "(?m)^\\s*host_users\\s*=" (default "" .Values.runners.config)) }}
+- name: KUBERNETES_HOST_USERS
+  value: {{ .Values.runners.hostUsers | quote }}
+{{- end }}
+{{- end }}
+{{- if and (hasKey .Values.runners "hostUsersOverwriteAllowed") (not (kindIs "invalid" .Values.runners.hostUsersOverwriteAllowed)) }}
+{{- if not (kindIs "bool" .Values.runners.hostUsersOverwriteAllowed) }}
+{{- fail "runners.hostUsersOverwriteAllowed must be true or false" }}
+{{- end }}
+{{- if and .Values.runners.hostUsersOverwriteAllowed (not (regexMatch "(?m)^\\s*host_users_overwrite_allowed\\s*=" (default "" .Values.runners.config))) }}
+- name: KUBERNETES_HOST_USERS_OVERWRITE_ALLOWED
+  value: "true"
+{{- end }}
+{{- end }}
 {{- end }}
 {{- if .Values.envVars -}}
 {{ range .Values.envVars }}

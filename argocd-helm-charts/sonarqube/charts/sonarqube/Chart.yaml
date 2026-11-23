@@ -1,23 +1,21 @@
 annotations:
   artifacthub.io/changes: |
     - kind: changed
-      description: "Upgrade Chart's version to 2026.5.1004"
+      description: "Upgrade Chart's version to 2026.5.1007"
     - kind: changed
-      description: "Upgrade SonarQube Server to 2026.5.4"
-    - kind: changed
-      description: "Upgrade the Agent Orchestrator and Hunter Agent to 2026.5.2"
+      description: "Upgrade the Agent Orchestrator to 2026.5.5"
   artifacthub.io/containsSecurityUpdates: "false"
   artifacthub.io/images: |
     - name: sonarqube-community
       image: sonarqube:26.9.0.129388-community
     - name: sonarqube-developer
-      image: sonarqube:2026.5.4-developer
+      image: sonarqube:2026.5.5-developer
     - name: sonarqube-enterprise
-      image: sonarqube:2026.5.4-enterprise
+      image: sonarqube:2026.5.5-enterprise
     - name: sonarqube-mcp
       image: sonarsource/sonarqube-mcp:2026.5.1
     - name: sonarqube-agent-orchestrator
-      image: sonarsource/sonarqube-agent-orchestrator:2026.5.2
+      image: sonarsource/sonarqube-agent-orchestrator:2026.5.5
     - name: sonarqube-hunter-agent
       image: sonarsource/sonarqube-hunter-agent:2026.5.2
     - name: sonarqube-remediation-agent
@@ -31,7 +29,7 @@ annotations:
       url: https://github.com/SonarSource/helm-chart-sonarqube/tree/master/charts/sonarqube
   charts.openshift.io/name: sonarqube
 apiVersion: v2
-appVersion: 2026.5.4
+appVersion: 2026.5.5
 dependencies:
 - condition: keda.enabled
   name: keda
@@ -74,4 +72,4 @@ sources:
 - https://github.com/SonarSource/docker-sonarqube
 - https://github.com/SonarSource/sonarqube
 type: application
-version: 2026.5.1004
+version: 2026.5.1007

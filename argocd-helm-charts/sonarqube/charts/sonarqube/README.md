@@ -16,10 +16,10 @@ Please note that this chart only supports SonarQube Server Developer and Enterpr
 
 | Component | Image | Default tag |
 | --------- | ----- | ----------- |
-| SonarQube Server | `sonarqube` | `2026.5.4` |
+| SonarQube Server | `sonarqube` | `2026.5.5` |
 | SonarQube Community Build | `sonarqube` | `26.9.0.129388` |
 | MCP Server | `sonarsource/sonarqube-mcp` | `2026.5.1` |
-| Agent Orchestrator | `sonarsource/sonarqube-agent-orchestrator` | `2026.5.2` |
+| Agent Orchestrator | `sonarsource/sonarqube-agent-orchestrator` | `2026.5.5` |
 | Hunter Agent | `sonarsource/sonarqube-hunter-agent` | `2026.5.2` |
 | Remediation Agent | `sonarsource/sonarqube-remediation-agent` | `2026.5.1` |
 | Vortex | `sonarsource/sonar-vortex` | `2026.5.1` |
@@ -101,6 +101,41 @@ To uninstall/delete the deployment:
 ```bash
 helm list -n sonarqube
 helm uninstall -n sonarqube <yourReleaseName>
+```
+
+`helm uninstall` removes the chart's Kubernetes resources. It does not undo the [gVisor installer](#sandboxing). Remove only what that installer wrote. It skips the download when `runsc` is already on the node, and it leaves an existing `/etc/containerd/runsc.toml` alone unless the first line is `# Managed by SonarQube Helm chart (gVisor installer)`. When containerd already exposes the handler, the installer leaves containerd and `runsc` alone, but still writes `/opt/gvisor/` and labels the node.
+
+Before `helm uninstall`, read the installer log. The pods are labeled `app=sonarqube-gvisor-installer` and `release=<yourReleaseName>`, unless `nameOverride` changes the chart name. Pass `--tail=-1`, or `kubectl logs` shows only the last 10 lines and can drop `installed runsc to /usr/local/bin`.
+
+```bash
+kubectl logs -n sonarqube -l app=sonarqube-gvisor-installer,release=<yourReleaseName> -c gvisor-installer --tail=-1 --prefix
+```
+
+`installed runsc to /usr/local/bin` means this installer downloaded the binaries. `runsc already present, skipping download` means it found them already there. After uninstall, that log is gone. The first line of `/etc/containerd/runsc.toml` still shows whether this installer wrote that file.
+
+On a node where the installer did run, it can leave:
+
+* `/usr/local/bin/runsc` and `/usr/local/bin/containerd-shim-runsc-v1`, only if the log says `installed runsc to /usr/local/bin`
+* `/etc/containerd/runsc.toml`, only if its first line is `# Managed by SonarQube Helm chart (gVisor installer)`
+* the `runsc` runtime block in `gvisor.installer.containerdConfigPath` (default `/etc/containerd/config.toml`), and the backup `<path>.sonarqube-runsc.bak`. The installer appends a blank line, the comment `# gVisor sandbox runtime (managed by SonarQube Helm chart)`, and two tables, `[plugins."<cri plugin>".containerd.runtimes.<handler>]` and its `.options`. The `.bak` is the config from before the install, so it does not match the file once the block is appended. If the config has not changed since the install apart from that block, restore the `.bak` over it. Otherwise delete that comment and those two tables. If the installer created that config because none existed, delete the file
+* `/etc/containerd/.sonarqube-runsc-restarted` and `/opt/gvisor/`
+* the node labels from `gvisor.nodeSelector` (default `gvisor.enabled=true`). No label is added when `gvisor.nodeSelector` is empty
+
+```bash
+# default label; repeat for each key in gvisor.nodeSelector
+kubectl label node <node> gvisor.enabled-
+```
+
+```bash
+rm -rf /opt/gvisor /etc/containerd/.sonarqube-runsc-restarted
+# delete /usr/local/bin/runsc and /usr/local/bin/containerd-shim-runsc-v1 only if the log says "installed runsc to /usr/local/bin"
+# delete /etc/containerd/runsc.toml only if its first line is "# Managed by SonarQube Helm chart (gVisor installer)"
+# the .bak is the config from before the install. If the file has not changed since
+# then apart from the runsc block, restore <path>.sonarqube-runsc.bak over
+# gvisor.installer.containerdConfigPath (default /etc/containerd/config.toml);
+# otherwise delete the comment "# gVisor sandbox runtime (managed by SonarQube Helm chart)"
+# and the two runsc tables under it, then delete the .bak, and:
+systemctl restart containerd
 ```
 
 ## Prerequisites and suggested settings for production
@@ -405,7 +440,7 @@ Per default the JMX metrics for the Web Bean and the CE Bean are exposed on port
 
 The exporter uses version `1.6.0` by default. Versions `1.1.0` and later are downloaded from GitHub Releases, while earlier versions are downloaded from Maven Central. GitHub downloads redirect to `release-assets.githubusercontent.com`; restricted environments must allowlist both `github.com` and `release-assets.githubusercontent.com`, or set `prometheusExporter.downloadURL` to an accessible JAR URL. Exporter metrics are served on `/metrics` by default; set `prometheusExporter.metricsPath` to `/` when using an exporter or configuration that serves metrics at the root path. Set `prometheusExporter.sha256` to optionally verify the downloaded JAR; the checksum must match the selected version or custom URL.
 
-In version 1.6.0, built-in JVM metric names use OpenMetrics naming (for example, `jvm_memory_bytes_used` is now `jvm_memory_used_bytes`), so update related dashboards and alerts. Metrics generated from `config.rules` are unaffected.
+In version 1.6.0, built-in JVM metric names use OpenMetrics naming (for example, `jvm_memory_bytes_used` is now `jvm_memory_used_bytes`, and `jvm_info` is now `jvm_runtime_info`). The `*_created` series are no longer exported, so update related dashboards and alerts. Metrics generated from `config.rules` are unaffected. When the exporter is enabled at version `1.6.0` and `prometheusExporter.downloadURL` is unset, the install notes repeat this. Set `prometheusExporter.prometheusAcknowledged` to `true` after you update the scrape path and dashboards.
 
 ### PodMonitor
 
@@ -599,7 +634,7 @@ The chart can deploy the SonarQube agentic components next to SonarQube Server:
 
 **Prerequisites:**
 
-* **Database.** The Agent Orchestrator shares SonarQube's database and supports the same ones: **PostgreSQL**, **Microsoft SQL Server** and **Oracle** (see the [installation requirements](https://docs.sonarsource.com/sonarqube-server/server-installation/server-host-requirements)). In this chart, set `jdbcOverwrite.enabled=true`: the embedded H2 database is not reachable from the orchestrator. It connects with the full `jdbcOverwrite.jdbcUrl`, parameters included. `agentOrchestrator.coreDb.*` defaults to the `jdbcOverwrite` values and can override them individually: `coreDb.jdbcUrl` for the URL, `coreDb.username` and `coreDb.passwordSecretName`/`passwordSecretKey` for the credentials. The legacy `coreDb.endpoint`/`coreDb.name` are still supported for PostgreSQL: the orchestrator then builds the URL from them, without the `jdbcOverwrite.jdbcUrl` parameters. Prefer `coreDb.jdbcUrl`. Microsoft SQL Server and Oracle need an orchestrator image that reads `CORE_DB_JDBC_URL`, such as the default `2026.5.2`: `2026.5.0` supports PostgreSQL only.
+* **Database.** The Agent Orchestrator shares SonarQube's database and supports the same ones: **PostgreSQL**, **Microsoft SQL Server** and **Oracle** (see the [installation requirements](https://docs.sonarsource.com/sonarqube-server/server-installation/server-host-requirements)). In this chart, set `jdbcOverwrite.enabled=true`: the embedded H2 database is not reachable from the orchestrator. It connects with the full `jdbcOverwrite.jdbcUrl`, parameters included. `agentOrchestrator.coreDb.*` defaults to the `jdbcOverwrite` values and can override them individually: `coreDb.jdbcUrl` for the URL, `coreDb.username` and `coreDb.passwordSecretName`/`passwordSecretKey` for the credentials. The legacy `coreDb.endpoint`/`coreDb.name` are still supported for PostgreSQL: the orchestrator then builds the URL from them, without the `jdbcOverwrite.jdbcUrl` parameters. Prefer `coreDb.jdbcUrl`. Microsoft SQL Server and Oracle need an orchestrator image that reads `CORE_DB_JDBC_URL`, such as the default `2026.5.5`: `2026.5.0` supports PostgreSQL only.
   * **Oracle.** Set `jdbcOverwrite.oracleJdbcDriver.url`: the chart installs that driver in the orchestrator pod the same way as in SonarQube's, including `jdbcOverwrite.oracleJdbcDriver.netrcCreds` and `caCerts` for the download. As for SonarQube, an Oracle URL without that driver is not rejected at install time: the orchestrator fails to start instead.
   * **Database TLS and files referenced by the URL.** `caCerts` is not added to the orchestrator's truststore: it only covers SonarQube's own connections and the Oracle driver download. For a database whose certificate is signed by a private CA, mount the CA or truststore in the orchestrator with `agentOrchestrator.extraVolumes`/`extraVolumeMounts` and reference it from `agentOrchestrator.coreDb.jdbcUrl` with the driver's own parameter, e.g. `sslrootcert=` for PostgreSQL or `trustStore=`/`trustStorePassword=` for Microsoft SQL Server. The same applies to any URL parameter pointing at a file in the SonarQube pod, such as `sslrootcert=`, `trustStore=` or `TNS_ADMIN=`: that file does not exist in the orchestrator pod, so override the URL with `agentOrchestrator.coreDb.jdbcUrl`.
 * **Storage.** The agentic features share an object store: the Agent Orchestrator writes the job artifacts to it (`agentOrchestrator.storage`), SonarQube reads the agent job logs from it (`sonar.agentic.storage.*` in `sonarProperties`), and Vortex restores the analysis context from it (`vortexAnalysis.storage`). The simplest setup points all three at the same bucket. Supported backends:
@@ -926,6 +961,7 @@ The following table lists the configurable parameters of the SonarQube chart and
 | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
 | `prometheusExporter.enabled`            | Use the Prometheus JMX exporter                                                                                         | `false`                                                                |
 | `prometheusExporter.version`            | jmx_prometheus_javaagent version; versions 1.1.0 and later download from GitHub Releases, earlier versions from Maven Central | `1.6.0`                                                                |
+| `prometheusExporter.prometheusAcknowledged` | Hide the install note about the 1.6.0 scrape path and OpenMetrics JVM metric names once dashboards are updated | `false`                                                                |
 | `prometheusExporter.metricsPath`        | HTTP path served by the jmx_prometheus_javaagent (`/` can be used for exporters or configurations serving metrics at the root) | `/metrics`                                                             |
 | `prometheusExporter.noCheckCertificate` | Flag to not check server's certificate when downloading jmx_prometheus_javaagent                                        | `false`                                                                |
 | `prometheusExporter.webBeanPort`        | Port where the jmx_prometheus_javaagent exposes the metrics for the webBean                                             | `8000`                                                                 |
@@ -1181,7 +1217,7 @@ See [Agentic features](#agentic-features) for how to enable and configure these 
 | `<hunterAgent\|remediationAgent>.serviceAccount.automountToken`  | Automount the ServiceAccount token into the pod; needed for IRSA                                                                          | `false`                                                                        |
 | `<hunterAgent\|remediationAgent>.serviceAccount.annotations`     | Annotations for that ServiceAccount (e.g. an IRSA role ARN)                                                                              | `{}`                                                                           |
 | `agentOrchestrator.image.repository`                                  | Agent Orchestrator image repository (required when enabled)                                                                              | `"sonarsource/sonarqube-agent-orchestrator"`                                   |
-| `agentOrchestrator.image.tag`                                         | Agent Orchestrator image tag                                                                                                             | `"2026.5.2"` |
+| `agentOrchestrator.image.tag`                                         | Agent Orchestrator image tag                                                                                                             | `"2026.5.5"` |
 | `agentOrchestrator.image.pullPolicy`                                  | Agent Orchestrator image pull policy                                                                                                     | `IfNotPresent`                                                                 |
 | `agentOrchestrator.image.pullSecrets`                                 | imagePullSecrets for the orchestrator image                                                                                              | `nil`                                                                          |
 | `agentOrchestrator.port`                                              | Port the orchestrator listens on (also set as `SERVER_PORT`)                                                                             | `8080`                                                                         |

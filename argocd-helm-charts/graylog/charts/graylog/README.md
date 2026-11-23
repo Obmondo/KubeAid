@@ -512,6 +512,62 @@ the certificates, be sure to include a SAN entry for `*.graylog[-<suffix>].<name
 Since Graylog 6, the Graylog image hard-codes the image suffix `-0` as the master node.
 Dynamic master node selection is no longer necessary. You can always assume `graylog-0` as the master node or refer to the service `graylog-master.<namespace>.svc.cluster.local`
 
+## Upgrading
+
+### To 3.1.1 (bundled OpenSearch 3.7.0)
+
+Chart 3.1.1 depends on OpenSearch Helm chart 3.7.0 (OpenSearch 3.7.0). Graylog 7.2 supports OpenSearch up to 3.7.x. If a warm tier stores snapshots in Google Cloud Storage, do not use this bundled version: Graylog advises against OpenSearch 3.3 through 3.7 in that configuration. See [Graylog's OpenSearch upgrade notes](https://go2docs.graylog.org/current/setting_up_graylog/opensearch.htm).
+
+This applies when `tags.install-opensearch=true`. If OpenSearch is installed separately, upgrade that release yourself, then restart Graylog as described below.
+
+OpenSearch 3.7.0 cannot open an index created by OpenSearch 1.x or Elasticsearch 7.10, including system indices. The node exits on startup with `minimum compatible version is [2.0.0]`. Check this on the running 2.19 cluster before changing the image:
+
+```bash
+curl -s -u "$USER:$PASSWORD" \
+  "http://localhost:9200/_all/_settings?human&expand_wildcards=all&filter_path=*.settings.index.version.created_string"
+```
+
+Every `created_string` must start with `2.`. Reindex or delete anything older while the cluster is still on 2.19. See [OpenSearch breaking changes](https://docs.opensearch.org/latest/breaking-changes/) and [Reindexing data](https://docs.opensearch.org/latest/im-plugin/reindex-data/).
+
+`.opendistro_security` is not recreated with the Reindex API. Back it up and load it again with [`securityadmin.sh`](https://docs.opensearch.org/latest/security/configuration/security-admin/) (`-backup`, delete the index, then `-cd`) so the new index is created by 2.19.
+
+The cluster must already be on OpenSearch 2.19.0 or later. Chart 3.0.40 bundled 2.19.7. There is no downgrade path. Take a snapshot first. See [Rolling upgrade](https://docs.opensearch.org/latest/migrate-or-upgrade/rolling-upgrade/).
+
+Stop OpenSearch completely, then upgrade. A rolling replacement runs 2.19 and 3.7 nodes in the same cluster. The chart's default nodes are all cluster-manager eligible, so a two-node cluster also loses quorum when one pod is down.
+
+1. Stop Graylog inputs.
+2. Wait until the journal has drained on every Graylog node. `uncommitted_journal_entries` must be `0`. The size of the journal directory is not a signal: segment files stay on disk after the entries are processed.
+
+```bash
+curl -s -u "$USER:$PASSWORD" -H "X-Requested-By: cli" \
+  "https://<graylog>/api/cluster/<node-id>/journal"
+```
+
+3. Scale the OpenSearch StatefulSet to 0 and wait until its pods are gone. Do not delete the PVCs. The default name is `<release>-opensearch-master`.
+
+```bash
+kubectl scale sts <release>-opensearch-master -n <namespace> --replicas=0
+```
+
+4. Upgrade the chart. `opensearch.replicas` in your values brings the pods back on 3.7.0. The subchart starts them together, so they can elect a cluster manager.
+
+```bash
+helm upgrade <release> kongz/graylog -n <namespace> -f values.yaml
+```
+
+5. Wait until cluster health is `green` and every node reports `3.7.0`. Leave inputs stopped until then.
+
+6. Restart every Graylog pod together, not one at a time. The leader keeps the indexer major version it saw at process start. Until that process exits, Graylog reports that OpenSearch 3.7.0 does not match the 2.19.7 it started with.
+
+```bash
+kubectl scale sts <release> -n <namespace> --replicas=0
+kubectl scale sts <release> -n <namespace> --replicas=<previous>
+```
+
+7. Start inputs and confirm that new messages are indexed.
+
+A later upgrade inside 3.x, up to 3.7.x, does not need this Graylog restart. The major-version notice is only raised when the major version changes.
+
 ## Troubleshooting
 
 If you are encounter "Unprocessed Messages" or Journal files corrupted, you may need to delete all journal files before staring Graylog.

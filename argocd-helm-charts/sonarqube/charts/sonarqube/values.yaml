@@ -437,6 +437,8 @@ prometheusExporter:
   # jmx_prometheus_javaagent version. 1.1.0 and later are downloaded from GitHub
   # Releases, earlier versions from Maven Central.
   version: "1.6.0"
+  # Hide the install note about the 1.6.0 scrape path and OpenMetrics JVM names.
+  prometheusAcknowledged: false
   # Alternative full download URL for the jmx_prometheus_javaagent.jar (overrides prometheusExporter.version)
   # downloadURL: ""
   # Optional checksum of the jar, verified right after download. Uncomment to turn
@@ -1017,7 +1019,7 @@ agentOrchestrator:
 
   image:
     repository: "sonarsource/sonarqube-agent-orchestrator"
-    tag: "2026.5.2"
+    tag: "2026.5.5"
     pullPolicy: IfNotPresent
     # For the orchestrator's own image only; its wait-for-sonarqube init container pulls the
     # SonarQube image instead, and always gets image.pullSecret(s) for that.

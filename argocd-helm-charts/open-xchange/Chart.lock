@@ -4,6 +4,6 @@ dependencies:
   version: 1.1.0
 - name: appsuite
   repository: oci://registry.open-xchange.com/appsuite/charts
-  version: 8.54.1454
-digest: sha256:a9badd2fd074487e52e8d16d3536636d5e75fd6c448c1d0eceab4e375cdc70df
-generated: "2026-11-15T10:21:35.775823216Z"
+  version: 8.54.1469
+digest: sha256:2c8d3bd77d940ab3aa1d7863641f75d5e34b8db767d212e2562a6446c50361a8
+generated: "2026-11-22T10:41:08.318003292Z"

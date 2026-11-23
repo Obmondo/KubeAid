@@ -1,9 +1,9 @@
 dependencies:
 - name: sonarqube
   repository: https://SonarSource.github.io/helm-chart-sonarqube
-  version: 2026.5.1004
+  version: 2026.5.1007
 - name: kubeaid-addons
   repository: file://../kubeaid-addons
   version: 1.1.0
-digest: sha256:eaecd1434eaf69bd79a8fa580ecb0ff91df590cb8adaaf67f97a587e0b374b9f
-generated: "2026-11-15T10:32:24.880187882Z"
+digest: sha256:7dc5138e7395c44537668577655532de139d2c16c3e819f12e6efa567745ca87
+generated: "2026-11-22T10:48:43.44288958Z"

@@ -1,54 +1,54 @@
 dependencies:
 - name: ox-common
-  repository: file:///tmp/d20261112-60-ipiq9e/ox-common-1.0.52/ox-common
+  repository: file:///tmp/d20261118-59-38hmba/ox-common-1.0.52/ox-common
   version: 1.0.52
 - name: booking
-  repository: file:///tmp/d20261112-60-ipiq9e/booking-0.7.1/booking
+  repository: file:///tmp/d20261118-59-38hmba/booking-0.7.1/booking
   version: 0.7.1
 - name: core-mw
-  repository: file:///tmp/d20261112-60-ipiq9e/core-mw-6.25.27/core-mw
+  repository: file:///tmp/d20261118-59-38hmba/core-mw-6.25.27/core-mw
   version: 6.25.27
 - name: core-cacheservice
-  repository: file:///tmp/d20261112-60-ipiq9e/core-cacheservice-1.52.1/core-cacheservice
+  repository: file:///tmp/d20261118-59-38hmba/core-cacheservice-1.52.1/core-cacheservice
   version: 1.52.1
 - name: core-documentconverter
-  repository: file:///tmp/d20261112-60-ipiq9e/core-documentconverter-2.52.3/core-documentconverter
+  repository: file:///tmp/d20261118-59-38hmba/core-documentconverter-2.52.3/core-documentconverter
   version: 2.52.3
 - name: core-documents-collaboration
-  repository: file:///tmp/d20261112-60-ipiq9e/core-documents-collaboration-2.52.0/core-documents-collaboration
+  repository: file:///tmp/d20261118-59-38hmba/core-documents-collaboration-2.52.0/core-documents-collaboration
   version: 2.52.0
 - name: core-imageconverter
-  repository: file:///tmp/d20261112-60-ipiq9e/core-imageconverter-2.53.1/core-imageconverter
+  repository: file:///tmp/d20261118-59-38hmba/core-imageconverter-2.53.1/core-imageconverter
   version: 2.53.1
 - name: core-spellcheck
-  repository: file:///tmp/d20261112-60-ipiq9e/core-spellcheck-2.52.0/core-spellcheck
+  repository: file:///tmp/d20261118-59-38hmba/core-spellcheck-2.52.0/core-spellcheck
   version: 2.52.0
 - name: core-ui
-  repository: file:///tmp/d20261112-60-ipiq9e/core-ui-3.10.9/core-ui
-  version: 3.10.9
+  repository: file:///tmp/d20261118-59-38hmba/core-ui-3.10.11/core-ui
+  version: 3.10.11
 - name: core-ui-middleware
-  repository: file:///tmp/d20261112-60-ipiq9e/core-ui-middleware-4.4.8/core-ui-middleware
+  repository: file:///tmp/d20261118-59-38hmba/core-ui-middleware-4.4.8/core-ui-middleware
   version: 4.4.8
 - name: core-user-guide
-  repository: file:///tmp/d20261112-60-ipiq9e/core-user-guide-2.54.0/core-user-guide
+  repository: file:///tmp/d20261118-59-38hmba/core-user-guide-2.54.0/core-user-guide
   version: 2.54.0
 - name: office-web
-  repository: file:///tmp/d20261112-60-ipiq9e/office-web-2.56.0/office-web
+  repository: file:///tmp/d20261118-59-38hmba/office-web-2.56.0/office-web
   version: 2.56.0
 - name: office-user-guide
-  repository: file:///tmp/d20261112-60-ipiq9e/office-user-guide-2.55.0/office-user-guide
+  repository: file:///tmp/d20261118-59-38hmba/office-user-guide-2.55.0/office-user-guide
   version: 2.55.0
 - name: guard-ui
-  repository: file:///tmp/d20261112-60-ipiq9e/guard-ui-2.54.0/guard-ui
+  repository: file:///tmp/d20261118-59-38hmba/guard-ui-2.54.0/guard-ui
   version: 2.54.0
 - name: core-drive-help
-  repository: file:///tmp/d20261112-60-ipiq9e/core-drive-help-8.13.2/core-drive-help
+  repository: file:///tmp/d20261118-59-38hmba/core-drive-help-8.13.2/core-drive-help
   version: 8.13.2
 - name: appsuite-toolkit
-  repository: file:///tmp/d20261112-60-ipiq9e/appsuite-toolkit-1.21.3/appsuite-toolkit
+  repository: file:///tmp/d20261118-59-38hmba/appsuite-toolkit-1.21.3/appsuite-toolkit
   version: 1.21.3
 - name: switchboard
-  repository: file:///tmp/d20261112-60-ipiq9e/switchboard-5.8.18/switchboard
+  repository: file:///tmp/d20261118-59-38hmba/switchboard-5.8.18/switchboard
   version: 5.8.18
-digest: sha256:b013d6ad3242b6a48a5807b16b998f59cf692ac05771805f46fa31cc34c8eb79
-generated: "2026-11-12T07:56:01.719219023Z"
+digest: sha256:b1a8f84fde8d4b0570233a27564e69dccec31e5c851bdce647c9fd78b1f1d0b3
+generated: "2026-11-18T16:44:07.810819171Z"

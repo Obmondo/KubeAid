@@ -8,7 +8,7 @@ version: 1.0.0
 # and values.yaml (upstream 9.3.0 has none). Re-apply it after re-vendoring.
 dependencies:
   - name: nextcloud
-    version: 9.4.4
+    version: 9.4.5
     repository: https://nextcloud.github.io/helm/
   - name: kubeaid-addons
     version: 1.1.0

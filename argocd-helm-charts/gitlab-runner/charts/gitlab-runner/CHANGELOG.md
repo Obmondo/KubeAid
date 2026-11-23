@@ -1,3 +1,19 @@
+## v0.95.0 (2026-11-19)
+
+### New features
+
+- Update GitLab Runner version to v19.6.0
+- feat: add metrics.prometheusAnnotations.enabled to drop scrape annotations [!560](https://gitlab.com/gitlab-org/charts/gitlab-runner/-/merge_requests/560) (Radek Antoniuk @rantoniuk)
+
+### Bug fixes
+
+- fix: reject resourceNames and nonResourceURLs in rbac.rules [!561](https://gitlab.com/gitlab-org/charts/gitlab-runner/-/merge_requests/561)
+- fix: reject unknown keys and non-map entries in rbac.rules [!562](https://gitlab.com/gitlab-org/charts/gitlab-runner/-/merge_requests/562)
+
+### Other changes
+
+- Add support for Kubernetes user namespaces (closes #440) [!565](https://gitlab.com/gitlab-org/charts/gitlab-runner/-/merge_requests/565) (Manish Kumar @manishpatel00)
+
 ## v0.94.3 (2026-11-06)
 
 ### New features
@@ -32,11 +48,35 @@
 
 - feat: add livenessProbe.enabled to turn off the check-live probe [!558](https://gitlab.com/gitlab-org/charts/gitlab-runner/-/merge_requests/558)
 
+## v0.93.3 (2026-11-06)
+
+### New features
+
+- Update GitLab Runner version to v19.4.4
+
+## v0.93.2 (2026-10-29)
+
+### New features
+
+- Update GitLab Runner version to v19.4.3
+
 ## v0.93.0 (2026-09-17)
 
 ### New features
 
 - Update GitLab Runner version to v19.4.0
+
+## v0.92.6 (2026-11-06)
+
+### New features
+
+- Update GitLab Runner version to v19.3.6
+
+## v0.92.5 (2026-10-29)
+
+### New features
+
+- Update GitLab Runner version to v19.3.5
 
 ## v0.92.2 (2026-09-14)
 

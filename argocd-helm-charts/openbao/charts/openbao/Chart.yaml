@@ -1,19 +1,13 @@
 annotations:
   artifacthub.io/changes: |
-    - kind: added
-      description: |
-        Add trafficDistribution support to all services
     - kind: changed
       description: |
-        Remove legacy GKE test infrastructure and fix Helm 4 CI compatibility
-    - kind: security
-      description: |
-        Update CI runtimes to address the eMudhra CA compromise
+        Bump OpenBao to 2.7.3
   artifacthub.io/containsSecurityUpdates: "true"
   charts.openshift.io/name: OpenBao
   charts.openshift.io/provider: OpenBao
 apiVersion: v2
-appVersion: v2.7.2
+appVersion: v2.7.3
 description: Official OpenBao Chart
 home: https://github.com/openbao/openbao-helm
 icon: https://raw.githubusercontent.com/openbao/artwork/refs/heads/main/color/openbao-color.svg
@@ -34,4 +28,4 @@ maintainers:
 name: openbao
 sources:
 - https://github.com/openbao/openbao-helm
-version: 0.30.7
+version: 0.30.8

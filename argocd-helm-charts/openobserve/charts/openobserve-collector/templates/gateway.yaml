@@ -55,6 +55,9 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: status.hostIP
+  {{- with .Values.gateway.extraEnv }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   {{- with .Values.gateway.tolerations }}
   tolerations:
     {{- toYaml . | nindent 4 }}

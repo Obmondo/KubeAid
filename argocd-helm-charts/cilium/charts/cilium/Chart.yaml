@@ -79,7 +79,7 @@ annotations:
     Datapath Plugin\n  description: |\n    CiliumDatapathPlugin is a plugin that extends
     datapath functionality.\n"
 apiVersion: v2
-appVersion: 1.20.4
+appVersion: 1.20.5
 description: eBPF-based Networking, Security, and Observability
 home: https://cilium.io/
 icon: https://cdn.jsdelivr.net/gh/cilium/cilium@main/Documentation/images/logo-solo.svg
@@ -95,4 +95,4 @@ kubeVersion: '>= 1.21.0-0'
 name: cilium
 sources:
 - https://github.com/cilium/cilium
-version: 1.20.4
+version: 1.20.5

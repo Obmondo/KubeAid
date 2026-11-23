@@ -278,16 +278,18 @@ route:
   # -- Additional rules  to deny some path like ingresses
   additionalRules: []
   # eg with traefik as controller all following path will be redirect to noop@internal
+  # The RegularExpression match for the admin pages needs Traefik 3.4.5 or later. The
+  # /cool/adminws and /cool/getMetrics blocks work on any version.
   # - matches:
   #     - path:
   #         type: PathPrefix
   #         value: /cool/getMetrics
   #     - path:
   #         type: PathPrefix
-  #         value: /cool/adminws/
+  #         value: /cool/adminws
   #     - path:
-  #         type: PathPrefix
-  #         value: /browser/dist/admin/
+  #         type: RegularExpression
+  #         value: ^/browser/(.*/)?admin(Analytics|Audit|ClusterOverview|ClusterOverviewAbout|History|Log|Settings)?\.html$
   #   backendRefs:
   #     - group: traefik.io
   #       kind: TraefikService
@@ -304,8 +306,8 @@ ingress:
   # # block admin urls from outside
   #  nginx.ingress.kubernetes.io/server-snippet: |
   #    location /cool/getMetrics { deny all; return 403; }
-  #    location /cool/adminws/ { deny all; return 403; }
-  #    location /browser/dist/admin/admin.html { deny all; return 403; }
+  #    location /cool/adminws { deny all; return 403; }
+  #    location ~ ^/browser/(.*/)?admin(?!IntegratorSettings)[A-Za-z]*\.html$ { deny all; return 403; }
   #
   # # HAProxy
   #  haproxy.org/timeout-tunnel: "3600s"
@@ -323,11 +325,18 @@ ingress:
   #  haproxy-ingress.github.io/balance-algorithm: url_param WOPISrc check_post
   #  haproxy-ingress.github.io/config-backend:
   #    hash-type consistent
-  # # block admin urls from outside
+  # # block admin urls from outside. coolwsd resolves dot segments and percent escapes before
+  # # routing, so match the path in the same form. normalize-uri needs HAProxy 2.4 or later
+  # # and "expose-experimental-directives" in the global section (config-global).
+  #    http-request normalize-uri path-merge-slashes
+  #    http-request normalize-uri path-strip-dot
+  #    http-request normalize-uri path-strip-dotdot
+  #    http-request normalize-uri percent-decode-unreserved
   #    acl admin_url path_beg /cool/getMetrics
-  #    acl admin_url path_beg /cool/adminws/
-  #    acl admin_url path_beg /browser/dist/admin/admin.html
-  #    http-request deny if admin_url
+  #    acl admin_url path_beg /cool/adminws
+  #    acl admin_page path_reg ^/browser/(.*(/|%2[Ff]))?admin[A-Za-z]*\.html$
+  #    acl integrator_page path_end /adminIntegratorSettings.html
+  #    http-request deny if admin_url || admin_page !integrator_page
   #
   hosts:
     - host: chart-example.local
@@ -404,8 +413,8 @@ podDisruptionBudget:
 # ```yaml
 # nginx.ingress.kubernetes.io/server-snippet: |
 #   location /cool/getMetrics { deny all; return 403; }
-#   location /cool/adminws/ { deny all; return 403; }
-#   location /browser/dist/admin/admin.html { deny all; return 403; }
+#   location /cool/adminws { deny all; return 403; }
+#   location ~ ^/browser/(.*/)?admin(?!IntegratorSettings)[A-Za-z]*\.html$ { deny all; return 403; }
 # ```
 #
 # This a workaround in our helm chart where we will deploying a dummy deny-service which can enabled or disabled based on yaml value.
@@ -417,15 +426,17 @@ podDisruptionBudget:
 #   ingress:
 #     enabled: true
 #     className: "nginx"
+#     annotations:
+#       nginx.ingress.kubernetes.io/use-regex: "true"
 #     hosts:
 #       - host: test.collabora.online
 #         paths:
-#         - path: "/browser/dist/admin/admin.html"
+#         - path: '/browser/(.*/)?admin(?!IntegratorSettings)[A-Za-z]*\.html$'
 #           pathType: ImplementationSpecific
 #         - path: "/cool/getMetrics"
-#           pathType: Exact
-#         - path: "/cool/adminws/"
-#           pathType: Exact
+#           pathType: Prefix
+#         - path: "/cool/adminws"
+#           pathType: Prefix
 
 nginxDeny:
   enabled: false
@@ -511,16 +522,22 @@ reverseProxy:
     upstream: ""
 
   # Replace the whole generated nginx.conf. Leave empty to use the generated
-  # one. Only needed for cases the knobs above do not cover.
+  # one. Only needed for cases the knobs above do not cover. With
+  # endpointReloader enabled, the list of pods is in
+  # /etc/nginx/upstreams/coolwsd.conf, one server line per pod, for an
+  # override to include in its upstream block.
   nginxConfigOverride: ""
 
-  # Open-source nginx resolves the upstream pod IPs only when it starts or
-  # reloads. This sidecar watches the Collabora EndpointSlices (a namespaced
-  # Role) and reloads nginx only when the pod set changes, so the upstream
-  # tracks live pods after a restart, scale or reinstall. It needs a shared
+  # This sidecar watches the Collabora EndpointSlices (a namespaced Role),
+  # writes one nginx server line per pod, and reloads nginx only when that
+  # list changes, so the upstream tracks live pods after a restart, scale or
+  # reinstall. With one line per pod, nginx uses consistent hashing: a pod
+  # that comes or goes moves only its own documents. It needs a shared
   # process namespace so it can signal the nginx master. Disable it on clusters
-  # that forbid shareProcessNamespace, then reload nginx by hand after pod
-  # changes with kubectl rollout restart.
+  # that forbid shareProcessNamespace. nginx then resolves the headless Service
+  # once at start, picks a pod by its position in that list, and needs a
+  # kubectl rollout restart after pod changes. Documents can then move between
+  # pods on a restart, so keep it enabled when you can.
   endpointReloader:
     enabled: true
     # Needs kubectl, a shell and kill. alpine/k8s has all three.

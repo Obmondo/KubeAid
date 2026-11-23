@@ -96,3 +96,5 @@ appsuite:
     enabled: false
   core-spellcheck:
     enabled: false
+  plugins-ui:
+    enabled: false

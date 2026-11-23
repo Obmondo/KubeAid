@@ -1,0 +1,6 @@
+dependencies:
+- name: seaweedfs
+  repository: https://seaweedfs.github.io/seaweedfs/helm
+  version: 4.54.0
+digest: sha256:b939fb03cc2d317acdcf61d6ce7af61d0c63b8d26d68dd63a30493eb001a8bbd
+generated: "2026-11-22T10:47:48.806277896Z"

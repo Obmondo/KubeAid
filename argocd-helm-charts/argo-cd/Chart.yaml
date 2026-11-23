@@ -3,7 +3,7 @@ name: argo-cd
 version: 1.0.0
 dependencies:
   - name: argo-cd
-    version: "10.18.0"
+    version: "10.18.2"
     repository: https://argoproj.github.io/argo-helm
   - name: kubeaid-addons
     version: 1.1.0

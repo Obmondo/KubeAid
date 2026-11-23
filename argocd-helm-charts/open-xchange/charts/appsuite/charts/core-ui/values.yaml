@@ -233,6 +233,13 @@ migration:
   #   argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
   annotations: {}
 
+# CronJob that deletes expired BIMI cache rows (30 days without logo, 180 days with
+# logo) in small chunks. Runs only when a database is configured.
+bimiCleanup:
+  enabled: true
+  # "0 2 * * *" = every night at 2:00 (cluster time zone, usually UTC)
+  schedule: "0 2 * * *"
+
 config:
   features:
     bimi: false

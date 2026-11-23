@@ -1,5 +1,5 @@
 apiVersion: v2
-appVersion: v5.25.0
+appVersion: v5.26.0
 dependencies:
 - condition: crds.immutable
   name: crds
@@ -8,4 +8,4 @@ dependencies:
 description: Helm chart for the Grafana Operator
 name: grafana-operator
 type: application
-version: 5.25.0
+version: 5.26.0

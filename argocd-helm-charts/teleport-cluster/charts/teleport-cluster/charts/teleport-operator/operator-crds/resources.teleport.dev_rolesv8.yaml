@@ -625,8 +625,9 @@ spec:
                     items:
                       properties:
                         actions:
-                          description: Actions specifies optional actions taken when
-                            this rule matches
+                          description: 'Actions specifies optional actions taken when
+                            this rule matches. Deprecated: Actions are no longer supported
+                            and are ignored.'
                           items:
                             type: string
                           nullable: true
@@ -1310,8 +1311,9 @@ spec:
                     items:
                       properties:
                         actions:
-                          description: Actions specifies optional actions taken when
-                            this rule matches
+                          description: 'Actions specifies optional actions taken when
+                            this rule matches. Deprecated: Actions are no longer supported
+                            and are ignored.'
                           items:
                             type: string
                           nullable: true
