@@ -1,4 +1,4 @@
-apiVersion: v1
+apiVersion: v2
 name: seaweedfs
 description: SeaweedFS
 version: 4.0.393
