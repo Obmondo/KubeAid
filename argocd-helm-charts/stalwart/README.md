@@ -154,13 +154,16 @@ balancer. Also enable it on Stalwart's listeners through a `Listener` upsert in 
 
 ## Verified
 
-The plan this chart renders was tested against Stalwart v1.1.1 with stalwart-cli 2.0.0. The test
-used two nodes on PostgreSQL 17, Redis 7.2 and RustFS 1.0.0. Results:
+Tested with Stalwart v1.1.1 and stalwart-cli 2.0.0, as an internal pilot on kcm: two replicas,
+CNPG PostgreSQL 17, opstree Redis 7.2, and the WebUI behind traefik-internal. Results:
 
 - **Apply:** the plan applies cleanly, and re-applying creates no duplicates.
-- **Coordination:** both nodes subscribe to the coordination channel.
-- **Delivery:** mail received on one node is stored, with its blob in S3.
-- **Reload:** a TLS reload issued on one node takes effect on the other.
+- **Coordination:** both pods subscribe to the coordination channel.
+- **Keycloak:** WebUI login creates the account on first sign-in.
+- **Mail clients:** an app password works for SMTP (465) and IMAP (993) from Thunderbird.
+- **Delivery:** mail received on one pod is stored and shows up through the other. A small message
+  takes about a second.
+- **S3:** blobs on RustFS also work, but a RustFS that takes several seconds per PUT stalls every
+  SMTP transaction. kcm therefore keeps blobs in PostgreSQL.
 
-The OIDC directory was **not** tested against a live Keycloak. The first real login is the
-remaining check.
+Not yet tested: public exposure on port 25, DKIM signing, and delivery to external domains.
