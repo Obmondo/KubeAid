@@ -13,7 +13,7 @@
 operator:
   image:
     repository: ghcr.io/obmondo/linuxaid-agent
-    tag: v1.11.5
+    tag: v1.11.6
     pullPolicy: IfNotPresent
   resources:
     requests:
@@ -26,7 +26,7 @@ operator:
 # tag on the same linuxaid-cli release as operator.image.tag.
 agentImage:
   repository: ghcr.io/obmondo/linuxaid-cli
-  tag: v1.11.5
+  tag: v1.11.6
   pullPolicy: IfNotPresent
 
 # certname = the CN of the obmondo-clientcert, shared by all nodes. REQUIRED:
