@@ -2,6 +2,38 @@
 
 All releases and the changes included in them (pulled from git commits added since last release) will be detailed in this file.
 
+## KubeAid Release Version 38.1.0
+
+### Features
+
+- e58484e1a feat(mattermost-operator): make the files volume's access mode configurable
+- 2ee56c0c6 feat(kubeaid-addons): allow pinning the CNPG postgres image
+
+### Bug Fixes
+
+- 16554899c fix(open-xchange): default appsuite plugins-ui to disabled
+- 401c605fb fix(seaweedfs): declare the wrapper chart as apiVersion v2
+- 0c675aea4 fix(rustfs): bump to 1.0.6, the pinned image was still running 1.0.3
+- 9f7780ffa fix(velero): alert when repo maintenance keeps failing, not on every failed maintenance job
+- f61e5cb68 fix(node-count): shorten the alert name to pass mixtool lint
+- 9b5bd019e fix(hpa-maxed-out): skip HPAs with max replicas of 1 in the mixin source
+- 29e3f477c fix(constant-node-name): show the node hostname in the alert description
+
+### Configuration Changes
+
+- 8b3fedce2 chore(mixins): regenerate node-pressure and smartmon prometheus.yaml
+- 465fbf68c chore(linuxaid-agents): bump the control repo to LinuxAid v1.8.14
+- 8a1543523 chore(openobserve): drop the unused etcd values
+
+### Other Changes
+
+- 0ee9c5f74 ci: fail on a mixin test file with an unexpected name
+- 122f32903 test(mixins): name test files tests.yaml or <alert>_test.yaml
+- 7717f6b6c ci: say how old the mixtool pin is
+- a7b2c00d0 ci: run the Prometheus rule tests on GitHub
+- f1483a9f9 test(constant-node-name): keep the series alive until the evaluation
+- cea5cf7ec test(blackbox-exporter): expect the summaries the rules produce
+
 ## KubeAid Release Version 38.0.3
 
 ### Features
