@@ -1,0 +1,222 @@
+# Stalwart mail server.
+#
+# Layout (see README.md):
+#   - data + full-text search: CNPG PostgreSQL (global.postgresql, provisioned by kubeaid-addons)
+#   - message blobs:           S3 (RustFS)
+#   - in-memory store + cluster coordinator: Redis (opstree redis-operator, provisioned here)
+#   - login:                   Keycloak via an OIDC directory
+#
+# Only the data store lives in config.json. Everything else is stored in the
+# database and applied by the `plan` Job (stalwart-cli apply) on every Argo CD sync.
+
+image:
+  repository: stalwartlabs/stalwart
+  tag: v1.1.1
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+# -- Keep at 1 for the first install. Raise to 2+ only after the plan Job has
+# applied the shared stores once and the pod was restarted (README, step 4).
+replicaCount: 1
+
+# -- Public hostname of the server: MX target, IMAP/SMTP host, WebUI host.
+hostname: mail.example.com
+
+# -- Mail domains served. The first one is the default domain.
+domains: []
+#  - example.com
+
+# -- Recovery administrator. Required for the first install: the chart always
+# ships a config.json, so Stalwart never enters bootstrap mode and prints no
+# temporary password. existingSecret must hold the key STALWART_RECOVERY_ADMIN
+# with the value "username:password". Clear it once a permanent admin exists.
+recoveryAdmin:
+  existingSecret: ""
+
+# -- Starts the pods in recovery mode: only the management listener on 8080,
+# no mail services.
+recoveryMode:
+  enabled: false
+
+# Database (CNPG). Provisioned by kubeaid-addons; Stalwart connects to the
+# <instanceName>-pgsql-rw service with the <instanceName>-pgsql-app secret.
+global:
+  postgresql:
+    enabled: true
+    instanceName: stalwart
+    instances: 2
+    database: stalwart
+    owner: stalwart
+    size: 10Gi
+    monitoring:
+      enablePodMonitor: true
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        memory: 1Gi
+    backups:
+      enabled: false
+    logicalbackup:
+      enabled: false
+
+database:
+  # -- Override the database host. Defaults to <global.postgresql.instanceName>-pgsql-rw.
+  host: ""
+  port: 5432
+  # -- Override the secret holding the database password (key `password`).
+  # Defaults to <global.postgresql.instanceName>-pgsql-app.
+  existingSecret: ""
+
+# Redis: in-memory store (locks, rate limits, sessions) and cluster coordinator.
+redis:
+  # -- Provision a standalone Redis via the opstree redis-operator.
+  enabled: true
+  # -- Use an existing Redis instead (e.g. redis://my-redis:6379). Leave empty when enabled.
+  url: ""
+  image: quay.io/opstree/redis:v7.2.6
+  storage: 1Gi
+  # storageClass: ""
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+# Blob store: message bodies, Sieve scripts, attachments. Disabled, blobs go
+# to the PostgreSQL data store; enabled, they go to this S3 bucket.
+s3:
+  enabled: false
+  bucket: ""
+  # -- S3 endpoint, e.g. https://bucket.obmondo.com
+  endpoint: ""
+  region: us-east-1
+  # -- Optional prefix for every object key.
+  keyPrefix: ""
+  # -- Secret with keys AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY.
+  existingSecret: ""
+
+# Keycloak login through an OIDC directory.
+oidc:
+  enabled: false
+  description: Keycloak
+  # -- Issuer exactly as Keycloak reports it, e.g. https://keycloak.example.com/realms/obmondo
+  issuerUrl: ""
+  claimUsername: preferred_username
+  # -- Appended to usernames without "@" (john -> john@example.com). When empty,
+  # the `email` claim is used instead.
+  usernameDomain: ""
+  # -- Claim with group memberships, e.g. "groups". Empty disables group mapping.
+  claimGroups: ""
+  # -- Public Keycloak client used by the WebUI (Keycloak has no Client ID
+  # Metadata Document support, so a static client id is required).
+  webuiClientId: stalwart-webui
+  # -- Extra values accepted in the token's `aud` claim. webuiClientId is always added.
+  acceptedAudiences: []
+  # -- Accept JWT access tokens carrying ID-token claims (nonce/at_hash). Enable
+  # only if the server logs "Token carries ID token claims (nonce or at_hash)".
+  allowIdTokenClaims: false
+
+# TLS certificate for SMTP/IMAP (and the Ingress), issued by cert-manager and
+# mounted into the pod. The pods are restarted by stakater/reloader on renewal.
+tls:
+  enabled: true
+  secretName: stalwart-tls
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt
+  # -- Extra SANs besides `hostname` (e.g. autoconfig.example.com).
+  extraDnsNames: []
+
+# Mail listeners exposed on L4. Must keep the client IP for SPF/DNSBL/rate
+# limits: externalTrafficPolicy: Local works with MetalLB and hostNetwork-like
+# setups; behind a proxying LB (e.g. Hetzner LB), enable PROXY protocol on the LB
+# and on the Stalwart listeners instead (README).
+mailService:
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  loadBalancerIP: ""
+  annotations: {}
+  ports:
+    smtp: 25
+    smtps: 465
+    imaps: 993
+    sieve: 4190
+
+# HTTP (WebUI, JMAP, CalDAV/CardDAV, autoconfig) through the ingress controller.
+# TLS terminates at the ingress; Stalwart is reached on its plain HTTP listener 8080.
+ingress:
+  enabled: true
+  className: ""
+  annotations: {}
+  # -- Extra hosts besides `hostname` (e.g. autoconfig.example.com, mta-sts.example.com).
+  extraHosts: []
+
+# Spam filter DNS blocklists to turn off, by rule name and variant (Ip, Domain,
+# Email, Url). Lists that hang or refuse queries from the cluster's resolver delay
+# every SMTP transaction by up to resolver timeout x attempts (10s by default).
+# multi.surbl.org answers SERVFAIL after about 8s through public resolvers.
+spamFilter:
+  disabledDnsbl:
+    - name: STWT_SURBL_DOMAIN
+      type: Domain
+
+# Declarative configuration: rendered into NDJSON and applied with
+# `stalwart-cli apply` by an Argo CD PostSync Job. Every operation is idempotent.
+plan:
+  enabled: true
+  image:
+    repository: stalwartlabs/cli
+    tag: 2.0.0
+  # -- Secret with STALWART_USER + STALWART_PASSWORD (e.g. the recovery admin),
+  # or STALWART_TOKEN (an API key). Required when plan.enabled; the Job does not
+  # start until the Secret exists.
+  existingSecret: stalwart-admin
+  # -- Log level of the stdout tracer (kubectl logs).
+  logLevel: info
+  # -- Extra plan operations appended verbatim, one object per NDJSON line.
+  # See https://stalw.art/docs/management/cli/plan-format
+  extra: []
+  #  - {"@type": "upsert", "object": "Account", "matchOn": ["name"],
+  #     "value": {"acc-postmaster": {"@type": "User", "name": "postmaster", "domainId": "#dom-0"}}}
+
+podAnnotations: {}
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    memory: 2Gi
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 2000
+  runAsGroup: 2000
+  fsGroup: 2000
+  seccompProfile:
+    type: RuntimeDefault
+
+# The binary has a cap_net_bind_service file capability, so NET_BIND_SERVICE
+# must stay in the bounding set even though everything else is dropped.
+containerSecurityContext:
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+    add: [NET_BIND_SERVICE]
+  seccompProfile:
+    type: RuntimeDefault
+
+podDisruptionBudget:
+  # -- Rendered only when replicaCount > 1.
+  maxUnavailable: 1
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
