@@ -2,6 +2,34 @@
 
 All releases and the changes included in them (pulled from git commits added since last release) will be detailed in this file.
 
+## KubeAid Release Version 38.1.1
+
+### Features
+
+- 1123346e3 feat(stalwart): disable the SURBL DNS blocklist through the plan
+- 4b4ae7757 feat(stalwart): store blobs in PostgreSQL unless s3.enabled is set
+- bb688e806 feat(stalwart): add chart for the Stalwart mail server
+
+### Bug Fixes
+
+- 6ac40b303 fix(capi-cluster): allow a Hetzner bare-metal control plane with fewer than 3 nodes
+- c464b4414 fix(charts): declare the remaining v1 wrapper charts as apiVersion v2
+- 17b5cd822 fix(stalwart): default plan.existingSecret to stalwart-admin
+- 8fec57729 fix(stalwart): link kubeaid-addons into charts/ like the other charts
+- 64b8d41b1 fix(stalwart): keep the Redis pod out of the Stalwart Service selectors
+
+### Configuration Changes
+
+- d3e1e58f7 chore(linuxaid-agents): bump linuxaid-cli images to v1.11.6
+- 733b46b6d chore(linuxaid-agents): bump the control repo to LinuxAid v1.8.15
+
+### Other Changes
+
+- e1a7bcfd6 prometheus-linuxaid: group DNS resolution alert per certname
+- 74083a3ac dependabot: bump actions/setup-go
+- 72bf19004 docs(linuxaid-agents): leave the pinned versions to values.yaml
+- 37d076c72 docs(stalwart): record the kcm pilot results in the README
+
 ## KubeAid Release Version 38.1.0
 
 ### Features
