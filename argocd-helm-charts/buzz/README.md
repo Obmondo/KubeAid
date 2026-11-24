@@ -18,8 +18,50 @@ removal has to be repeated on every chart bump.
 - `cloudnative-pg` and `redis-operator` installed on the cluster.
 - `sealed-secrets` (or another out-of-band secret mechanism) for the two Secrets below.
 - An owner Nostr keypair when relay membership is enabled — see [Relay membership](#relay-membership).
-- An S3-compatible bucket plus its access key and secret key. The chart does **not** provision one —
-  request the bucket and credentials, then set `buzz.s3.endpoint` and `buzz.s3.bucket`.
+- An S3-compatible bucket plus a **dedicated** access key scoped to it — see
+  [Credentials](#credentials). The chart does **not** provision either.
+
+## Installation
+
+In order; each step links to the details below.
+
+1. Generate the owner keypair and keep the secret in your password store —
+   [Relay membership](#relay-membership).
+2. Create the bucket and a dedicated access key limited to it — [Credentials](#credentials).
+3. Seal `buzz-pgsql-credentials` and `buzz-secrets` (including the S3 keys) into your
+   `kubeaid-config` repo — [Secrets](#secrets).
+4. In the cluster's values file, set at least:
+
+   ```yaml
+   buzz:
+     relayUrl: wss://buzz.example.com
+     ownerPubkey: <64-char hex public key>
+     relay:
+       requireRelayMembership: true
+     s3:
+       endpoint: https://s3.example.com
+       bucket: buzz-media
+     ingress:
+       className: <your ingress class>
+       annotations: {}      # cert-manager / external-dns, per cluster
+       tls:
+         - hosts: [buzz.example.com]
+           secretName: buzz-tls
+   ```
+
+5. Sync. The relay log should show, in order, `Postgres connected`, `Database migrations complete`,
+   `Relay owner bootstrapped`, `Redis pub/sub connected`, `Media storage connected`, and the
+   conformance probe passing. A `CrashLoopBackOff` after `Media storage connected` is object
+   storage — see [Object storage](#object-storage).
+6. Check the relay answers:
+
+   ```sh
+   curl -H 'Accept: application/nostr+json' https://buzz.example.com
+   ```
+
+   It returns the relay's NIP-11 document (`"software": "https://github.com/block/buzz"`, its
+   `version`, `"auth_required": true`).
+7. Sign in to a Buzz app as the owner and admit everyone else — [Connecting clients](#connecting-clients).
 
 ## Secrets
 
@@ -99,6 +141,54 @@ differs.
 
 The bucket must not be folded into `buzz.s3.endpoint`; the two are passed separately.
 
+### Credentials
+
+Give the relay its own access key, limited to its bucket. Do not reuse a key that another workload
+already holds — a backup tool's key, for example: the relay would then be able to delete those
+backups, and that key usually has no rights on the new bucket anyway.
+
+The key needs:
+
+| Action | Resource | Used for |
+|---|---|---|
+| `s3:ListBucket`, `s3:GetBucketLocation` | `arn:aws:s3:::<bucket>` | listing, startup probe |
+| `s3:GetObject`, `s3:PutObject`, `s3:DeleteObject` | `arn:aws:s3:::<bucket>/*` | media and git objects |
+| `s3:ListBucketVersions`, `s3:DeleteObjectVersion` | bucket / `<bucket>/*` | community deletion |
+
+A key without access fails the startup conformance probe with
+`git conformance probe failed: s3 backend error: Got HTTP 403 … AccessDenied`, right after
+`Media storage connected`. That is a permissions problem, not a missing S3 feature. Check the key
+outside the cluster before sealing it:
+
+```sh
+AWS_ACCESS_KEY_ID=… AWS_SECRET_ACCESS_KEY=… \
+  aws --endpoint-url https://s3.example.com s3api head-bucket --bucket buzz-media
+```
+
+Buzz has no key-prefix setting: it writes to the bucket root (`_meta/`, `repos/`, `packs/`, media
+blobs, …), so it needs a bucket of its own rather than a folder in a shared one.
+
+### Slow object storage
+
+Uploads stream through the relay to the bucket, and the relay's S3 client has a fixed request
+timeout. On a slow backend (HDD-backed MinIO or RustFS, for example) lower the concurrency and the
+largest upload so requests finish in time:
+
+```yaml
+buzz:
+  relay:
+    extraEnv:
+      - name: BUZZ_MEDIA_MAX_CONCURRENT_UPLOADS              # default 8
+        value: "4"
+      - name: BUZZ_MEDIA_MAX_CONCURRENT_UPLOADS_PER_PUBKEY   # default 2
+        value: "1"
+      - name: BUZZ_MAX_VIDEO_BYTES                           # default 500 MiB
+        value: "104857600"
+```
+
+`BUZZ_MAX_FILE_BYTES` (default 100 MiB) caps other files. Remove the overrides once the backend is
+fast enough.
+
 ### Conformance probe (A3 gate)
 
 Before serving git traffic the relay races `BUZZ_GIT_PROBE_WRITERS` (default **32**) concurrent
@@ -167,12 +257,54 @@ Secret key:  <64 hex>    → the operator's password store; never commit it
 ```
 
 Alternatively, create the identity in the Buzz mobile app and convert its `npub1…` to hex with
-`nak decode`. Either way, the operator signs in to the apps with the secret key (most ask for the
-`nsec1…` form: `nak encode nsec <hex>`).
+`nak decode`.
+
+`npub1…` and `nsec1…` are not hashes: they are the same 32-byte keys as the hex above, written in
+NIP-19 bech32 form with a checksum. The Buzz apps import the secret only as `nsec1…`, so convert the
+hex secret once, offline, and keep both forms in the password store:
+
+```sh
+nak encode nsec <64-char hex secret>
+```
 
 Only this key is created by hand. Every other user's app generates its own keypair on first launch,
 and the owner admits them through the app's membership flow or with
 `buzz-admin add-member <pubkey>` in the relay pod.
+
+## Connecting clients
+
+Use the Buzz desktop app ([block/buzz-app](https://github.com/block/buzz-app) releases) or the Buzz
+mobile app. Opening `https://buzz.example.com/` in a browser shows the relay's NIP-11 JSON document;
+that is expected. The relay serves no chat UI, and buzz-app's web build is a development tool that
+signs through a local helper, so there is no hosted web client to deploy.
+
+First launch of the desktop app, signing in as the owner:
+
+1. On **Join or create a community**, choose **I already have a community**. **Create a
+   community** is for communities that Block's Builderlab hosts and asks for a Builderlab account.
+
+   <img src="static/1-join-or-create.png" alt="Join or create a community: choose I already have a community" width="560" height="602">
+
+2. Choose **I'm a member or admin**. **I own the community** is again the Builderlab-hosted path,
+   even for the relay's owner.
+
+   <img src="static/2-reconnect-role.png" alt="Reconnect to your community: choose I'm a member or admin" width="560" height="484">
+
+3. Enter `wss://buzz.example.com`.
+
+   <img src="static/3-community-url.png" alt="Reconnect to your community: enter the relay's wss:// URL" width="560" height="391">
+
+4. The app creates a key of its own during setup, so a members-only relay answers
+   **Not a member yet** and shows that key's npub. That is the relay working: the key is unknown.
+   Choose **Use a different key**, paste the owner's `nsec1…`, check that the npub shown is now the
+   owner's, and choose **Try again**.
+
+   <img src="static/4-not-a-member.png" alt="Not a member yet: choose Use a different key and paste the owner's nsec" width="560" height="609">
+
+Everyone else joins with **Join a community** and an invite link, or sends the owner the npub their
+app shows on **Not a member yet** to be added.
+
+## Scaling
 
 ## Scaling
 
