@@ -17,6 +17,7 @@ removal has to be repeated on every chart bump.
 
 - `cloudnative-pg` and `redis-operator` installed on the cluster.
 - `sealed-secrets` (or another out-of-band secret mechanism) for the two Secrets below.
+- An owner Nostr keypair when relay membership is enabled — see [Relay membership](#relay-membership).
 - An S3-compatible bucket plus its access key and secret key. The chart does **not** provision one —
   request the bucket and credentials, then set `buzz.s3.endpoint` and `buzz.s3.bucket`.
 
@@ -90,11 +91,11 @@ The relay runs an S3 conformance probe at startup and **exits** if the bucket is
 credentials are wrong, so readiness never opens. A relay stuck in `CrashLoopBackOff` on a fresh
 install is almost always the bucket, not the database.
 
-Chart 0.1.7 always addresses objects as `<endpoint>/<bucket>/<key>`; it has no region or
-addressing-style setting, so the endpoint has to serve path-style requests. Upstream's `main` adds
-`s3.region` and `s3.addressingStyle`, but the published 0.1.7 artifact rejects both — its
-`values.schema.json` sets `additionalProperties: false` — so they cannot be set until this wrapper
-tracks a newer chart version.
+`buzz.s3.addressingStyle` picks how objects are addressed: `path` (the default,
+`<endpoint>/<bucket>/<key>`) for MinIO, RustFS and other endpoints that do not resolve bucket
+subdomains, or `virtual` (`<bucket>.<endpoint>/<key>`) for AWS-style providers. `buzz.s3.region` is
+the SigV4 signing region and defaults to `us-east-1`; set it when the provider's credential region
+differs.
 
 The bucket must not be folded into `buzz.s3.endpoint`; the two are passed separately.
 
@@ -147,8 +148,31 @@ Traefik proxies WebSockets without extra configuration.
 ## Relay membership
 
 `buzz.relay.requireRelayMembership` is `false` here, which runs an open relay and needs no operator
-identity. To gate access on relay membership, set it to `true` and set `buzz.ownerPubkey` to the
-operator's 64-char lowercase hex Nostr pubkey; the chart refuses to render without it.
+identity: any Nostr key that completes NIP-42 auth can connect and create channels. A relay reachable
+from the internet should set it to `true`, and then `buzz.ownerPubkey` must be set before the first
+sync — the chart refuses to render without it.
+
+The owner is the relay's first member and the one who admits everyone else, so the key has to exist
+before anyone can join. It is an ordinary Nostr keypair (secp256k1, the same kind every Buzz app
+creates for its user); WireGuard or SSH keys are a different kind and do not work. Generate one
+offline with the relay image itself:
+
+```sh
+docker run --rm --network none --entrypoint buzz-admin ghcr.io/block/buzz:0.3.0 generate-key
+```
+
+```text
+Public key:  <64 hex>    → buzz.ownerPubkey (public, safe to commit)
+Secret key:  <64 hex>    → the operator's password store; never commit it
+```
+
+Alternatively, create the identity in the Buzz mobile app and convert its `npub1…` to hex with
+`nak decode`. Either way, the operator signs in to the apps with the secret key (most ask for the
+`nsec1…` form: `nak encode nsec <hex>`).
+
+Only this key is created by hand. Every other user's app generates its own keypair on first launch,
+and the owner admits them through the app's membership flow or with
+`buzz-admin add-member <pubkey>` in the relay pod.
 
 ## Scaling
 
@@ -158,8 +182,11 @@ at any replica count — no ReadWriteMany storage is needed.
 
 ## Relay image
 
-`image.tag` is pinned instead of inheriting `.Chart.AppVersion`. Chart 0.1.7 still declares
-`appVersion: 0.1.0`, and that relay predates the startup migration step: it never creates the schema,
+`image.tag` is pinned to `0.3.0`, the vendored chart's `appVersion`, rather than inherited from it, so
+a chart bump never moves the relay by itself. `0.3.0` is also the first relay with NIP-FI, the
+federated-identity layer that OIDC single sign-on is built on; `0.2.0` predates it.
+
+Relays before `0.2.0` predate the startup migration step: they never create the schema,
 `_sqlx_migrations` is never written, and the relay then serves traffic while every query fails on a
 missing relation — it looks healthy and answers WebSockets, so the cause is not obvious.
 
@@ -167,7 +194,8 @@ A relay that runs migrations logs either `Database migrations complete` or `Skip
 migrations because BUZZ_AUTO_MIGRATE is not enabled` right after `Postgres connected`. Neither line
 means the image is too old, whatever `BUZZ_AUTO_MIGRATE` is set to.
 
-Re-check the pin when bumping the chart — upstream may have realigned `appVersion` by then.
+Re-check the pin when bumping the chart, and read upstream's upgrade notes first: some relay
+releases require every pod to run a specific stop build before their migrations run.
 
 Verify any new tag actually exists before pinning it. GHCR's `tags/list` for this repository returns
 incomplete and inconsistent pages, and upstream's GitHub releases run ahead of the published relay
@@ -178,7 +206,8 @@ instead:
 crane manifest ghcr.io/block/buzz:<tag> >/dev/null && echo exists
 ```
 
-`0.2.0` is the newest published release image; it shares a digest with `latest`.
+Relay release tags are `relay-v<version>` in git and `<version>` on GHCR; the `v0.5.x` and
+`desktop-v*` tags are desktop app releases with no relay image behind them.
 
 ## Init containers
 
