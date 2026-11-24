@@ -42,6 +42,38 @@ Additional references: [`FAQ.md`](./FAQ.md) (known issues, e.g. `pg_dump` "out o
 during logical backups) and [`zalando-to-cnpg-migration.md`](./zalando-to-cnpg-migration.md) (migrating
 existing Zalando-operator Postgres clusters to CNPG).
 
+### PostgreSQL image and minor version upgrades
+
+Upgrading this chart (the operator) does **not** upgrade PostgreSQL in existing clusters. We have to bump the PostgreSQL image ourselves.
+
+How it works:
+
+- If a `Cluster` has no `imageName` (and no `imageCatalogRef`), the CNPG defaulting webhook fills `spec.imageName` with the operator's default image when the `Cluster` is created ([`cluster_defaults.go`](https://github.com/cloudnative-pg/cloudnative-pg/blob/v1.30.1/api/v1/cluster_defaults.go)). From then on the image is stored in the `Cluster` and is never replaced.
+- The operator's default (`POSTGRES_IMAGE_NAME`) is "used by default for new clusters" only ([operator configuration](https://cloudnative-pg.io/docs/1.30/operator_conf/)).
+- An operator upgrade rolls the pods only to swap in the new instance manager, the PostgreSQL version stays the same ([rolling updates](https://cloudnative-pg.io/docs/1.30/rolling_update/)).
+- A minor upgrade happens when the image reference in the `Cluster` changes, directly or via an image catalog. CNPG then does a rolling update, one instance at a time, primary last ([PostgreSQL upgrades](https://cloudnative-pg.io/docs/1.30/postgres_upgrades/#upgrading-a-minor-version-in-cloudnativepg)).
+
+So a cluster created a while ago keeps the PostgreSQL minor it was born with, and its image collects unpatched CVEs. Example: on an operator at 1.30.1 (default `18.6`), clusters created in June and October were still on `18.3` and `18.4`.
+
+Check what a cluster actually runs:
+
+```bash
+kubectl --context <cluster> get clusters.postgresql.cnpg.io -A \
+  -o custom-columns='NS:.metadata.namespace,NAME:.metadata.name,CREATED:.metadata.creationTimestamp,IMAGE:.spec.imageName'
+```
+
+To upgrade a minor version, pin the image in the values of the app that owns the `Cluster`. For clusters created by `kubeaid-addons` that is `global.postgresql.imageName`:
+
+```yaml
+global:
+  postgresql:
+    imageName: ghcr.io/cloudnative-pg/postgresql:18.7-system-trixie
+```
+
+Keep the same major version and the same image flavour (`-system-trixie`, ...) as the running cluster. A major version change (for example 17 to 18) is a different, offline procedure, see the [major upgrade docs](https://cloudnative-pg.io/docs/1.30/postgres_upgrades/) and take a backup first.
+
+An alternative to pinning every cluster is an [image catalog](https://cloudnative-pg.io/docs/1.30/image_catalog/): the `Cluster` references a major version in a `ClusterImageCatalog`, and bumping the catalog rolls every cluster on that major. KubeAid does not ship a catalog yet.
+
 ### Backup and Recovery
 
 #### Backup
