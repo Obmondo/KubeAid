@@ -43,12 +43,11 @@ buzz:
   # Public wss:// URL clients dial. Also derives the ingress host and media URL.
   relayUrl: wss://buzz.example.com
 
-  # Pinned rather than inherited from the chart's appVersion, which is still
-  # 0.1.0. That relay predates the startup migration step, so it silently leaves
-  # the schema uncreated and every query fails on a missing relation while the
-  # process looks healthy. See README.md.
+  # Pinned rather than inherited from the chart's appVersion, so a chart bump
+  # never moves the relay by itself. 0.3.0 is the first relay with NIP-FI
+  # federated identity (OIDC single sign-on). See README.md.
   image:
-    tag: "0.2.0"
+    tag: "0.3.0"
 
   # Every relay env var is read from this one Secret, and DATABASE_URL is
   # mandatory, so the chart-managed Secret path is unusable under ArgoCD.
@@ -60,7 +59,8 @@ buzz:
 
   relay:
     # Open relay: no ownerPubkey needed. Set this true and supply the operator's
-    # 64-char hex ownerPubkey to gate on relay membership.
+    # 64-char hex ownerPubkey to gate on relay membership; README.md shows how
+    # to generate the owner key.
     requireRelayMembership: false
 
   # Backing services come from the CNPG and Redis operators above, and from
@@ -73,9 +73,8 @@ buzz:
     enabled: false
 
   # External S3-compatible object storage. Credentials are supplied out of band
-  # as BUZZ_S3_ACCESS_KEY / BUZZ_S3_SECRET_KEY in buzz-secrets. Chart 0.1.7
-  # addresses the bucket as <endpoint>/<bucket>/<key> and exposes no region or
-  # addressing-style knob, so the endpoint must serve path-style requests.
+  # as BUZZ_S3_ACCESS_KEY / BUZZ_S3_SECRET_KEY in buzz-secrets. Set s3.region
+  # and s3.addressingStyle (path | virtual) per provider; see README.md.
   s3:
     endpoint: https://buckets.example.com
     bucket: buzz-media
