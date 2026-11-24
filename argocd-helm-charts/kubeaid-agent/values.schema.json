@@ -43,6 +43,39 @@
             }
           }
         },
+        "nodeUpdate": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "description": "When true, the agent updates the nodes' OS packages (linuxaid-cli, one node at a time) while the service window is open. It never drains or reboots.",
+              "type": "boolean"
+            },
+            "checkInterval": {
+              "description": "How often the agent looks for an open service window.",
+              "type": "string"
+            },
+            "nodeSelector": {
+              "description": "Extra label selector for the nodes to update; always ANDed with kubernetes.io/os=linux.",
+              "type": "string"
+            },
+            "capiMachinesOnly": {
+              "description": "Only update nodes Cluster API provisioned (not MachinePool nodes). Set false on clusters without Cluster API.",
+              "type": "boolean"
+            },
+            "jobImage": {
+              "description": "linuxaid-cli image the update Jobs run (must contain node-update.sh). Required when enabled.",
+              "type": "string"
+            },
+            "jobServiceAccount": {
+              "description": "Service account of the update Job pods; created by the chart without permissions or token.",
+              "type": "string"
+            },
+            "updateTimeout": {
+              "description": "Deadline of one node's update Job.",
+              "type": "string"
+            }
+          }
+        },
         "securityPosture": {
           "type": "object",
           "properties": {

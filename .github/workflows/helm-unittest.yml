@@ -11,6 +11,7 @@ name: Helm Unittest
       - 'argocd-helm-charts/cilium/**'
       - 'argocd-helm-charts/crossplane/**'
       - 'argocd-helm-charts/crossplane-compositions/**'
+      - 'argocd-helm-charts/kubeaid-agent/**'
       - '.github/workflows/helm-unittest.yml'
 
 permissions:
@@ -58,3 +59,12 @@ jobs:
             -v "$PWD/argocd-helm-charts:/apps" \
             helmunittest/helm-unittest:latest \
             cilium
+
+      - name: Run helm-unittest on the kubeaid-agent chart
+        run: |
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            -e HOME=/tmp \
+            -v "$PWD/argocd-helm-charts:/apps" \
+            helmunittest/helm-unittest:latest \
+            kubeaid-agent

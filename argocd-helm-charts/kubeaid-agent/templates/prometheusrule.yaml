@@ -25,4 +25,25 @@ spec:
           labels:
             alert_id: MissingNodeCountDetected
             severity: critical
+    {{- if .Values.appConfig.nodeUpdate.enabled }}
+    - name: kubeaid-node-update
+      rules:
+        - alert: KubeAidNodeUpdateFailed
+          annotations:
+            summary: OS package update failed on node **{{ "{{ $labels.node }}" }}** of **{{ "{{ $labels.certname }}" }}**
+            description: kubeaid-agent stopped the node package update at node **{{ "{{ $labels.node }}" }}**; the remaining nodes were not updated. Check the node's NodeUpdateFailed event and the update Job's logs, then remove the kubeaid.io/node-update annotation from the node to retry.
+          expr: max by (certname, node) (kubeaid_agent_node_update_status) == 2
+          labels:
+            alert_id: KubeAidNodeUpdateFailed
+            severity: critical
+        - alert: KubeAidNodeRebootRequired
+          annotations:
+            summary: Node **{{ "{{ $labels.node }}" }}** of **{{ "{{ $labels.certname }}" }}** needs a reboot
+            description: The last OS package update left node **{{ "{{ $labels.node }}" }}** needing a reboot (a newer kernel or /var/run/reboot-required). kubeaid-agent does not reboot nodes; drain and reboot it by hand.
+          expr: max by (certname, node) (kubeaid_agent_node_update_reboot_required) == 1
+          for: 24h
+          labels:
+            alert_id: KubeAidNodeRebootRequired
+            severity: warning
+    {{- end }}
 {{- end }}

@@ -1,0 +1,134 @@
+suite: node update
+templates:
+  - templates/rbac-node-update.yaml
+  - templates/serviceaccount-node-update.yaml
+  - templates/configmap.yaml
+  - templates/prometheusrule.yaml
+release:
+  name: kubeaid-agent
+  namespace: obmondo
+
+tests:
+  - it: renders no node-update RBAC or service account by default
+    templates:
+      - templates/rbac-node-update.yaml
+      - templates/serviceaccount-node-update.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: keeps nodeUpdate off in the agent config by default
+    template: templates/configmap.yaml
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "nodeUpdate:\\n  capiMachinesOnly: true\\n  checkInterval: 15m\\n  enabled: false"
+
+  - it: has no node-update alerts by default
+    template: templates/prometheusrule.yaml
+    asserts:
+      - notMatchRegex:
+          path: spec.groups[*].rules[*].alert
+          pattern: KubeAidNode
+
+  - it: refuses to render when enabled without a job image
+    template: templates/rbac-node-update.yaml
+    set:
+      appConfig.nodeUpdate.enabled: true
+    asserts:
+      - failedTemplate:
+          errorPattern: appConfig.nodeUpdate.jobImage
+
+  - it: grants node read/annotate and events, but no eviction, delete or exec
+    template: templates/rbac-node-update.yaml
+    set:
+      appConfig.nodeUpdate.enabled: true
+      appConfig.nodeUpdate.jobImage: ghcr.io/obmondo/linuxaid-cli:v1.12.0
+    documentSelector:
+      path: kind
+      value: ClusterRole
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: ["nodes"]
+            verbs: ["get", "list", "patch"]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: ["events"]
+            verbs: ["create", "patch"]
+      - notMatchRegex:
+          path: rules[*].resources[*]
+          pattern: "eviction|exec"
+      - notMatchRegex:
+          path: rules[*].verbs[*]
+          pattern: "^delete"
+
+  - it: lets the agent create and read Jobs and their pods in its own namespace only
+    template: templates/rbac-node-update.yaml
+    set:
+      appConfig.nodeUpdate.enabled: true
+      appConfig.nodeUpdate.jobImage: ghcr.io/obmondo/linuxaid-cli:v1.12.0
+    documentSelector:
+      path: kind
+      value: Role
+    asserts:
+      - equal:
+          path: metadata.namespace
+          value: obmondo
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["batch"]
+            resources: ["jobs"]
+            verbs: ["create", "get"]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: ["pods"]
+            verbs: ["get", "list"]
+
+  - it: names the Job service account after appConfig.nodeUpdate.jobServiceAccount, without a token
+    template: templates/serviceaccount-node-update.yaml
+    set:
+      appConfig.nodeUpdate.enabled: true
+      appConfig.nodeUpdate.jobImage: ghcr.io/obmondo/linuxaid-cli:v1.12.0
+      appConfig.nodeUpdate.jobServiceAccount: node-updater
+    asserts:
+      - equal:
+          path: metadata.name
+          value: node-updater
+      - equal:
+          path: automountServiceAccountToken
+          value: false
+
+  - it: passes the job image to the agent config
+    template: templates/configmap.yaml
+    set:
+      appConfig.nodeUpdate.enabled: true
+      appConfig.nodeUpdate.jobImage: ghcr.io/obmondo/linuxaid-cli:v1.12.0
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "jobImage: ghcr.io/obmondo/linuxaid-cli:v1.12.0"
+
+  - it: adds the failed-update and reboot-pending alerts when enabled
+    template: templates/prometheusrule.yaml
+    set:
+      appConfig.nodeUpdate.enabled: true
+      appConfig.nodeUpdate.jobImage: ghcr.io/obmondo/linuxaid-cli:v1.12.0
+    asserts:
+      - contains:
+          path: spec.groups[?(@.name == "kubeaid-node-update")].rules
+          content:
+            alert: KubeAidNodeUpdateFailed
+          any: true
+      - contains:
+          path: spec.groups[?(@.name == "kubeaid-node-update")].rules
+          content:
+            alert: KubeAidNodeRebootRequired
+          any: true
