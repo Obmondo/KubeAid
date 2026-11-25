@@ -109,7 +109,8 @@ past `scannerReportTTL` without refresh.
 
 Fires while any image has at least `imageCriticalThreshold` fixable Critical findings, held for
 `backlogFor`. It is one alert per cluster: its value is the number of such images, and its
-description names the worst ten, so on-call knows what to update.
+description gives that number and names the worst ten, so on-call knows what to update. The summary
+carries no number, so a ticket titled from it keeps the same title while the count changes.
 
 - **Per image:** Trivy writes a `VulnerabilityReport` per workload container. Counting per image
   means one image shared by a dozen pods counts once.
