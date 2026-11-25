@@ -161,6 +161,8 @@ global:
         scramCredentialsSecretName: app-user-scram
 ```
 
+Set `global.postgresql.imageName` to pin the PostgreSQL image. If it is left empty, the CNPG operator picks its default image once, when the `Cluster` is created, and operator upgrades never change it, so minor upgrades are done by bumping `imageName`. See [PostgreSQL image and minor version upgrades](../cloudnative-pg/readme.md#postgresql-image-and-minor-version-upgrades).
+
 MongoDB TLS (cert-manager, self-signed CA scoped to the instance) is opt-in via
 `global.mongodb.tls.enabled: true`. More than one independent replica set in
 the same release — e.g. one app needing several databases — goes under
