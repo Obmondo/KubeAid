@@ -40,7 +40,8 @@ interval: 4h
 controlRepo:
   url: https://github.com/Obmondo/linuxaid.git
   # Tag (or ref) to check out. Pinned, so a new LinuxAid tag reaches nodes only when
-  # this is bumped; empty = the repo's latest tag on every run.
+  # this is bumped; empty = the repo's latest tag on every run. The node's OpenVox
+  # environment is named after it (v1.8.16 -> v1_8_16).
   ref: v1.8.16
   # Secret holding git credentials for a private control-repo: key `ssh-privatekey`
   # (SSH remotes) or `token` (https remotes). Empty = public repo, no credentials.
@@ -52,10 +53,6 @@ obmondoClientCert:
 
 # false = report-only (puppet --noop); true = apply changes (--no-noop).
 enforce: false
-
-# OpenVox environment name. Empty = controlRepo.ref with dots as underscores (v1.8.8 ->
-# v1_8_8), as the server setup names tag environments; master when that is empty too.
-openvoxEnvironment: ""
 
 # Only manage nodes matching this label selector ("" = all nodes).
 nodeSelector: ""

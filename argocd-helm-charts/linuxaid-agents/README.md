@@ -224,7 +224,6 @@ nodeSelector: "!node-role.kubernetes.io/control-plane"
 | `controlRepo.url` | `https://github.com/Obmondo/linuxaid.git` | Control repo each node clones. |
 | `controlRepo.ref` | the LinuxAid tag pinned in `values.yaml` | Tag or branch to check out. Empty = the repo's newest tag on every run, so nodes move forward on their own. |
 | `controlRepo.secretName` | `""` | Secret for a private control repo: key `ssh-privatekey` for SSH URLs, or `token` (a Gitea access token) for https URLs. |
-| `openvoxEnvironment` | `""` | Name of the environment directory on the node. Empty = `controlRepo.ref` with dots as underscores (`v1.8.8` → `v1_8_8`), or `master` without a ref. It only names the directory: `controlRepo.ref` decides which code runs. With a ref, the name is also added to the hiera data as `common::system::openvox::environment`. |
 | `hiera` | `classes: [role::kubeaid]`, `monitor::enable: false` | Hiera data for every node; see [What gets managed](#what-gets-managed). |
 | `nodeSelector` | `""` | Label selector for the nodes to manage; empty = all nodes. |
 | `obmondoClientCert.secretName` | `obmondo-clientcert` | Secret with the client certificate. |
