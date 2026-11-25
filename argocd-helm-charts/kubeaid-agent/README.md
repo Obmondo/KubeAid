@@ -108,7 +108,7 @@ the parent's values file carries only the agent's own settings.
 | `appConfig.kubeaidUpdate.enabled` | `false` | Opt-in: schedule the service-window Argo CD sync cron job. |
 | `appConfig.kubeaidUpdate.checkInterval` | `15m` | Poll cadence for an active KubeAid update service window. |
 | `appConfig.nodeUpdate.enabled` | `false` | Opt-in: update the nodes' OS packages with `linuxaid-cli`, one node at a time, while the service window is open. Never drains or reboots. See [Node package updates](#node-package-updates). |
-| `appConfig.nodeUpdate.jobImage` | `""` | linuxaid-cli image the update Jobs run; must contain `node-update.sh`. Required when enabled: the chart refuses to render without it. |
+| `appConfig.nodeUpdate.jobImage` | `""` | linuxaid-cli image the update Jobs run; must contain `node-update.sh`. Required when enabled: the chart refuses to render without it. Pulled with `deployment.imagePullSecrets`, which the Job service account carries. |
 | `appConfig.nodeUpdate.nodeSelector` | `""` | Extra label selector for the nodes to update; always ANDed with `kubernetes.io/os=linux`. |
 | `appConfig.nodeUpdate.capiMachinesOnly` | `true` | Only nodes Cluster API provisioned (not MachinePool nodes such as AKS/EKS pools). `false` on clusters without Cluster API. |
 | `appConfig.nodeUpdate.updateTimeout` | `30m` | Deadline of one node's update Job. |

@@ -105,6 +105,21 @@ tests:
       - equal:
           path: automountServiceAccountToken
           value: false
+      - notExists:
+          path: imagePullSecrets
+
+  - it: gives the Job service account the agent's image pull secrets, so a private jobImage can be pulled
+    template: templates/serviceaccount-node-update.yaml
+    set:
+      appConfig.nodeUpdate.enabled: true
+      appConfig.nodeUpdate.jobImage: registry.example.com/team/linuxaid-cli:v1.13.0
+      deployment.imagePullSecrets:
+        - name: registry-pull-secret
+    asserts:
+      - equal:
+          path: imagePullSecrets
+          value:
+            - name: registry-pull-secret
 
   - it: passes the job image to the agent config
     template: templates/configmap.yaml
