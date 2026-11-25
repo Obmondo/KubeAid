@@ -36,7 +36,6 @@ spec:
             - --certname={{ .Values.certname }}
             - --enforce={{ .Values.enforce }}
             - --interval={{ .Values.interval }}
-            - --openvox-environment={{ include "linuxaid-agents.openvoxEnvironment" . }}
             - --cert-secret={{ .Values.obmondoClientCert.secretName }}
             - --name-prefix={{ include "linuxaid-agents.fullname" . }}
             - --ttl-seconds={{ .Values.agentJob.ttlSecondsAfterFinished }}

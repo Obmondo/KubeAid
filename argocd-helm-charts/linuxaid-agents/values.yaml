@@ -13,7 +13,7 @@
 operator:
   image:
     repository: ghcr.io/obmondo/linuxaid-agent
-    tag: v1.11.6
+    tag: v1.12.0
     pullPolicy: IfNotPresent
   resources:
     requests:
@@ -26,7 +26,7 @@ operator:
 # tag on the same linuxaid-cli release as operator.image.tag.
 agentImage:
   repository: ghcr.io/obmondo/linuxaid-cli
-  tag: v1.11.6
+  tag: v1.12.0
   pullPolicy: IfNotPresent
 
 # certname = the CN of the obmondo-clientcert, shared by all nodes. REQUIRED:
@@ -40,8 +40,9 @@ interval: 4h
 controlRepo:
   url: https://github.com/Obmondo/linuxaid.git
   # Tag (or ref) to check out. Pinned, so a new LinuxAid tag reaches nodes only when
-  # this is bumped; empty = the repo's latest tag on every run.
-  ref: v1.8.15
+  # this is bumped; empty = the repo's latest tag on every run. The node's OpenVox
+  # environment is named after it (v1.8.16 -> v1_8_16).
+  ref: v1.8.16
   # Secret holding git credentials for a private control-repo: key `ssh-privatekey`
   # (SSH remotes) or `token` (https remotes). Empty = public repo, no credentials.
   secretName: ""
@@ -52,10 +53,6 @@ obmondoClientCert:
 
 # false = report-only (puppet --noop); true = apply changes (--no-noop).
 enforce: false
-
-# OpenVox environment name. Empty = controlRepo.ref with dots as underscores (v1.8.8 ->
-# v1_8_8), as the server setup names tag environments; master when that is empty too.
-openvoxEnvironment: ""
 
 # Only manage nodes matching this label selector ("" = all nodes).
 nodeSelector: ""

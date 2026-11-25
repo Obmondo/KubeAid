@@ -26,15 +26,6 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/version: {{ .Chart.AppVersion }}
 {{- end -}}
 
-{{/*
-OpenVox environment name: openvoxEnvironment, else controlRepo.ref with dots and other
-characters puppet rejects as underscores (v1.8.8 -> v1_8_8, as the server setup names tag
-environments), else master.
-*/}}
-{{- define "linuxaid-agents.openvoxEnvironment" -}}
-{{- .Values.openvoxEnvironment | default (regexReplaceAll "\\W" .Values.controlRepo.ref "_") | default "master" -}}
-{{- end -}}
-
 {{/* Selector labels. */}}
 {{- define "linuxaid-agents.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "linuxaid-agents.name" . }}
