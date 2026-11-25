@@ -169,7 +169,10 @@ mounted. The Job runs `linuxaid-cli system-update --agent-controlled` on the hos
 service window handling, no reboot. The agent stops at the first failed node.
 
 The agent never cordons, drains or reboots. A node that needs a reboot after its update shows up as
-`kubeaid_agent_node_update_reboot_required == 1` and as `KubeAidNodeRebootRequired` after 24 h.
+`kubeaid_agent_node_update_reboot_required == 1` and as `KubeAidNodeRebootRequired` after 24 h. Both
+clear once the node has rebooted (its boot ID changed). To retry a failed node, remove its
+`kubeaid.io/node-update` annotation; the agent replaces the failed Job, which is why its Role may
+delete Jobs.
 
 Before enabling:
 
@@ -184,7 +187,7 @@ Before enabling:
   `overrides.<ns>.resourceQuota.jobs` on clusters with close to 100 nodes.
 
 The chart then adds a ClusterRole (nodes `get list patch`, events `create patch`), a Role in the release
-namespace (jobs `create get`, pods `get list`), the Job service account (no bindings, no token) and the
+namespace (jobs `create get delete`, pods `get list`), the Job service account (no bindings, no token) and the
 two alerts below.
 
 ## Alerting

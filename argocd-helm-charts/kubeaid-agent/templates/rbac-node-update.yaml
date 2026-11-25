@@ -4,8 +4,9 @@
 {{- end }}
 {{/* Node package updates (docs/node-update.md in kubeaid-agent). The agent lists nodes,
      records its progress in a node annotation (patch) and emits node events. It creates the
-     update Jobs in its own namespace and reads their pods' termination messages. It never
-     cordons, drains, evicts, deletes or execs, so none of that is granted. */}}
+     update Jobs in its own namespace and reads their pods' termination messages. It deletes
+     only a failed update Job, when an operator retries that node. It never cordons, drains,
+     evicts, deletes nodes or pods, or execs, so none of that is granted. */}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -45,7 +46,7 @@ metadata:
 rules:
   - apiGroups: ["batch"]
     resources: ["jobs"]
-    verbs: ["create", "get"]
+    verbs: ["create", "get", "delete"]
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get", "list"]

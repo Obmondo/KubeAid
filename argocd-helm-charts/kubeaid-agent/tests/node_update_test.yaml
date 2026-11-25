@@ -67,7 +67,7 @@ tests:
           path: rules[*].verbs[*]
           pattern: "^delete"
 
-  - it: lets the agent create and read Jobs and their pods in its own namespace only
+  - it: lets the agent create, read and replace Jobs and read their pods in its own namespace only
     template: templates/rbac-node-update.yaml
     set:
       appConfig.nodeUpdate.enabled: true
@@ -84,7 +84,7 @@ tests:
           content:
             apiGroups: ["batch"]
             resources: ["jobs"]
-            verbs: ["create", "get"]
+            verbs: ["create", "get", "delete"]
       - contains:
           path: rules
           content:
