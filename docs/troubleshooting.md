@@ -114,3 +114,23 @@ zpool).
 and drain the node, check etcd health (and Rook Ceph, if it runs on the node) before taking it down, have the disk
 replaced, then rejoin and verify. For orphaned PersistentVolumeClaims silently consuming storage, enable the
 `orphan-pvc` mixin described in [Monitoring](./monitoring.md#orphan-pvc-detection).
+
+## Buzz desktop app: not a relay member
+
+**Symptom:** On a members-only Buzz relay (`buzz.relay.requireRelayMembership: true`), a newly installed desktop app
+fails to join with `restricted: not a relay member`, although the key you meant to use signs in on your other devices.
+The app offers no way to enter that key.
+
+**Cause:** On first launch the desktop app generates an identity key of its own and joins with it, and the relay
+admits members by key. Packaged builds differ in their onboarding, and some never show the **Use a different key**
+option from [Connecting clients](../argocd-helm-charts/buzz/README.md#connecting-clients) once the app has a key.
+
+**Fix:** Delete the app's own identity, then sign in with yours:
+
+1. In the app, delete the generated identity: **Settings → Sign out → Delete my data** in upstream's build,
+   **Identity → Delete identity** in some packaged builds. This also removes the app's agent settings and cache, so do
+   it before the app holds anything you need.
+2. Onboarding starts over. Choose **Use an existing key** and paste your `nsec1…`. The apps import only the nsec form,
+   not hex or `npub1…`; [Relay membership](../argocd-helm-charts/buzz/README.md#relay-membership) shows how to convert
+   a hex key.
+3. Join `wss://buzz.example.com` again. The relay recognises the key and admits it.

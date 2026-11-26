@@ -324,6 +324,10 @@ First launch of the desktop app, signing in as the owner:
 
    <img src="static/4-not-a-member.png" alt="Not a member yet: choose Use a different key and paste the owner's nsec" width="560" height="609">
 
+Some packaged builds offer neither **I'm a member or admin** nor **Use a different key**, and the
+relay just answers `restricted: not a relay member` — see
+[Troubleshooting](../../docs/troubleshooting.md#buzz-desktop-app-not-a-relay-member).
+
 Everyone else joins with **Join a community** and an invite link, or sends the owner the npub their
 app shows on **Not a member yet** to be added.
 
