@@ -60,9 +60,12 @@ spec:
           labels:
             severity: warning
           annotations:
-            summary: "{{ "{{ $value }}" }} image(s) need a security update: {{ $rule.imageCriticalThreshold }} or more critical vulnerabilities each{{ if $fixableOnly }}, with a fix available{{ end }}"
+            # The summary stays fixed: alert pipelines turn it into a ticket
+            # title, and a count in it rewrites that title on every scan. The
+            # count lives in the description instead.
+            summary: "Images need a security update: {{ $rule.imageCriticalThreshold }} or more critical vulnerabilities each{{ if $fixableOnly }}, with a fix available{{ end }}"
             description: >-
-              Not an outage: these images are behind on security updates.
+              Not an outage: {{ "{{ $value }}" }} image(s) are behind on security updates.
               Update each one to a newer version, usually by bumping its chart or image tag:
               {{- `{{ range query "` }}sort_desc(topk(10, {{ $overLimit | replace "\"" "\\\"" }})){{ `" }} {{ .Labels.image_repository }}:{{ .Labels.image_tag }} in {{ .Labels.namespace }} ({{ .Value }} critical);{{ end }}` }}
               {{- if not $fixableOnly }} Some may have no fix yet; skip those.{{ end }}
