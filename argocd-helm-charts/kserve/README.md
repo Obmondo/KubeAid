@@ -117,6 +117,27 @@ llmInferenceServices:
 
 Without a router, the model is served by the Service `<name>-kserve-workload-svc` on port 8000.
 
+### Ingress
+
+`ingress.enabled: true` adds an Ingress of the same name for `ingress.host`, pointing at that Service. It gets sync
+wave `2`, after the `LLMInferenceService`. `tlsSecretName` adds TLS for the host, and `serviceName`, `servicePort` and
+`path` change the backend. For example, behind an internal Traefik with a cert-manager certificate:
+
+```yaml
+llmInferenceServices:
+  - name: gemma-4-12b
+    ingress:
+      enabled: true
+      className: traefik-internal
+      host: llm.example.com
+      tlsSecretName: llm-example-com-tls
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+    spec: {} # as above
+```
+
+vLLM has no API key by default, so anyone who can reach the host can use the model.
+
 ## Updating
 
 KServe tags its charts with a `v` prefix, which `helm show chart` skips, so the weekly Helm update leaves this chart

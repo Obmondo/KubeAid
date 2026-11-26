@@ -11,6 +11,12 @@
 #                      (or serviceAccount.name), with optional secrets,
 #                      imagePullSecrets and annotations, and sets
 #                      spec.template.serviceAccountName to it unless already set
+#   ingress            enabled: true adds an Ingress of the same name for host
+#                      (required). Optional: className, annotations (merged over
+#                      sync-wave "2"), tlsSecretName (adds TLS for the host), path
+#                      (default "/"), serviceName (default <name>-kserve-workload-svc)
+#                      and servicePort (default 8000), which fit a service without
+#                      a router
 llmInferenceServices: []
 # - name: gemma-4-12b
 #   serviceAccount:
