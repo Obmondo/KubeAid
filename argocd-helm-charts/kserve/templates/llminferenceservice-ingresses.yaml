@@ -1,0 +1,45 @@
+{{- /*
+An Ingress for each llmInferenceServices entry with ingress.enabled. By default it
+points at the Service KServe creates for a service without a router,
+<name>-kserve-workload-svc on port 8000.
+*/ -}}
+{{- range $i, $svc := .Values.llmInferenceServices }}
+{{- $ingress := $svc.ingress | default dict }}
+{{- if $ingress.enabled }}
+{{- $name := required (printf "llmInferenceServices[%d].name is required" $i) $svc.name }}
+{{- $host := required (printf "llmInferenceServices[%d].ingress.host is required" $i) $ingress.host }}
+{{- $labels := merge (deepCopy ($svc.labels | default dict)) (dict "app.kubernetes.io/managed-by" $.Release.Service "app.kubernetes.io/instance" $.Release.Name) }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $name }}
+  namespace: {{ $svc.namespace | default $.Release.Namespace }}
+  labels:
+    {{- toYaml $labels | nindent 4 }}
+  annotations:
+    {{- /* Sync wave 2 by default: after the LLMInferenceService, so it can't hold it up. */}}
+    {{- toYaml (merge (deepCopy ($ingress.annotations | default dict)) (dict "argocd.argoproj.io/sync-wave" "2")) | nindent 4 }}
+spec:
+  {{- with $ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with $ingress.tlsSecretName }}
+  tls:
+    - secretName: {{ . }}
+      hosts:
+        - {{ $host }}
+  {{- end }}
+  rules:
+    - host: {{ $host }}
+      http:
+        paths:
+          - path: {{ $ingress.path | default "/" }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $ingress.serviceName | default (printf "%s-kserve-workload-svc" $name) }}
+                port:
+                  number: {{ $ingress.servicePort | default 8000 }}
+{{- end }}
+{{- end }}

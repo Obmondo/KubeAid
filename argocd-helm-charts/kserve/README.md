@@ -2,7 +2,8 @@
 
 Wrapper around the upstream [KServe](https://kserve.github.io/website/) charts from
 `oci://ghcr.io/kserve/charts`, for LLM serving with `LLMInferenceService` (llm-d) and the local model cache.
-`values.yaml` is empty, so every default is upstream's.
+The subcharts keep every upstream default. The chart's own addition is `llmInferenceServices`, which renders the
+models to serve (see [LLMInferenceServices from values](#llminferenceservices-from-values)).
 
 ## What it installs
 
@@ -65,6 +66,77 @@ kserve-llmisvc-resources:
 
 The local model cache also needs the `kserve-localmodel-jobs` namespace, a StorageClass for the cache volumes, and
 the `kserve/localmodel=worker` label on the cache nodes.
+
+## LLMInferenceServices from values
+
+Each entry in `llmInferenceServices` renders one `LLMInferenceService`, with `spec` passed through as is. It lands in
+the release namespace unless `namespace` is set, and gets the Argo CD sync wave `1` (override it in `annotations`), so
+it is applied after the KServe controller whose webhook validates it. `serviceAccount.create: true` adds a
+ServiceAccount of the same name and sets `spec.template.serviceAccountName` to it, unless the spec already names
+one. KServe's storage initializer reads `HF_TOKEN` from the secrets listed on that ServiceAccount, which is how a
+gated Hugging Face model gets its token.
+
+vLLM serving Gemma 4 12B on one GPU, with no router:
+
+```yaml
+llmInferenceServices:
+  - name: gemma-4-12b
+    serviceAccount:
+      create: true
+      secrets:
+        - hf-token # a Secret with key HF_TOKEN, in the same namespace
+    spec:
+      model:
+        uri: hf://google/gemma-4-12B-it-qat-w4a16-ct
+        name: google/gemma-4-12B-it-qat-w4a16-ct
+      replicas: 1
+      # One GPU: the old pod has to release it before the new one can start.
+      rolloutStrategy:
+        maxSurge: 0
+        maxUnavailable: 1
+      template:
+        containers:
+          - name: main
+            image: vllm/vllm-openai:v0.33.0
+            # KServe runs the args through a shell eval, so quote JSON inside the string.
+            args:
+              - --max-model-len
+              - "262144"
+              - --kv-cache-dtype
+              - fp8
+              - --limit-mm-per-prompt
+              - "'{\"image\":0,\"video\":0,\"audio\":0}'"
+            # KServe requires a non-root user; 2000:0 is the vLLM image's own user.
+            securityContext:
+              runAsUser: 2000
+              runAsGroup: 0
+            resources:
+              limits:
+                nvidia.com/gpu: "1"
+```
+
+Without a router, the model is served by the Service `<name>-kserve-workload-svc` on port 8000.
+
+### Ingress
+
+`ingress.enabled: true` adds an Ingress of the same name for `ingress.host`, pointing at that Service. It gets sync
+wave `2`, after the `LLMInferenceService`. `tlsSecretName` adds TLS for the host, and `serviceName`, `servicePort` and
+`path` change the backend. For example, behind an internal Traefik with a cert-manager certificate:
+
+```yaml
+llmInferenceServices:
+  - name: gemma-4-12b
+    ingress:
+      enabled: true
+      className: traefik-internal
+      host: llm.example.com
+      tlsSecretName: llm-example-com-tls
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+    spec: {} # as above
+```
+
+vLLM has no API key by default, so anyone who can reach the host can use the model.
 
 ## Updating
 

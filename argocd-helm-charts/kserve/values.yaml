@@ -1,0 +1,38 @@
+# The subcharts keep every upstream default; their values go under the subchart's name.
+
+# LLMInferenceServices to run, one per entry (a KubeAid addition, see README.md).
+#   name               required
+#   spec               required, the LLMInferenceService spec as is
+#   namespace          default: the release namespace
+#   apiVersion         default: serving.kserve.io/v1alpha2
+#   labels             added to the standard labels
+#   annotations        merged over the default argocd.argoproj.io/sync-wave: "1"
+#   serviceAccount     create: true adds a ServiceAccount named after the service
+#                      (or serviceAccount.name), with optional secrets,
+#                      imagePullSecrets and annotations, and sets
+#                      spec.template.serviceAccountName to it unless already set
+#   ingress            enabled: true adds an Ingress of the same name for host
+#                      (required). Optional: className, annotations (merged over
+#                      sync-wave "2"), tlsSecretName (adds TLS for the host), path
+#                      (default "/"), serviceName (default <name>-kserve-workload-svc)
+#                      and servicePort (default 8000), which fit a service without
+#                      a router
+llmInferenceServices: []
+# - name: gemma-4-12b
+#   serviceAccount:
+#     create: true
+#     # KServe's storage initializer reads HF_TOKEN from the secrets listed here.
+#     secrets:
+#       - hf-token
+#   spec:
+#     model:
+#       uri: hf://google/gemma-4-12B-it-qat-w4a16-ct
+#       name: google/gemma-4-12B-it-qat-w4a16-ct
+#     replicas: 1
+#     template:
+#       containers:
+#         - name: main
+#           image: vllm/vllm-openai:v0.33.0
+#           resources:
+#             limits:
+#               nvidia.com/gpu: "1"
