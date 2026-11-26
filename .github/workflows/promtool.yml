@@ -11,6 +11,7 @@ name: Prometheus rule test
       - 'argocd-helm-charts/prometheus-linuxaid/**'
       - 'argocd-helm-charts/kubeaid-agent/**'
       - 'argocd-helm-charts/kubeaid-backup-exporter/**'
+      - 'argocd-helm-charts/trivy-operator/**'
       - '.github/workflows/promtool.yml'
 
 permissions:
@@ -112,6 +113,15 @@ jobs:
             | yq ea '[.spec.groups[]] | {"groups": .}' > /tmp/prometheusRule.yaml
           promtool check rules /tmp/prometheusRule.yaml
           promtool test rules argocd-helm-charts/kubeaid-backup-exporter/test/prometheusRuleTest.yaml
+
+      - name: trivy-operator alert rules check and test
+        run: |
+          set -euo pipefail
+          helm template trivy-operator argocd-helm-charts/trivy-operator \
+            --show-only templates/prometheusrule.yaml \
+            | yq ea '[.spec.groups[]] | {"groups": .}' > /tmp/trivyPrometheusRule.yaml
+          promtool check rules /tmp/trivyPrometheusRule.yaml
+          promtool test rules argocd-helm-charts/trivy-operator/test/prometheusRuleTest.yaml
 
       # Every mixin is checked before the step fails, so one run lists all failures.
       - name: prometheus mixins rules check, test and lint

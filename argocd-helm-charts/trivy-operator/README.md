@@ -83,15 +83,16 @@ and size etcd for it first.
 |-----------|-------------|---------|
 | `kubeaid.prometheusRule.enabled` | Generate the PrometheusRule | `true` |
 | `kubeaid.prometheusRule.blindFor` | How long the scanner must report nothing before alerting | `1h` |
-| `kubeaid.prometheusRule.imageCriticalThreshold` | Fixable Critical findings in one image at or above which it counts as behind | `10` |
-| `kubeaid.prometheusRule.backlogFor` | How long an image must stay behind before alerting; keep it longer than `scannerReportTTL` | `48h` |
+| `kubeaid.prometheusRule.scoreBands.critical` | CVSS score band of the `critical` backlog alert: `scores` (regex over `vuln_score`) and `text` (the band in the summary) | `9([.][0-9])?\|10`, `of 9 or higher` |
+| `kubeaid.prometheusRule.scoreBands.warning` | CVSS score band of the `warning` backlog alert | `7[.][5-9]\|8([.][0-9])?`, `from 7.5 to below 9` |
+| `kubeaid.prometheusRule.backlogFor` | How long an image must stay behind before alerting; keep it longer than `scannerReportTTL` | `25h` |
 | `kubeaid.prometheusRule.backlogExcludeNamespaces` | Regex of namespaces left out of the backlog, e.g. `dev-.*` | `""` |
 | `kubeaid.prometheusRule.additionalLabels` | Extra labels on the PrometheusRule (for Prometheus selector matching) | `{}` |
 | `kubeaid.prometheusRule.additionalAnnotations` | Extra annotations on the PrometheusRule | `{}` |
 
 ## Alerts
 
-Two, and no recording rules. Prometheus answers **is the scanner working** and **is the backlog
+Two alert names, and no recording rules. Prometheus answers **is the scanner working** and **is the backlog
 out of hand**. Per-CVE detail is not alerting data.
 
 ### `TrivyOperatorMetricsMissing` — critical
@@ -105,26 +106,33 @@ across a fleet nobody spots it by eye.
 Fires when the operator is down, the ServiceMonitor is not being scraped, or every report expired
 past `scannerReportTTL` without refresh.
 
-### `ClusterVulnerabilityBacklog` — warning
+### `ClusterVulnerabilityBacklog` — critical and warning
 
-Fires while any image has at least `imageCriticalThreshold` fixable Critical findings, held for
-`backlogFor`. It is one alert per cluster: its value is the number of such images, and its
-description gives that number and names the worst ten, so on-call knows what to update. The summary
-carries no number, so a ticket titled from it keeps the same title while the count changes.
+Two alerts with the same name, one per CVSS score band, read from the `vuln_score` label of
+`trivy_vulnerability_id` (`operator.metricsVulnIdEnabled`):
+
+| Severity | CVSS score |
+|----------|------------|
+| `critical` | 9 or higher |
+| `warning` | from 7.5 to below 9 |
+
+Each fires while any image has a fixable finding in its band, held for `backlogFor`. It is one alert
+per cluster and severity: its value is the number of such images, and its description gives that
+number and names the worst ten, so on-call knows what to update. The summary carries no number, so a
+ticket titled from it keeps the same title while the count changes.
 
 - **Per image:** Trivy writes a `VulnerabilityReport` per workload container. Counting per image
-  means one image shared by a dozen pods counts once.
-- **Critical only:** High findings run at about ten times the Critical volume.
+  means one image shared by a dozen pods counts once, and an image's findings are its distinct CVE
+  ids.
+- **One band per image:** an image with a finding of 9 or higher is in the `critical` alert only, not also
+  in the `warning` one.
+- **By score, not Trivy severity:** a finding Trivy labels Critical with a score below 7.5 is in
+  neither alert, and a finding without a score is not counted.
 - **`backlogExcludeNamespaces`:** namespaces matching this regex are left out, for example developer
   environments.
-- **`backlogFor` (48h):** it outlasts `scannerReportTTL` (24h). After a rollout the superseded
-  ReplicaSet keeps its report, and its older image's CVEs, until the TTL removes it. That inflates
-  the count for up to a day.
-
-`warning`, not `critical`: an image behind on security updates is a ticket, not a page. Marking it
-critical would get the receiver muted within a week — and a muted receiver takes the alert above
-down with it. What the severity routes to is a decision for your alerting pipeline, not for this
-chart.
+- **`backlogFor` (25h):** about a day, and it outlasts `scannerReportTTL` (24h). After a rollout the
+  superseded ReplicaSet keeps its report, and its older image's CVEs, until the TTL removes it, so a
+  shorter hold would alert on images already updated.
 
 Every finding counted has a published fix. On-call updates each listed image to a newer chart or
 image tag; `kubectl get vulnerabilityreports -A -o wide --sort-by=.report.summary.criticalCount`
@@ -132,8 +140,9 @@ lists every image, worst last.
 
 ## Per-CVE detail
 
-CVSS scores, installed and fixed versions, descriptions and links are **not** in the metrics — the
-metrics are a lossy projection. The full record is in the `VulnerabilityReport` CRs:
+Descriptions and links are **not** in the metrics, and the CVSS score is only a text label on
+`trivy_vulnerability_id`: the metrics are a lossy projection. The full record is in the
+`VulnerabilityReport` CRs:
 
 ```bash
 kubectl get vulnerabilityreports -A

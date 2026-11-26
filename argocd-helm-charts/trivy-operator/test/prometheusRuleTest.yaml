@@ -1,0 +1,62 @@
+rule_files:
+  - /tmp/trivyPrometheusRule.yaml
+
+evaluation_interval: 1h
+
+tests:
+  # Critical (9 or higher): app/a has a 9.8 CVE reported for two pods, a 9.1
+  # one and an 8.1 one: two CVEs, and left out of the warning alert. app/b has
+  # exactly 9, so it is critical too.
+  # Warning (7.5 to below 9): app/e (8.9 and 8) and app/d (7.5). app/c (7.4) is
+  # in neither. Neither alert fires before backlogFor (25h).
+  - interval: 1h
+    input_series:
+      - series: 'trivy_image_vulnerabilities{namespace="app",image_registry="index.docker.io",image_repository="a",image_tag="1",severity="Critical"}'
+        values: '1x30'
+      - series: 'trivy_vulnerability_id{namespace="app",resource_name="a-1",image_registry="index.docker.io",image_repository="a",image_tag="1",vuln_id="CVE-1",vuln_score="9.8"}'
+        values: '1x30'
+      - series: 'trivy_vulnerability_id{namespace="app",resource_name="a-2",image_registry="index.docker.io",image_repository="a",image_tag="1",vuln_id="CVE-1",vuln_score="9.8"}'
+        values: '1x30'
+      - series: 'trivy_vulnerability_id{namespace="app",resource_name="a-1",image_registry="index.docker.io",image_repository="a",image_tag="1",vuln_id="CVE-2",vuln_score="9.1"}'
+        values: '1x30'
+      - series: 'trivy_vulnerability_id{namespace="app",resource_name="a-1",image_registry="index.docker.io",image_repository="a",image_tag="1",vuln_id="CVE-3",vuln_score="8.1"}'
+        values: '1x30'
+      - series: 'trivy_vulnerability_id{namespace="app",resource_name="b",image_registry="index.docker.io",image_repository="b",image_tag="2",vuln_id="CVE-4",vuln_score="9"}'
+        values: '1x30'
+      - series: 'trivy_vulnerability_id{namespace="app",resource_name="c",image_registry="index.docker.io",image_repository="c",image_tag="3",vuln_id="CVE-5",vuln_score="7.4"}'
+        values: '1x30'
+      - series: 'trivy_vulnerability_id{namespace="app",resource_name="d",image_registry="index.docker.io",image_repository="d",image_tag="4",vuln_id="CVE-6",vuln_score="7.5"}'
+        values: '1x30'
+      - series: 'trivy_vulnerability_id{namespace="app",resource_name="e",image_registry="index.docker.io",image_repository="e",image_tag="5",vuln_id="CVE-7",vuln_score="8.9"}'
+        values: '1x30'
+      - series: 'trivy_vulnerability_id{namespace="app",resource_name="e",image_registry="index.docker.io",image_repository="e",image_tag="5",vuln_id="CVE-8",vuln_score="8"}'
+        values: '1x30'
+    alert_rule_test:
+      - alertname: ClusterVulnerabilityBacklog
+        eval_time: 24h
+        exp_alerts: []
+      - alertname: ClusterVulnerabilityBacklog
+        eval_time: 25h
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: 'Images need a security update: vulnerabilities with a CVSS score of 9 or higher, with a fix available'
+              description: 'Not an outage: 2 image(s) have vulnerabilities with a CVSS score of 9 or higher. Update each one to a newer version, usually by bumping its chart or image tag: a:1 in app (2 CVEs); b:2 in app (1 CVEs); List all images, worst last: kubectl get vulnerabilityreports -A -o wide --sort-by=.report.summary.criticalCount'
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: 'Images need a security update: vulnerabilities with a CVSS score from 7.5 to below 9, with a fix available'
+              description: 'Not an outage: 2 image(s) have vulnerabilities with a CVSS score from 7.5 to below 9. Update each one to a newer version, usually by bumping its chart or image tag: e:5 in app (2 CVEs); d:4 in app (1 CVEs); List all images, worst last: kubectl get vulnerabilityreports -A -o wide --sort-by=.report.summary.criticalCount'
+
+  # Only scores below 7.5: no backlog alert at all.
+  - interval: 1h
+    input_series:
+      - series: 'trivy_image_vulnerabilities{namespace="app",image_registry="index.docker.io",image_repository="c",image_tag="3",severity="High"}'
+        values: '1x30'
+      - series: 'trivy_vulnerability_id{namespace="app",resource_name="c",image_registry="index.docker.io",image_repository="c",image_tag="3",vuln_id="CVE-5",vuln_score="7.4"}'
+        values: '1x30'
+    alert_rule_test:
+      - alertname: ClusterVulnerabilityBacklog
+        eval_time: 25h
+        exp_alerts: []
