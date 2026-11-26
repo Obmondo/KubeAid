@@ -39,6 +39,12 @@ externalRedis:
     limits:
       memory: 256Mi
 
+# Route <relay host><path> to the device-pairing relay (buzz.pairingRelay), which
+# the upstream chart runs without an ingress. Off by default; see README.md.
+pairingIngress:
+  enabled: false
+  path: /pair
+
 buzz:
   # Public wss:// URL clients dial. Also derives the ingress host and media URL.
   relayUrl: wss://buzz.example.com
