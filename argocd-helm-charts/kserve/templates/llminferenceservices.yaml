@@ -1,0 +1,57 @@
+{{- /*
+One LLMInferenceService per entry in llmInferenceServices, with an optional
+ServiceAccount of the same name. A KubeAid addition: the upstream charts ship
+the controller and its CRDs, but no services.
+*/ -}}
+{{- range $i, $svc := .Values.llmInferenceServices }}
+{{- $name := required (printf "llmInferenceServices[%d].name is required" $i) $svc.name }}
+{{- $namespace := $svc.namespace | default $.Release.Namespace }}
+{{- $spec := deepCopy (required (printf "llmInferenceServices[%d].spec is required" $i) $svc.spec) }}
+{{- $labels := merge (deepCopy ($svc.labels | default dict)) (dict "app.kubernetes.io/managed-by" $.Release.Service "app.kubernetes.io/instance" $.Release.Name) }}
+{{- $sa := $svc.serviceAccount | default dict }}
+{{- if $sa.create }}
+{{- $saName := $sa.name | default $name }}
+{{- $template := $spec.template | default dict }}
+{{- if not $template.serviceAccountName }}
+{{- $_ := set $template "serviceAccountName" $saName }}
+{{- end }}
+{{- $_ := set $spec "template" $template }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $saName }}
+  namespace: {{ $namespace }}
+  labels:
+    {{- toYaml $labels | nindent 4 }}
+  {{- with $sa.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- with $sa.secrets }}
+secrets:
+  {{- range . }}
+  - name: {{ . }}
+  {{- end }}
+{{- end }}
+{{- with $sa.imagePullSecrets }}
+imagePullSecrets:
+  {{- range . }}
+  - name: {{ . }}
+  {{- end }}
+{{- end }}
+{{- end }}
+---
+apiVersion: {{ $svc.apiVersion | default "serving.kserve.io/v1alpha2" }}
+kind: LLMInferenceService
+metadata:
+  name: {{ $name }}
+  namespace: {{ $namespace }}
+  labels:
+    {{- toYaml $labels | nindent 4 }}
+  annotations:
+    {{- /* Sync wave 1 by default: after the KServe controller, whose webhook validates it. */}}
+    {{- toYaml (merge (deepCopy ($svc.annotations | default dict)) (dict "argocd.argoproj.io/sync-wave" "1")) | nindent 4 }}
+spec:
+  {{- toYaml $spec | nindent 2 }}
+{{- end }}
