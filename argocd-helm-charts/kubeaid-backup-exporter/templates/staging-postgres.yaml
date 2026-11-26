@@ -1,0 +1,160 @@
+{{- /* A small PostgreSQL that archives WAL and takes base backups, so the
+     postgres WAL check has something real to read. For staging clusters only:
+     it holds no data anyone needs. Everything lands in its own namespace,
+     which this chart creates. */}}
+{{- $pg := .Values.stagingPostgres }}
+{{- if $pg.enabled }}
+{{- $name := printf "%s-pgsql" $pg.name }}
+{{- $destinationPath := required "stagingPostgres.backup.destinationPath is required" $pg.backup.destinationPath }}
+{{- $credentialsSecret := required "stagingPostgres.backup.credentialsSecret is required" $pg.backup.credentialsSecret }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ $pg.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/component: staging-postgres
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+---
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: {{ $name }}-backups
+  namespace: {{ $pg.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/component: staging-postgres
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  configuration:
+    {{- with $pg.backup.endpointURL }}
+    endpointURL: {{ . }}
+    {{- end }}
+    destinationPath: {{ $destinationPath }}
+    s3Credentials:
+      accessKeyId:
+        name: {{ $credentialsSecret }}
+        key: ACCESS_KEY_ID
+      secretAccessKey:
+        name: {{ $credentialsSecret }}
+        key: ACCESS_SECRET_KEY
+    wal:
+      compression: gzip
+      {{- with $pg.backup.walEncryption }}
+      encryption: {{ . }}
+      {{- end }}
+  retentionPolicy: {{ $pg.backup.retentionPolicy }}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ $name }}
+  namespace: {{ $pg.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/component: staging-postgres
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  instances: 1
+  {{- with $pg.imageName }}
+  imageName: {{ . }}
+  {{- end }}
+  inheritedMetadata:
+    labels:
+      velero.io/exclude-from-backup: "true"
+  storage:
+    size: {{ $pg.size }}
+    {{- with $pg.storageClass }}
+    storageClass: {{ . }}
+    {{- end }}
+  {{- with $pg.resources }}
+  resources:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  postgresql:
+    parameters:
+      # A WAL segment is archived when it is full or when this much time has
+      # passed since the last one, whichever comes first.
+      archive_timeout: {{ $pg.archiveTimeout | quote }}
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: {{ $name }}-backups
+  bootstrap:
+    initdb:
+      database: {{ $pg.name | replace "-" "_" }}
+      owner: {{ $pg.name | replace "-" "_" }}
+  monitoring:
+    enablePodMonitor: false
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: {{ $name }}
+  namespace: {{ $pg.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/component: staging-postgres
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  cluster:
+    name: {{ $name }}
+  backupOwnerReference: self
+  # Six fields, seconds first.
+  schedule: {{ $pg.backup.schedule | quote }}
+  # Take the first base backup as soon as the cluster is up.
+  immediate: true
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io
+{{- if $pg.writer.enabled }}
+---
+# Writes one row on every run. An idle PostgreSQL produces no WAL, so without
+# this no segment would be archived between two base backups.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ $name }}-writer
+  namespace: {{ $pg.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/component: staging-postgres
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  schedule: {{ $pg.writer.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      ttlSecondsAfterFinished: 300
+      template:
+        metadata:
+          labels:
+            velero.io/exclude-from-backup: "true"
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: writer
+              image: {{ $pg.writer.image }}
+              command:
+                - psql
+                - $(URI)
+                - -v
+                - ON_ERROR_STOP=1
+                - -c
+                - >-
+                  CREATE TABLE IF NOT EXISTS heartbeat (at timestamptz NOT NULL DEFAULT now());
+                  INSERT INTO heartbeat DEFAULT VALUES;
+                  DELETE FROM heartbeat WHERE at < now() - interval '1 day';
+              env:
+                # Written by CNPG for the application user.
+                - name: URI
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ $name }}-app
+                      key: uri
+{{- end }}
+{{- end }}

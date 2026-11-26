@@ -275,6 +275,47 @@ exporter:
       accessKeyId: ""
       secretAccessKey: ""
 
+# A small PostgreSQL that archives WAL and takes base backups, so the postgres
+# WAL check has something real to read. For staging clusters only: it holds no
+# data anyone needs. Needs the CloudNativePG operator and its barman-cloud
+# plugin. The exporter finds it like any other CNPG cluster.
+stagingPostgres:
+  enabled: false
+  # Created by this chart. Everything below lands in it.
+  namespace: backup-exporter-staging
+  # The Cluster is named <name>-pgsql.
+  name: wal-test
+  # Empty follows the operator's default image.
+  imageName: ""
+  size: 1Gi
+  storageClass: ""
+  resources: {}
+  # How long PostgreSQL waits before it archives a WAL segment that is not full.
+  archiveTimeout: 5min
+  backup:
+    # Base backup schedule, six fields with seconds first. Hourly, so the
+    # moments right after a base backup come round often.
+    schedule: "0 0 * * * *"
+    # S3 endpoint, for example https://s3.example.com. Empty means AWS.
+    endpointURL: ""
+    # Required. For example s3://my-bucket/cnpg/wal-test.
+    destinationPath: ""
+    # Required. Secret in the namespace above with write access to the
+    # destination. Expected keys: ACCESS_KEY_ID, ACCESS_SECRET_KEY.
+    credentialsSecret: ""
+    # Base backups and their WAL older than this are deleted.
+    retentionPolicy: 2d
+    # Server-side encryption for WAL uploads, for example AES256. Empty sends
+    # none, for object stores that reject the header.
+    walEncryption: ""
+  # Writes one row per run so WAL is produced. An idle PostgreSQL archives
+  # nothing.
+  writer:
+    enabled: true
+    schedule: "* * * * *"
+    # Any image that carries psql.
+    image: ghcr.io/cloudnative-pg/postgresql:17
+
 # PrometheusRule for alerting
 prometheusRule:
   enabled: true

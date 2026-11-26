@@ -37,5 +37,5 @@ dependencies:
     condition: linuxaid-security-exporter.enabled
 
   - name: kubeaid-backup-exporter
-    version: 0.5.1
+    version: 0.6.0
     condition: kubeaid-backup-exporter.enabled
