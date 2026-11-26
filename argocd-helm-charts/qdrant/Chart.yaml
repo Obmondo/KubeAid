@@ -1,0 +1,7 @@
+apiVersion: v2
+name: qdrant
+version: 1.0.0
+dependencies:
+  - name: qdrant
+    version: 1.20.2
+    repository: https://qdrant.github.io/qdrant-helm

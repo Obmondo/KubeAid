@@ -1,0 +1,3 @@
+qdrant:
+  config:
+    telemetry_disabled: true
