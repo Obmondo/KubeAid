@@ -1,0 +1,52 @@
+{{- if .Values.pairingIngress.enabled }}
+{{- $buzz := .Values.buzz }}
+{{- if not $buzz.pairingRelay.enabled }}
+{{- fail "pairingIngress.enabled needs buzz.pairingRelay.enabled: the ingress routes to the pairing relay's Service" }}
+{{- end }}
+{{- /* Same naming as the upstream chart's buzz.fullname, which the pairing Service is named after. */}}
+{{- $name := default "buzz" $buzz.nameOverride }}
+{{- $fullName := "" }}
+{{- if $buzz.fullnameOverride }}
+{{- $fullName = $buzz.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- else if contains $name .Release.Name }}
+{{- $fullName = .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- $fullName = printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- $url := required "buzz.relayUrl is required" $buzz.relayUrl }}
+{{- $host := first (splitList "/" ($url | replace "wss://" "" | replace "ws://" "" | replace "https://" "" | replace "http://" "")) }}
+{{- /* cert-manager annotations are dropped: the main ingress already owns the Certificate for the shared TLS Secret. */}}
+{{- $annotations := dict }}
+{{- range $key, $value := ($buzz.ingress.annotations | default dict) }}
+{{- if not (hasPrefix "cert-manager.io/" $key) }}
+{{- $_ := set $annotations $key $value }}
+{{- end }}
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}-pairing
+  {{- with $annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with $buzz.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with $buzz.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - host: {{ $host | quote }}
+      http:
+        paths:
+          - path: {{ .Values.pairingIngress.path | default "/pair" }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-pairing
+                port:
+                  number: {{ dig "service" "port" 5000 $buzz.pairingRelay }}
+{{- end }}

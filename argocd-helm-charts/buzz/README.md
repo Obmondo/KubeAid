@@ -235,6 +235,29 @@ buzz:
 
 Traefik proxies WebSockets without extra configuration.
 
+### Device pairing
+
+The Buzz apps pair a new device (desktop shows a QR code, the phone scans it) through a separate,
+stateless pairing relay. A client uses the `pairing_relay_url` the relay advertises in NIP-11 and
+otherwise falls back to `wss://<relay host>/pair`. The main relay serves neither, so without the
+pairing relay the QR code scans but pairing never connects.
+
+The upstream chart runs the pairing relay (`buzz.pairingRelay`) but creates no ingress for it, and
+its main ingress sends every path to the main relay. `pairingIngress` adds that route on the relay's
+own host, reusing `buzz.ingress`'s class, TLS and annotations (minus `cert-manager.io/*`, since the
+main ingress already owns the certificate):
+
+```yaml
+pairingIngress:
+  enabled: true
+buzz:
+  pairingRelay:
+    enabled: true
+    url: wss://buzz.example.com/pair
+```
+
+The pairing relay accepts WebSocket upgrades on any path, so `/pair` needs no rewrite.
+
 ## Relay membership
 
 `buzz.relay.requireRelayMembership` is `false` here, which runs an open relay and needs no operator
