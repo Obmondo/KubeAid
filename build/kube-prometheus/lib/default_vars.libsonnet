@@ -38,7 +38,7 @@
   prometheus_adapter_additional_rules: [],
   prometheus_adapter_replicas: 1,
   grafana_resources: {
-    limits: { memory: '250Mi' },
+    limits: { memory: '350Mi' },
     requests: { cpu: '6m', memory: '200Mi' },
   },
   node_exporter_resources: {
@@ -70,6 +70,9 @@
 
   grafana_keycloak_enable: false,
   grafana_root_url: '',
+  // Compress HTTP responses in Grafana itself, see docs/grafana.md. Each compressed response holds its
+  // own gzip buffers, so a page load costs tens of MB of memory.
+  grafana_enable_gzip: false,
   grafana_keycloak_url: '',
   grafana_keycloak_realm: '',
   grafana_keycloak_client_id: 'grafana',

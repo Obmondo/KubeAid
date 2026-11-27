@@ -702,6 +702,7 @@ local kpBase =
             },
             server: {
               root_url: vars.grafana_root_url,
+              enable_gzip: vars.grafana_enable_gzip,
             },
           } + (
             if vars.grafana_keycloak_enable then
