@@ -48,6 +48,29 @@ loki: {
 
 Use `jsonData+:` in `settings` to add to `jsonData` without replacing it.
 
+## Response compression (gzip)
+
+Grafana can gzip its HTTP responses (the frontend JavaScript, dashboard JSON, query results) before sending
+them to the browser. That saves bandwidth, and costs Grafana memory: every compressed response holds its own
+gzip buffers, and opening Grafana makes the browser fetch the whole frontend in parallel. With Grafana 13,
+which compresses by default, one login takes 50 to 80 MB of extra memory, enough to get the pod OOMKilled.
+
+KubeAid therefore turns compression off (`enable_gzip = false` in the `[server]` section of `grafana.ini`).
+Responses are sent uncompressed, so they are 3 to 4 times larger on the wire. The browser caches the
+frontend files after the first load.
+
+To turn it on for a cluster, set this in the cluster vars file and raise the memory limit with it:
+
+```jsonnet
+grafana_enable_gzip: true,
+grafana_resources: {
+  limits: { memory: '512Mi' },
+  requests: { cpu: '6m', memory: '256Mi' },
+},
+```
+
+Run the build script, push to your kubeaid-config repo, and sync the `kube-prometheus` ArgoCD app.
+
 ## Adding the Alertmanager Secret
 
 Use the [example config](../examples/alertmanager-config/alertmanager-main-slack.yaml) to create your `alertmanager-main` secret.

@@ -70,8 +70,8 @@
 
   grafana_keycloak_enable: false,
   grafana_root_url: '',
-  // Compress HTTP responses in Grafana itself. Each compressed response holds its own gzip buffers,
-  // so a page load costs tens of MB of memory.
+  // Compress HTTP responses in Grafana itself, see docs/grafana.md. Each compressed response holds its
+  // own gzip buffers, so a page load costs tens of MB of memory.
   grafana_enable_gzip: false,
   grafana_keycloak_url: '',
   grafana_keycloak_realm: '',
