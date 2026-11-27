@@ -38,7 +38,7 @@
   prometheus_adapter_additional_rules: [],
   prometheus_adapter_replicas: 1,
   grafana_resources: {
-    limits: { memory: '250Mi' },
+    limits: { memory: '350Mi' },
     requests: { cpu: '6m', memory: '200Mi' },
   },
   node_exporter_resources: {
