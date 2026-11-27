@@ -69,12 +69,15 @@ rook-ceph-cluster:
       # No cpu limit on purpose: the mon idles around 50m but bursts on map
       # updates, and a 200m limit kept it throttled 20-30% of the time.
       # Upstream rook sets no mon cpu limit either.
+      # Memory as upstream rook: Ceph autotunes the mon's caches towards
+      # mon_memory_target (2 GiB by default; rook does not set it), so a lower
+      # limit ends in an OOM kill. At 512Mi all three mons were killed together.
       mon:
         limits:
-          memory: "512Mi"
+          memory: "2Gi"
         requests:
           cpu: "200m"
-          memory: "200Mi"
+          memory: "1Gi"
       osd:
         limits:
           memory: "1500Mi"
