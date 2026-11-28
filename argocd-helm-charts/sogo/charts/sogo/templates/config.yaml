@@ -1,0 +1,48 @@
+{{- if .Values.sogo.configs -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "sogo.fullname" . }}-config
+  labels:
+    app.kubernetes.io/name: {{ include "sogo.name" . }}
+    helm.sh/chart: {{ include "sogo.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+data:
+  configs: |
+{{- .Values.sogo.configs | toYaml | nindent 4 }}
+{{- if .Values.sogo.enableVerboseLogs }}
+    GCSFolderDebugEnabled: true
+    GCSFolderStoreDebugEnabled: true
+    LDAPDebugEnabled: true
+    MySQL4DebugEnabled: true
+    NGImap4DisableIMAP4Pooling: true
+    ImapDebugEnabled: true
+    SMTPDebugEnabled: true
+    OCSFolderManagerSQLDebugEnabled: true
+    PGDebugEnabled: true
+    SOGoDebugRequests: true
+    SOGoMailKeepDraftsAfterSend: true
+    SOGoUIxDebugEnabled: true
+    SoDebugObjectTraversal: true
+    SoSecurityManagerDebugEnabled: true
+    WODontZipResponse: true
+    WODebugZipResponse: true
+{{- end }}
+{{- if and .Values.sogo.theme.js (not .Values.sogo.theme.css) }}
+    SOGoUIxDebugEnabled: true
+{{- end }}
+{{- if .Values.sogo.theme.js }}
+    SOGoUIAdditionalJSFiles: [js/helm-theme.js]
+{{- end }}
+  init-theme-configs: |
+    SOGoUIxDebugEnabled: true
+{{- if or .Values.mariadb.enabled .Values.postgresql.enabled }}
+  internal-db: |
+{{- include "sogo.db.configs" . | nindent 4 }}
+{{- end }}
+{{- if .Values.memcached.enabled }}
+  internal-memcached: |
+{{- include "sogo.memcached.configs" . | nindent 4 }}
+{{- end }}
+{{- end }}
