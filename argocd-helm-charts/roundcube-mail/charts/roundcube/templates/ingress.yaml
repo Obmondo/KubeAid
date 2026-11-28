@@ -1,0 +1,54 @@
+---
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "common.names.fullname" . }}
+  labels:
+    {{- include "common.labels.standard" . | nindent 4 }}
+    {{- if .Values.ingress.additionalLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.ingress.additionalLabels "context" $) | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- if .Values.ingress.useTLS }}
+    kubernetes.io/tls-acme: "true"
+    {{- end }}
+    {{- if .Values.ingress.class }}
+    kubernetes.io/ingress.class: {{ .Values.ingress.class }}
+    {{- end }}
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/affinity-mode: "persistent"
+    nginx.ingress.kubernetes.io/session-cookie-name: "roundcube_sessaffinity"
+    nginx.ingress.kubernetes.io/proxy-body-size: {{ .Values.config.uploadMaxFilesize }}
+    {{ if not (eq .Values.ingress.path "/") }}
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    {{ end }}
+    {{- if .Values.ingress.additionalAnnotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.ingress.additionalAnnotations "context" $) | nindent 4 }}
+    {{- end }}
+spec:
+  {{- if .Values.ingress.ingressClassName }}
+  ingressClassName: {{ .Values.ingress.ingressClassName }}
+  {{- end }}
+  rules:
+    - host: {{ required "No ingress host defined" .Values.ingress.host }}
+      http:
+        paths:
+          - path: {{ if not (eq .Values.ingress.path "/") }}{{ trimSuffix "/" .Values.ingress.path }}(/|$)(.*){{ else }}/{{ end }}
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{ include "common.names.fullname" . }}
+                port:
+                  number: {{ .Values.service.port }}
+  {{- if .Values.ingress.useTLS }}
+  tls:
+    - hosts:
+        - {{ required "No ingress host defined" .Values.ingress.host }}
+      {{- if .Values.ingress.tls.secretName }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+      {{- else }}
+      secretName: {{ include "common.names.fullname" . }}-tls
+      {{- end }}
+  {{- end }}
+{{- end -}}
