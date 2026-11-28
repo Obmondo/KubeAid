@@ -2,7 +2,7 @@ apiVersion: v2
 name: netbird-operator
 description: NetBird Kubernetes Operator
 type: application
-version: 0.2.1
+version: 0.2.2
 dependencies:
   - name: netbird-operator
     repository: oci://ghcr.io/netbirdio/helm-charts
