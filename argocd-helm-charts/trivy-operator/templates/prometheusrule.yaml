@@ -32,25 +32,31 @@ spec:
 
     - name: trivy-operator.backlog
       rules:
-        # warning, not critical: an image behind on security updates is a
-        # ticket, not a page, and a muted receiver would take the alert above
-        # down with it.
+        # "fixable" comes from trivy.ignoreUnfixed, not from this expression.
+        # Wording follows the value.
         #
-        # "fixable" comes from trivy.ignoreUnfixed, not from this expression —
-        # the metric has no fixed_version label. Wording follows the value.
-        #
-        # One alert per cluster. Its value is the number of images with at least
-        # imageCriticalThreshold Critical findings, and the description lists the
-        # worst ten, so on-call knows what to update. Counted per image, not per
-        # report: Trivy writes a report per workload container. Critical only:
-        # High runs at about ten times the volume.
+        # One alert per cluster and severity, by CVSS score band. Its value is
+        # the number of images with a finding in the band, and the description
+        # lists the worst ten, so on-call knows what to update. Counted per
+        # image, not per report: Trivy writes a report per workload container;
+        # an image's findings are its distinct CVE ids. An image in the critical
+        # band is left out of the warning one, so each image is in one ticket.
         {{- $fixableOnly := index .Values "trivy-operator" "trivy" "ignoreUnfixed" }}
         {{- $rule := .Values.kubeaid.prometheusRule }}
-        {{- $match := "severity=\"Critical\"" }}
+        {{- $image := "namespace, image_registry, image_repository, image_tag" }}
+        {{- $exclude := "" }}
         {{- with $rule.backlogExcludeNamespaces }}
-        {{- $match = printf "%s, namespace!~\"%s\"" $match . }}
+        {{- $exclude = printf ", namespace!~\"%s\"" . }}
         {{- end }}
-        {{- $overLimit := printf "max by (namespace, image_registry, image_repository, image_tag) (trivy_image_vulnerabilities{%s}) >= %v" $match $rule.imageCriticalThreshold }}
+        {{- $inBand := dict }}
+        {{- range $severity := list "critical" "warning" }}
+        {{- $band := index $rule.scoreBands $severity }}
+        {{- $_ := set $inBand $severity (printf "count by (%s) (count by (%s, vuln_id) (trivy_vulnerability_id{vuln_score=~\"%s\"%s}))" $image $image $band.scores $exclude) }}
+        {{- end }}
+        {{- $_ := set $inBand "warning" (printf "%s unless on (%s) %s" $inBand.warning $image $inBand.critical) }}
+        {{- range $severity := list "critical" "warning" }}
+        {{- $band := index $rule.scoreBands $severity }}
+        {{- $overLimit := index $inBand $severity }}
         - alert: ClusterVulnerabilityBacklog
           expr: |
             count(
@@ -58,16 +64,17 @@ spec:
             ) > 0
           for: {{ $rule.backlogFor }}
           labels:
-            severity: warning
+            severity: {{ $severity }}
           annotations:
             # The summary stays fixed: alert pipelines turn it into a ticket
             # title, and a count in it rewrites that title on every scan. The
             # count lives in the description instead.
-            summary: "Images need a security update: {{ $rule.imageCriticalThreshold }} or more critical vulnerabilities each{{ if $fixableOnly }}, with a fix available{{ end }}"
+            summary: "Images need a security update: vulnerabilities with a CVSS score {{ $band.text }}{{ if $fixableOnly }}, with a fix available{{ end }}"
             description: >-
-              Not an outage: {{ "{{ $value }}" }} image(s) are behind on security updates.
+              Not an outage: {{ "{{ $value }}" }} image(s) have vulnerabilities with a CVSS score {{ $band.text }}.
               Update each one to a newer version, usually by bumping its chart or image tag:
-              {{- `{{ range query "` }}sort_desc(topk(10, {{ $overLimit | replace "\"" "\\\"" }})){{ `" }} {{ .Labels.image_repository }}:{{ .Labels.image_tag }} in {{ .Labels.namespace }} ({{ .Value }} critical);{{ end }}` }}
+              {{- `{{ range query "` }}sort_desc(topk(10, {{ $overLimit | replace "\"" "\\\"" }})){{ `" }} {{ .Labels.image_repository }}:{{ .Labels.image_tag }} in {{ .Labels.namespace }} ({{ .Value }} CVEs);{{ end }}` }}
               {{- if not $fixableOnly }} Some may have no fix yet; skip those.{{ end }}
               List all images, worst last: kubectl get vulnerabilityreports -A -o wide --sort-by=.report.summary.criticalCount
+        {{- end }}
 {{- end }}

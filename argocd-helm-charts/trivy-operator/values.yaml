@@ -64,14 +64,25 @@ kubeaid:
     # fires. Rides out a restart or a missed scrape.
     blindFor: "1h"
 
-    # -- Critical findings in one image at or above which the image is behind.
-    # ClusterVulnerabilityBacklog fires, once per cluster, while any image is,
-    # and lists them. Whether these are all fixable follows trivy.ignoreUnfixed.
-    imageCriticalThreshold: 10
+    # -- CVSS score bands. ClusterVulnerabilityBacklog fires once per cluster
+    # and severity while any image has a finding in the band, and lists them;
+    # an image in the critical band is left out of the warning one. `scores` is
+    # a regex over the vuln_score label, which holds the score as text ("9.8",
+    # "10"), so PromQL cannot compare it as a number. Write the dot as [.]: no
+    # backslashes, as the regex also ends up inside the alert text. `text` is
+    # the band as the alert summary states it. Whether these are all fixable
+    # follows trivy.ignoreUnfixed.
+    scoreBands:
+      critical:
+        scores: "9([.][0-9])?|10"
+        text: "of 9 or higher"
+      warning:
+        scores: "7[.][5-9]|8([.][0-9])?"
+        text: "from 7.5 to below 9"
     # -- How long an image must stay behind before the alert fires. Keep it
     # longer than scannerReportTTL: after a rollout the superseded ReplicaSet
     # keeps its report, and its older image's CVEs, until the TTL removes it.
-    backlogFor: "48h"
+    backlogFor: "25h"
     # -- Regex of namespaces left out, e.g. "dev-.*" for developer environments.
     # Empty counts every scanned namespace. No quotes or backslashes: it ends up
     # inside PromQL and inside the alert text.
