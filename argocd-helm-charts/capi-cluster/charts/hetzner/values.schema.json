@@ -156,6 +156,25 @@
           "title": "loadBalancer",
           "type": "object"
         },
+        "machineHealthCheck": {
+          "additionalProperties": false,
+          "properties": {
+            "unhealthyTimeoutSeconds": {
+              "default": "null",
+              "description": "Seconds a control-plane node may stay NotReady (Ready=False or Unknown) before the\ncontrol-plane MachineHealthCheck marks its Machine unhealthy and KubeadmControlPlane\nreplaces it. null uses the mode default: 600 for mode=bare-metal, 180 for hcloud and\nhybrid. On bare metal the replacement is a full reinstall of the server, and a plain\nreboot (firmware POST plus OS boot) often takes longer than 3 minutes.",
+              "minimum": 1,
+              "required": [],
+              "title": "unhealthyTimeoutSeconds",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          "required": [],
+          "title": "machineHealthCheck",
+          "type": "object"
+        },
         "hcloud": {
           "additionalProperties": false,
           "properties": {
