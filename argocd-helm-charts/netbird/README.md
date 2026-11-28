@@ -37,6 +37,8 @@ docs don't include.
 For `netbird-client`:
 
 - **Valid Redirect URIs**: `https://<netbird-mgmt-host>/*` (e.g. `https://vpn.example.com/*`)
+  and `http://localhost:53000` (the PKCE callback the NetBird mobile and desktop
+  apps listen on; it must match `PKCEAuthorizationFlow.ProviderConfig.RedirectURLs`)
 - **Web Origins**: `https://<netbird-mgmt-host>`
 
 For `netbird-backend`:

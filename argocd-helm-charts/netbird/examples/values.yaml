@@ -93,10 +93,10 @@ netbird:
             "Audience": "{{ .IDP_CLIENT_ID }}",
             "TokenEndpoint": "https://keycloak.example.com/auth/realms/Obmondo/protocol/openid-connect/token",
             "DeviceAuthEndpoint": "",
-            "AuthorizationEndpoint": "",
+            "AuthorizationEndpoint": "https://keycloak.example.com/auth/realms/Obmondo/protocol/openid-connect/auth",
             "Scope": "openid profile email offline_access netbird-vpn-api",
             "UseIDToken": false,
-            "RedirectURLs": null
+            "RedirectURLs": ["http://localhost:53000"]
           }
         },
         "StoreConfig": {
