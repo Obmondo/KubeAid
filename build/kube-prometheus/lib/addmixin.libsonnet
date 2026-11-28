@@ -34,10 +34,19 @@ function(name, obj, config)
         },
       },
 
+      // Each dashboard key becomes the name of a ConfigMap and of a Grafana
+      // volume ('grafana-dashboard-<key>'), and Kubernetes only accepts
+      // lowercase names there. Upstream mixins (e.g. cilium-enterprise-mixin)
+      // ship keys like 'cilium-L3-policy.json', so lowercase them here.
+      local lowercaseKeys(dashboards) = {
+        [std.asciiLower(key)]: dashboards[key]
+        for key in std.objectFields(dashboards)
+      },
+
       local grafanaDashboards = if std.objectHasAll(mixin, 'grafanaDashboards') then (
         if std.objectHas(m._config, 'dashboardFolder') then {
-          [m._config.dashboardFolder]+: mixin.grafanaDashboards,
-        } else (mixin.grafanaDashboards)
+          [m._config.dashboardFolder]+: lowercaseKeys(mixin.grafanaDashboards),
+        } else lowercaseKeys(mixin.grafanaDashboards)
       ) else null,
 
       prometheusRules: prometheusRules,
