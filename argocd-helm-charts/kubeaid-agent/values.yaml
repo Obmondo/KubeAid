@@ -55,6 +55,41 @@ appConfig:
     # enough not to thrash the API when no window is open.
     checkInterval: 15m
 
+  # Node package updates in the service window. The agent runs one privileged
+  # Job per node, one node at a time, that runs `linuxaid-cli system-update
+  # --agent-controlled` on the host. It never cordons, drains or reboots; it
+  # reports which nodes need a reboot (metric, node annotation, event, alert).
+  # See "Node package updates" in README.md.
+  nodeUpdate:
+    # -- When true, the agent updates the nodes' OS packages while the cluster's
+    # service window is open. Needs an agent release with nodeUpdate support and
+    # a privileged-capable namespace. Remove any obmondo-system-update timer from
+    # the nodes first: its run closes the window.
+    enabled: false
+
+    # -- How often the agent looks for an open service window.
+    checkInterval: 15m
+
+    # -- Extra label selector for the nodes to update. Always ANDed with
+    # kubernetes.io/os=linux.
+    nodeSelector: ""
+
+    # -- Only update nodes Cluster API provisioned (cluster.x-k8s.io/machine
+    # annotation, not a MachinePool). Set false on clusters without Cluster
+    # API (KubeOne) and use nodeSelector instead.
+    capiMachinesOnly: true
+
+    # -- linuxaid-cli image the update Jobs run; must contain node-update.sh.
+    # Required when enabled.
+    jobImage: ""
+
+    # -- Service account of the update Job pods. The chart creates it, with no
+    # permissions and no token.
+    jobServiceAccount: kubeaid-agent-node-update
+
+    # -- Deadline of one node's update Job.
+    updateTimeout: 30m
+
   # Security posture: vulnerabilities, least-privilege findings, network
   # enforcement and runtime detection posture. The agent collects none of this
   # itself — the security exporter does, and the agent forwards it.

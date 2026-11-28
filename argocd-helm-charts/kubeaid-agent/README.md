@@ -107,6 +107,11 @@ the parent's values file carries only the agent's own settings.
 | `appConfig.obmondoAPI.url` | `https://api.obmondo.com/api` | Obmondo API endpoint (mTLS). |
 | `appConfig.kubeaidUpdate.enabled` | `false` | Opt-in: schedule the service-window Argo CD sync cron job. |
 | `appConfig.kubeaidUpdate.checkInterval` | `15m` | Poll cadence for an active KubeAid update service window. |
+| `appConfig.nodeUpdate.enabled` | `false` | Opt-in: update the nodes' OS packages with `linuxaid-cli`, one node at a time, while the service window is open. Never drains or reboots. See [Node package updates](#node-package-updates). |
+| `appConfig.nodeUpdate.jobImage` | `""` | linuxaid-cli image the update Jobs run; must contain `node-update.sh`. Required when enabled: the chart refuses to render without it. Pulled with `deployment.imagePullSecrets`, which the Job service account carries. |
+| `appConfig.nodeUpdate.nodeSelector` | `""` | Extra label selector for the nodes to update; always ANDed with `kubernetes.io/os=linux`. |
+| `appConfig.nodeUpdate.capiMachinesOnly` | `true` | Only nodes Cluster API provisioned (not MachinePool nodes such as AKS/EKS pools). `false` on clusters without Cluster API. |
+| `appConfig.nodeUpdate.updateTimeout` | `30m` | Deadline of one node's update Job. |
 | `appConfig.securityPosture.enabled` | `true` | Poll the exporter and forward its snapshots to the Obmondo API. The agent collects nothing itself. |
 | `appConfig.securityPosture.exporterURL` | `http://kubeaid-security-exporter` | In-cluster URL of the exporter. Matches the Service this chart creates — change both or neither. |
 | `appConfig.securityPosture.pollInterval` | `1h` | Poll cadence. The submit is skipped when `collectedAt` has not advanced, so end-to-end freshness is bounded by `kubeaid-security-exporter.exporter.interval`, not by this. |
@@ -155,9 +160,43 @@ Two fields differ by scanner, and both are absent rather than false when unanswe
 | `relevant` (did the vulnerable code load) | never — Trivy cannot observe runtime | when the eBPF node-agent runs |
 | `os.eosl` (base image past end of life) | yes | never — Grype has no end-of-life data |
 
+## Node package updates
+
+With `appConfig.nodeUpdate.enabled: true` the agent updates the OS packages of the cluster's
+KubeAid-managed Linux nodes in the service window. For each node, one at a time, it creates a Job in its
+own namespace that is pinned to the node, privileged, with `hostPID` and the host's `/opt/obmondo`
+mounted. The Job runs `linuxaid-cli system-update --agent-controlled` on the host: packages only, no
+service window handling, no reboot. The agent stops at the first failed node.
+
+The agent never cordons, drains or reboots. A node that needs a reboot after its update shows up as
+`kubeaid_agent_node_update_reboot_required == 1` and as `KubeAidNodeRebootRequired` after 24 h. Both
+clear once the node has rebooted (its boot ID changed). To retry a failed node, remove its
+`kubeaid.io/node-update` annotation; the agent replaces the failed Job, which is why its Role may
+delete Jobs.
+
+Before enabling:
+
+- Use an agent release with `nodeUpdate` support, and set `jobImage` to a linuxaid-cli release with
+  `node-update.sh`.
+- The release namespace must allow privileged pods (Pod Security `privileged`). That is the same
+  requirement as linuxaid-agents. KubeAid's kyverno chart has no privileged/hostPID policy. A cluster
+  with its own such policy needs an exception for the `jobServiceAccount`.
+- Remove any `obmondo-system-update` timer from the nodes. Its own run closes the cluster's service
+  window, which stops the agent after the first node.
+- The kyverno Job quota is 100 per namespace. The agent keeps one Job per node for 24 h, so raise
+  `overrides.<ns>.resourceQuota.jobs` on clusters with close to 100 nodes.
+
+The chart then adds a ClusterRole (nodes `get list patch`, events `create patch`), a Role in the release
+namespace (jobs `create get delete`, pods `get list`), the Job service account (no bindings, no token) and the
+two alerts below.
+
 ## Alerting
 
-One alert, `ImageOutdatedAndVulnerable`. It is a count, so it fires once per cluster rather than once per
+`KubeAidNodeUpdateFailed` (critical) fires when the node update stopped at a node, and
+`KubeAidNodeRebootRequired` (warning) when a node has needed a reboot for 24 h. Both exist only with
+`appConfig.nodeUpdate.enabled: true`.
+
+The security exporter adds one alert, `ImageOutdatedAndVulnerable`. It is a count, so it fires once per cluster rather than once per
 image, and the threshold is deliberately high — every real cluster carries a few of these at any moment, so a
 low threshold fires everywhere on day one and gets ignored. The signal worth acting on is a pile of easy
 upgrades, not the existence of one.
